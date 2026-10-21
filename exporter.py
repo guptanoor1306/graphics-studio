@@ -57,20 +57,34 @@ def inline_assets(html: str, base_dir: pathlib.Path) -> str:
     return html
 
 
+_CHROMIUM_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+
+
+async def launch_chromium(pw):
+    exe = os.environ.get("CHROMIUM_PATH")
+    try:
+        return await pw.chromium.launch(args=_CHROMIUM_ARGS)
+    except Exception:
+        if exe:
+            return await pw.chromium.launch(executable_path=exe, args=_CHROMIUM_ARGS)
+        raise
+
+
 async def _render(pages, want_png):
     from playwright.async_api import async_playwright
-    exe = os.environ.get('CHROMIUM_PATH') or next((c for c in ['/opt/pw-browsers/chromium', '/usr/bin/chromium'] if os.path.isfile(c)), None)
     out = {}
     async with async_playwright() as p:
-        try: b = await p.chromium.launch()
-        except Exception: b = await p.chromium.launch(executable_path=exe)
+        b = await launch_chromium(p)
         pg = await b.new_page(viewport={'width': 1920, 'height': 1080})
         for fid, url, fss in pages:
-            await pg.goto(url); await pg.evaluate('document.fonts.ready'); await pg.wait_for_timeout(150)
+            await pg.goto(url, wait_until="load", timeout=120_000)
+            await pg.evaluate('document.fonts.ready')
+            await pg.wait_for_timeout(150)
             if want_png: out[f'png/{fid}.png'] = await pg.screenshot()
             out[f'html/{fid}.html'] = await pg.evaluate(FLATTEN_JS, False)
             if not fss:
-                await pg.goto(url); await pg.wait_for_timeout(150)
+                await pg.goto(url, wait_until="load", timeout=120_000)
+                await pg.wait_for_timeout(150)
                 out[f'html_overlay/{fid}.html'] = await pg.evaluate(FLATTEN_JS, True)
                 if want_png:
                     await pg.evaluate("document.body.classList.add('overlay');document.querySelectorAll('.plate').forEach(e=>e.remove())")

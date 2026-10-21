@@ -6,6 +6,7 @@ A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.m
 Add a channel by dropping in another kit folder; nothing else changes.
 """
 import importlib.util, json, os, pathlib, time, asyncio
+from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse, Response, FileResponse
@@ -18,7 +19,14 @@ import copy
 import claude_client, exporter, spec_enrich
 from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
-SELF_URL = os.environ.get("STUDIO_URL", "http://127.0.0.1:8000")
+def preview_base() -> str:
+    """Loopback URL for Playwright inside this container (Render sets PORT, not 8000)."""
+    port = os.environ.get("PORT", "8000")
+    return f"http://127.0.0.1:{port}"
+
+
+def preview_url(pid: int, fid: str) -> str:
+    return f"{preview_base()}/preview/{pid}/{quote(str(fid), safe='')}"
 app = FastAPI(title="Graphics Studio")
 app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
 
@@ -278,19 +286,27 @@ def preview(pid: int, fid: str):
 async def check(pid: int):
     from playwright.async_api import async_playwright
     p = load(pid); m = builder(p["theme"]); warns = []
-    async with async_playwright() as pw:
-        b = await pw.chromium.launch(); pg = await b.new_page(viewport={"width": 1920, "height": 1080})
-        for f in p["spec"]["frames"]:
-            await pg.goto(f"{SELF_URL}/preview/{pid}/{f['id']}"); await pg.wait_for_timeout(200)
-            warns += [f"{f['id']}: {w}" for w in await pg.evaluate(m.CHECK_JS)]
-        await b.close()
+    try:
+        async with async_playwright() as pw:
+            b = await exporter.launch_chromium(pw)
+            pg = await b.new_page(viewport={"width": 1920, "height": 1080})
+            for f in p["spec"]["frames"]:
+                await pg.goto(preview_url(pid, f["id"]), wait_until="load", timeout=120_000)
+                await pg.wait_for_timeout(200)
+                warns += [f"{f['id']}: {w}" for w in await pg.evaluate(m.CHECK_JS)]
+            await b.close()
+    except Exception as e:
+        raise HTTPException(502, detail=f"Layout check failed: {e}") from e
     return warns
 
 @app.get("/api/projects/{pid}/export")
 def export(pid: int, png: int = 1, only: str = ""):
     p = load(pid); ids = set(only.split(",")) if only else None
-    pages = [(f["id"], f"{SELF_URL}/preview/{pid}/{f['id']}", f.get("mode") == "fss")
+    pages = [(f["id"], preview_url(pid, f["id"]), f.get("mode") == "fss")
              for f in p["spec"]["frames"] if not ids or f["id"] in ids]
-    data = exporter.export_zip(pages, THEMES / p["theme"], want_png=bool(png))
+    try:
+        data = exporter.export_zip(pages, THEMES / p["theme"], want_png=bool(png))
+    except Exception as e:
+        raise HTTPException(502, detail=f"Export failed: {e}") from e
     fn = f"{p['name'].replace(' ', '_')}_frames.zip"
     return Response(data, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{fn}"'})
