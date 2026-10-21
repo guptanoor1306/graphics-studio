@@ -170,10 +170,13 @@ _DEFAULT_LOOK = {"anchor": "right", "fss": "blue", "props": ["coins"]}
 async def create(req: Request):
     b = await req.json()
     look = {**_DEFAULT_LOOK, **(b.get("look") or {})}
-    pid = insert_project(
-        b["name"], b.get("theme", "varsity-english"), b.get("script", ""),
-        json.dumps(look), who(req), time.time(),
-    )
+    try:
+        pid = insert_project(
+            b["name"], b.get("theme", "varsity-english"), b.get("script", ""),
+            json.dumps(look), who(req), time.time(),
+        )
+    except Exception as e:
+        raise HTTPException(500, detail=f"Database: {e}") from e
     return load(pid)
 
 @app.get("/api/projects/{pid}")

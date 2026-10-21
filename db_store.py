@@ -121,7 +121,10 @@ def connect() -> Iterator[_Conn]:
         import psycopg
         from psycopg.rows import dict_row
 
-        raw = psycopg.connect(url, row_factory=dict_row)
+        kwargs = {"row_factory": dict_row}
+        if "sslmode=" not in url:
+            kwargs["connect_timeout"] = 30
+        raw = psycopg.connect(url, **kwargs)
         conn = _Conn(raw, True)
         init_schema(conn)
         try:
@@ -145,16 +148,17 @@ def connect() -> Iterator[_Conn]:
 def insert_project(name: str, theme: str, script: str, look_json: str, updated_by: str, updated_at: float) -> int:
     with connect() as c:
         if c._pg:
-            row = c.execute(
+            cur = c.execute(
                 "insert into projects(name,theme,script,look,updated_by,updated_at) "
                 "values(?,?,?,?,?,?) returning id",
                 (name, theme, script, look_json, updated_by, updated_at),
-            ).fetchone()
-            c.commit()
-            return int(row["id"])
-        cur = c.execute(
-            "insert into projects(name,theme,script,look,updated_by,updated_at) values(?,?,?,?,?,?)",
-            (name, theme, script, look_json, updated_by, updated_at),
-        )
+            )
+        else:
+            cur = c.execute(
+                "insert into projects(name,theme,script,look,updated_by,updated_at) values(?,?,?,?,?,?)",
+                (name, theme, script, look_json, updated_by, updated_at),
+            )
         c.commit()
+        if cur.lastrowid is None:
+            raise RuntimeError("insert project failed: no id returned")
         return int(cur.lastrowid)
