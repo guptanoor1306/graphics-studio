@@ -434,7 +434,7 @@ function newProject(){
     await list();
   }});
 }
-async function open_(id){P=await api('/api/projects/'+id);P.look=normLook(P.look);selectedFrameId=null;await list();render()}
+async function open_(id){P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);selectedFrameId=null;await list();render()}
 function renameProject(){if(!P)return;
   openToolModal({title:'Rename project',value:P.name,okLabel:'Save',onSubmit:async name=>{
     if(!name||name===P.name)return;
@@ -487,8 +487,21 @@ async function qa(){
     else setLayoutBanner('bad',w.join('\n'));
   }catch(e){setLayoutBanner('bad',e.message)}
 }
-function exp(){location.href=`/api/projects/${P.id}/export?png=1`}
+async function exp(){
+ if(!P?.spec)return;
+ if(!confirm('Export can take 1–3 minutes on Render. Continue?'))return;
+ setWorkspaceLoading(true,'Building export zip…');
+ try{
+  const r=await fetch(`/api/projects/${P.id}/export?png=1`,{cache:'no-store'});
+  if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
+  const blob=await r.blob();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip';a.click();URL.revokeObjectURL(a.href);
+ }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
+}
 initNav();
 bindProjectList();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')list()});
+setInterval(()=>{if(document.visibilityState==='visible')list()},45000);
 (async()=>{themes=await api('/api/themes');await list()})();
 </script></body></html>

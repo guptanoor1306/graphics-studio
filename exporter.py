@@ -70,31 +70,38 @@ async def launch_chromium(pw):
         raise
 
 
+async def _load_frame(pg, html: str) -> None:
+    await pg.set_content(html, wait_until="load", timeout=120_000)
+    await pg.evaluate("document.fonts.ready")
+    await pg.wait_for_timeout(120)
+
+
 async def _render(pages, want_png):
     from playwright.async_api import async_playwright
     out = {}
     async with async_playwright() as p:
         b = await launch_chromium(p)
-        pg = await b.new_page(viewport={'width': 1920, 'height': 1080})
-        for fid, url, fss in pages:
-            await pg.goto(url, wait_until="load", timeout=120_000)
-            await pg.evaluate('document.fonts.ready')
-            await pg.wait_for_timeout(150)
-            if want_png: out[f'png/{fid}.png'] = await pg.screenshot()
-            out[f'html/{fid}.html'] = await pg.evaluate(FLATTEN_JS, False)
+        pg = await b.new_page(viewport={"width": 1920, "height": 1080})
+        for fid, html, fss in pages:
+            await _load_frame(pg, html)
+            if want_png:
+                out[f"png/{fid}.png"] = await pg.screenshot()
+            out[f"html/{fid}.html"] = await pg.evaluate(FLATTEN_JS, False)
             if not fss:
-                await pg.goto(url, wait_until="load", timeout=120_000)
-                await pg.wait_for_timeout(150)
-                out[f'html_overlay/{fid}.html'] = await pg.evaluate(FLATTEN_JS, True)
+                await _load_frame(pg, html)
+                out[f"html_overlay/{fid}.html"] = await pg.evaluate(FLATTEN_JS, True)
                 if want_png:
-                    await pg.evaluate("document.body.classList.add('overlay');document.querySelectorAll('.plate').forEach(e=>e.remove())")
-                    out[f'png/{fid}_overlay.png'] = await pg.screenshot(omit_background=True)
+                    await pg.evaluate(
+                        "document.body.classList.add('overlay');"
+                        "document.querySelectorAll('.plate').forEach(e=>e.remove())"
+                    )
+                    out[f"png/{fid}_overlay.png"] = await pg.screenshot(omit_background=True)
         await b.close()
     return out
 
 
 def export_zip(pages, theme_dir: pathlib.Path, want_png=True) -> bytes:
-    """pages: list of (frame_id, file_url_of_built_html, is_fss)."""
+    """pages: list of (frame_id, full_html, is_fss). Base href in html must point at this server's /themes/."""
     files = asyncio.run(_render(pages, want_png))
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:

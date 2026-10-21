@@ -114,9 +114,10 @@ def frame_for_render(p: dict, frame: dict) -> dict:
     return f
 
 
-def frame_page(theme, frame, look):
+def frame_page(theme, frame, look, base_href: str | None = None):
     html = builder(theme).frame_html(frame, look)
-    return html.replace("<head>", f'<head><base href="/themes/{theme}/scenes/">', 1)
+    href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
+    return html.replace("<head>", f'<head><base href="{href}">', 1)
 
 # ------------------------------------------------------------------ API
 @app.get("/", response_class=HTMLResponse)
@@ -300,12 +301,19 @@ async def check(pid: int):
     return warns
 
 @app.get("/api/projects/{pid}/export")
-def export(pid: int, png: int = 1, only: str = ""):
-    p = load(pid); ids = set(only.split(",")) if only else None
-    pages = [(f["id"], preview_url(pid, f["id"]), f.get("mode") == "fss")
-             for f in p["spec"]["frames"] if not ids or f["id"] in ids]
+async def export(pid: int, png: int = 1, only: str = ""):
+    p = load(pid)
+    ids = set(only.split(",")) if only else None
+    base = f"{preview_base()}/themes/{p['theme']}/scenes/"
+    look = effective_look(p)
+    pages = []
+    for f in p["spec"]["frames"]:
+        if ids and f["id"] not in ids:
+            continue
+        html = frame_page(p["theme"], frame_for_render(p, f), look, base_href=base)
+        pages.append((f["id"], html, f.get("mode") == "fss"))
     try:
-        data = exporter.export_zip(pages, THEMES / p["theme"], want_png=bool(png))
+        data = await asyncio.to_thread(exporter.export_zip, pages, THEMES / p["theme"], bool(png))
     except Exception as e:
         raise HTTPException(502, detail=f"Export failed: {e}") from e
     fn = f"{p['name'].replace(' ', '_')}_frames.zip"
