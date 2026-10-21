@@ -3,6 +3,6 @@ fastapi>=0.110
 uvicorn[standard]>=0.29
 anthropic>=1.17
 python-multipart>=0.0.9
-playwright>=1.44
+playwright==1.64.0
 pillow>=10
 psycopg[binary]>=3.1
