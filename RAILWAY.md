@@ -1,5 +1,8 @@
 # Deploy on Railway (no auth)
 
+If Railway is unavailable, use **[Render](RENDER.md)** with the same repo (recommended). Vercel is not suitable — see [VERCEL.md](VERCEL.md).
+
+
 1. Push this repo to GitHub (see below).
 2. [Railway](https://railway.com) → **New project** → **Deploy from GitHub repo** → select `graphics-studio`.
 3. **Variables** (service → Variables):
