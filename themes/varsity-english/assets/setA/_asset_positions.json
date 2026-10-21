@@ -1,0 +1,212 @@
+{
+ "character_rahul_standing": {
+  "source": "2.05.psd",
+  "layer": "character",
+  "bbox_in_1920x1080": [
+   845,
+   718,
+   999,
+   1035
+  ]
+ },
+ "character_with_moneybag": {
+  "source": "0.47.psd",
+  "layer": "Group 3",
+  "bbox_in_1920x1080": [
+   400,
+   612,
+   624,
+   1061
+  ]
+ },
+ "character_with_moneybag_left": {
+  "source": "13.56.psd",
+  "layer": "character",
+  "bbox_in_1920x1080": [
+   6,
+   671,
+   213,
+   1086
+  ]
+ },
+ "coins_stack": {
+  "source": "0.47.psd",
+  "layer": "coins",
+  "bbox_in_1920x1080": [
+   336,
+   947,
+   478,
+   1045
+  ]
+ },
+ "building_company_3d": {
+  "source": "0.26.psd",
+  "layer": "ChatGPT Image Jun 30, 2026 at 11_58_27 PM",
+  "bbox_in_1920x1080": [
+   188,
+   469,
+   688,
+   1094
+  ]
+ },
+ "pill_label_dark": {
+  "source": "0.26.psd",
+  "layer": "abc",
+  "bbox_in_1920x1080": [
+   362,
+   448,
+   547,
+   523
+  ]
+ },
+ "magnifying_glass": {
+  "source": "2.05.psd",
+  "layer": "Magnifying glass",
+  "bbox_in_1920x1080": [
+   572,
+   542,
+   907,
+   874
+  ]
+ },
+ "doodle_paper_receipt_topright": {
+  "source": "8.38.psd",
+  "layer": "Paper",
+  "bbox_in_1920x1080": [
+   1624,
+   -6,
+   1989,
+   234
+  ]
+ },
+ "document_esop_grant_certificate": {
+  "source": "2.05.psd",
+  "layer": "Group 43",
+  "bbox_in_1920x1080": [
+   214,
+   86,
+   831,
+   911
+  ]
+ },
+ "document_clipped_note_rule": {
+  "source": "4.00.psd",
+  "layer": "rule",
+  "bbox_in_1920x1080": [
+   183,
+   300,
+   888,
+   838
+  ]
+ },
+ "callout_green_speech_bubble": {
+  "source": "3.40.psd",
+  "layer": "1",
+  "bbox_in_1920x1080": [
+   168,
+   251,
+   830,
+   493
+  ]
+ },
+ "title_bracket_frame_green": {
+  "source": "1.31.psd",
+  "layer": "ESOP",
+  "bbox_in_1920x1080": [
+   210,
+   106,
+   926,
+   352
+  ]
+ },
+ "icon_browser_donut": {
+  "source": "1.31.psd",
+  "layer": "pie chart",
+  "bbox_in_1920x1080": [
+   442,
+   750,
+   694,
+   1002
+  ]
+ },
+ "table_dark_glass_2col": {
+  "source": "11.05.psd",
+  "layer": "table",
+  "bbox_in_1920x1080": [
+   255,
+   350,
+   890,
+   614
+  ]
+ },
+ "numbered_subheading": {
+  "source": "11.05.psd",
+  "layer": "1",
+  "bbox_in_1920x1080": [
+   282,
+   172,
+   869,
+   221
+  ]
+ },
+ "title_keyword_bold_shadow": {
+  "source": "0.47.psd",
+  "layer": "take home",
+  "bbox_in_1920x1080": [
+   149,
+   182,
+   587,
+   291
+  ]
+ },
+ "flowchart_cycle_5step": {
+  "source": "13.35.psd",
+  "layer": "Group 33",
+  "bbox_in_1920x1080": [
+   197,
+   329,
+   975,
+   1014
+  ]
+ },
+ "buildings_growth_pills": {
+  "source": "9.15.psd",
+  "layer": "Group 42",
+  "bbox_in_1920x1080": [
+   682,
+   509,
+   1044,
+   1083
+  ]
+ },
+ "folder_card_blue": {
+  "source": "8.38.psd",
+  "layer": "folder",
+  "bbox_in_1920x1080": [
+   139,
+   922,
+   930,
+   1394
+  ]
+ },
+ "folder_card_paper_retention": {
+  "source": "8.38.psd",
+  "layer": "Retention",
+  "bbox_in_1920x1080": [
+   256,
+   638,
+   906,
+   1131
+  ]
+ },
+ "character_rahul_pointing": {
+  "source": "0.01.psd",
+  "layer": "rahul",
+  "bbox_in_1920x1080": [
+   829,
+   746,
+   997,
+   1091
+  ]
+ }
+}

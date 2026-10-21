@@ -1,0 +1,7 @@
+python-dotenv>=1.0
+fastapi>=0.110
+uvicorn[standard]>=0.29
+anthropic>=1.17
+python-multipart>=0.0.9
+playwright>=1.44
+pillow>=10

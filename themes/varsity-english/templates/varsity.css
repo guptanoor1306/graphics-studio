@@ -1,0 +1,206 @@
+/* ===================================================================
+   VARSITY (English IP): house graphics system, 1920x1080
+   Measured from the final graphics of ESOP, Retirement, ITR, HUF and Overdraft.
+   Scene HTML files live in kit/scenes/, so paths are ../fonts, ../assets.
+   =================================================================== */
+@font-face{font-family:Inter;font-weight:300;src:url(../fonts/Inter-Light.ttf)}
+@font-face{font-family:Inter;font-weight:400;src:url(../fonts/Inter-Regular.ttf)}
+@font-face{font-family:Inter;font-weight:500;src:url(../fonts/Inter-Medium.ttf)}
+@font-face{font-family:Inter;font-weight:600;src:url(../fonts/Inter-SemiBold.ttf)}
+@font-face{font-family:Inter;font-weight:700;src:url(../fonts/Inter-Bold.ttf)}
+@font-face{font-family:Inter;font-weight:800;src:url(../fonts/Inter-ExtraBold.ttf)}
+
+:root{
+  --white:#FFFFFF; --ink:#171717; --grey:#6B6B6B; --line:#D9DEE5;
+  --blue:#248EF7;        /* charts, header bars, icon chips, folders */
+  --blue-soft:#64B0FC;   /* document section tags */
+  --amber:#F2B233;       /* table header rows, shortfall bars, keyword accent, title tags */
+  --green:#A5CC65;       /* callout bubbles, rupee pins, "saved / tax-free" pills */
+  --coral:#F26B5B;       /* giant keyword (HUF), red flags, "taxable", loss values */
+  --gain:#3FA34D; --loss:#E0463A;
+  --accent:var(--blue);  /* per-video FSS accent: set body class "warm" for amber */
+}
+body.warm{--accent:var(--amber)}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden}
+body{font-family:Inter,sans-serif;color:var(--white);position:relative;background:#050505}
+body.fss{color:var(--ink)}
+.plate{position:absolute;inset:0;width:1920px;height:1080px;z-index:0}
+.abs{position:absolute}
+.z{z-index:5}
+
+/* -------------------------------------------------------------------
+   A. TITLES
+   ------------------------------------------------------------------- */
+/* A1. Title stack (OST over anchor): thin lead line, giant keyword, thin tail line */
+.t-line{font-weight:400;font-size:71px;line-height:1.12;letter-spacing:-.5px}
+.t-line.b{font-weight:700;font-size:56px}            /* bold-lead variant (HUF, Retirement) */
+.t-key{font-weight:700;font-size:134px;line-height:1;letter-spacing:-2px;text-shadow:4px 3px 0 #000}
+.t-key.md{font-size:110px;letter-spacing:-1.5px}   /* keyword longer than ~9 characters, or 2 lines */
+.t-key.xl{font-size:250px;font-weight:800;letter-spacing:-6px;text-shadow:none}
+.t-key.coral{color:var(--coral);text-shadow:none}
+.t-key.amber{color:var(--amber);text-shadow:none}
+.t-key.green{color:var(--green);text-shadow:none}
+
+/* A2. Title pill: rounded capsule. Dark glass over the anchor, white on FSS */
+.pill-title{display:inline-block;padding:22px 42px;border-radius:60px;font-weight:700;font-size:40px;letter-spacing:-.3px;
+  background:rgba(255,255,255,.10);border:3px solid rgba(255,255,255,.35);color:#fff;
+  box-shadow:0 6px 30px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.12);backdrop-filter:blur(6px)}
+body.fss .pill-title,.pill-title.light{background:#fff;color:var(--ink);border:2px solid #E6EAF0;
+  box-shadow:0 10px 30px rgba(40,70,120,.18)}
+
+/* A3. Header tab: a white "window" box with a coloured bottom bar and a tiny "–×" tag.
+   The signature FSS heading; also used for sub-points over the anchor */
+.htab{position:relative;display:inline-block;background:#fff;color:var(--ink);font-weight:700;font-size:40px;
+  padding:16px 34px 26px;border:3px solid #1d1d1d;border-radius:6px;letter-spacing:-.3px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.htab:after{content:"";position:absolute;left:-3px;right:-3px;bottom:-3px;height:16px;background:var(--accent);
+  border:3px solid #1d1d1d;border-top:0;border-radius:0 0 6px 6px}
+.htab{margin-top:24px} /* room for the '– ×' tag that sits 22px above the box */
+.htab:before{content:"– ×";position:absolute;right:26px;top:-22px;font-size:14px;font-weight:700;background:#fff;
+  border:2px solid #1d1d1d;padding:0 6px;line-height:18px;border-radius:3px}
+.htab.sm{font-size:30px;padding:10px 24px 20px}.htab.sm:after{height:12px}
+.htab.green{--accent:var(--green)}.htab.amber{--accent:var(--amber)}.htab.blue{--accent:var(--blue)}
+
+/* A4. Numbered sub-heading (white disc + text) */
+.num{display:flex;align-items:center;gap:20px;font-size:45px;font-weight:400}
+.num i{font-style:normal;flex:none;width:49px;height:49px;border-radius:50%;background:#fff;color:#000;
+  display:grid;place-items:center;font-size:32px;font-weight:600}
+body.fss .num i{background:var(--ink);color:#fff}
+
+/* A5. Icon chip next to a title (person / family / topic icon, white on blue disc) */
+.chip{display:inline-grid;place-items:center;width:78px;height:78px;border-radius:50%;background:var(--blue);
+  border:4px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.25);font-size:40px;color:#fff;vertical-align:middle}
+
+/* -------------------------------------------------------------------
+   B. TABLES
+   ------------------------------------------------------------------- */
+/* B1. Dark glass table (over the anchor): translucent panel, white rows, one result row inverted */
+.glass{background:rgba(255,255,255,.22);border:3px solid rgba(255,255,255,.5);border-radius:16px;overflow:hidden;
+  box-shadow:0 6px 30px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.15);backdrop-filter:blur(8px)}
+.glass.dark{background:rgba(20,20,22,.55);border-color:rgba(255,255,255,.18)}
+.gt{border-collapse:collapse;font-size:24px;color:#fff;width:100%}
+.gt th,.gt td{text-align:left;padding:0 34px;height:62px;border-bottom:2px solid rgba(255,255,255,.55)}
+.gt th{font-weight:600}
+.gt td+td,.gt th+th{border-left:2px solid rgba(0,0,0,.45)}
+.gt tr:last-child td{border-bottom:0}
+.gt tr.result td{background:#fff;color:#000;font-weight:700}
+.gt thead.white th{background:#fff;color:#000}
+
+/* B2. FSS calculation table: white card, coloured header row, rows as rounded white strips */
+.card{background:rgba(255,255,255,.92);border-radius:14px;padding:18px;box-shadow:0 18px 50px rgba(40,70,120,.20);border:1px solid #E7ECF3}
+.ct{border-collapse:separate;border-spacing:0 8px;width:100%;font-size:24px;color:var(--ink)}
+.ct th{background:var(--amber);color:var(--ink);font-weight:700;text-align:left;padding:16px 20px;font-size:1em}
+.ct.blue th{background:var(--blue);color:#fff;font-weight:600;font-size:1.08em;padding:20px 22px}
+.ct th:first-child{border-radius:8px 0 0 8px}.ct th:last-child{border-radius:0 8px 8px 0}
+.ct td{background:#fff;border-top:1.5px solid #2a2a2a;border-bottom:1.5px solid #2a2a2a;padding:13px 20px;vertical-align:top;line-height:1.25}
+.ct td:first-child{border-left:1.5px solid #2a2a2a;border-radius:6px 0 0 6px}
+.ct td:last-child{border-right:1.5px solid #2a2a2a;border-radius:0 6px 6px 0}
+.ct td+td{border-left:1.5px solid #2a2a2a}
+.ct tr.less td:first-child,.ct tr.less td:last-child{color:var(--grey);font-style:italic}
+.ct tr.total td{font-weight:700}
+.ct tr.hl td{background:#FFF4D6}               /* the row the VO is on */
+.ct ul{margin:0;padding-left:20px}
+.ct .neg{color:var(--loss)} .ct .pos{color:var(--gain)}
+
+/* B3. Result pill under a table (Net savings…) */
+.result-pill{display:inline-block;background:var(--green);color:var(--ink);font-weight:600;font-size:30px;padding:10px 30px;border-radius:14px}
+
+/* -------------------------------------------------------------------
+   C. CALLOUTS, LABELS, DEFINITIONS
+   ------------------------------------------------------------------- */
+/* C1. Name pill (person / company / value) with an optional leader line */
+.name{display:inline-block;background:#fff;color:var(--ink);font-weight:700;font-size:22px;padding:6px 16px;border:2.5px solid #1d1d1d;border-radius:30px}
+.name.dark{background:rgba(255,255,255,.08);color:#fff;border:3px solid rgba(255,255,255,.55);font-size:35px;padding:12px 40px}
+.chip-label{display:inline-block;background:#111;color:#fff;font-weight:700;font-size:28px;padding:4px 12px}
+
+/* C2. Speech callout (green); .white is the variant for FSS scenes */
+.callout{position:relative;display:inline-block;background:var(--green);color:var(--ink);border-radius:60px;padding:28px 46px;
+  font-weight:600;font-size:33px;line-height:1.25;text-align:center}
+.callout:after{content:"";position:absolute;right:90px;bottom:-24px;border:16px solid transparent;border-top:28px solid var(--green);transform:skewX(-25deg)}
+.callout.white{background:#fff;border:3px solid #1d1d1d;font-style:italic;font-size:28px;padding:14px 30px;border-radius:30px}
+.callout.white:after{border-top-color:#1d1d1d;left:50%;right:auto;margin-left:-16px}
+
+/* C3. Definition panel (over the anchor): amber title tag + translucent strip */
+.def{max-width:1300px}
+.def .tag{display:inline-block;background:var(--amber);color:var(--ink);font-weight:600;font-size:40px;padding:6px 18px}
+.def .body{margin-top:10px;background:rgba(20,20,20,.45);border:2px solid rgba(255,255,255,.25);padding:16px 22px;font-size:36px;line-height:1.3;font-weight:400}
+/* C3b. Definition card, stacked keyword version (ITR) */
+.defcard{width:760px;padding:60px 70px;border-radius:40px;background:linear-gradient(160deg,rgba(120,70,50,.55),rgba(40,20,15,.6));
+  border:2px solid rgba(255,255,255,.15);backdrop-filter:blur(10px)}
+.defcard .t-key{font-size:96px;text-shadow:none;line-height:1.05}
+.defcard p{margin-top:36px;font-size:30px;line-height:1.35}
+
+/* C4. Pop-up window card over the anchor (a sum said aloud) */
+.popup{width:560px;background:#fff;color:var(--ink);border-radius:6px;box-shadow:0 20px 50px rgba(0,0,0,.45);position:relative}
+.popup .bar{display:flex;justify-content:space-between;padding:22px 26px;font-weight:700;font-size:25px;border-bottom:1px solid #E1E1E1}
+.popup .bar:after{content:"×";font-weight:400;color:#555}
+.popup .v{padding:28px 26px 40px;font-size:30px;font-weight:500}
+.popup ul{padding:0 26px 30px 50px;font-size:23px;line-height:1.35}
+.popup-base{position:absolute;left:0;right:-20px;bottom:-40px;height:70px;background:var(--blue);border-radius:10px;z-index:-1}
+
+/* C4b. Highlight pill: pops up over a table row to call out one figure ("Interest Saved  ₹9.22L") */
+.hpill{display:inline-flex;justify-content:space-between;gap:60px;min-width:480px;background:#fff;color:var(--ink);
+  border:3px solid #1d1d1d;border-radius:40px;padding:14px 28px;font-size:26px;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+.hpill b{font-weight:700}
+
+/* C5. Verdict pills */
+.verdict{display:inline-block;padding:6px 18px;border-radius:6px;font-weight:700;font-size:22px}
+.verdict.bad{background:#FDE1DD;color:var(--loss);border:1.5px solid #F4A79E}
+.verdict.good{background:#E3F4D6;color:var(--gain);border:1.5px solid #B9DE9A}
+.verdict.lg{font-size:30px;padding:8px 24px}
+
+/* A6. Body points under a heading: plain text, small numbered discs, no box */
+.points{display:flex;flex-direction:column;gap:26px}
+.points .pt{display:flex;gap:18px;align-items:flex-start;font-size:31px;line-height:1.3;font-weight:400}
+.points .pt i{flex:none;font-style:normal;width:40px;height:40px;margin-top:-1px;border-radius:50%;background:#fff;color:#000;display:grid;place-items:center;font-size:24px;font-weight:600}
+body.fss .points .pt i{background:var(--ink);color:#fff}
+
+/* -------------------------------------------------------------------
+   D. LISTS
+   ------------------------------------------------------------------- */
+/* D1. Blurred list on paper in a folder: all items, the inactive ones blurred */
+.folder{position:relative;width:640px;height:520px}
+.folder .paper{position:absolute;left:70px;top:0;width:480px;height:400px;background:#fff;color:#222;transform:rotate(-2deg);
+  padding:26px 30px;font-size:26px;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.folder .paper li{list-style:none}
+.folder .paper li.off{filter:blur(2.5px);opacity:.55}
+.folder .front{position:absolute;left:0;bottom:0;width:640px;height:150px;opacity:.97;background:linear-gradient(180deg,#5AA8FA,#2A84EA);
+  border-radius:18px 18px 10px 10px;transform:skewX(-6deg)}
+/* D2. Numbered list on a light glass card (FSS "Things to remember") */
+.nlist{background:rgba(255,255,255,.6);border:2px solid #fff;border-radius:24px;padding:44px 56px;box-shadow:0 20px 50px rgba(40,70,120,.15)}
+.nlist li{list-style:none;display:flex;gap:18px;font-size:36px;line-height:1.3;margin:0 0 30px;color:var(--ink)}
+.nlist li b{flex:none;font-weight:700}
+.nlist li.off{opacity:.45}
+/* D3. Drum list (current item big, neighbours shrink and fade) */
+.drum{display:flex;flex-direction:column;align-items:center;gap:8px}
+.drum div{background:#fff;color:#222;border-radius:12px;font-weight:600;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+/* D4. Icon card row (AIS / SFT style) */
+.icard{width:270px;height:390px;background:rgba(255,255,255,.75);border:2px solid #fff;border-radius:16px;
+  box-shadow:0 14px 34px rgba(40,70,120,.18);display:flex;flex-direction:column;align-items:center;padding:24px 16px;text-align:center}
+.icard img,.icard svg{height:170px;margin-bottom:24px}
+.icard b{font-size:27px;color:var(--ink);font-weight:600}
+.icard span{margin-top:12px;font-size:19px;color:var(--grey);line-height:1.3}
+.icard.on{transform:scale(1.06);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent),0 18px 40px rgba(40,70,120,.25)}
+.icard.off{opacity:.45;filter:grayscale(.4)}
+
+/* -------------------------------------------------------------------
+   E. CHARTS (SVG inside .chartcard)
+   ------------------------------------------------------------------- */
+.chartcard{background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(225,236,255,.85));border-radius:24px;box-shadow:0 18px 50px rgba(40,70,120,.15)}
+.axisbox{background:#fff;border:2.5px solid #1d1d1d;font-weight:800;font-size:22px;color:#000}
+svg text{font-family:Inter}
+
+/* -------------------------------------------------------------------
+   F. DOCUMENT MOCKS (offer letter, certificate, notice, slip)
+   ------------------------------------------------------------------- */
+.doc{background:#fff;color:var(--ink);border-radius:4px;box-shadow:12px 12px 0 #cfcfcf, 0 10px 40px rgba(0,0,0,.35);font-size:15px;padding:34px 30px}
+.doc .tag{display:inline-block;padding:4px 14px;font-weight:700;font-size:15px}
+.doc .tag.blue{background:var(--blue-soft);color:#fff}.doc .tag.amber{background:var(--amber)}.doc .tag.green{background:var(--green)}
+.doc table{width:100%;border-collapse:collapse;margin:8px 0 18px}.doc td,.doc th{border:1px solid #9a9a9a;padding:5px 8px;text-align:left}
+.doc th{background:#f1f1f1}
+.blurred{filter:blur(6px);opacity:.85}
+.hl-mark{background:linear-gradient(transparent 15%,rgba(36,142,247,.85) 15%);color:#fff}
+
+/* overlay export: the renderer adds class "overlay" to <body> and hides .plate */
+body.overlay{background:transparent!important}

@@ -1,0 +1,172 @@
+{
+ "money_notes_flying": {
+  "source": "0.04.psd",
+  "layer": "Money",
+  "bbox": [
+   -187,
+   217,
+   116,
+   450
+  ]
+ },
+ "jar_cash_coins": {
+  "source": "0.04.psd",
+  "layer": "jar",
+  "bbox": [
+   1289,
+   710,
+   1558,
+   1049
+  ]
+ },
+ "cursor_arrow": {
+  "source": "0.04.psd",
+  "layer": "Cursor",
+  "bbox": [
+   1561,
+   604,
+   1655,
+   697
+  ]
+ },
+ "checkbox_tick_blue": {
+  "source": "0.04.psd",
+  "layer": "Group 1",
+  "bbox": [
+   856,
+   527,
+   905,
+   572
+  ]
+ },
+ "rupee_pin_green": {
+  "source": "0.04.psd",
+  "layer": "Group 3",
+  "bbox": [
+   1778,
+   505,
+   1850,
+   562
+  ]
+ },
+ "character_beach_chair_retired": {
+  "source": "0.13.psd",
+  "layer": "character 2",
+  "bbox": [
+   988,
+   561,
+   1521,
+   1027
+  ]
+ },
+ "glass_panel_dark": {
+  "source": "0.13.psd",
+  "layer": "Rectangle 6 copy 2",
+  "bbox": [
+   895,
+   165,
+   1780,
+   528
+  ]
+ },
+ "header_window_tab": {
+  "source": "3.53.psd",
+  "layer": "heading copy 2",
+  "bbox": [
+   1147,
+   116,
+   1573,
+   254
+  ]
+ },
+ "stacked_bar_salary_split": {
+  "source": "3.53.psd",
+  "layer": "Group 29",
+  "bbox": [
+   1281,
+   362,
+   1733,
+   985
+  ]
+ },
+ "chart_y_axis_box": {
+  "source": "3.53.psd",
+  "layer": "Y Axis",
+  "bbox": [
+   1073,
+   292,
+   1175,
+   940
+  ]
+ },
+ "chart_bars_vs_target_panel": {
+  "source": "2.39.psd",
+  "layer": "Part 2",
+  "bbox": [
+   82,
+   81,
+   1806,
+   1001
+  ]
+ },
+ "bank_building": {
+  "source": "2.39.psd",
+  "layer": "bank",
+  "bbox": [
+   1151,
+   589,
+   1753,
+   1072
+  ]
+ },
+ "character_red_mustache": {
+  "source": "2.39.psd",
+  "layer": "Red",
+  "bbox": [
+   0,
+   0,
+   0,
+   0
+  ]
+ },
+ "character_mustache_garland": {
+  "source": "4.09.psd",
+  "layer": "marriage",
+  "bbox": [
+   1284,
+   450,
+   1557,
+   1062
+  ]
+ },
+ "orbit_circle": {
+  "source": "4.09.psd",
+  "layer": "circle",
+  "bbox": [
+   1065,
+   336,
+   1783,
+   1045
+  ]
+ },
+ "icon_house": {
+  "source": "4.09.psd",
+  "layer": "Home loan",
+  "bbox": [
+   1252,
+   542,
+   1608,
+   835
+  ]
+ },
+ "icon_couple_table": {
+  "source": "4.09.psd",
+  "layer": "Parents",
+  "bbox": [
+   1185,
+   539,
+   1695,
+   770
+  ]
+ }
+}

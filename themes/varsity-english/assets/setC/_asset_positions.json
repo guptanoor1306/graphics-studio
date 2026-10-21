@@ -1,0 +1,222 @@
+{
+ "house_home_loan": {
+  "source": "0.01.psd",
+  "layer": "Vector Smart Object",
+  "bbox": [
+   187,
+   746,
+   705,
+   1046
+  ]
+ },
+ "character_friend_yellow": {
+  "source": "0.01.psd",
+  "layer": "character 1",
+  "bbox": [
+   62,
+   654,
+   273,
+   1089
+  ]
+ },
+ "character_friend_blue": {
+  "source": "0.01.psd",
+  "layer": "Character 2",
+  "bbox": [
+   653,
+   643,
+   856,
+   1085
+  ]
+ },
+ "speech_table_two_friends": {
+  "source": "0.01.psd",
+  "layer": "callout",
+  "bbox": [
+   97,
+   235,
+   817,
+   617
+  ]
+ },
+ "cash_stack_short": {
+  "source": "0.24.psd",
+  "layer": "cash stack",
+  "bbox": [
+   738,
+   746,
+   846,
+   1041
+  ]
+ },
+ "cash_stack_tall": {
+  "source": "0.24.psd",
+  "layer": "cash stack",
+  "bbox": [
+   914,
+   623,
+   1022,
+   1044
+  ]
+ },
+ "rupee_coin_gold": {
+  "source": "0.24.psd",
+  "layer": "Vector Smart Object",
+  "bbox": [
+   754,
+   679,
+   825,
+   748
+  ]
+ },
+ "speech_bubble_home_loan": {
+  "source": "0.24.psd",
+  "layer": "rent copy",
+  "bbox": [
+   457,
+   535,
+   599,
+   686
+  ]
+ },
+ "character_small_on_box": {
+  "source": "0.24.psd",
+  "layer": "Charcter on box",
+  "bbox": [
+   12,
+   778,
+   141,
+   1055
+  ]
+ },
+ "label_chip_interest": {
+  "source": "0.24.psd",
+  "layer": "Group 6",
+  "bbox": [
+   698,
+   767,
+   885,
+   822
+  ]
+ },
+ "bank_building_classic": {
+  "source": "0.24.psd",
+  "layer": "Bank A",
+  "bbox": [
+   1543,
+   650,
+   1963,
+   1078
+  ]
+ },
+ "folder_blue_open": {
+  "source": "3.01.psd",
+  "layer": "folder",
+  "bbox": [
+   206,
+   476,
+   997,
+   1389
+  ]
+ },
+ "title_pill_dark_example": {
+  "source": "3.01.psd",
+  "layer": "heading",
+  "bbox": [
+   89,
+   337,
+   1219,
+   448
+  ]
+ },
+ "calculator": {
+  "source": "4.18.psd",
+  "layer": "Vector Smart Object",
+  "bbox": [
+   62,
+   880,
+   238,
+   1053
+  ]
+ },
+ "result_pill_net_savings": {
+  "source": "4.18.psd",
+  "layer": "net savings",
+  "bbox": [
+   559,
+   973,
+   1362,
+   1058
+  ]
+ },
+ "header_tab_amber_example": {
+  "source": "4.18.psd",
+  "layer": "heading",
+  "bbox": [
+   441,
+   24,
+   1479,
+   143
+  ]
+ },
+ "highlight_pill_interest_saved": {
+  "source": "1.30.psd",
+  "layer": "Int saved",
+  "bbox": [
+   713,
+   453,
+   1204,
+   535
+  ]
+ },
+ "highlight_pill_amount_parked": {
+  "source": "1.30.psd",
+  "layer": "Amount Parked in OD",
+  "bbox": [
+   714,
+   537,
+   1205,
+   619
+  ]
+ },
+ "glass_folder_numbered_list": {
+  "source": "8.30.psd",
+  "layer": "folder with points",
+  "bbox": [
+   316,
+   172,
+   1711,
+   1051
+  ]
+ },
+ "magnifying_glass_2": {
+  "source": "0.31.psd",
+  "layer": "Magnifying glass",
+  "bbox": [
+   577,
+   546,
+   933,
+   898
+  ]
+ },
+ "table_dark_glass_shell_empty": {
+  "source": "3.24.psd",
+  "layer": "table",
+  "bbox": [
+   92,
+   367,
+   887,
+   724
+  ]
+ },
+ "house_home_loan_small": {
+  "source": "4.18.psd",
+  "layer": "Vector Smart Object",
+  "bbox": [
+   1534,
+   777,
+   1974,
+   1031
+  ]
+ }
+}

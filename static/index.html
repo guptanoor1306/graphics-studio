@@ -1,0 +1,494 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Graphics Studio</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f4ef;--bg-sidebar:#faf8f5;--card:#fff;--ink:#1a1917;--mute:#6f6a63;
+  --line:#e8e4dc;--line-strong:#d9d3c8;--acc:#c96442;--acc-hover:#b85638;--acc-soft:#f3ebe6;
+  --shadow:0 1px 2px rgba(26,25,23,.04),0 8px 24px rgba(26,25,23,.06);
+  --radius:12px;--radius-sm:10px;--font:'Roboto',system-ui,sans-serif;--mono:'Roboto Mono',ui-monospace,monospace;
+  --nav-w:280px;--nav-collapsed:52px;
+  --beat-green:#2d7a52;--beat-green-bg:#eef6f0;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.55 var(--font);background:var(--bg);color:var(--ink);display:grid;grid-template-columns:var(--nav-w) 1fr;min-height:100vh;height:100vh;transition:grid-template-columns .2s ease}
+body.nav-collapsed{grid-template-columns:var(--nav-collapsed) 1fr}
+aside{border-right:1px solid var(--line);background:var(--bg-sidebar);padding:16px 14px;overflow:hidden;display:flex;flex-direction:column;gap:12px;position:relative}
+.nav-toggle{position:absolute;top:14px;right:10px;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:18px;line-height:1;color:var(--mute)}
+.nav-toggle:hover{background:var(--acc-soft)}
+body.nav-collapsed .nav-toggle{right:8px;left:8px;margin:0 auto;position:relative;top:0}
+.sidebar-inner{overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+body.nav-collapsed .sidebar-inner .hide-when-collapsed{display:none!important}
+body.nav-collapsed aside{padding:12px 8px;align-items:center}
+.brand{margin:0 36px 0 0;font-size:17px;font-weight:600}
+.brand-sub{font-size:12px;color:var(--mute);margin-top:4px}
+.sidebar-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:4px 0 6px}
+main{overflow:auto;padding:28px 32px 40px;position:relative}
+h1.page-title{font-size:22px;font-weight:600;margin:0}
+h2.section{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin:28px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:4px}
+.toolbar .spacer{flex:1}
+button{font:inherit;font-family:var(--font);font-size:14px;font-weight:500;border:1px solid var(--line-strong);background:var(--card);border-radius:var(--radius-sm);padding:10px 16px;cursor:pointer}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+button.ghost{background:transparent;border-color:transparent;color:var(--mute)}
+button.danger{color:#9c4221;border-color:#e8c4bc}
+button.danger:hover:not(:disabled){background:#fdf0eb;border-color:#d4a89a}
+button.block{width:100%}
+button:disabled{opacity:.55;cursor:not-allowed}
+input,select,textarea{font:inherit;font-family:var(--font);font-size:15px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:11px 14px;background:#fff;width:100%}
+textarea#script{min-height:200px;font-size:14px;line-height:1.65}
+textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:18px 20px}
+.prop-pick{display:flex;flex-wrap:wrap;gap:10px}
+.prop-pick label.chip{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line-strong);border-radius:999px;font-size:14px;cursor:pointer;background:#fff}
+.prop-pick label.chip:has(input:checked){background:var(--acc-soft);border-color:rgba(201,100,66,.45)}
+.row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:16px}
+.proj{padding:12px 14px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid transparent;margin-bottom:6px}
+.proj:hover,.proj.on{background:var(--acc-soft);border-color:rgba(201,100,66,.35)}
+.proj b{display:block;font-weight:600;font-size:14px}
+.proj small{color:var(--mute);font-size:12px}
+.frames-studio{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px 28px;margin-top:8px;box-shadow:var(--shadow)}
+.studio-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
+.frames-studio .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.frames-studio h2.studio-title{margin:6px 0 0;font-size:22px;font-weight:600;color:var(--ink)}
+.studio-split{display:grid;grid-template-columns:minmax(240px,1fr) minmax(320px,1.15fr);gap:22px;align-items:start}
+.panel-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin-bottom:8px}
+.studio-hint{font-size:13px;color:var(--mute);margin:0 0 12px;line-height:1.5}
+.full-script{border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;max-height:min(640px,65vh);overflow:auto;background:#fff;font-size:14px;line-height:1.65}
+.script-line{padding:4px 6px 4px 10px;margin:1px 0;border-radius:4px;border-left:3px solid transparent;color:var(--mute)}
+.script-line.hl-beat{background:var(--beat-green-bg);border-left-color:var(--beat-green);cursor:pointer;color:var(--ink)}
+.script-line.hl-beat.on{background:#dceee2;box-shadow:inset 0 0 0 1px rgba(45,122,82,.35)}
+.line-tag{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--beat-green);margin-right:6px}
+.studio-head-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.panel-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.panel-head .panel-label{margin:0}
+.layout-banner{padding:12px 16px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:14px;line-height:1.5;white-space:pre-wrap}
+.layout-banner.ok{background:var(--beat-green-bg);border:1px solid var(--beat-green)}
+.layout-banner.bad{background:#fdf0eb;border:1px solid #d4a89a;color:#7a3a2a}
+.layout-banner.busy{background:#faf8f5;border:1px solid var(--line);color:var(--mute)}
+.frame-sb-line{font-size:13px;line-height:1.55;color:var(--mute);margin-bottom:12px;white-space:pre-wrap}
+.icon-btn{width:40px;height:40px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-sm);flex-shrink:0}
+.icon-btn svg{width:18px;height:18px;fill:currentColor}
+.frame-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.fchip{font-family:var(--mono);font-size:13px;font-weight:500;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+.fchip.on{border-color:var(--beat-green);background:var(--beat-green-bg);color:var(--beat-green)}
+.frame-meta{font-family:var(--mono);font-size:14px;font-weight:600;margin-bottom:14px;color:var(--ink)}
+.thumb-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.thumb-nav .thumb{flex:1;min-width:0;margin-bottom:0}
+.frame-arrow{width:44px;height:44px;flex-shrink:0;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--ink);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.frame-arrow:hover{background:var(--beat-green-bg);border-color:var(--beat-green);color:var(--beat-green)}
+.frame-arrow:disabled{opacity:.35;cursor:not-allowed}
+.thumb{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#1a1917;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.thumb iframe,.mini-thumb iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
+.thumb .loader{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(26,25,23,.72);color:#fff;z-index:2;font-size:14px}
+#framePanel.is-loading .thumb .loader{display:flex}
+.spinner{width:36px;height:36px;border:3px solid rgba(0,0,0,.12);border-top-color:var(--acc);border-radius:50%;animation:spin .75s linear infinite}
+.ws-loader .spinner{border-color:rgba(255,255,255,.25);border-top-color:#fff}
+@keyframes spin{to{transform:rotate(360deg)}}
+.frame-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
+.frame-actions input{flex:1;min-width:160px;font-size:14px}
+.all-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-height:min(70vh,720px);overflow:auto;padding:4px}
+.mini-card{cursor:pointer;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:#fff;transition:border-color .15s,box-shadow .15s}
+.mini-card:hover{border-color:var(--beat-green);box-shadow:var(--shadow)}
+.mini-thumb{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#111}
+.mini-label{padding:8px 10px;font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink)}
+dialog#allFramesDlg{width:min(1100px,96vw)}
+dialog#allFramesDlg .dlg-bar{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+dialog#allFramesDlg .dlg-bar b{flex:1;font-size:16px}
+dialog#allFramesDlg .all-body{padding:16px 20px 20px}
+@media (max-width:900px){.all-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.all-grid{grid-template-columns:1fr}}
+.ws-loader{position:absolute;inset:0;background:rgba(247,244,239,.88);display:flex;align-items:center;justify-content:center;z-index:20;flex-direction:column;gap:14px}
+.ws-loader[hidden]{display:none!important}
+.muted{color:var(--mute)}
+.warn{color:#9c4221}
+dialog{border:0;border-radius:var(--radius);padding:0;width:min(1100px,95vw);font-family:var(--font)}
+dialog.modal-sm{width:min(440px,92vw)}
+dialog .modal-in{padding:22px 24px 20px}
+dialog .modal-in>b{display:block;font-size:17px;margin-bottom:12px}
+dialog .modal-in .modal-msg{margin:0 0 16px;font-size:14px;line-height:1.5;color:var(--mute)}
+dialog .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-shrink:0}
+dialog#scriptEditDlg{width:min(720px,96vw);max-height:92vh;margin:auto}
+dialog#scriptEditDlg form.modal-in{display:flex;flex-direction:column;max-height:92vh;overflow:hidden;box-sizing:border-box}
+dialog#scriptEditDlg #scriptEditArea{flex:1 1 auto;min-height:160px;max-height:min(52vh,480px);resize:vertical;overflow:auto;margin-bottom:12px}
+@media (max-width:960px){
+  body,body.nav-collapsed{grid-template-columns:1fr;height:auto}
+  aside{max-height:36vh}
+  .studio-split{grid-template-columns:1fr}
+}
+</style></head><body>
+<aside id="nav">
+  <button type="button" class="nav-toggle" id="navToggle" title="Collapse projects panel" aria-label="Toggle projects">‹</button>
+  <div class="sidebar-inner">
+    <div class="hide-when-collapsed"><h1 class="brand">Graphics Studio</h1><p class="brand-sub">Storyboard &amp; frames</p></div>
+    <button class="p block hide-when-collapsed" onclick="newProject()">+ New video</button>
+    <div class="hide-when-collapsed"><div class="sidebar-label">Projects</div><div id="plist"></div></div>
+  </div>
+</aside>
+<main id="main"><p class="muted">Pick a video on the left, or start a new one.</p></main>
+<dialog id="dlg"><div class="in" style="padding:22px">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><b id="dlgTitle" style="flex:1;font-size:17px"></b><button type="button" class="ghost" onclick="dlg.close()">Close</button></div>
+  <textarea id="dlgJson"></textarea>
+  <div class="row" style="margin-bottom:0"><button type="button" class="p" onclick="saveJson()">Save frame</button></div>
+</div></dialog>
+<dialog id="allFramesDlg"><div class="dlg-bar"><b>All frames</b><button type="button" class="ghost" onclick="allFramesDlg.close()">Close</button></div>
+<div class="all-body"><div class="all-grid" id="allGrid"></div></div></dialog>
+<dialog id="toolModal" class="modal-sm"><form class="modal-in" method="dialog" onsubmit="return submitToolModal(event)">
+  <b id="toolModalTitle"></b>
+  <p id="toolModalMsg" class="modal-msg" hidden></p>
+  <input id="toolModalInput" autocomplete="off" required>
+  <div class="modal-actions">
+    <button type="button" class="ghost" onclick="closeToolModal()">Cancel</button>
+    <button type="submit" class="p" id="toolModalOk">OK</button>
+  </div>
+</form></dialog>
+<dialog id="scriptEditDlg"><form class="modal-in" method="dialog" onsubmit="return saveScriptEdit(event)">
+  <b>Edit script</b>
+  <p class="modal-msg">Changes apply when you regenerate storyboard + frames.</p>
+  <textarea id="scriptEditArea"></textarea>
+  <label class="field" style="margin-bottom:12px"><span style="font-size:13px;font-weight:500">Notes for Claude</span>
+  <input id="scriptEditNotes"></label>
+  <div class="modal-actions">
+    <button type="button" class="ghost" onclick="scriptEditDlg.close()">Cancel</button>
+    <button type="submit" class="p">Save</button>
+  </div>
+</form></dialog>
+<script>
+let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null;
+const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+const ICON_DELETE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
+const PROP_OPTS=['coins','tax','jar','house','bank'];
+const DEFAULT_PROPS=['coins'];
+const $=s=>document.querySelector(s);
+const api=async(u,o={})=>{
+  const r=await fetch(u,{cache:'no-store',headers:{'content-type':'application/json'},...o});
+  if(!r.ok){let m=await r.text();try{const j=JSON.parse(m);m=j.detail||m}catch(_){}throw new Error(typeof m==='string'?m:JSON.stringify(m))}
+  return r.json();
+};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function initNav(){
+  if(localStorage.getItem('gs-nav')==='1')document.body.classList.add('nav-collapsed');
+  $('#navToggle')?.addEventListener('click',()=>{
+    document.body.classList.toggle('nav-collapsed');
+    localStorage.setItem('gs-nav',document.body.classList.contains('nav-collapsed')?'1':'0');
+    $('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
+    fit();
+  });
+  if($('#navToggle'))$('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
+}
+function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}return l}
+function sbForFrame(fid,sb){
+  const lines=(sb||'').split('\n').filter(x=>x.trim());
+  const id=fid.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  let hit=lines.filter(l=>l.includes('→ '+fid)||new RegExp('\\b'+id+'\\b').test(l));
+  if(!hit.length){const base=fid.split(/[-_]/)[0];hit=lines.filter(l=>/\→/.test(l)&&l.includes(base))}
+  return hit.length?hit.join('\n'):'No storyboard line matched this frame yet.';
+}
+function scriptBlocks(script){
+  let parts=script.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+  if(parts.length<=1&&script.includes('\n'))parts=script.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!parts.length)parts=['(Paste script above)'];
+  return parts;
+}
+function shareWords(a,b){
+  const tok=s=>new Set(s.toLowerCase().replace(/[^a-z0-9₹]+/g,' ').split(/\s+/).filter(w=>w.length>3));
+  const A=tok(a),B=tok(b);let n=0;A.forEach(w=>{if(B.has(w))n++});return n;
+}
+function scriptLines(script){return(script||'').split('\n').map(l=>l.replace(/\r$/,''))}
+function parseTimeFromSb(sb){const m=(sb||'').match(/~(\d+):(\d+)/);return m?+m[1]*60+ +m[2]:null}
+function frameTimestampSec(fid,storyboard){
+  const t=parseTimeFromSb(sbForFrame(fid,storyboard));
+  if(t!=null)return t;
+  const m=String(fid).match(/^(\d+)\.(\d+)/);
+  if(m)return parseInt(m[1],10)*60+parseInt(m[2],10);
+  return null;
+}
+function assignScriptRanges(script,frames,storyboard){
+  const lines=scriptLines(script);
+  const n=lines.length;
+  const out={ranges:{},lineToFrame:{}};
+  if(!frames.length||!n)return out;
+  const words=script.trim().split(/\s+/).filter(Boolean).length;
+  const duration=Math.max(words/(165/60),30);
+  const ordered=[...frames].map(fr=>({fr,t:frameTimestampSec(fr.id,storyboard)}))
+    .sort((a,b)=>(a.t??9999)-(b.t??9999));
+  for(let i=0;i<ordered.length;i++){
+    if(ordered[i].t!=null)continue;
+    ordered[i].t=i*duration/ordered.length;
+  }
+  const times=ordered.map(o=>o.t);
+  const lastT=times[times.length-1]??duration;
+  const graphicEnd=Math.min(n,Math.max(Math.ceil((lastT+Math.min(18,duration*0.12))/duration*n),1));
+  const starts=times.map(t=>Math.min(n-1,Math.max(0,Math.floor(t/duration*n))));
+  for(let i=1;i<starts.length;i++)starts[i]=Math.max(starts[i],starts[i-1]+1);
+  ordered.forEach(({fr},i)=>{
+    const start=starts[i];
+    const end=i<ordered.length-1?Math.max(starts[i+1],start+1):Math.max(start+1,graphicEnd);
+    const endClamped=Math.min(end,graphicEnd,n);
+    if(start>=endClamped)return;
+    out.ranges[fr.id]={start,end:endClamped,text:lines.slice(start,endClamped).join('\n').trim()};
+    for(let j=start;j<endClamped;j++)if(String(lines[j]).trim())out.lineToFrame[j]=fr.id;
+  });
+  return out;
+}
+function fullScriptHtml(script,assign){
+  const lines=scriptLines(script);
+  return lines.map((line,i)=>{
+    const fid=assign.lineToFrame[i];
+    const hl=fid?' hl-beat':'';
+    const on=fid&&fid===selectedFrameId?' on':'';
+    const prev=assign.lineToFrame[i-1];
+    const tag=fid&&fid!==prev?`<span class="line-tag">${frameLabel(fid)}</span>`:'';
+    const click=fid?` onclick="selectFrame('${esc(fid)}')"`:('');
+    return `<div class="script-line${hl}${on}" data-line="${i}"${click}>${tag}${line?esc(line):'&nbsp;'}</div>`;
+  }).join('');
+}
+function frameLabel(fid){const i=(P.spec?.frames||[]).findIndex(f=>f.id===fid);return 'G'+String(i+1).padStart(2,'0')}
+function lookForm(l){l=normLook(l);
+  const sel=(k,opts)=>`<select id="lk_${k}">${opts.map(o=>`<option ${l[k]==o?'selected':''}>${o}</option>`).join('')}</select>`;
+  const props=new Set(l.props||[]);
+  return `<div class="field-grid">
+  <div class="field"><label>Theme</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>
+  <div class="field"><label>Anchor side</label>${sel('anchor',['right','left'])}</div>
+  <div class="field"><label>FSS accent</label>${sel('fss',['blue','warm'])}</div>
+  <div class="field" style="grid-column:1/-1"><label>Topic prop</label><p class="hint" style="margin:0 0 6px;font-size:12px;color:var(--muted)">First checked icon is used as corner dressing (skill: one per video). OSA beats use buildings/people from the spec, not these icons.</p><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div>
+  <div class="field" style="grid-column:1/-1"><label>Anchor grab (optional)</label><input type="file" id="plate" accept="image/*" onchange="upPlate(this)"></div></div>`}
+const getLook=()=>{
+  const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
+  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,props,...(P.look?.plate?{plate:P.look.plate}:{})};
+};
+function getScriptValue(){return $('#script')?.value??P.script??''}
+function getNotesValue(){return $('#notes')?.value??''}
+function openScriptEdit(){
+  $('#scriptEditArea').value=P.script||'';
+  $('#scriptEditNotes').value=getNotesValue();
+  scriptEditDlg.showModal();
+}
+function saveScriptEdit(e){
+  e.preventDefault();
+  P.script=$('#scriptEditArea').value;
+  const notes=$('#scriptEditNotes').value;
+  let h=$('#script');if(!h){h=document.createElement('textarea');h.id='script';h.hidden=true;document.body.appendChild(h)}
+  h.value=P.script;
+  let n=$('#notes');if(!n){n=document.createElement('input');n.id='notes';n.type='hidden';document.body.appendChild(n)}
+  n.value=notes;
+  scriptEditDlg.close();
+  render();
+  return false;
+}
+function framesStudio(){
+  const frames=P.spec.frames;
+  const script=getScriptValue();
+  scriptAssign=assignScriptRanges(script,frames,P.storyboard);
+  if(!selectedFrameId||!frames.find(f=>f.id===selectedFrameId))selectedFrameId=frames[0]?.id;
+  const scriptHtml=fullScriptHtml(script,scriptAssign);
+  const chips=frames.map(fr=>`<button type="button" class="fchip ${fr.id===selectedFrameId?'on':''}" data-fid="${esc(fr.id)}" onclick="selectFrame('${esc(fr.id)}')">${frameLabel(fr.id)}</button>`).join('');
+  const fr=frames.find(f=>f.id===selectedFrameId)||frames[0];
+  const v=frameVer[fr.id]||0;
+  const sb=sbForFrame(fr.id,P.storyboard);
+  return `<div class="frames-studio">
+   <div class="studio-head"><div><div class="eyebrow">Frames</div><h2 class="studio-title">Generated frames</h2></div>
+    <div class="studio-head-actions">
+     <button type="button" class="ghost" onclick="openScriptEdit()">Edit script</button>
+     <button type="button" onclick="openAllPreview()">Preview all</button>
+     <button type="button" class="p" id="gen" onclick="gen()">Regenerate all</button></div></div>
+   <div id="layoutBanner" hidden></div>
+   <div class="studio-split">
+    <div><div class="panel-head"><span class="panel-label">Voiceover script</span>
+     <button type="button" class="ghost" onclick="openScriptEdit()">Edit script</button></div>
+     <div class="full-script" id="fullScript">${scriptHtml}</div>
+     <textarea id="script" hidden>${esc(script)}</textarea>
+     <input type="hidden" id="notes" value="${esc(getNotesValue())}"></div>
+    <div id="framePanel">
+     <div class="frame-chips">${chips}</div>
+     <div class="frame-meta">${frameLabel(fr.id)} · ${esc(fr.id)} · ${esc(fr.mode||'anchor')}</div>
+     <div class="frame-sb-line" id="frameSbLine">${esc(sb)}</div>
+     <div class="thumb-nav">
+      <button type="button" class="frame-arrow" id="framePrev" onclick="frameNav(-1)" aria-label="Previous frame">‹</button>
+      <div class="thumb" id="activeThumb"><div class="loader"><div class="spinner"></div><span>Updating frame…</span></div>
+       <iframe id="activeFrame" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>
+      <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
+     </div>
+     <div class="frame-actions">
+      <input id="frameAsk" placeholder="Ask Claude to change this frame…" onkeydown="if(event.key==='Enter')askFromInput()">
+      <button type="button" class="p" onclick="askFromInput()">Apply</button>
+      <button type="button" onclick="regenFrame()">Regenerate</button>
+      <button type="button" class="ghost" onclick="openJson('${esc(fr.id)}')">Edit JSON</button>
+     </div></div></div></div>`}
+function render(){
+  P.look=normLook(P.look);
+  const preSpec=`<h2 class="section">2 · Script</h2><div class="card"><div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
+   <div class="row" style="margin-bottom:0"><div class="field"><label>Notes</label><input id="notes" placeholder="e.g. include buildings for broker/RMS beats"></div>
+   <button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button></div></div>`;
+  $('#main').innerHTML=`<div class="toolbar"><h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
+   ${P.spec?`<button type="button" onclick="qa()" title="Run automatic layout checks on every frame">Check layout</button><button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export</button>`:''}
+   <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
+   <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
+  <h2 class="section">1 · Look</h2><div class="card">${lookForm(P.look)}${P.spec?`<div class="row" style="margin-bottom:0"><button type="button" onclick="applyLook()">Apply look to all frames</button></div>`:''}</div>
+  ${P.spec?framesStudio():preSpec}<div id="warns"></div>`;
+  fit();
+  updateFrameNavButtons();
+}
+function selectFrame(fid){
+  selectedFrameId=fid;
+  const fr=P.spec.frames.find(f=>f.id===fid);
+  if(!fr)return;
+  document.querySelectorAll('.script-line.hl-beat').forEach(el=>{
+    const line=+el.dataset.line;
+    el.classList.toggle('on',scriptAssign&&scriptAssign.lineToFrame[line]===fid);
+  });
+  document.querySelectorAll('.fchip').forEach(c=>c.classList.toggle('on',c.dataset.fid===fid));
+  const meta=$('#framePanel')?.querySelector('.frame-meta');
+  if(meta)meta.textContent=`${frameLabel(fid)} · ${fid} · ${fr.mode||'anchor'}`;
+  const sbEl=$('#frameSbLine');if(sbEl)sbEl.textContent=sbForFrame(fid,P.storyboard);
+  const v=frameVer[fid]||0;
+  const ifr=$('#activeFrame');
+  if(ifr)ifr.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${v}`;
+  updateFrameNavButtons();
+  fitOne($('#activeThumb'));
+}
+function updateFrameNavButtons(){
+  const frames=P?.spec?.frames||[];
+  const i=frames.findIndex(f=>f.id===selectedFrameId);
+  const prev=$('#framePrev'),next=$('#frameNext');
+  if(prev)prev.disabled=i<=0;
+  if(next)next.disabled=i<0||i>=frames.length-1;
+}
+function frameNav(delta){
+  const frames=P?.spec?.frames;
+  if(!frames?.length)return;
+  let i=frames.findIndex(f=>f.id===selectedFrameId);
+  if(i<0)i=0;
+  i=Math.max(0,Math.min(frames.length-1,i+delta));
+  if(frames[i].id!==selectedFrameId)selectFrame(frames[i].id);
+}
+function openAllPreview(){
+  const grid=$('#allGrid');
+  if(!grid||!P.spec)return;
+  grid.innerHTML=P.spec.frames.map(fr=>{
+    const v=frameVer[fr.id]||0;
+    return `<div class="mini-card" data-fid="${esc(fr.id)}" onclick="pickFromGrid('${esc(fr.id)}')"><div class="mini-thumb">
+     <iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>
+     <div class="mini-label">${frameLabel(fr.id)} · ${esc(fr.id)}</div></div>`;
+  }).join('');
+  allFramesDlg.showModal();
+  requestAnimationFrame(()=>document.querySelectorAll('.mini-thumb').forEach(fitOne));
+}
+function pickFromGrid(fid){allFramesDlg.close();selectFrame(fid)}
+function setFrameLoading(on){$('#framePanel')?.classList.toggle('is-loading',on)}
+function setWorkspaceLoading(on,msg){
+  let el=$('#wsLoader');if(!el){el=document.createElement('div');el.id='wsLoader';el.className='ws-loader';el.innerHTML='<div class="spinner"></div><span class="msg"></span>';$('#main').appendChild(el)}
+  el.hidden=!on;if(on)el.querySelector('.msg').textContent=msg||'Working…'}
+function bumpFrame(fid){
+  frameVer[fid]=(frameVer[fid]||0)+1;
+  if(selectedFrameId===fid){const ifr=$('#activeFrame');if(ifr)ifr.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${frameVer[fid]}`;fitOne($('#activeThumb'))}
+  const mini=document.querySelector(`.mini-card[data-fid="${CSS.escape(fid)}"] iframe`);
+  if(mini)mini.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${frameVer[fid]}`;
+}
+function fitOne(t){if(!t)return;const s=t.clientWidth/1920;const f=t.querySelector('iframe');if(f)f.style.transform=`scale(${s})`}
+function fit(){fitOne($('#activeThumb'));document.querySelectorAll('.mini-thumb').forEach(fitOne)}
+addEventListener('resize',fit);
+function closeToolModal(){toolModalFn=null;toolModal.close()}
+function openToolModal({title,message,placeholder,value='',okLabel,requireInput=true,okClass='p',onSubmit}){
+  $('#toolModalTitle').textContent=title;
+  const msg=$('#toolModalMsg'),inp=$('#toolModalInput'),ok=$('#toolModalOk');
+  if(message){msg.textContent=message;msg.hidden=false}else{msg.hidden=true}
+  inp.placeholder=placeholder||'';
+  inp.value=value;
+  inp.hidden=!requireInput;
+  inp.required=requireInput;
+  ok.textContent=okLabel||'OK';
+  ok.className=okClass;
+  toolModalFn=onSubmit;
+  toolModal.showModal();
+  if(requireInput){inp.focus();if(value)inp.select()}
+}
+function submitToolModal(e){
+  e.preventDefault();
+  const fn=toolModalFn;if(!fn)return closeToolModal(),false;
+  const inp=$('#toolModalInput');
+  Promise.resolve(fn(inp.hidden?'':inp.value.trim())).then(()=>closeToolModal()).catch(err=>alert(err.message||err));
+  return false;
+}
+async function list(){
+  const ps=await api('/api/projects?_='+Date.now());
+  const el=$('#plist');
+  if(!el)return;
+  el.innerHTML=ps.length?ps.map(p=>`<div class="proj ${P&&P.id==p.id?'on':''}" data-pid="${p.id}" role="button" tabindex="0"><b>${esc(p.name)}</b><small>${esc(p.theme)}</small></div>`).join(''):'<p class="muted" style="font-size:13px">No projects yet</p>';
+}
+function bindProjectList(){
+  $('#plist')?.addEventListener('click',e=>{
+    const row=e.target.closest('.proj[data-pid]');
+    if(row)open_(+row.dataset.pid);
+  });
+}
+function newProject(){
+  openToolModal({title:'New video',placeholder:'Video name',okLabel:'Create',onSubmit:async name=>{
+    if(!name)throw new Error('Enter a name');
+    const p=await api('/api/projects',{method:'POST',body:JSON.stringify({name,theme:themes[0],look:{props:[...DEFAULT_PROPS]}})});
+    await open_(p.id);
+    await list();
+  }});
+}
+async function open_(id){P=await api('/api/projects/'+id);P.look=normLook(P.look);selectedFrameId=null;await list();render()}
+function renameProject(){if(!P)return;
+  openToolModal({title:'Rename project',value:P.name,okLabel:'Save',onSubmit:async name=>{
+    if(!name||name===P.name)return;
+    P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({name,note:'rename'})});
+    render();list();
+  }});
+}
+function deleteProject(){if(!P)return;
+  openToolModal({title:'Delete project',message:'Delete “'+P.name+'”? This cannot be undone.',requireInput:false,okLabel:'Delete',okClass:'p danger',onSubmit:async()=>{
+    await api('/api/projects/'+P.id+'/delete',{method:'POST'});
+    P=null;selectedFrameId=null;frameVer={};
+    $('#main').innerHTML='<p class="empty">Pick a video on the left, or start a new one.</p>';
+    list();
+  }});
+}
+async function gen(){const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding… (1–2 min)');
+ try{P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
+async function askFrame(fid,ask){
+ if(!ask?.trim()){alert('Type a change for this frame first.');return}
+ if(!fid||!P?.spec){alert('No frame selected.');return}
+ setFrameLoading(true);
+ try{
+  const updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask})});
+  const i=P.spec.frames.findIndex(f=>f.id===fid);
+  if(i>=0)P.spec.frames[i]=updated;
+  bumpFrame(fid);
+  const inp=$('#frameAsk');if(inp)inp.value='';
+ }catch(e){alert(e.message)}finally{setFrameLoading(false)}}
+function askFromInput(){const inp=$('#frameAsk');if(!selectedFrameId)return;askFrame(selectedFrameId,inp?.value||'')}
+async function regenFrame(){
+ if(!selectedFrameId)return;
+ await askFrame(selectedFrameId,'Regenerate with full kit visuals: include relevant assets from INDEX (buildings, bank, people) for this beat; same frame id and storyboard intent.')}
+async function applyLook(){P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look:getLook(),theme:$('#theme').value,note:'look'})});P.look=normLook(P.look);P.spec.frames.forEach(fr=>bumpFrame(fr.id))}
+async function upPlate(i){const fd=new FormData();fd.append('file',i.files[0]);const r=await fetch(`/api/projects/${P.id}/plate`,{method:'POST',body:fd});if(!r.ok)return alert(await r.text());P=await r.json();render()}
+function openJson(fid){const fr=P.spec.frames.find(f=>f.id==fid);$('#dlgTitle').textContent='Frame '+fid;$('#dlgJson').value=JSON.stringify(fr,null,1);$('#dlgJson').dataset.fid=fid;dlg.showModal()}
+async function saveJson(){let fr;try{fr=JSON.parse($('#dlgJson').value)}catch(e){return alert('JSON error: '+e.message)}
+ const fid=$('#dlgJson').dataset.fid;P.spec.frames[P.spec.frames.findIndex(f=>f.id==fid)]=fr;
+ setFrameLoading(true);try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'json '+fr.id})});dlg.close();bumpFrame(fid)}catch(e){alert(e.message)}finally{setFrameLoading(false)}}
+async function undo(){P=await api(`/api/projects/${P.id}/undo`,{method:'POST'});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render()}
+function setLayoutBanner(kind,msg){
+  const el=$('#layoutBanner');
+  if(!el){$('#warns').innerHTML=`<div class="layout-banner ${kind}">${esc(msg)}</div>`;return}
+  el.hidden=false;el.className='layout-banner '+kind;el.textContent=msg;
+}
+async function qa(){
+  setLayoutBanner('busy','Running layout checks (anchor overlap, off-frame, palette, headings)…');
+  try{
+    const w=await api(`/api/projects/${P.id}/check`);
+    if(!w.length)setLayoutBanner('ok','✓ No layout warnings on any frame.');
+    else setLayoutBanner('bad',w.join('\n'));
+  }catch(e){setLayoutBanner('bad',e.message)}
+}
+function exp(){location.href=`/api/projects/${P.id}/export?png=1`}
+initNav();
+bindProjectList();
+(async()=>{themes=await api('/api/themes');await list()})();
+</script></body></html>
