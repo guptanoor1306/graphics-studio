@@ -11,7 +11,6 @@ services:
         sync: false
       - key: STUDIO_URL
         sync: false
-    disk:
-      name: graphics-studio-data
-      mountPath: /app/data
-      sizeGB: 1
+# Persistent disk requires a paid Render plan. On free tier, projects live in
+# ephemeral storage and reset on redeploy. Upgrade the service and add:
+#   disk: { name: graphics-studio-data, mountPath: /app/data, sizeGB: 1 }

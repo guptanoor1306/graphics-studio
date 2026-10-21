@@ -6,8 +6,8 @@
 3. **Environment variables:**
    - `ANTHROPIC_API_KEY` — required
    - `STUDIO_URL` — your service URL, e.g. `https://graphics-studio-xxxx.onrender.com` (set after first deploy; needed for Export / Check layout)
-4. Blueprint mounts a **1 GB disk** at `/app/data` for SQLite projects.
+4. **Storage on free tier:** SQLite uses `/app/data` inside the container — **projects are lost on redeploy/restart**. Fine for demos; for a shared team, upgrade the Render service and add a **disk** mounted at `/app/data` (see comment in `render.yaml`), or switch to Postgres later.
 
-No login: anyone with the URL shares projects (`anonymous` in history). Same as local/Railway.
+No login: anyone with the URL shares projects (`anonymous` in history).
 
 **Note:** Free tier may spin down when idle; first request after sleep can be slow. Playwright is in the Docker image for export.
