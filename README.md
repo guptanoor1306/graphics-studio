@@ -34,7 +34,7 @@ Docker: `docker build -t graphics-studio . && docker run -p 8000:8000 -e ANTHROP
 
 ## Production checklist
 - **Auth:** put it behind your SSO / reverse proxy (Google IAP, Cloudflare Access, oauth2-proxy). The app records the user from the `X-User-Email` header for history.
-- **Database:** SQLite in `data/` is fine for a small team. For more, swap `db()` in app.py for Postgres (same two tables).
+- **Database:** Local = SQLite in `data/`. Render = set **`DATABASE_URL`** (Blueprint includes Postgres); see [RENDER.md](RENDER.md).
 - **Uploaded anchor plates** are written into `themes/<theme>/assets/plates/user_<id>.png`. Mount `themes/` on a persistent volume or move uploads to S3.
 - **Spend:** watch Anthropic usage per key. One storyboard is a single call (cached rules ~4k tokens + script in, spec out). An edit is a small call with only one frame's JSON.
 

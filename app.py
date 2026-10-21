@@ -5,7 +5,7 @@ Run:  copy .env.example to .env, set ANTHROPIC_API_KEY, then uvicorn app:app --h
 A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.md, templates/, assets/, scripts/build.py).
 Add a channel by dropping in another kit folder; nothing else changes.
 """
-import importlib.util, json, os, pathlib, sqlite3, time, asyncio
+import importlib.util, json, os, pathlib, time, asyncio
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse, Response, FileResponse
@@ -16,26 +16,29 @@ load_dotenv(ROOT / ".env")
 import copy
 
 import claude_client, exporter, spec_enrich
+from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
-DB = ROOT / "data" / "studio.db"
 SELF_URL = os.environ.get("STUDIO_URL", "http://127.0.0.1:8000")
 app = FastAPI(title="Graphics Studio")
 app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
 
-# ------------------------------------------------------------------ storage (SQLite; swap for Postgres in prod)
-def db():
-    DB.parent.mkdir(exist_ok=True)
-    c = sqlite3.connect(DB); c.row_factory = sqlite3.Row
-    c.executescript("""create table if not exists projects(id integer primary key, name text, theme text, script text,
-        look text, storyboard text, spec text, updated_by text, updated_at real);
-        create table if not exists versions(id integer primary key, project_id int, spec text, storyboard text,
-        author text, note text, ts real);""")
-    return c
+
+@app.middleware("http")
+async def api_no_cache(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 def load(pid):
-    r = db().execute("select * from projects where id=?", (pid,)).fetchone()
-    if not r: raise HTTPException(404, "project not found")
-    d = dict(r); d["look"] = json.loads(d["look"] or "{}"); d["spec"] = json.loads(d["spec"] or "null")
+    with connect() as c:
+        r = c.execute("select * from projects where id=?", (pid,)).fetchone()
+    if not r:
+        raise HTTPException(404, "project not found")
+    d = dict(r)
+    d["look"] = json.loads(d["look"] or "{}")
+    d["spec"] = json.loads(d["spec"] or "null")
     return d
 
 
@@ -49,17 +52,29 @@ def effective_look(p: dict) -> dict:
         out.pop("prop", None)
     return out
 
-def save(pid, author, note, **fields):
-    c = db(); cur = load(pid)
-    if "spec" in fields or "storyboard" in fields:   # keep a version for undo / history
-        c.execute("insert into versions(project_id,spec,storyboard,author,note,ts) values(?,?,?,?,?,?)",
-                  (pid, json.dumps(cur["spec"]), cur["storyboard"], author, note, time.time()))
-    for k in ("look", "spec"):
-        if k in fields: fields[k] = json.dumps(fields[k], ensure_ascii=False)
-    fields.update(updated_by=author, updated_at=time.time())
-    c.execute(f"update projects set {', '.join(f'{k}=?' for k in fields)} where id=?", (*fields.values(), pid)); c.commit()
 
-def who(req: Request):  # put the app behind your SSO proxy; it forwards the user's email in this header
+def save(pid, author, note, **fields):
+    with connect() as c:
+        cur = c.execute("select spec, storyboard from projects where id=?", (pid,)).fetchone()
+        if not cur:
+            raise HTTPException(404, "project not found")
+        if "spec" in fields or "storyboard" in fields:
+            c.execute(
+                "insert into versions(project_id,spec,storyboard,author,note,ts) values(?,?,?,?,?,?)",
+                (pid, cur.get("spec"), cur.get("storyboard"), author, note, time.time()),
+            )
+        for k in ("look", "spec"):
+            if k in fields:
+                fields[k] = json.dumps(fields[k], ensure_ascii=False)
+        fields.update(updated_by=author, updated_at=time.time())
+        c.execute(
+            f"update projects set {', '.join(f'{k}=?' for k in fields)} where id=?",
+            (*fields.values(), pid),
+        )
+        c.commit()
+
+
+def who(req: Request):
     return req.headers.get("x-user-email") or req.headers.get("x-forwarded-user") or "anonymous"
 
 
@@ -86,7 +101,6 @@ def builder(theme):
     return _mods[theme]
 
 def frame_for_render(p: dict, frame: dict) -> dict:
-    """Apply kit enrichments at render time (fixes legacy text-only specs without re-generating)."""
     f = copy.deepcopy(frame)
     spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "")
     return f
@@ -126,31 +140,53 @@ def claude_key_clear():
 @app.get("/api/themes")
 def themes(): return sorted(p.name for p in THEMES.iterdir() if (p / "SKILL.md").exists())
 
+
+@app.get("/api/status")
+def status():
+    import socket
+    with connect() as c:
+        n = c.execute("select count(*) as n from projects").fetchone()["n"]
+    out = {
+        "project_count": n,
+        "backend": backend(),
+        "host": socket.gethostname(),
+    }
+    if backend() == "sqlite":
+        out["db_path"] = str(SQLITE_PATH)
+        out["db_mtime"] = SQLITE_PATH.stat().st_mtime if SQLITE_PATH.exists() else None
+    else:
+        out["db_path"] = "postgres (DATABASE_URL)"
+    return out
+
+
 @app.get("/api/projects")
 def projects():
-    return [dict(r) for r in db().execute("select id,name,theme,updated_by,updated_at from projects order by updated_at desc")]
+    with connect() as c:
+        return c.execute("select id,name,theme,updated_by,updated_at from projects order by updated_at desc").fetchall()
 
 _DEFAULT_LOOK = {"anchor": "right", "fss": "blue", "props": ["coins"]}
 
 @app.post("/api/projects")
 async def create(req: Request):
-    b = await req.json(); c = db()
+    b = await req.json()
     look = {**_DEFAULT_LOOK, **(b.get("look") or {})}
-    cur = c.execute("insert into projects(name,theme,script,look,updated_by,updated_at) values(?,?,?,?,?,?)",
-                    (b["name"], b.get("theme", "varsity-english"), b.get("script", ""), json.dumps(look), who(req), time.time()))
-    c.commit(); return load(cur.lastrowid)
+    pid = insert_project(
+        b["name"], b.get("theme", "varsity-english"), b.get("script", ""),
+        json.dumps(look), who(req), time.time(),
+    )
+    return load(pid)
 
 @app.get("/api/projects/{pid}")
 def get(pid: int): return load(pid)
 
 
 def _delete_project(pid: int) -> dict:
-    c = db()
-    if not c.execute("select id from projects where id=?", (pid,)).fetchone():
-        raise HTTPException(404, "project not found")
-    c.execute("delete from versions where project_id=?", (pid,))
-    c.execute("delete from projects where id=?", (pid,))
-    c.commit()
+    with connect() as c:
+        if not c.execute("select id from projects where id=?", (pid,)).fetchone():
+            raise HTTPException(404, "project not found")
+        c.execute("delete from versions where project_id=?", (pid,))
+        c.execute("delete from projects where id=?", (pid,))
+        c.commit()
     return {"ok": True}
 
 
@@ -161,7 +197,6 @@ def delete_project(pid: int):
 
 @app.post("/api/projects/{pid}/delete")
 def delete_project_post(pid: int):
-    """Same as DELETE (some proxies / old app builds only registered GET on this path)."""
     return _delete_project(pid)
 
 
@@ -182,9 +217,8 @@ async def make_storyboard(pid: int, req: Request):
 
 @app.put("/api/projects/{pid}")
 async def update(pid: int, req: Request):
-    """Manual edits from the UI: storyboard text, whole spec, look/theme switches."""
     b = await req.json(); fields = {k: b[k] for k in ("name", "storyboard", "spec", "look", "theme", "script") if k in b}
-    if "look" in fields:   # a theme switch applies to every frame
+    if "look" in fields:
         p = load(pid); spec = fields.get("spec") or p["spec"]
         if spec:
             merged = effective_look({**p, "look": fields["look"], "spec": spec})
@@ -207,18 +241,22 @@ async def edit(pid: int, fid: str, req: Request):
 
 @app.post("/api/projects/{pid}/undo")
 def undo(pid: int, req: Request):
-    c = db(); v = c.execute("select * from versions where project_id=? order by id desc limit 1", (pid,)).fetchone()
-    if not v: raise HTTPException(400, "nothing to undo")
-    c.execute("update projects set spec=?, storyboard=? where id=?", (v["spec"], v["storyboard"], pid))
-    c.execute("delete from versions where id=?", (v["id"],)); c.commit(); return load(pid)
+    with connect() as c:
+        v = c.execute("select * from versions where project_id=? order by id desc limit 1", (pid,)).fetchone()
+        if not v:
+            raise HTTPException(400, "nothing to undo")
+        c.execute("update projects set spec=?, storyboard=? where id=?", (v["spec"], v["storyboard"], pid))
+        c.execute("delete from versions where id=?", (v["id"],))
+        c.commit()
+    return load(pid)
 
 @app.get("/api/projects/{pid}/history")
 def history(pid: int):
-    return [dict(r) for r in db().execute("select id,author,note,ts from versions where project_id=? order by id desc limit 50", (pid,))]
+    with connect() as c:
+        return c.execute("select id,author,note,ts from versions where project_id=? order by id desc limit 50", (pid,)).fetchall()
 
 @app.post("/api/projects/{pid}/plate")
 async def plate(pid: int, req: Request, file: UploadFile = File(...)):
-    """Upload a frame grab of the anchor shot; it becomes this project's anchor plate."""
     from PIL import Image
     import io
     p = load(pid); name = f"user_{pid}"
@@ -235,7 +273,6 @@ def preview(pid: int, fid: str):
 
 @app.get("/api/projects/{pid}/check")
 async def check(pid: int):
-    """Run the theme's automatic layout checks (anchor overlap, off-frame, colours...) on every frame."""
     from playwright.async_api import async_playwright
     p = load(pid); m = builder(p["theme"]); warns = []
     async with async_playwright() as pw:

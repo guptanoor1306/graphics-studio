@@ -5,3 +5,4 @@ anthropic>=1.17
 python-multipart>=0.0.9
 playwright>=1.44
 pillow>=10
+psycopg[binary]>=3.1

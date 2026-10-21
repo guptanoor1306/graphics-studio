@@ -1,13 +1,17 @@
 # Deploy on Render (no auth)
 
-1. Push this repo to GitHub (`guptanoor1306/graphics-studio`).
-2. [Render](https://render.com) → **New** → **Blueprint** → connect the repo (uses `render.yaml`),  
-   **or** **New Web Service** → Docker, root `Dockerfile`.
-3. **Environment variables:**
+1. Push this repo to GitHub.
+2. Render → **New** → **Blueprint** → connect `graphics-studio` (uses `render.yaml`).
+3. **Environment variables** (Blueprint sets `DATABASE_URL` from Postgres automatically):
    - `ANTHROPIC_API_KEY` — required
-   - `STUDIO_URL` — your service URL, e.g. `https://graphics-studio-xxxx.onrender.com` (set after first deploy; needed for Export / Check layout)
-4. **Storage on free tier:** SQLite uses `/app/data` inside the container — **projects are lost on redeploy/restart**. Fine for demos; for a shared team, upgrade the Render service and add a **disk** mounted at `/app/data` (see comment in `render.yaml`), or switch to Postgres later.
+   - `STUDIO_URL` — your public URL, e.g. `https://graphics-studio-xxxx.onrender.com` (after **Generate domain**)
+4. Redeploy after setting `STUDIO_URL`.
 
-No login: anyone with the URL shares projects (`anonymous` in history).
+**Projects** are stored in **Render Postgres** (shared for everyone on that URL; survives redeploys).  
+**Themes** stay in the Docker image. Custom **anchor plate uploads** still write to the container filesystem (may reset on redeploy unless you add a disk later).
 
-**Note:** Free tier may spin down when idle; first request after sleep can be slow. Playwright is in the Docker image for export.
+**Local dev:** no `DATABASE_URL` → SQLite in `data/studio.db`.
+
+**Existing Render web service (no Blueprint):** create a **PostgreSQL** instance on Render, copy **Internal Database URL** into the web service as `DATABASE_URL`, redeploy.
+
+Check sync: `/api/status` should show `"backend": "postgres"` and the same `project_count` for all teammates.
