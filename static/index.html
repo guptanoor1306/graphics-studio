@@ -135,10 +135,19 @@ dialog#canvasEditDlg{width:min(1120px,96vw);max-height:94vh;border:0;border-radi
 dialog#canvasEditDlg .canvas-edit-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
 dialog#canvasEditDlg .canvas-edit-head b{flex:1;font-size:17px}
 dialog#canvasEditDlg .canvas-edit-in{padding:0 20px 20px}
-dialog#canvasEditDlg .canvas-edit-hint{margin:0 0 10px;font-size:12px;color:var(--mute)}
+dialog#canvasEditDlg .canvas-edit-body{display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:16px;align-items:start}
+dialog#canvasEditDlg .canvas-layer-panel{border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;max-height:min(62vh,520px);overflow:auto}
+dialog#canvasEditDlg .canvas-layer-panel h3{margin:0;padding:12px 14px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);border-bottom:1px solid var(--line)}
+dialog#canvasEditDlg .canvas-layer-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:12px}
+dialog#canvasEditDlg .canvas-layer-row:last-child{border-bottom:0}
+dialog#canvasEditDlg .canvas-layer-row .cl-name{flex:1;min-width:0;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog#canvasEditDlg .canvas-layer-row .cl-actions{display:flex;gap:4px;flex-shrink:0}
+dialog#canvasEditDlg .canvas-layer-row button{min-width:28px;height:28px;padding:0 6px;font-size:13px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer}
+dialog#canvasEditDlg .canvas-layer-row button:hover{border-color:var(--acc);color:var(--acc)}
 dialog#canvasEditDlg .canvas-edit-viewport{position:relative;width:100%;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
 dialog#canvasEditDlg .canvas-edit-scale{transform-origin:0 0;width:1920px;height:1080px}
 dialog#canvasEditDlg .canvas-edit-scale iframe{display:block;width:1920px;height:1080px;border:0;pointer-events:auto}
+@media (max-width:720px){dialog#canvasEditDlg .canvas-edit-body{grid-template-columns:1fr}}
 @media (max-width:960px){
   body,body.nav-collapsed{grid-template-columns:1fr;height:auto}
   aside{max-height:36vh}
@@ -182,8 +191,10 @@ dialog#canvasEditDlg .canvas-edit-scale iframe{display:block;width:1920px;height
     <button type="button" class="ghost" onclick="makeSelectedFrameAnchor()">Anchor</button>
     <button type="button" class="ghost" onclick="canvasEditDlg.close()">Close</button>
   </div></div>
-  <div class="canvas-edit-in"><p class="canvas-edit-hint">Hover any element — use ✎ edit, ↻ replace, or × remove. Replace can use the Reference file on the frame panel.</p>
-  <div class="canvas-edit-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div></div></dialog>
+  <div class="canvas-edit-in"><div class="canvas-edit-body">
+   <aside class="canvas-layer-panel"><h3>Layers</h3><div id="canvasLayerList"></div></aside>
+   <div class="canvas-edit-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div>
+  </div></div></dialog>
 <script>
 let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null;
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
@@ -536,9 +547,30 @@ function canvasEditUrl(){
  const v=frameVer[selectedFrameId]||0;
  return `/preview/${P.id}/${encodeURIComponent(selectedFrameId)}?edit=1&v=${v}`;
 }
+function layerRowLabel(it,idx){
+ if(!it||typeof it!=='object')return 'layer '+idx;
+ const t=it.t||'?';
+ if(t==='asset')return t+': '+(it.src||'').split('/').pop();
+ if(t==='person')return 'person: '+(it.name||'—');
+ const tx=it.text||it.title||it.key||(it.items&&it.items[0])||'';
+ return t+(tx?': '+String(tx).slice(0,36):'');
+}
+function renderCanvasLayerList(){
+ const list=$('#canvasLayerList');
+ if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
+ const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
+ const items=fr?.items||[];
+ list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span><span class="cl-actions"><button type="button" title="Edit" onclick="canvasLayerAction(${i},'edit')">✎</button><button type="button" title="Replace" onclick="canvasLayerAction(${i},'replace')">↻</button><button type="button" title="Delete" onclick="canvasLayerAction(${i},'delete')">×</button></span></div>`).join(''):'<p style="padding:12px;margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
+}
+async function canvasLayerAction(idx,action){
+ if(action==='delete'){if(!confirm('Remove this layer?'))return;await deleteFrameItem(idx);renderCanvasLayerList();return}
+ await handleStudioEdit({action,idx});
+ renderCanvasLayerList();
+}
 function openCanvasEdit(){
  if(!selectedFrameId||!P?.spec)return;
  $('#canvasEditTitle').textContent='Edit · '+frameLabel(selectedFrameId);
+ renderCanvasLayerList();
  const ifr=$('#canvasEditFrame');
  ifr.onload=()=>{fitCanvasEdit();ifr.onload=null};
  ifr.src=canvasEditUrl();
@@ -568,7 +600,7 @@ async function deleteFrameItem(idx){
  fr.items.splice(idx,1);
  P.spec.frames[i]=fr;
  setFrameLoading(true);
- try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});refreshCanvasEdit()}catch(e){alert(e.message)}finally{setFrameLoading(false)}
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});refreshCanvasEdit();renderCanvasLayerList()}catch(e){alert(e.message)}finally{setFrameLoading(false)}
 }
 async function handleStudioEdit(msg){
  if(!selectedFrameId||!P?.spec)return;
@@ -584,6 +616,7 @@ async function handleStudioEdit(msg){
  try{
   await askFrame(selectedFrameId,ask.trim(),{itemIndex:idx});
   refreshCanvasEdit();
+  renderCanvasLayerList();
  }catch(e){alert(e.message)}finally{setFrameLoading(false)}
 }
 async function patchSelectedFrameMode(mode){

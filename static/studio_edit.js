@@ -1,98 +1,71 @@
 (function () {
-  const bar = document.createElement("div");
-  bar.className = "studio-layer-bar";
-  bar.hidden = true;
-  bar.innerHTML =
-    '<button type="button" data-act="edit" title="Edit text / style">✎</button>' +
-    '<button type="button" data-act="replace" title="Replace (kit or reference)">↻</button>' +
-    '<button type="button" data-act="delete" title="Remove">×</button>';
-  document.body.appendChild(bar);
+  const overlay = document.createElement("div");
+  overlay.id = "studio-overlay";
+  overlay.setAttribute("aria-hidden", "true");
+  document.body.appendChild(overlay);
 
-  let hoverEl = null;
-  let idx = null;
-
-  function send(action) {
+  function send(action, idx) {
     if (idx == null || Number.isNaN(idx)) return;
     window.parent.postMessage({ studio: "edit", action, idx }, "*");
   }
 
-  function positionBar(el) {
-    const r = el.getBoundingClientRect();
-    bar.hidden = false;
-    const bw = bar.offsetWidth || 120;
-    let left = r.left + r.width / 2 - bw / 2;
-    let top = r.top - 48;
-    if (top < 8) top = r.bottom + 8;
-    left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
-    bar.style.left = left + "px";
-    bar.style.top = top + "px";
+  function chip(label, idx) {
+    const el = document.createElement("div");
+    el.className = "studio-chip";
+    el.innerHTML =
+      '<span class="studio-chip-label">' +
+      label +
+      '</span><span class="studio-chip-actions">' +
+      '<button type="button" data-act="edit" title="Edit">✎</button>' +
+      '<button type="button" data-act="replace" title="Replace">↻</button>' +
+      '<button type="button" data-act="delete" title="Remove">×</button></span>';
+    el.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        send(btn.dataset.act, idx);
+      });
+    });
+    return el;
   }
 
-  function clearHover() {
-    if (hoverEl) hoverEl.classList.remove("studio-hover");
-    hoverEl = null;
-    idx = null;
-    bar.hidden = true;
+  function labelFor(el, idx) {
+    const t = el.dataset.layerType || el.getAttribute("data-layer-type") || "layer";
+    const short = el.dataset.layerLabel || "";
+    return short ? t + " · " + short : t + " #" + (idx + 1);
   }
 
-  function activate(el) {
-    if (!el || el === hoverEl) return;
-    if (hoverEl) hoverEl.classList.remove("studio-hover");
-    hoverEl = el;
-    idx = parseInt(el.dataset.specIdx, 10);
-    el.classList.add("studio-hover");
-    positionBar(el);
+  function placeChips() {
+    overlay.innerHTML = "";
+    const layers = [...document.querySelectorAll("[data-spec-idx]")];
+    if (!layers.length) {
+      const empty = document.createElement("div");
+      empty.className = "studio-edit-empty";
+      empty.textContent = "No tagged layers in this preview — use the Layers list on the left.";
+      overlay.appendChild(empty);
+      return;
+    }
+    layers.forEach((el) => {
+      const idx = parseInt(el.dataset.specIdx, 10);
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 && r.height < 2) return;
+      const c = chip(labelFor(el, idx), idx);
+      let top = r.top - 4;
+      let left = r.left;
+      if (top < 4) top = r.bottom + 4;
+      if (left + 160 > window.innerWidth) left = window.innerWidth - 168;
+      c.style.top = top + "px";
+      c.style.left = Math.max(4, left) + "px";
+      overlay.appendChild(c);
+    });
   }
-
-  bar.addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-act]");
-    if (!btn) return;
-    e.stopPropagation();
-    e.preventDefault();
-    send(btn.dataset.act);
-  });
-
-  document.addEventListener(
-    "mouseover",
-    (e) => {
-      const el = e.target.closest("[data-spec-idx]");
-      if (el) activate(el);
-    },
-    true
-  );
-
-  document.addEventListener(
-    "mouseout",
-    (e) => {
-      if (!hoverEl) return;
-      const from = e.target.closest("[data-spec-idx]");
-      if (from !== hoverEl) return;
-      const rel = e.relatedTarget;
-      if (rel && (hoverEl.contains(rel) || bar.contains(rel))) return;
-      clearHover();
-    },
-    true
-  );
-
-  bar.addEventListener("mouseleave", (ev) => {
-    if (hoverEl && ev.relatedTarget && hoverEl.contains(ev.relatedTarget)) return;
-    if (ev.relatedTarget && bar.contains(ev.relatedTarget)) return;
-    clearHover();
-  });
-
-  window.addEventListener("scroll", () => {
-    if (hoverEl) positionBar(hoverEl);
-  });
 
   function boot() {
-    const n = document.querySelectorAll("[data-spec-idx]").length;
-    if (!n) {
-      const tip = document.createElement("div");
-      tip.className = "studio-edit-empty";
-      tip.textContent =
-        "No editable layers found — regenerate the frame or use Apply on the frame panel.";
-      document.body.appendChild(tip);
-    }
+    placeChips();
+    window.addEventListener("resize", placeChips);
+    window.addEventListener("scroll", placeChips, true);
+    setTimeout(placeChips, 400);
+    setTimeout(placeChips, 1200);
   }
 
   if (document.readyState === "loading") {

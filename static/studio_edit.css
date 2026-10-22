@@ -1,47 +1,60 @@
-body.studio-edit-mode { cursor: crosshair; }
-.studio-editable { position: relative; transition: outline 0.12s ease, box-shadow 0.12s ease; pointer-events: auto; }
-.studio-editable.studio-hover,
-[data-spec-idx].studio-hover {
-  outline: 3px solid #248ef7 !important;
-  outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(36, 142, 247, 0.35) !important;
-  z-index: 100 !important;
+body.studio-edit-mode { cursor: default; }
+.studio-edit-mode [data-spec-idx] {
+  outline: 2px dashed rgba(36, 142, 247, 0.85) !important;
+  outline-offset: 2px;
 }
+#studio-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99990;
+}
+.studio-chip {
+  position: fixed;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 8px;
+  background: rgba(26, 25, 23, 0.94);
+  color: #fff;
+  border-radius: 8px;
+  font: 11px/1.2 system-ui, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  max-width: 220px;
+}
+.studio-chip-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.studio-chip-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.studio-chip-actions button {
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.studio-chip-actions button:hover { background: rgba(255, 255, 255, 0.28); }
+.studio-chip-actions button[data-act="delete"]:hover { background: rgba(224, 70, 58, 0.55); }
 .studio-edit-empty {
   position: fixed;
   left: 50%;
-  top: 12px;
+  top: 16px;
   transform: translateX(-50%);
-  z-index: 9998;
-  padding: 8px 14px;
-  background: rgba(224, 70, 58, 0.92);
+  pointer-events: auto;
+  padding: 10px 16px;
+  background: rgba(36, 142, 247, 0.95);
   color: #fff;
   border-radius: 8px;
-  font: 14px/1.4 system-ui, sans-serif;
-  max-width: 90%;
+  font: 13px/1.4 system-ui, sans-serif;
+  max-width: 92%;
   text-align: center;
 }
-.studio-layer-bar {
-  position: fixed;
-  z-index: 9999;
-  display: flex;
-  gap: 4px;
-  padding: 4px 6px;
-  background: rgba(26, 25, 23, 0.92);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  pointer-events: auto;
-}
-.studio-layer-bar button {
-  border: 0;
-  background: transparent;
-  color: #fff;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-.studio-layer-bar button:hover { background: rgba(255, 255, 255, 0.15); }
-.studio-layer-bar button[data-act="delete"]:hover { background: rgba(224, 70, 58, 0.45); }
