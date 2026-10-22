@@ -117,7 +117,8 @@ def builder(theme):
         spec.loader.exec_module(m); _mods[theme] = m
     return _mods[theme]
 
-def frame_for_render(p: dict, frame: dict, *, enrich: bool = True) -> dict:
+def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
+    """Return frame JSON for preview/export. Enrich only at storyboard generation — not on render."""
     f = copy.deepcopy(frame)
     if enrich:
         spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "")
@@ -409,7 +410,7 @@ def preview(pid: int, fid: str, edit: int = 0):
     if not f: raise HTTPException(404)
     return frame_page(
         p["theme"],
-        frame_for_render(p, f, enrich=not bool(edit)),
+        frame_for_render(p, f),
         effective_look(p),
         edit=bool(edit),
     )

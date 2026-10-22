@@ -3,9 +3,9 @@
    Measured from the final graphics of ESOP, Retirement, ITR, HUF and Overdraft.
    Scene HTML files live in kit/scenes/, so paths are ../fonts, ../assets.
    =================================================================== */
-@font-face{font-family:Inter;font-weight:300;src:url(../fonts/Inter-Light.ttf)}
+@font-face{font-family:Inter;font-weight:300;src:url(../fonts/Inter-Regular.ttf)}
 @font-face{font-family:Inter;font-weight:400;src:url(../fonts/Inter-Regular.ttf)}
-@font-face{font-family:Inter;font-weight:500;src:url(../fonts/Inter-Medium.ttf)}
+@font-face{font-family:Inter;font-weight:500;src:url(../fonts/Inter-Regular.ttf)}
 @font-face{font-family:Inter;font-weight:600;src:url(../fonts/Inter-SemiBold.ttf)}
 @font-face{font-family:Inter;font-weight:700;src:url(../fonts/Inter-Bold.ttf)}
 @font-face{font-family:Inter;font-weight:800;src:url(../fonts/Inter-ExtraBold.ttf)}
@@ -135,7 +135,7 @@ body.fss .num i{background:var(--ink);color:#fff}
 .popup{width:560px;background:#fff;color:var(--ink);border-radius:6px;box-shadow:0 20px 50px rgba(0,0,0,.45);position:relative}
 .popup .bar{display:flex;justify-content:space-between;padding:22px 26px;font-weight:700;font-size:25px;border-bottom:1px solid #E1E1E1}
 .popup .bar:after{content:"×";font-weight:400;color:#555}
-.popup .v{padding:28px 26px 40px;font-size:30px;font-weight:500}
+.popup .v{padding:28px 26px 40px;font-size:30px;font-weight:400}
 .popup ul{padding:0 26px 30px 50px;font-size:23px;line-height:1.35}
 .popup-base{position:absolute;left:0;right:-20px;bottom:-40px;height:70px;background:var(--blue);border-radius:10px;z-index:-1}
 

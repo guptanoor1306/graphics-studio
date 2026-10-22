@@ -2,18 +2,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#f7f4ef;--bg-sidebar:#faf8f5;--card:#fff;--ink:#1a1917;--mute:#6f6a63;
   --line:#e8e4dc;--line-strong:#d9d3c8;--acc:#c96442;--acc-hover:#b85638;--acc-soft:#f3ebe6;
   --shadow:0 1px 2px rgba(26,25,23,.04),0 8px 24px rgba(26,25,23,.06);
-  --radius:12px;--radius-sm:10px;--font:'Roboto',system-ui,sans-serif;--mono:'Roboto Mono',ui-monospace,monospace;
+  --radius:12px;--radius-sm:10px;--font:'Inter',system-ui,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
   --nav-w:280px;--nav-collapsed:52px;
   --beat-green:#2d7a52;--beat-green-bg:#eef6f0;
 }
 *{box-sizing:border-box}
-body{margin:0;font:15px/1.55 var(--font);background:var(--bg);color:var(--ink);display:grid;grid-template-columns:var(--nav-w) 1fr;min-height:100vh;height:100vh;transition:grid-template-columns .2s ease}
+body{margin:0;font:400 15px/1.55 var(--font);background:var(--bg);color:var(--ink);display:grid;grid-template-columns:var(--nav-w) 1fr;min-height:100vh;height:100vh;transition:grid-template-columns .2s ease}
 body.nav-collapsed{grid-template-columns:var(--nav-collapsed) 1fr}
 aside{border-right:1px solid var(--line);background:var(--bg-sidebar);padding:16px 14px;overflow:hidden;display:flex;flex-direction:column;gap:12px;position:relative}
 .nav-toggle{position:absolute;top:14px;right:10px;width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:18px;line-height:1;color:var(--mute)}
@@ -31,9 +31,9 @@ h2.section{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacin
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;box-shadow:var(--shadow)}
 .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:4px}
 .toolbar .spacer{flex:1}
-button{font:inherit;font-family:var(--font);font-size:14px;font-weight:500;border:1px solid var(--line-strong);background:var(--card);border-radius:var(--radius-sm);padding:10px 16px;cursor:pointer}
+button{font:inherit;font-family:var(--font);font-size:14px;font-weight:400;border:1px solid var(--line-strong);background:var(--card);border-radius:var(--radius-sm);padding:10px 16px;cursor:pointer}
 button.p{background:var(--acc);border-color:var(--acc);color:#fff}
-button.btn-neutral{background:#fff;border-color:var(--line-strong);color:var(--ink);font-weight:500}
+button.btn-neutral{background:#fff;border-color:var(--line-strong);color:var(--ink);font-weight:400}
 button.btn-neutral:hover{background:#f3f2f0;border-color:var(--mute)}
 button.ghost{background:transparent;border-color:transparent;color:var(--mute)}
 button.danger{color:#9c4221;border-color:#e8c4bc}
@@ -484,7 +484,7 @@ function bumpFrame(fid){
   const mini=document.querySelector(`.mini-card[data-fid="${CSS.escape(fid)}"] iframe`);
   if(mini)mini.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${frameVer[fid]}`;
   const strip=document.querySelector(`.edit-frame-thumb[data-fid="${CSS.escape(fid)}"] iframe`);
-  if(strip)strip.src=`/preview/${P.id}/${encodeURIComponent(fid)}?edit=1&v=${frameVer[fid]}`;
+  if(strip)strip.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${frameVer[fid]}`;
 }
 function fitOne(t){if(!t)return;const s=t.clientWidth/1920;const f=t.querySelector('iframe');if(f)f.style.transform=`scale(${s})`}
 function fit(){fitOne($('#activeThumb'));document.querySelectorAll('.mini-thumb').forEach(fitOne)}
@@ -678,7 +678,7 @@ function buildEditFrameStrip(){
  el.innerHTML=P.spec.frames.map(fr=>{
   const v=frameVer[fr.id]||0;
   const on=fr.id===selectedFrameId?' on':'';
-  return `<div class="edit-frame-thumb${on}" data-fid="${esc(fr.id)}" onclick="selectEditFrame('${esc(fr.id)}')"><div class="mini-thumb"><iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?edit=1&v=${v}"></iframe></div><div class="mini-label">${frameLabel(fr.id)}</div></div>`}).join('');
+  return `<div class="edit-frame-thumb${on}" data-fid="${esc(fr.id)}" onclick="selectEditFrame('${esc(fr.id)}')"><div class="mini-thumb"><iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div><div class="mini-label">${frameLabel(fr.id)}</div></div>`}).join('');
  requestAnimationFrame(()=>el.querySelectorAll('.mini-thumb').forEach(fitOne));
 }
 function openEditMode(fid){
@@ -692,10 +692,17 @@ function openEditMode(fid){
  selectEditFrame(selectedFrameId);
  renderFrameModeSwitch();
 }
-function exitEditMode(){
+async function exitEditMode(){
  editModeOpen=false;
  document.body.classList.remove('edit-mode-on');
  $('#editModeApp').hidden=true;
+ if(P?.id){
+  try{
+   P=await api('/api/projects/'+P.id+'?_='+Date.now());
+   P.look=normLook(P.look);
+   (P.spec?.frames||[]).forEach(fr=>{frameVer[fr.id]=(frameVer[fr.id]||0)+1});
+  }catch(e){console.error(e)}
+ }
  render();
 }
 function selectEditFrame(fid){
