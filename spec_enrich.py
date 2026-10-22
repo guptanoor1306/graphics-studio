@@ -98,8 +98,6 @@ def enrich_spec(spec: dict, storyboard: str = "") -> dict:
         return spec
 
     sb_blob = storyboard if isinstance(storyboard, str) else ""
-    look = spec.get("look") if isinstance(spec.get("look"), dict) else {}
-    skip_osa_presets = look.get("storyboard_style") == "reference_designs"
     for f in frames:
         if not isinstance(f, dict):
             continue
@@ -122,8 +120,6 @@ def enrich_spec(spec: dict, storyboard: str = "") -> dict:
         if line and not re.search(r"\b(OSA|FSS)\b", line, re.I):
             if types <= {"title"} or "title" in types:
                 continue
-        if skip_osa_presets:
-            continue
         blob = _frame_text(f) + " " + line
         for pat, items in _OSA_PRESETS:
             if pat.search(blob):

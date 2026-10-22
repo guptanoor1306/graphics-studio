@@ -150,25 +150,13 @@ body.edit-mode-on #editModeApp{display:flex}
 .edit-frame-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .edit-ref-check{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer}
 .edit-ref-check input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);flex-shrink:0}
-.label-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:2px}
-.label-row>.field-label{font-size:13px;font-weight:500;color:var(--ink)}
-.look-inline-help{font-size:13px;color:var(--mute);margin:0 0 10px;line-height:1.5}
-.look-inline-help summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:1px solid var(--line-strong);background:#fff;color:var(--mute);font-size:12px;font-weight:600;cursor:pointer;user-select:none}
-.look-inline-help summary::-webkit-details-marker{display:none}
-.look-inline-help summary:hover{background:#f3f2f0;color:var(--ink)}
-.look-inline-help[open] summary{background:var(--beat-green-bg);border-color:var(--beat-green);color:var(--beat-green)}
-.look-inline-help .look-inline-help-body{margin:8px 0 0;padding:10px 12px;border-radius:var(--radius-sm);background:#faf8f5;border:1px solid var(--line);font-size:13px;line-height:1.55;color:var(--mute);max-width:560px}
-.guide-switch{display:flex;width:100%;max-width:520px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);overflow:hidden;background:#fff;margin-top:6px}
-.guide-switch button{flex:1;padding:12px 14px;border:0;border-right:1px solid var(--line);background:transparent;font-size:14px;font-weight:500;color:var(--mute);cursor:pointer;text-align:center;line-height:1.35;white-space:normal;min-height:48px}
-.guide-switch button:last-child{border-right:0}
-.guide-switch button.on{background:var(--beat-green-bg);color:var(--beat-green);font-weight:600}
-.guide-switch button:hover:not(.on){background:#faf8f5}
-.field-hint{font-size:12px;color:var(--mute);margin:8px 0 0;line-height:1.45;max-width:560px}
-.sb-ref-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
-.sb-ref-item{position:relative;width:120px;height:68px;flex-shrink:0;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#eae6df}
-.sb-ref-item img{width:100%;height:100%;object-fit:cover;display:block;vertical-align:middle}
-.sb-ref-del{position:absolute;top:4px;right:4px;z-index:2;width:24px;height:24px;min-width:24px;padding:0;border:0;border-radius:6px;background:rgba(26,25,23,.78);color:#fff;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.25)}
-.sb-ref-del:hover{background:#9c4221}
+.topic-props-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.topic-props-head .field-label{font-size:13px;font-weight:500;color:var(--ink);line-height:20px;margin:0}
+.tip-hover{position:relative;display:inline-flex;align-items:center;flex-shrink:0;height:20px}
+.tip-hover-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1px solid var(--line-strong);background:#fff;font-size:11px;font-weight:600;color:var(--mute);cursor:help;line-height:1;user-select:none}
+.tip-hover:hover .tip-hover-btn,.tip-hover:focus-within .tip-hover-btn{background:#f3f2f0;color:var(--ink)}
+.tip-hover-panel{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 10px);visibility:hidden;opacity:0;pointer-events:none;z-index:50;width:max-content;max-width:min(300px,calc(100vw - 48px));padding:10px 12px;font-size:12px;font-weight:400;line-height:1.5;color:var(--ink);text-align:left;background:#fff;border:1px solid var(--line-strong);border-radius:var(--radius-sm);box-shadow:var(--shadow);white-space:normal}
+.tip-hover:hover .tip-hover-panel,.tip-hover:focus-within .tip-hover-panel{visibility:visible;opacity:1}
 .mode-switch{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--radius-sm);overflow:hidden;background:#fff}
 .mode-switch button{padding:8px 16px;border:0;background:transparent;font-size:13px;font-weight:500;color:var(--mute);cursor:pointer}
 .mode-switch button.on{background:var(--beat-green-bg);color:var(--beat-green);font-weight:600}
@@ -290,16 +278,8 @@ function initNav(){
   });
   if($('#navToggle'))$('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
 }
-function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';if(!l.ref_images)l.ref_images=[];if(!l.storyboard_style)l.storyboard_style='topic_props';return l}
-function lookRefUrl(r){return `/api/projects/${P.id}/look-ref?path=${encodeURIComponent(r)}`}
-function sbRefGridHtml(l){return (l.ref_images||[]).map(r=>`<div class="sb-ref-item"><img src="${lookRefUrl(r)}" alt="Storyboard reference" loading="lazy"><button type="button" class="sb-ref-del" title="Remove" aria-label="Remove reference" onclick="event.stopPropagation();delStoryboardRef(${JSON.stringify(r)})">×</button></div>`).join('')}
+function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
 const TOPIC_PROPS_TIP='First checked prop = corner dressing on text-only frames only. Every checked prop hints storyboard generation and frame Apply to prefer matching kit assets (broker, bank, chart, etc.).';
-function setStoryboardGuide(mode){
- const hid=$('#lk_storyboard_style');if(hid)hid.value=mode;
- document.querySelectorAll('.guide-switch button').forEach(b=>b.classList.toggle('on',b.dataset.guide===mode));
- const hint=$('#guideHint');
- if(hint)hint.textContent=mode==='reference_designs'?'Storyboard + frames follow layouts from your uploaded screenshots (vision on generate).':'Storyboard + frames use checked topic props to pick kit icons (references are optional hints).';
-}
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
   const id=fid.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -375,32 +355,11 @@ function lookForm(l){l=normLook(l);
   <div class="field"><label>Anchor side</label>${sel('anchor',['right','left'])}</div>
   <div class="field"><label>FSS accent</label>${sel('fss',['blue','warm'])}</div>
   <div class="field" style="grid-column:1/-1"><label>Graphics mix</label><select id="lk_graphics_mix"><option value="balanced" ${(l.graphics_mix||'balanced')==='balanced'?'selected':''}>Balanced — mix of FSS and anchor</option><option value="fss_heavy" ${l.graphics_mix==='fss_heavy'?'selected':''}>FSS-heavy — mostly full-screen frames</option><option value="minimal_anchor" ${l.graphics_mix==='minimal_anchor'?'selected':''}>Minimal anchor — at most 2 talking-head frames</option></select></div>
-  <div class="field" style="grid-column:1/-1"><div class="label-row"><span class="field-label">Topic props</span><details class="look-inline-help"><summary title="Topic props help">i</summary><p class="look-inline-help-body">${esc(TOPIC_PROPS_TIP)}</p></details></div><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div>
-  <div class="field" style="grid-column:1/-1"><label>Storyboard visual guide</label><input type="hidden" id="lk_storyboard_style" value="${esc(l.storyboard_style||'topic_props')}"><div class="guide-switch" role="group" aria-label="Storyboard visual guide"><button type="button" data-guide="topic_props" class="${(l.storyboard_style||'topic_props')==='topic_props'?'on':''}" onclick="setStoryboardGuide('topic_props')">Topic props</button><button type="button" data-guide="reference_designs" class="${l.storyboard_style==='reference_designs'?'on':''}" onclick="setStoryboardGuide('reference_designs')">Reference designs</button></div><p class="field-hint" id="guideHint"></p></div>
-  <div class="field" style="grid-column:1/-1"><label>Storyboard references (optional, up to 10)</label><p class="field-hint">Upload layout screenshots — required for Reference designs mode; optional hints in Topic props mode.</p><input type="file" id="sbRefUpload" accept="image/png,image/jpeg,image/webp" multiple onchange="upStoryboardRef(this)"><div class="sb-ref-grid" id="sbRefGrid">${sbRefGridHtml(l)}</div></div></div>`}
+  <div class="field" style="grid-column:1/-1"><div class="topic-props-head"><span class="field-label">Topic props</span><span class="tip-hover" tabindex="0"><span class="tip-hover-btn" aria-hidden="true">i</span><span class="tip-hover-panel" role="tooltip">${esc(TOPIC_PROPS_TIP)}</span></span></div><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div></div>`}
 const getLook=()=>{
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
-  const style=$('#lk_storyboard_style')?.value||'topic_props';
-  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',storyboard_style:style,props,...(P.look?.plate?{plate:P.look.plate}:{}),...(P.look?.ref_images?{ref_images:P.look.ref_images}:{})};
+  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}};
 };
-async function upStoryboardRef(input){
- if(!input?.files?.length||!P)return;
- for(const file of input.files){
-  if((P.look.ref_images||[]).length>=10){alert('Maximum 10 storyboard references.');break}
-  const fd=new FormData();fd.append('file',file);
-  const r=await fetch(`/api/projects/${P.id}/storyboard-ref`,{method:'POST',body:fd});
-  if(!r.ok){alert(await r.text());break}
-  P=await r.json();P.look=normLook(P.look);
- }
- input.value='';render();
-}
-async function delStoryboardRef(path){
- if(!P||!path)return;
- if(!confirm('Remove this storyboard reference?'))return;
- const r=await fetch(`/api/projects/${P.id}/storyboard-ref`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
- if(!r.ok)return alert(await r.text());
- P=await r.json();P.look=normLook(P.look);render();
-}
 function getScriptValue(){return $('#script')?.value??P.script??''}
 function getNotesValue(){return $('#notes')?.value??''}
 function openScriptEdit(){
@@ -466,7 +425,6 @@ function render(){
    <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
   <h2 class="section">1 · Look</h2><div class="card">${lookForm(P.look)}</div>
   ${P.spec?framesStudio():preSpec}<div id="warns"></div>`;
-  setStoryboardGuide(P.look.storyboard_style||'topic_props');
   fit();
   updateFrameNavButtons();
 }
