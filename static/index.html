@@ -358,7 +358,7 @@ function lookForm(l){l=normLook(l);
   <div class="field" style="grid-column:1/-1"><div class="topic-props-head"><span class="field-label">Topic props</span><span class="tip-hover" tabindex="0"><span class="tip-hover-btn" aria-hidden="true">i</span><span class="tip-hover-panel" role="tooltip">${esc(TOPIC_PROPS_TIP)}</span></span></div><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div></div>`}
 const getLook=()=>{
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
-  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}};
+  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{})};
 };
 function getScriptValue(){return $('#script')?.value??P.script??''}
 function getNotesValue(){return $('#notes')?.value??''}
