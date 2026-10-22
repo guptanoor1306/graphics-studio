@@ -17,7 +17,13 @@ load_dotenv(ROOT / ".env")
 import copy
 
 import claude_client, exporter, spec_enrich
-from frame_edit_util import apply_flat_paste_replace, finalize_reference_edit, remove_scene_illustrations
+from frame_edit_util import (
+    apply_flat_paste_replace,
+    finalize_reference_edit,
+    merge_item_edit,
+    remove_scene_illustrations,
+    strip_upload_assets,
+)
 from claude_client import _storyboard_line_for_frame
 from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
@@ -309,10 +315,9 @@ async def edit(pid: int, fid: str, req: Request):
 
     if item_index is not None and ask:
         ask = (
-            f"Edit ONLY items[{item_index}] (0-based index). Leave every other item unchanged. "
-            f"Task: {ask}"
+            f"Edit ONLY items[{item_index}] (0-based index). Return the full frame but change ONLY that slot — "
+            f"do NOT append new items[] entries. Task: {ask}"
         )
-
     if not ask and not ref_src and not regenerate:
         raise HTTPException(400, "ask, reference image, or regenerate required")
     if item_index is not None and not ask and not ref_src:
@@ -340,13 +345,17 @@ async def edit(pid: int, fid: str, req: Request):
             regenerate=regenerate,
             storyboard_line=sb_line,
         )
-        if flat_paste and ref_src and replace_flag:
+        if item_index is not None:
+            new = merge_item_edit(before, new, item_index)
+            if smart_ref and ref_src:
+                new = strip_upload_assets(new, ref_src)
+        elif flat_paste and ref_src and replace_flag:
             new = apply_flat_paste_replace(new, ref_src, ask, True)
         else:
             new = finalize_reference_edit(
                 before,
                 new,
-                replace=replace_flag and item_index is None,
+                replace=replace_flag,
                 ref_src=ref_src,
                 smart=smart_ref,
             )

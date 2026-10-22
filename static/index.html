@@ -131,23 +131,35 @@ dialog#scriptEditDlg #scriptEditArea{flex:1 1 auto;min-height:160px;max-height:m
 .thumb-edit-btn{position:absolute;top:10px;right:10px;z-index:4;width:40px;height:40px;border:0;border-radius:10px;background:rgba(255,255,255,.94);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 .thumb-edit-btn:hover{background:#fff;color:var(--acc)}
 .thumb-edit-btn svg{width:20px;height:20px;fill:currentColor}
-dialog#canvasEditDlg{width:min(1120px,96vw);max-height:94vh;border:0;border-radius:var(--radius);padding:0}
-dialog#canvasEditDlg .canvas-edit-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
-dialog#canvasEditDlg .canvas-edit-head b{flex:1;font-size:17px}
-dialog#canvasEditDlg .canvas-edit-in{padding:0 20px 20px}
-dialog#canvasEditDlg .canvas-edit-body{display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:16px;align-items:start}
-dialog#canvasEditDlg .canvas-layer-panel{border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;max-height:min(62vh,520px);overflow:auto}
-dialog#canvasEditDlg .canvas-layer-panel h3{margin:0;padding:12px 14px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);border-bottom:1px solid var(--line)}
-dialog#canvasEditDlg .canvas-layer-row{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:12px}
-dialog#canvasEditDlg .canvas-layer-row:last-child{border-bottom:0}
-dialog#canvasEditDlg .canvas-layer-row .cl-name{flex:1;min-width:0;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-dialog#canvasEditDlg .canvas-layer-row .cl-actions{display:flex;gap:4px;flex-shrink:0}
-dialog#canvasEditDlg .canvas-layer-row button{min-width:28px;height:28px;padding:0 6px;font-size:13px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer}
-dialog#canvasEditDlg .canvas-layer-row button:hover{border-color:var(--acc);color:var(--acc)}
-dialog#canvasEditDlg .canvas-edit-viewport{position:relative;width:100%;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
-dialog#canvasEditDlg .canvas-edit-scale{transform-origin:0 0;width:1920px;height:1080px}
-dialog#canvasEditDlg .canvas-edit-scale iframe{display:block;width:1920px;height:1080px;border:0;pointer-events:auto}
-@media (max-width:720px){dialog#canvasEditDlg .canvas-edit-body{grid-template-columns:1fr}}
+#editModeApp{display:none;grid-column:2;grid-row:1;flex-direction:column;height:100vh;overflow:hidden;background:var(--bg);min-width:0}
+body.edit-mode-on #main{display:none}
+body.edit-mode-on #editModeApp{display:flex}
+.edit-mode-top{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);flex-shrink:0}
+.edit-mode-top .spacer{flex:1}
+.edit-mode-top b{font-size:16px;font-weight:600}
+.edit-mode-grid{flex:1;display:grid;grid-template-columns:minmax(120px,150px) 1fr minmax(280px,340px);min-height:0}
+.edit-frame-strip{overflow-y:auto;border-right:1px solid var(--line);padding:12px 10px;background:var(--bg-sidebar)}
+.edit-frame-thumb{cursor:pointer;margin-bottom:12px;border:2px solid transparent;border-radius:var(--radius-sm);overflow:hidden;background:#fff}
+.edit-frame-thumb.on{border-color:var(--beat-green);box-shadow:0 0 0 1px var(--beat-green-bg)}
+.edit-mode-center{position:relative;padding:16px 20px;min-width:0;display:flex;flex-direction:column;min-height:0}
+.edit-canvas-viewport{position:relative;flex:1;width:100%;min-height:200px;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.canvas-edit-scale{transform-origin:0 0;width:1920px;height:1080px}
+.canvas-edit-scale iframe{display:block;width:1920px;height:1080px;border:0;pointer-events:auto}
+.edit-canvas-loader{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(26,25,23,.75);color:#fff;font-size:15px;border-radius:var(--radius-sm)}
+.edit-canvas-loader[hidden]{display:none!important}
+.edit-mode-side{border-left:1px solid var(--line);padding:16px 18px;overflow-y:auto;background:var(--card)}
+.edit-mode-side h3{margin:18px 0 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+.edit-mode-side h3:first-child{margin-top:0}
+.edit-side-hint{font-size:12px;color:var(--mute);margin:0 0 10px;line-height:1.45}
+.canvas-layer-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
+.canvas-layer-row:last-child{border-bottom:0}
+.canvas-layer-row .cl-name{flex:1;min-width:0;font-family:var(--mono);font-size:12px}
+.canvas-layer-row .cl-actions{display:flex;gap:6px;flex-shrink:0}
+.canvas-layer-row .cl-actions button{min-width:42px;height:42px;padding:0;font-size:17px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;cursor:pointer}
+.canvas-layer-row .cl-actions button:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
+dialog#layerEditDlg{width:min(480px,92vw)}
+dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
+@media (max-width:960px){.edit-mode-grid{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}.edit-frame-strip{display:flex;gap:10px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.edit-frame-thumb{flex:0 0 120px;margin:0}}
 @media (max-width:960px){
   body,body.nav-collapsed{grid-template-columns:1fr;height:auto}
   aside{max-height:36vh}
@@ -163,6 +175,32 @@ dialog#canvasEditDlg .canvas-edit-scale iframe{display:block;width:1920px;height
   </div>
 </aside>
 <main id="main"><p class="muted">Pick a video on the left, or start a new one.</p></main>
+<div id="editModeApp" hidden>
+ <header class="edit-mode-top"><button type="button" class="ghost" onclick="exitEditMode()">← Back to studio</button>
+  <b id="editModeTitle">Edit frames</b><span class="spacer"></span>
+  <button type="button" class="ghost" onclick="makeSelectedFrameFss()">Full-screen</button>
+  <button type="button" class="ghost" onclick="makeSelectedFrameAnchor()">Anchor</button></header>
+ <div class="edit-mode-grid">
+  <aside class="edit-frame-strip" id="editFrameStrip"></aside>
+  <div class="edit-mode-center">
+   <div class="edit-canvas-loader" id="editCanvasLoader" hidden><div class="spinner"></div><span>Updating frame…</span></div>
+   <div class="edit-canvas-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div>
+  </div>
+  <aside class="edit-mode-side">
+   <h3>Layers</h3><div id="canvasLayerList"></div>
+   <h3>Frame changes</h3>
+   <textarea id="editFrameAsk" placeholder="Describe changes for the whole frame…" rows="3"></textarea>
+   <button type="button" class="p block" style="margin-top:10px" onclick="editApplyFrame()">Apply to frame</button>
+   <button type="button" class="block" style="margin-top:8px" onclick="editRegenFrame()">Regenerate frame</button>
+   <h3>Reference image</h3>
+   <p class="edit-side-hint">Used for layer Replace or Apply — maps to kit assets (Smart replace) or pastes PNG (Flat).</p>
+   <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
+   <label class="inline-check" style="display:flex;margin:10px 0 6px"><input type="checkbox" id="editRefReplace" checked> Smart replace</label>
+   <label class="inline-check" style="display:flex;margin:0 0 8px"><input type="checkbox" id="editRefFlat"> Flat paste</label>
+   <span class="ref-name" id="editRefLabel"></span>
+  </aside>
+ </div>
+</div>
 <dialog id="allFramesDlg"><div class="dlg-bar"><b>All frames</b><button type="button" class="ghost" onclick="allFramesDlg.close()">Close</button></div>
 <div class="all-body"><div class="all-grid" id="allGrid"></div></div></dialog>
 <dialog id="toolModal" class="modal-sm"><form class="modal-in" method="dialog" onsubmit="return submitToolModal(event)">
@@ -185,18 +223,17 @@ dialog#canvasEditDlg .canvas-edit-scale iframe{display:block;width:1920px;height
     <button type="submit" class="p">Save</button>
   </div>
 </form></dialog>
-<dialog id="canvasEditDlg"><div class="canvas-edit-head"><b id="canvasEditTitle">Edit frame</b>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-    <button type="button" class="ghost" onclick="makeSelectedFrameFss()">Full-screen</button>
-    <button type="button" class="ghost" onclick="makeSelectedFrameAnchor()">Anchor</button>
-    <button type="button" class="ghost" onclick="canvasEditDlg.close()">Close</button>
-  </div></div>
-  <div class="canvas-edit-in"><div class="canvas-edit-body">
-   <aside class="canvas-layer-panel"><h3>Layers</h3><div id="canvasLayerList"></div></aside>
-   <div class="canvas-edit-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div>
-  </div></div></dialog>
+<dialog id="layerEditDlg"><form class="modal-in" method="dialog" onsubmit="return submitLayerEdit(event)">
+  <b id="layerEditTitle">Edit layer</b>
+  <p id="layerEditMsg" class="modal-msg"></p>
+  <textarea id="layerEditText" required placeholder="Describe what this layer should become…"></textarea>
+  <div class="modal-actions">
+    <button type="button" class="ghost" onclick="layerEditDlg.close()">Cancel</button>
+    <button type="submit" class="p">Apply</button>
+  </div>
+</form></dialog>
 <script>
-let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null;
+let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 const ICON_DELETE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
 const ICON_EDIT='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
@@ -335,6 +372,7 @@ function framesStudio(){
     <div class="studio-head-actions">
      <button type="button" class="ghost" onclick="openScriptEdit()">Edit script</button>
      <button type="button" onclick="openAllPreview()">Preview all</button>
+     <button type="button" class="p" onclick="openEditMode()">Edit mode</button>
      <button type="button" class="p" id="gen" onclick="gen()">Regenerate all</button></div></div>
    <div id="layoutBanner" hidden></div>
    <div class="studio-split">
@@ -350,7 +388,7 @@ function framesStudio(){
      <div class="thumb-nav">
       <button type="button" class="frame-arrow" id="framePrev" onclick="frameNav(-1)" aria-label="Previous frame">‹</button>
       <div class="thumb" id="activeThumb"><div class="loader"><div class="spinner"></div><span>Updating frame…</span></div>
-       <button type="button" class="thumb-edit-btn has-tip" data-tip="Edit elements on this frame" onclick="openCanvasEdit()" aria-label="Edit frame">${ICON_EDIT}</button>
+       <button type="button" class="thumb-edit-btn has-tip" data-tip="Open Edit mode for this frame" onclick="openEditMode('${esc(fr.id)}')" aria-label="Edit frame">${ICON_EDIT}</button>
        <iframe id="activeFrame" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>
       <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
      </div>
@@ -480,11 +518,17 @@ function bindProjectList(){
 }
 function bindFrameEdit(){
   document.body.addEventListener('change',e=>{
-    if(e.target.id!=='frameRef')return;
-    const lb=$('#frameRefLabel');
-    if(lb)lb.textContent=e.target.files?.[0]?.name||'';
+    if(e.target.id==='frameRef'||e.target.id==='editRef'){
+     const lb=$(e.target.id==='editRef'?'#editRefLabel':'#frameRefLabel');
+     if(lb)lb.textContent=e.target.files?.[0]?.name||'';
+    }
   });
 }
+function refControls(){
+ if(editModeOpen)return{ref:$('#editRef'),rep:$('#editRefReplace'),flat:$('#editRefFlat'),lb:$('#editRefLabel')};
+ return{ref:$('#frameRef'),rep:$('#frameRefReplace'),flat:$('#frameRefFlat'),lb:$('#frameRefLabel')};
+}
+function setEditLoading(on){const el=$('#editCanvasLoader');if(el)el.hidden=!on}
 function newProject(){
   openToolModal({title:'New video',placeholder:'Video name',okLabel:'Create',onSubmit:async name=>{
     if(!name)throw new Error('Enter a name');
@@ -511,32 +555,34 @@ function deleteProject(){if(!P)return;
 }
 async function gen(){const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding… (1–2 min)');
  try{P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
-async function askFrame(fid,ask,{regenerate=false,itemIndex=null}={}){
- const ref=$('#frameRef');
+async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false}={}){
+ const {ref,rep,flat,lb}=refControls();
  const refFile=ref?.files?.[0];
- if(!regenerate&&!ask?.trim()&&!refFile){alert(itemIndex!=null?'Describe this layer change and/or attach reference on the frame.':'Type a change and/or attach a reference image.');return}
+ if(!regenerate&&!ask?.trim()&&!refFile){alert(itemIndex!=null?'Describe this layer and/or attach a reference on the right.':'Type a change and/or attach a reference image.');return}
  if(!fid||!P?.spec){alert('No frame selected.');return}
- setFrameLoading(true);
+ if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
  try{
   let updated;
+  const doReplace=!!(itemReplace||rep?.checked);
   if(refFile){
    const fd=new FormData();fd.append('ask',ask||'');fd.append('file',refFile);
-   if($('#frameRefReplace')?.checked)fd.append('replace','1');
-   if($('#frameRefFlat')?.checked)fd.append('flat','1');
+   if(doReplace)fd.append('replace','1');
+   if(flat?.checked)fd.append('flat','1');
    if(regenerate)fd.append('regenerate','1');
    if(itemIndex!=null)fd.append('item_index',String(itemIndex));
    const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:fd});
    if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
    updated=await r.json();
-   ref.value='';const lb=$('#frameRefLabel');if(lb)lb.textContent='';
+   if(ref)ref.value='';if(lb)lb.textContent='';
   }else{
-   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:!!$('#frameRefReplace')?.checked,flat:!!$('#frameRefFlat')?.checked,...(itemIndex!=null?{item_index:itemIndex}:{})})});
+   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:doReplace,flat:!!flat?.checked,...(itemIndex!=null?{item_index:itemIndex}:{})})});
   }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
   bumpFrame(fid);
-  if(!regenerate){const inp=$('#frameAsk');if(inp)inp.value=''}
- }catch(e){alert(e.message)}finally{setFrameLoading(false)}}
+  if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}
+  if(!regenerate){const inp=$('#frameAsk');if(inp)inp.value='';const ea=$('#editFrameAsk');if(ea&&!editModeOpen)ea.value=''}
+ }catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}}
 function askFromInput(){const inp=$('#frameAsk');if(!selectedFrameId)return;askFrame(selectedFrameId,inp?.value||'')}
 async function regenFrame(){
  if(!selectedFrameId)return;
@@ -560,21 +606,85 @@ function renderCanvasLayerList(){
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const items=fr?.items||[];
- list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span><span class="cl-actions"><button type="button" title="Edit" onclick="canvasLayerAction(${i},'edit')">✎</button><button type="button" title="Replace" onclick="canvasLayerAction(${i},'replace')">↻</button><button type="button" title="Delete" onclick="canvasLayerAction(${i},'delete')">×</button></span></div>`).join(''):'<p style="padding:12px;margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
+ list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span><span class="cl-actions"><button type="button" title="Edit" onclick="canvasLayerAction(${i},'edit')">✎</button><button type="button" title="Replace" onclick="canvasLayerAction(${i},'replace')">↻</button><button type="button" title="Delete" onclick="canvasLayerAction(${i},'delete')">×</button></span></div>`).join(''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
+}
+function openLayerEditDialog(action,idx){
+ layerEditPending={action,idx};
+ const isRep=action==='replace';
+ $('#layerEditTitle').textContent=isRep?'Replace layer':'Edit layer';
+ $('#layerEditMsg').textContent=isRep?'Describe the replacement. Upload a reference on the right if needed.':'Describe how this layer should change.';
+ $('#layerEditText').value='';
+ layerEditDlg.showModal();
+ $('#layerEditText').focus();
+}
+async function submitLayerEdit(e){
+ e.preventDefault();
+ const ask=$('#layerEditText').value.trim();
+ const p=layerEditPending;
+ layerEditPending=null;
+ layerEditDlg.close();
+ if(!p||!ask)return false;
+ await runLayerAction(p.idx,p.action,ask);
+ return false;
+}
+async function runLayerAction(idx,action,ask){
+ if(action==='delete'){await deleteFrameItem(idx);return}
+ await askFrame(selectedFrameId,ask,{itemIndex:idx,itemReplace:action==='replace'});
 }
 async function canvasLayerAction(idx,action){
- if(action==='delete'){if(!confirm('Remove this layer?'))return;await deleteFrameItem(idx);renderCanvasLayerList();return}
- await handleStudioEdit({action,idx});
- renderCanvasLayerList();
+ if(action==='delete'){
+  openToolModal({title:'Remove layer',message:'Remove this layer from the frame?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{await deleteFrameItem(idx);renderCanvasLayerList()}});
+  return;
+ }
+ openLayerEditDialog(action,idx);
 }
-function openCanvasEdit(){
- if(!selectedFrameId||!P?.spec)return;
- $('#canvasEditTitle').textContent='Edit · '+frameLabel(selectedFrameId);
+function buildEditFrameStrip(){
+ const el=$('#editFrameStrip');
+ if(!el||!P?.spec)return;
+ el.innerHTML=P.spec.frames.map(fr=>{
+  const v=frameVer[fr.id]||0;
+  const on=fr.id===selectedFrameId?' on':'';
+  return `<div class="edit-frame-thumb${on}" data-fid="${esc(fr.id)}" onclick="selectEditFrame('${esc(fr.id)}')"><div class="mini-thumb"><iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div><div class="mini-label">${frameLabel(fr.id)}</div></div>`}).join('');
+ requestAnimationFrame(()=>el.querySelectorAll('.mini-thumb').forEach(fitOne));
+}
+function openEditMode(fid){
+ if(!P?.spec){alert('Generate frames first.');return}
+ editModeOpen=true;
+ if(fid)selectedFrameId=fid;
+ else if(!selectedFrameId)selectedFrameId=P.spec.frames[0]?.id;
+ document.body.classList.add('edit-mode-on');
+ $('#editModeApp').hidden=false;
+ buildEditFrameStrip();
+ selectEditFrame(selectedFrameId);
+}
+function exitEditMode(){
+ editModeOpen=false;
+ document.body.classList.remove('edit-mode-on');
+ $('#editModeApp').hidden=true;
+ render();
+}
+function selectEditFrame(fid){
+ selectedFrameId=fid;
+ document.querySelectorAll('.edit-frame-thumb').forEach(t=>t.classList.toggle('on',t.dataset.fid===fid));
+ $('#editModeTitle').textContent=(P.name||'Video')+' · '+frameLabel(fid);
  renderCanvasLayerList();
+ refreshEditCanvas();
+}
+function editApplyFrame(){
+ const ask=$('#editFrameAsk')?.value||'';
+ if(!selectedFrameId)return;
+ askFrame(selectedFrameId,ask);
+}
+async function editRegenFrame(){
+ if(!selectedFrameId)return;
+ await askFrame(selectedFrameId,'',{regenerate:true});
+}
+function refreshEditCanvas(){
+ if(!selectedFrameId)return;
  const ifr=$('#canvasEditFrame');
+ if(!ifr)return;
  ifr.onload=()=>{fitCanvasEdit();ifr.onload=null};
  ifr.src=canvasEditUrl();
- canvasEditDlg.showModal();
  requestAnimationFrame(fitCanvasEdit);
 }
 function fitCanvasEdit(){
@@ -584,13 +694,6 @@ function fitCanvasEdit(){
  sc.style.transform=`scale(${s})`;
  vp.style.height=Math.round(1080*s)+'px';
 }
-function refreshCanvasEdit(){
- if(!selectedFrameId)return;
- bumpFrame(selectedFrameId);
- const ifr=$('#canvasEditFrame');
- if(ifr&&canvasEditDlg.open)ifr.src=canvasEditUrl();
- requestAnimationFrame(fitCanvasEdit);
-}
 async function deleteFrameItem(idx){
  if(!selectedFrameId||!P?.spec)return;
  const fid=selectedFrameId;
@@ -599,25 +702,12 @@ async function deleteFrameItem(idx){
  const fr={...P.spec.frames[i],items:[...(P.spec.frames[i].items||[])]};
  fr.items.splice(idx,1);
  P.spec.frames[i]=fr;
- setFrameLoading(true);
- try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});refreshCanvasEdit();renderCanvasLayerList()}catch(e){alert(e.message)}finally{setFrameLoading(false)}
+ if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});bumpFrame(fid);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 async function handleStudioEdit(msg){
- if(!selectedFrameId||!P?.spec)return;
- const idx=msg.idx;
- if(msg.action==='delete'){
-  if(!confirm('Remove this element?'))return;
-  await deleteFrameItem(idx);
-  return;
- }
- const ask=prompt(msg.action==='replace'?'Replace with what? (use Reference on the frame row if needed)':'Describe the change for this element:');
- if(ask==null||!ask.trim())return;
- setFrameLoading(true);
- try{
-  await askFrame(selectedFrameId,ask.trim(),{itemIndex:idx});
-  refreshCanvasEdit();
-  renderCanvasLayerList();
- }catch(e){alert(e.message)}finally{setFrameLoading(false)}
+ if(msg.action==='delete'){openToolModal({title:'Remove layer',message:'Remove this element?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{await deleteFrameItem(msg.idx)}});return}
+ openLayerEditDialog(msg.action,msg.idx);
 }
 async function patchSelectedFrameMode(mode){
  if(!selectedFrameId||!P?.spec)return;
@@ -625,7 +715,7 @@ async function patchSelectedFrameMode(mode){
  if(i<0)return;
  P.spec.frames[i]={...P.spec.frames[i],mode};
  setFrameLoading(true);
- try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:mode+' '+selectedFrameId})});refreshCanvasEdit()}catch(e){alert(e.message)}finally{setFrameLoading(false)}
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:mode+' '+selectedFrameId})});bumpFrame(selectedFrameId);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 function makeSelectedFrameFss(){patchSelectedFrameMode('fss')}
 function makeSelectedFrameAnchor(){patchSelectedFrameMode('anchor')}
@@ -656,7 +746,7 @@ async function exp(){
  }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
 }
 window.addEventListener('message',e=>{if(e.data?.studio==='edit')handleStudioEdit(e.data)});
-window.addEventListener('resize',()=>{if(canvasEditDlg?.open)fitCanvasEdit()});
+window.addEventListener('resize',()=>{if(editModeOpen)fitCanvasEdit()});
 initNav();
 bindProjectList();
 bindFrameEdit();

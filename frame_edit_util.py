@@ -86,3 +86,36 @@ def apply_flat_paste_replace(frame: dict, ref_src: str, ask: str, replace_flag: 
 def remove_scene_illustrations(frame: dict) -> dict:
     items = [it for it in frame.get("items") or [] if isinstance(it, dict) and it.get("t") not in _SCENE]
     return {**frame, "items": items, "prop": False}
+
+
+def merge_item_edit(before: dict, after: dict, item_index: int) -> dict:
+    """Single-layer edit: swap one items[] slot; drop appended duplicates from the model."""
+    bi = [it for it in before.get("items") or [] if isinstance(it, dict)]
+    ai = [it for it in after.get("items") or [] if isinstance(it, dict)]
+    if item_index < 0 or item_index >= len(bi):
+        return after
+    replacement = None
+    if item_index < len(ai) and ai[item_index] != bi[item_index]:
+        replacement = ai[item_index]
+    if replacement is None:
+        for j, it in enumerate(ai):
+            if j >= len(bi) or it != bi[j]:
+                replacement = it
+                break
+    if replacement is None:
+        return {**after, "items": bi}
+    merged = list(bi)
+    merged[item_index] = replacement
+    old = bi[item_index]
+    if replacement.get("t") in _SCENE or old.get("t") in _SCENE:
+        out: list[dict] = []
+        for i, it in enumerate(merged):
+            if i == item_index:
+                out.append(replacement)
+                continue
+            if it.get("t") in _SCENE and replacement.get("t") in _SCENE:
+                if it.get("t") == replacement.get("t"):
+                    continue
+            out.append(it)
+        merged = out
+    return {**after, "items": merged}
