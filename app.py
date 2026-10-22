@@ -17,7 +17,8 @@ load_dotenv(ROOT / ".env")
 import copy
 
 import claude_client, exporter, spec_enrich
-from frame_edit_util import apply_reference_replace
+from frame_edit_util import apply_flat_paste_replace, strip_upload_assets
+from claude_client import _storyboard_line_for_frame
 from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
 def preview_base() -> str:
@@ -267,11 +268,15 @@ async def edit(pid: int, fid: str, req: Request):
     ref_src = None
     ref_image = None
     replace_flag = False
+    flat_paste = False
+    regenerate = False
     ct = (req.headers.get("content-type") or "").lower()
     if "multipart/form-data" in ct:
         form = await req.form()
         ask = (form.get("ask") or "").strip()
         replace_flag = form.get("replace") in ("1", "true", "on", "yes")
+        flat_paste = form.get("flat") in ("1", "true", "on", "yes")
+        regenerate = form.get("regenerate") in ("1", "true", "on", "yes")
         up = form.get("file")
         if up and getattr(up, "filename", None):
             raw = await up.read()
@@ -282,9 +287,14 @@ async def edit(pid: int, fid: str, req: Request):
         b = await req.json()
         ask = (b.get("ask") or "").strip()
         replace_flag = bool(b.get("replace"))
+        flat_paste = bool(b.get("flat"))
+        regenerate = bool(b.get("regenerate"))
 
-    if not ask and not ref_src:
-        raise HTTPException(400, "ask or reference image required")
+    if not ask and not ref_src and not regenerate:
+        raise HTTPException(400, "ask, reference image, or regenerate required")
+
+    sb_line = _storyboard_line_for_frame(p.get("storyboard") or "", fid)
+    smart_ref = bool(ref_image) and not flat_paste
 
     try:
         new = await asyncio.to_thread(
@@ -292,12 +302,19 @@ async def edit(pid: int, fid: str, req: Request):
             THEMES / p["theme"],
             spec["frames"][i],
             effective_look(p),
-            ask or "Use the uploaded reference on this frame.",
+            ask or ("Regenerate with fresh kit visuals." if regenerate else "Use the reference on this frame."),
             ref_src,
             ref_image,
-            replace_flag,
+            replace_illustration=replace_flag,
+            smart_reference=smart_ref,
+            flat_paste=flat_paste,
+            regenerate=regenerate,
+            storyboard_line=sb_line,
         )
-        new = apply_reference_replace(new, ref_src or "", ask, replace_flag)
+        if flat_paste and ref_src and replace_flag:
+            new = apply_flat_paste_replace(new, ref_src, ask, True)
+        elif smart_ref and ref_src:
+            new = strip_upload_assets(new, ref_src)
     except Exception as e:
         _raise_claude_gateway(e)
     spec["frames"][i] = new

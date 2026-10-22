@@ -305,37 +305,62 @@ def edit_frame(
     ask: str,
     ref_asset_src: str | None = None,
     ref_image: tuple[str, bytes] | None = None,
+    *,
     replace_illustration: bool = False,
+    smart_reference: bool = True,
+    flat_paste: bool = False,
+    regenerate: bool = False,
+    storyboard_line: str = "",
 ) -> dict:
     import base64
 
     tool = "submit_frame"
-    msg = (
-        f"Look: {json.dumps(look)}\nCurrent frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"
-        f"Change requested by the team member: {ask}\n"
-    )
-    if ref_asset_src:
-        if replace_illustration:
-            msg += (
-                f"\nREPLACE mode: remove every existing `asset` and `person` item from this frame. "
-                f"Then add exactly ONE `asset` with \"src\": \"{ref_asset_src}\" (floor position, sized ~480–520px h on anchor). "
-                "Do not keep old buildings/people. Do not add INDEX assets in addition to the upload.\n"
-            )
-        else:
-            msg += (
-                f"\nUploaded reference at assets/{ref_asset_src} — add ONE `asset` with \"src\": \"{ref_asset_src}\" "
-                "only if the team asked to add it; do not duplicate existing illustrations.\n"
-            )
-    if ref_image:
-        msg += (
-            "\nAttached image = visual reference. Redraw using kit components / uploaded asset path — not a second copy "
-            "alongside existing asset/person unless the ask says add.\n"
+    if regenerate:
+        msg = (
+            f"Look: {json.dumps(look)}\n"
+            f"Storyboard line: {storyboard_line or '(none)'}\n"
+            f"Current frame JSON (do NOT copy verbatim — produce a fresh spec):\n"
+            f"{json.dumps(frame, ensure_ascii=False)}\n\n"
+            "REGENERATE this frame for the same beat and frame id.\n"
+            "Requirements:\n"
+            "- Change materially: different kit `asset`/`person` paths from INDEX, and/or layout (x, person_left, table w, card structure).\n"
+            "- Do not return the same items[] as current unless the beat is title-only.\n"
+            "- Match storyboard tag (OST/OSA/FSS): add cards, bars, nlist, glass_table, calc_table when the beat needs them.\n"
+            "- Pick appropriate buildings, people, icons from assets/INDEX.md; at most 1–3 illustrations.\n"
+            "- Keep script numbers and htab text unless storyboard differs.\n"
         )
-    msg += (
-        "Return the whole edited frame via submit_frame. Keep everything not mentioned unchanged. "
-        "Layout: FSS calc_table/glass_table can use item fields w, widths, person_left; center tables under the heading when asked. "
-        "Use assets/INDEX.md paths for buildings, banks, people when the beat needs them."
-    )
+    else:
+        msg = (
+            f"Look: {json.dumps(look)}\nCurrent frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"
+            f"Change requested by the team member: {ask}\n"
+        )
+    if ref_image and smart_reference and not flat_paste:
+        msg += (
+            "\nREFERENCE IMAGE (vision) — SMART mode:\n"
+            "1. Identify the PRIMARY subject the user wants on the frame (one role: building, person, chart, document…).\n"
+            "2. Ignore extra clutter in the photo (background, secondary icons, text in the screenshot) unless the ask names them.\n"
+            "3. Map the primary subject to the closest transparent PNG in assets/INDEX.md (setA/setB/setC paths only).\n"
+            "4. If replacing: remove existing `asset`/`person` for that role, then add kit items — NOT the full upload as one flat PNG.\n"
+            f"5. Do NOT set any asset src to \"{ref_asset_src or 'uploads/ref_*'}\" — uploads are for your eyes only in smart mode.\n"
+            "6. Use `person` for characters, `asset` for buildings/props; match example_spec.json density.\n"
+        )
+        if replace_illustration:
+            msg += "7. REPLACE is on: drop all current `asset` and `person` items, then add only the kit-mapped illustration(s).\n"
+    elif ref_asset_src and flat_paste:
+        msg += (
+            f"\nFLAT PASTE: remove existing asset/person if replacing, then exactly ONE asset with "
+            f"\"src\": \"{ref_asset_src}\" on the floor (~480px h).\n"
+        )
+    elif ref_asset_src:
+        msg += f"\nReference file saved at assets/{ref_asset_src} (use only if flat paste or user says paste literally).\n"
+    if not regenerate:
+        msg += (
+            "\nReturn the whole edited frame via submit_frame. Keep everything not mentioned unchanged. "
+            "Layout: FSS calc_table/glass_table can use w, widths, person_left. "
+            "Use INDEX paths for illustrations."
+        )
+    else:
+        msg += "\nReturn the whole regenerated frame via submit_frame only."
     if _tool_choice(tool)["type"] == "auto":
         msg += f"\n\nRespond only by calling the {tool} tool."
     if ref_image:
@@ -350,7 +375,10 @@ def edit_frame(
     else:
         content = msg
     r = _messages_create(
-        max_tokens=4000, system=_system(theme_dir),
-        tools=[FRAME_TOOL], tool_choice=_tool_choice(tool),
-        messages=[{"role": "user", "content": content}])
+        max_tokens=8000 if regenerate else 5000,
+        system=_system(theme_dir),
+        tools=[FRAME_TOOL],
+        tool_choice=_tool_choice(tool),
+        messages=[{"role": "user", "content": content}],
+    )
     return _tool_input(r, tool)["frame"]

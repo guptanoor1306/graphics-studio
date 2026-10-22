@@ -330,14 +330,15 @@ function framesStudio(){
       <input id="frameAsk" placeholder="Describe changes for this frame…" onkeydown="if(event.key==='Enter')askFromInput()">
       <div class="frame-edit-tools">
        <div class="frame-edit-ctas">
-        <span class="has-tip" data-tip="Your prompt only — layout, props, copy. Uses reference if attached."><button type="button" class="p" onclick="askFromInput()">Apply</button></span>
-        <span class="has-tip" data-tip="Ignores prompt. Rebuilds frame with full kit visuals."><button type="button" onclick="regenFrame()">Regenerate</button></span>
+        <span class="has-tip" data-tip="Prompt + optional reference. Smart replace maps the image to kit assets (default); Flat paste uses the file as one PNG. PSD not supported."><button type="button" class="p" onclick="askFromInput()">Apply</button></span>
+        <span class="has-tip" data-tip="New kit layout and INDEX assets for this beat — should differ from the current frame."><button type="button" onclick="regenFrame()">Regenerate</button></span>
         <button type="button" class="ghost" onclick="openJson()">Edit JSON</button>
        </div>
        <div class="frame-edit-ref">
         <span class="ref-lbl">Reference</span>
-        <input type="file" id="frameRef" accept="image/png,image/jpeg,image/webp" title="PNG/JPG for this frame">
-        <label class="inline-check" title="Remove existing asset/person; use upload only"><input type="checkbox" id="frameRefReplace" checked>Replace only</label>
+        <input type="file" id="frameRef" accept="image/png,image/jpeg,image/webp" title="PNG/JPG/WebP — not PSD">
+        <label class="inline-check" title="Vision maps reference to kit assets; removes old illustration"><input type="checkbox" id="frameRefReplace" checked>Smart replace</label>
+        <label class="inline-check" title="Paste whole file as one PNG asset"><input type="checkbox" id="frameRefFlat">Flat paste</label>
         <span class="ref-name" id="frameRefLabel"></span>
        </div>
       </div>
@@ -494,12 +495,14 @@ async function askFrame(fid,ask,{regenerate=false}={}){
   if(refFile){
    const fd=new FormData();fd.append('ask',ask||'');fd.append('file',refFile);
    if($('#frameRefReplace')?.checked)fd.append('replace','1');
+   if($('#frameRefFlat')?.checked)fd.append('flat','1');
+   if(regenerate)fd.append('regenerate','1');
    const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:fd});
    if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
    updated=await r.json();
    ref.value='';const lb=$('#frameRefLabel');if(lb)lb.textContent='';
   }else{
-   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask})});
+   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:!!$('#frameRefReplace')?.checked,flat:!!$('#frameRefFlat')?.checked})});
   }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
@@ -509,7 +512,7 @@ async function askFrame(fid,ask,{regenerate=false}={}){
 function askFromInput(){const inp=$('#frameAsk');if(!selectedFrameId)return;askFrame(selectedFrameId,inp?.value||'')}
 async function regenFrame(){
  if(!selectedFrameId)return;
- await askFrame(selectedFrameId,'Regenerate with full kit visuals: include relevant assets from INDEX (buildings, bank, people) for this beat; same frame id and storyboard intent.',{regenerate:true})}
+ await askFrame(selectedFrameId,'',{regenerate:true})}
 async function applyLook(){P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look:getLook(),theme:$('#theme').value,note:'look'})});P.look=normLook(P.look);P.spec.frames.forEach(fr=>bumpFrame(fr.id))}
 async function upPlate(i){const fd=new FormData();fd.append('file',i.files[0]);const r=await fetch(`/api/projects/${P.id}/plate`,{method:'POST',body:fd});if(!r.ok)return alert(await r.text());P=await r.json();render()}
 function openJson(){
