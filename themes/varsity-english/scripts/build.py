@@ -142,7 +142,10 @@ def floor_asset(src, mode, x, h=None, w=None, z=None, floor=None):
 PLATES = {'right': 'anchor_right_setA_clean', 'left': 'anchor_left_setB'}
 PROPS = {'coins': [('setA/coins_stack.png', 100)], 'tax': [('setC/calculator.png', 130), ('setA/coins_stack.png', 90)],
          'jar': [('setB/jar_cash_coins.png', 200)], 'house': [('setC/house_home_loan_small.png', 230)],
-         'bank': [('setC/bank_building_classic.png', 240)], 'none': []}   # (asset, visible height) for corner props
+         'bank': [('setC/bank_building_classic.png', 240)], 'broker': [('setA/building_company_3d.png', 200)],
+         'document': [('setA/document_clipped_note_rule.png', 160)],
+         'chart': [('setA/icon_browser_donut.png', 180)], 'magnifier': [('setA/magnifying_glass.png', 140)],
+         'none': []}   # (asset, visible height) for corner props
 
 def topic_prop_assets(look):
     """One topic prop per video (skill rule): first entry in look.props / look.prop only."""

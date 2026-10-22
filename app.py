@@ -17,7 +17,7 @@ load_dotenv(ROOT / ".env")
 import copy
 
 import claude_client, exporter, spec_enrich
-from frame_edit_util import apply_flat_paste_replace, strip_upload_assets
+from frame_edit_util import apply_flat_paste_replace, finalize_reference_edit, remove_scene_illustrations
 from claude_client import _storyboard_line_for_frame
 from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
@@ -295,12 +295,16 @@ async def edit(pid: int, fid: str, req: Request):
 
     sb_line = _storyboard_line_for_frame(p.get("storyboard") or "", fid)
     smart_ref = bool(ref_image) and not flat_paste
+    before = spec["frames"][i]
+    edit_frame_in = copy.deepcopy(before)
+    if smart_ref and replace_flag:
+        edit_frame_in = remove_scene_illustrations(edit_frame_in)
 
     try:
         new = await asyncio.to_thread(
             claude_client.edit_frame,
             THEMES / p["theme"],
-            spec["frames"][i],
+            edit_frame_in,
             effective_look(p),
             ask or ("Regenerate with fresh kit visuals." if regenerate else "Use the reference on this frame."),
             ref_src,
@@ -313,8 +317,10 @@ async def edit(pid: int, fid: str, req: Request):
         )
         if flat_paste and ref_src and replace_flag:
             new = apply_flat_paste_replace(new, ref_src, ask, True)
-        elif smart_ref and ref_src:
-            new = strip_upload_assets(new, ref_src)
+        else:
+            new = finalize_reference_edit(
+                before, new, replace=replace_flag, ref_src=ref_src, smart=smart_ref
+            )
     except Exception as e:
         _raise_claude_gateway(e)
     spec["frames"][i] = new

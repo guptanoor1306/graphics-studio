@@ -276,7 +276,7 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
     msg = (
         f"Look (copy into spec.look): {json.dumps(look)}\n"
-        f"Topic prop (first only used as corner dressing): {json.dumps(props[:1] if props else [])}\n"
+        f"Topic props — first only as corner dressing; all checked guide OSA kit choices: {json.dumps(props if props else [])}\n"
         f"Notes: {notes or 'none'}\n\n"
         f"Follow app_storyboard_overrides.md + studio_brief.md: tag each beat OST/OSA/FSS in storyboard; spec must match tags.\n"
         f"Copy numbers exactly from the script.\n\nSCRIPT:\n{script}"
@@ -345,7 +345,14 @@ def edit_frame(
             "6. Use `person` for characters, `asset` for buildings/props; match example_spec.json density.\n"
         )
         if replace_illustration:
-            msg += "7. REPLACE is on: drop all current `asset` and `person` items, then add only the kit-mapped illustration(s).\n"
+            msg += (
+                "7. REPLACE is on: the JSON you receive already has asset/person removed — add ONLY the new kit-mapped "
+                "illustration(s). Do not re-add removed buildings/people. Remove stray html/cards/bars/popup overlays "
+                "unless the ask keeps them.\n"
+            )
+        props = look.get("props") or []
+        if props:
+            msg += f"8. Video topic props (prefer matching INDEX motifs when mapping reference): {json.dumps(props)}\n"
     elif ref_asset_src and flat_paste:
         msg += (
             f"\nFLAT PASTE: remove existing asset/person if replacing, then exactly ONE asset with "
