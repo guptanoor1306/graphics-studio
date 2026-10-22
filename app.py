@@ -17,6 +17,7 @@ load_dotenv(ROOT / ".env")
 import copy
 
 import claude_client, exporter, spec_enrich
+from frame_edit_util import apply_reference_replace
 from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
 def preview_base() -> str:
@@ -265,10 +266,12 @@ async def edit(pid: int, fid: str, req: Request):
 
     ref_src = None
     ref_image = None
+    replace_flag = False
     ct = (req.headers.get("content-type") or "").lower()
     if "multipart/form-data" in ct:
         form = await req.form()
         ask = (form.get("ask") or "").strip()
+        replace_flag = form.get("replace") in ("1", "true", "on", "yes")
         up = form.get("file")
         if up and getattr(up, "filename", None):
             raw = await up.read()
@@ -278,6 +281,7 @@ async def edit(pid: int, fid: str, req: Request):
     else:
         b = await req.json()
         ask = (b.get("ask") or "").strip()
+        replace_flag = bool(b.get("replace"))
 
     if not ask and not ref_src:
         raise HTTPException(400, "ask or reference image required")
@@ -291,7 +295,9 @@ async def edit(pid: int, fid: str, req: Request):
             ask or "Use the uploaded reference on this frame.",
             ref_src,
             ref_image,
+            replace_flag,
         )
+        new = apply_reference_replace(new, ref_src or "", ask, replace_flag)
     except Exception as e:
         _raise_claude_gateway(e)
     spec["frames"][i] = new

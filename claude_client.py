@@ -305,6 +305,7 @@ def edit_frame(
     ask: str,
     ref_asset_src: str | None = None,
     ref_image: tuple[str, bytes] | None = None,
+    replace_illustration: bool = False,
 ) -> dict:
     import base64
 
@@ -314,15 +315,21 @@ def edit_frame(
         f"Change requested by the team member: {ask}\n"
     )
     if ref_asset_src:
-        msg += (
-            f"\nUploaded reference file is in the kit at assets/{ref_asset_src}. "
-            f"Add or update an `asset` item with \"src\": \"{ref_asset_src}\" (or redraw the idea using INDEX paths in house style). "
-            "Do not paste external URLs.\n"
-        )
+        if replace_illustration:
+            msg += (
+                f"\nREPLACE mode: remove every existing `asset` and `person` item from this frame. "
+                f"Then add exactly ONE `asset` with \"src\": \"{ref_asset_src}\" (floor position, sized ~480–520px h on anchor). "
+                "Do not keep old buildings/people. Do not add INDEX assets in addition to the upload.\n"
+            )
+        else:
+            msg += (
+                f"\nUploaded reference at assets/{ref_asset_src} — add ONE `asset` with \"src\": \"{ref_asset_src}\" "
+                "only if the team asked to add it; do not duplicate existing illustrations.\n"
+            )
     if ref_image:
         msg += (
-            "\nThe attached image is the team's visual reference for this edit — match layout/content in Varsity kit style "
-            "(components, colours, floor-line assets), not a pixel copy.\n"
+            "\nAttached image = visual reference. Redraw using kit components / uploaded asset path — not a second copy "
+            "alongside existing asset/person unless the ask says add.\n"
         )
     msg += (
         "Return the whole edited frame via submit_frame. Keep everything not mentioned unchanged. "

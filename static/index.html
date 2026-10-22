@@ -90,10 +90,15 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .ws-loader .spinner{border-color:rgba(255,255,255,.25);border-top-color:#fff}
 @keyframes spin{to{transform:rotate(360deg)}}
 .frame-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
-.frame-edit-hint{font-size:12px;color:var(--mute);line-height:1.45;margin:0;flex:1 1 100%}
-.frame-ref-row{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.frame-ref-row{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;margin-top:4px;padding-top:10px;border-top:1px solid var(--line)}
 .frame-ref-row input[type=file]{max-width:min(100%,320px)}
 .frame-actions input#frameAsk{flex:1;min-width:160px;font-size:14px}
+.frame-actions .cta-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:1 1 100%}
+.has-tip{position:relative}
+.has-tip[data-tip]:hover::after,.has-tip[data-tip]:focus-visible::after{
+  content:attr(data-tip);position:absolute;z-index:20;bottom:calc(100% + 8px);left:0;max-width:min(320px,90vw);
+  padding:8px 10px;font-size:12px;font-weight:400;line-height:1.45;color:var(--ink);background:#fff;border:1px solid var(--line);
+  border-radius:var(--radius-sm);box-shadow:var(--shadow);white-space:normal;pointer-events:none}
 .all-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-height:min(70vh,720px);overflow:auto;padding:4px}
 .mini-card{cursor:pointer;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:#fff;transition:border-color .15s,box-shadow .15s}
 .mini-card:hover{border-color:var(--beat-green);box-shadow:var(--shadow)}
@@ -317,12 +322,17 @@ function framesStudio(){
       <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
      </div>
      <div class="frame-actions">
-      <p class="frame-edit-hint"><strong>Apply</strong> — your prompt only (layout, props, copy). Optional reference image below. <strong>Regenerate</strong> — Claude re-builds this frame with full kit visuals; ignores your prompt.</p>
-      <div class="frame-ref-row"><label>Reference image (optional)</label><input type="file" id="frameRef" accept="image/*"><span class="muted" id="frameRefLabel">PNG/JPG for this frame only</span></div>
-      <input id="frameAsk" placeholder="Apply: e.g. add bank building, enlarge table…" onkeydown="if(event.key==='Enter')askFromInput()">
-      <button type="button" class="p" onclick="askFromInput()">Apply</button>
-      <button type="button" onclick="regenFrame()" title="Rebuild frame with kit assets; does not use the prompt box">Regenerate</button>
-      <button type="button" class="ghost" onclick="openJson()">Edit JSON</button>
+      <input id="frameAsk" placeholder="Apply: e.g. replace building with reference, enlarge table…" onkeydown="if(event.key==='Enter')askFromInput()">
+      <div class="cta-row">
+       <span class="has-tip" data-tip="Runs your prompt on this frame only — layout, kit props, copy. Uses the reference file if attached."><button type="button" class="p" onclick="askFromInput()">Apply</button></span>
+       <span class="has-tip" data-tip="Ignores the prompt box. Claude rebuilds this frame with full kit visuals for the same beat and frame id."><button type="button" onclick="regenFrame()">Regenerate</button></span>
+       <button type="button" class="ghost" onclick="openJson()">Edit JSON</button>
+      </div>
+      <div class="frame-ref-row">
+       <label>Reference image</label><input type="file" id="frameRef" accept="image/*">
+       <label class="chip" style="margin:0"><input type="checkbox" id="frameRefReplace" checked> Replace illustration (don’t add a second one)</label>
+       <span class="muted" id="frameRefLabel">PNG/JPG · this frame</span>
+      </div>
      </div></div></div></div>`}
 function render(){
   P.look=normLook(P.look);
@@ -468,6 +478,7 @@ async function askFrame(fid,ask,{regenerate=false}={}){
   let updated;
   if(refFile){
    const fd=new FormData();fd.append('ask',ask||'');fd.append('file',refFile);
+   if($('#frameRefReplace')?.checked)fd.append('replace','1');
    const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:fd});
    if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
    updated=await r.json();
