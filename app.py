@@ -434,6 +434,25 @@ async def storyboard_ref(pid: int, req: Request, file: UploadFile = File(...)):
     save(pid, who(req), "storyboard ref", look=look)
     return load(pid)
 
+
+@app.delete("/api/projects/{pid}/storyboard-ref")
+async def delete_storyboard_ref(pid: int, req: Request):
+    b = await req.json()
+    rel = (b.get("path") or "").strip()
+    if not rel or ".." in rel or not rel.startswith("uploads/sbref_"):
+        raise HTTPException(400, "Invalid reference path")
+    p = load(pid)
+    refs = list((p.get("look") or {}).get("ref_images") or [])
+    if rel not in refs:
+        raise HTTPException(404, "Reference not found")
+    refs = [r for r in refs if r != rel]
+    look = {**p["look"], "ref_images": refs}
+    save(pid, who(req), "remove storyboard ref", look=look)
+    fp = THEMES / p["theme"] / "assets" / rel
+    if fp.is_file():
+        fp.unlink()
+    return load(pid)
+
 @app.get("/api/projects/{pid}/check")
 async def check(pid: int):
     from playwright.async_api import async_playwright

@@ -298,37 +298,90 @@ def _graphics_mix_rules(look: dict) -> str:
     )
 
 
-def _call_storyboard(theme_dir, msg: str) -> dict:
+def _load_ref_images(theme_dir: pathlib.Path, rel_paths: list[str]) -> list[tuple[str, bytes]]:
+    import mimetypes
+
+    out: list[tuple[str, bytes]] = []
+    for rel in rel_paths[:10]:
+        p = theme_dir / "assets" / rel
+        if not p.is_file():
+            continue
+        raw = p.read_bytes()
+        mt = mimetypes.guess_type(p.name)[0] or "image/png"
+        if mt not in ("image/png", "image/jpeg", "image/webp", "image/gif"):
+            mt = "image/png"
+        out.append((mt, raw))
+    return out
+
+
+def _call_storyboard(theme_dir, msg: str, ref_images: list[tuple[str, bytes]] | None = None) -> dict:
+    import base64
+
     tool = "submit_storyboard"
     if _tool_choice(tool)["type"] == "auto":
         msg += f"\n\nRespond only by calling the {tool} tool with the full storyboard and spec."
+    if ref_images:
+        content: list[dict] = []
+        for media, raw in ref_images:
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media,
+                        "data": base64.standard_b64encode(raw).decode(),
+                    },
+                }
+            )
+        content.append({"type": "text", "text": msg})
+        user_content: str | list = content
+    else:
+        user_content = msg
     r = _messages_create(
         max_tokens=16384, system=_system(theme_dir),
         tools=[SB_TOOL], tool_choice=_tool_choice(tool),
-        messages=[{"role": "user", "content": msg}])
+        messages=[{"role": "user", "content": user_content}])
     return _tool_input(r, tool)
 
 
 def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
     refs = look.get("ref_images") or []
+    style = (look.get("storyboard_style") or "topic_props").strip()
+    ref_images: list[tuple[str, bytes]] | None = None
     ref_note = ""
-    if refs:
+    props_note = f"Topic props — first only as corner dressing; all checked guide OSA kit choices: {json.dumps(props if props else [])}\n"
+    if style == "reference_designs" and refs:
+        ref_images = _load_ref_images(theme_dir, refs)
         ref_note = (
-            "Optional style reference PNGs (match layout/mood when choosing kit assets; paths under assets/):\n"
+            "REFERENCE DESIGNS MODE (attached screenshots + paths):\n"
+            "- Map each script beat to a layout TYPE seen in the references (full-screen table, gauge, anchor+graphic, title card, etc.).\n"
+            "- Vary frame modes (anchor vs fss) to mirror reference variety — do NOT default every beat to broker building + person.\n"
+            "- Use INDEX kit assets that resemble reference elements; do not paste upload paths into spec.\n"
+            + "\n".join(f"- assets/{r}" for r in refs[:10])
+            + "\n"
+        )
+        props_note = (
+            "Topic props are secondary in reference-designs mode — prefer layouts from references; "
+            f"props list (corner only): {json.dumps(props if props else [])}\n"
+        )
+    elif refs:
+        ref_note = (
+            "Optional style hints (weak — topic props drive kit choice):\n"
             + "\n".join(f"- assets/{r}" for r in refs[:10])
             + "\n"
         )
     msg = (
         f"Look (copy into spec.look): {json.dumps(look)}\n"
-        f"Topic props — first only as corner dressing; all checked guide OSA kit choices: {json.dumps(props if props else [])}\n"
+        f"Storyboard visual guide: {style}\n"
+        f"{props_note}"
         f"Notes: {notes or 'none'}\n\n"
         f"{ref_note}"
         f"{_graphics_mix_rules(look)}"
         f"Follow app_storyboard_overrides.md + studio_brief.md: tag each beat OST/OSA/FSS in storyboard; spec must match tags.\n"
         f"Copy numbers exactly from the script.\n\nSCRIPT:\n{script}"
     )
-    out = _call_storyboard(theme_dir, msg)
+    out = _call_storyboard(theme_dir, msg, ref_images)
     out["spec"] = enrich_spec(_merge_user_look(out.get("spec") or {}, look), out.get("storyboard") or "")
     for _ in range(2):
         issues = spec_quality_issues(out["spec"], out.get("storyboard") or "")
@@ -340,7 +393,7 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
             + "\n".join(f"- {x}" for x in issues)
             + f"\n\nLook: {json.dumps(look)}\n\nSCRIPT:\n{script}"
         )
-        out = _call_storyboard(theme_dir, retry)
+        out = _call_storyboard(theme_dir, retry, ref_images)
         out["spec"] = enrich_spec(_merge_user_look(out.get("spec") or {}, look), out.get("storyboard") or "")
     return out
 

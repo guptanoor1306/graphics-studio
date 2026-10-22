@@ -148,8 +148,18 @@ body.edit-mode-on #editModeApp{display:flex}
 .edit-frame-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .edit-ref-check{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer}
 .edit-ref-check input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);flex-shrink:0}
-.sb-ref-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
-.sb-ref-grid img{width:72px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.label-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.info-tip-btn{width:22px;height:22px;padding:0;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:13px;line-height:1;color:var(--mute);cursor:default;flex-shrink:0}
+.guide-pick{display:flex;flex-wrap:wrap;gap:14px 20px;font-size:14px;margin-top:4px}
+.guide-pick label{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.sb-ref-grid{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.sb-ref-item{position:relative;width:88px;height:50px;flex-shrink:0}
+.sb-ref-item img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block}
+.sb-ref-del{position:absolute;top:2px;right:2px;width:22px;height:22px;padding:0;border:0;border-radius:6px;background:rgba(26,25,23,.72);color:#fff;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.sb-ref-del:hover{background:#9c4221}
+.mode-switch{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--radius-sm);overflow:hidden;background:#fff}
+.mode-switch button{padding:8px 16px;border:0;background:transparent;font-size:13px;font-weight:500;color:var(--mute);cursor:pointer}
+.mode-switch button.on{background:var(--beat-green-bg);color:var(--beat-green);font-weight:600}
 .canvas-edit-scale{transform-origin:0 0;width:1920px;height:1080px}
 .canvas-edit-scale iframe{display:block;width:1920px;height:1080px;border:0;pointer-events:auto}
 .edit-canvas-loader{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(26,25,23,.75);color:#fff;font-size:15px;border-radius:var(--radius-sm)}
@@ -185,8 +195,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 <div id="editModeApp" hidden>
  <header class="edit-mode-top"><button type="button" class="ghost" onclick="exitEditMode()">← Back to studio</button>
   <b id="editModeTitle">Edit frames</b><span class="spacer"></span>
-  <button type="button" class="ghost" onclick="makeSelectedFrameFss()">Full-screen</button>
-  <button type="button" class="ghost" onclick="makeSelectedFrameAnchor()">Anchor</button></header>
+  <div id="frameModeSwitch"></div></header>
  <div class="edit-mode-grid">
   <aside class="edit-frame-strip" id="editFrameStrip"></aside>
   <div class="edit-mode-center">
@@ -269,7 +278,9 @@ function initNav(){
   });
   if($('#navToggle'))$('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
 }
-function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';if(!l.ref_images)l.ref_images=[];return l}
+function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';if(!l.ref_images)l.ref_images=[];if(!l.storyboard_style)l.storyboard_style='topic_props';return l}
+function sbRefGridHtml(l){return (l.ref_images||[]).map(r=>`<div class="sb-ref-item"><button type="button" class="sb-ref-del" title="Remove reference" onclick="event.stopPropagation();delStoryboardRef('${esc(r)}')">×</button><img src="/themes/${P.theme}/assets/${esc(r)}" alt="ref"></div>`).join('')}
+const TOPIC_PROPS_TIP='First checked = corner dressing on text-only frames. All checked props hint storyboard + Apply to prefer matching kit assets (broker, bank, chart, etc.).';
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
   const id=fid.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -345,18 +356,31 @@ function lookForm(l){l=normLook(l);
   <div class="field"><label>Anchor side</label>${sel('anchor',['right','left'])}</div>
   <div class="field"><label>FSS accent</label>${sel('fss',['blue','warm'])}</div>
   <div class="field" style="grid-column:1/-1"><label>Graphics mix</label><select id="lk_graphics_mix"><option value="balanced" ${(l.graphics_mix||'balanced')==='balanced'?'selected':''}>Balanced — mix of FSS and anchor</option><option value="fss_heavy" ${l.graphics_mix==='fss_heavy'?'selected':''}>FSS-heavy — mostly full-screen frames</option><option value="minimal_anchor" ${l.graphics_mix==='minimal_anchor'?'selected':''}>Minimal anchor — at most 2 talking-head frames</option></select></div>
-  <div class="field" style="grid-column:1/-1"><label>Topic props</label><p class="hint" style="margin:0 0 6px;font-size:12px;color:var(--muted)">First checked = corner dressing on text-only frames. All checked props hint storyboard + Apply to prefer matching kit assets (broker, bank, chart, etc.).</p><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div>
-  <div class="field" style="grid-column:1/-1"><label>Storyboard references (optional, up to 10)</label><p class="hint" style="margin:0 0 6px;font-size:12px;color:var(--muted)">Style/layout hints when generating storyboard — not pasted into frames.</p><input type="file" id="sbRefUpload" accept="image/png,image/jpeg,image/webp" onchange="upStoryboardRef(this)"><div class="sb-ref-grid" id="sbRefGrid">${(l.ref_images||[]).map(r=>`<img src="/themes/${P.theme}/assets/${r}" alt="ref">`).join('')}</div></div></div>`}
+  <div class="field" style="grid-column:1/-1"><div class="label-row"><label>Topic props</label><button type="button" class="info-tip-btn has-tip" data-tip="${esc(TOPIC_PROPS_TIP)}" aria-label="Topic props help">i</button></div><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div>
+  <div class="field" style="grid-column:1/-1"><label>Storyboard visual guide</label><div class="guide-pick"><label><input type="radio" name="sb_guide" value="topic_props" ${(l.storyboard_style||'topic_props')==='topic_props'?'checked':''}> Topic props (kit icons)</label><label><input type="radio" name="sb_guide" value="reference_designs" ${l.storyboard_style==='reference_designs'?'checked':''}> Reference designs (uploaded layouts)</label></div></div>
+  <div class="field" style="grid-column:1/-1"><label>Storyboard references (optional, up to 10)</label><p class="hint" style="margin:0 0 6px;font-size:12px;color:var(--muted)">Used when “Reference designs” is selected — match frame types and layout from these screenshots.</p><input type="file" id="sbRefUpload" accept="image/png,image/jpeg,image/webp" multiple onchange="upStoryboardRef(this)"><div class="sb-ref-grid" id="sbRefGrid">${sbRefGridHtml(l)}</div></div></div>`}
 const getLook=()=>{
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
-  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}),...(P.look?.ref_images?{ref_images:P.look.ref_images}:{})};
+  const style=document.querySelector('input[name="sb_guide"]:checked')?.value||'topic_props';
+  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',storyboard_style:style,props,...(P.look?.plate?{plate:P.look.plate}:{}),...(P.look?.ref_images?{ref_images:P.look.ref_images}:{})};
 };
 async function upStoryboardRef(input){
- if(!input?.files?.[0]||!P)return;
- const fd=new FormData();fd.append('file',input.files[0]);
- const r=await fetch(`/api/projects/${P.id}/storyboard-ref`,{method:'POST',body:fd});
+ if(!input?.files?.length||!P)return;
+ for(const file of input.files){
+  if((P.look.ref_images||[]).length>=10){alert('Maximum 10 storyboard references.');break}
+  const fd=new FormData();fd.append('file',file);
+  const r=await fetch(`/api/projects/${P.id}/storyboard-ref`,{method:'POST',body:fd});
+  if(!r.ok){alert(await r.text());break}
+  P=await r.json();P.look=normLook(P.look);
+ }
+ input.value='';render();
+}
+async function delStoryboardRef(path){
+ if(!P||!path)return;
+ if(!confirm('Remove this storyboard reference?'))return;
+ const r=await fetch(`/api/projects/${P.id}/storyboard-ref`,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
  if(!r.ok)return alert(await r.text());
- P=await r.json();P.look=normLook(P.look);input.value='';render();
+ P=await r.json();P.look=normLook(P.look);render();
 }
 function getScriptValue(){return $('#script')?.value??P.script??''}
 function getNotesValue(){return $('#notes')?.value??''}
@@ -411,22 +435,7 @@ function framesStudio(){
        <iframe id="activeFrame" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>
       <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
      </div>
-     <div class="frame-edit-panel">
-      <input id="frameAsk" placeholder="Describe changes for this frame…" onkeydown="if(event.key==='Enter')askFromInput()">
-      <div class="frame-edit-tools">
-       <div class="frame-edit-ctas">
-        <span class="has-tip" data-tip="Prompt + optional reference. Smart replace maps the image to kit assets (default); Flat paste uses the file as one PNG. PSD not supported."><button type="button" class="p" onclick="askFromInput()">Apply</button></span>
-        <span class="has-tip" data-tip="New kit layout and INDEX assets for this beat — should differ from the current frame."><button type="button" onclick="regenFrame()">Regenerate</button></span>
-       </div>
-       <div class="frame-edit-ref">
-        <span class="ref-lbl">Reference</span>
-        <input type="file" id="frameRef" accept="image/png,image/jpeg,image/webp" title="PNG/JPG/WebP — not PSD">
-        <label class="inline-check" title="Vision maps reference to kit assets; removes old illustration"><input type="checkbox" id="frameRefReplace" checked>Smart replace</label>
-        <label class="inline-check" title="Paste whole file as one PNG asset"><input type="checkbox" id="frameRefFlat">Flat paste</label>
-        <span class="ref-name" id="frameRefLabel"></span>
-       </div>
-      </div>
-     </div></div></div></div>`}
+     <p class="studio-hint" style="margin-top:12px">Open <b>Edit mode</b> to change layers, apply prompts, or switch anchor / full-screen layout.</p></div></div></div>`}
 function render(){
   P.look=normLook(P.look);
   const preSpec=`<h2 class="section">2 · Script</h2><div class="card"><div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
@@ -457,7 +466,6 @@ function selectFrame(fid){
   const ifr=$('#activeFrame');
   if(ifr)ifr.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${v}`;
   updateFrameNavButtons();
-  const ref=$('#frameRef');if(ref)ref.value='';
   fitOne($('#activeThumb'));
 }
 function updateFrameNavButtons(){
@@ -497,6 +505,8 @@ function bumpFrame(fid){
   if(selectedFrameId===fid){const ifr=$('#activeFrame');if(ifr)ifr.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${frameVer[fid]}`;fitOne($('#activeThumb'))}
   const mini=document.querySelector(`.mini-card[data-fid="${CSS.escape(fid)}"] iframe`);
   if(mini)mini.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${frameVer[fid]}`;
+  const strip=document.querySelector(`.edit-frame-thumb[data-fid="${CSS.escape(fid)}"] iframe`);
+  if(strip)strip.src=`/preview/${P.id}/${encodeURIComponent(fid)}?edit=1&v=${frameVer[fid]}`;
 }
 function fitOne(t){if(!t)return;const s=t.clientWidth/1920;const f=t.querySelector('iframe');if(f)f.style.transform=`scale(${s})`}
 function fit(){fitOne($('#activeThumb'));document.querySelectorAll('.mini-thumb').forEach(fitOne)}
@@ -537,15 +547,26 @@ function bindProjectList(){
 }
 function bindFrameEdit(){
   document.body.addEventListener('change',e=>{
-    if(e.target.id==='frameRef'||e.target.id==='editRef'){
-     const lb=$(e.target.id==='editRef'?'#editRefLabel':'#frameRefLabel');
+    if(e.target.id==='editRef'){
+     const lb=$('#editRefLabel');
      if(lb)lb.textContent=e.target.files?.[0]?.name||'';
     }
   });
 }
 function refControls(){
- if(editModeOpen)return{ref:$('#editRef'),rep:$('#editRefReplace'),flat:$('#editRefFlat'),lb:$('#editRefLabel')};
- return{ref:$('#frameRef'),rep:$('#frameRefReplace'),flat:$('#frameRefFlat'),lb:$('#frameRefLabel')};
+ return{ref:$('#editRef'),rep:$('#editRefReplace'),flat:$('#editRefFlat'),lb:$('#editRefLabel')};
+}
+function renderFrameModeSwitch(){
+ const host=$('#frameModeSwitch');
+ if(!host||!P?.spec||!selectedFrameId){if(host)host.innerHTML='';return}
+ const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
+ const mode=fr?.mode||'anchor';
+ host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`;
+}
+function setSelectedFrameMode(mode){
+ const fr=P?.spec?.frames?.find(f=>f.id===selectedFrameId);
+ if(!fr||fr.mode===mode)return;
+ if(mode==='fss')makeSelectedFrameFss();else makeSelectedFrameAnchor();
 }
 function setEditLoading(on){const el=$('#editCanvasLoader');if(el)el.hidden=!on}
 function newProject(){
@@ -600,12 +621,8 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
   if(i>=0)P.spec.frames[i]=updated;
   bumpFrame(fid);
   if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}
-  if(!regenerate){const inp=$('#frameAsk');if(inp)inp.value='';const ea=$('#editFrameAsk');if(ea&&!editModeOpen)ea.value=''}
+  if(!regenerate){const ea=$('#editFrameAsk');if(ea)ea.value=''}
  }catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}}
-function askFromInput(){const inp=$('#frameAsk');if(!selectedFrameId)return;askFrame(selectedFrameId,inp?.value||'')}
-async function regenFrame(){
- if(!selectedFrameId)return;
- await askFrame(selectedFrameId,'',{regenerate:true})}
 async function applyLook(){
  const look=document.getElementById('propPick')?getLook():normLook(P.look);
  P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look,theme:P.theme,note:'look'})});
@@ -683,7 +700,7 @@ function buildEditFrameStrip(){
  el.innerHTML=P.spec.frames.map(fr=>{
   const v=frameVer[fr.id]||0;
   const on=fr.id===selectedFrameId?' on':'';
-  return `<div class="edit-frame-thumb${on}" data-fid="${esc(fr.id)}" onclick="selectEditFrame('${esc(fr.id)}')"><div class="mini-thumb"><iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div><div class="mini-label">${frameLabel(fr.id)}</div></div>`}).join('');
+  return `<div class="edit-frame-thumb${on}" data-fid="${esc(fr.id)}" onclick="selectEditFrame('${esc(fr.id)}')"><div class="mini-thumb"><iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?edit=1&v=${v}"></iframe></div><div class="mini-label">${frameLabel(fr.id)}</div></div>`}).join('');
  requestAnimationFrame(()=>el.querySelectorAll('.mini-thumb').forEach(fitOne));
 }
 function openEditMode(fid){
@@ -695,6 +712,7 @@ function openEditMode(fid){
  $('#editModeApp').hidden=false;
  buildEditFrameStrip();
  selectEditFrame(selectedFrameId);
+ renderFrameModeSwitch();
 }
 function exitEditMode(){
  editModeOpen=false;
@@ -707,6 +725,7 @@ function selectEditFrame(fid){
  document.querySelectorAll('.edit-frame-thumb').forEach(t=>t.classList.toggle('on',t.dataset.fid===fid));
  $('#editModeTitle').textContent=(P.name||'Video')+' · '+frameLabel(fid);
  renderCanvasLayerList();
+ renderFrameModeSwitch();
  refreshEditCanvas();
 }
 function editApplyFrame(){
@@ -753,8 +772,8 @@ async function patchSelectedFrameMode(mode){
  const i=P.spec.frames.findIndex(f=>f.id===selectedFrameId);
  if(i<0)return;
  P.spec.frames[i]={...P.spec.frames[i],mode};
- setFrameLoading(true);
- try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:mode+' '+selectedFrameId})});bumpFrame(selectedFrameId);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
+ if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:mode+' '+selectedFrameId})});bumpFrame(selectedFrameId);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderFrameModeSwitch()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 function makeSelectedFrameFss(){patchSelectedFrameMode('fss')}
 function makeSelectedFrameAnchor(){patchSelectedFrameMode('anchor')}
