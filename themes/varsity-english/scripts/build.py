@@ -165,18 +165,21 @@ def topic_prop_assets(look):
                 out.append((src, h))
     return out
 
-def frame_html(f, look):
+def frame_html(f, look, edit=False):
     mode = f.get('mode', 'anchor'); side = f.get('anchor', look.get('anchor', 'right'))
     fss = mode == 'fss'; warm = look.get('fss', 'blue') == 'warm'
     plate = f.get('plate') or (('fss_sky_warm' if warm else 'fss_sky_blue') if fss else look.get('plate') or PLATES[side])
     body_cls = ('fss ' + ('warm' if warm else '')) if fss else ''
+    if edit:
+        body_cls = (body_cls + ' studio-edit-mode').strip()
     flow, absol, js = [], [], []
     has_head = False
-    for it in f['items']:
+    for idx, it in enumerate(f['items']):
         t = it['t']
+        layer = f' data-spec-idx="{idx}" class="studio-editable"' if edit else ''
         if t == 'htab' and not fss and 'x' not in it and 'y' not in it:
             hx = 140 if side == 'right' else 1040
-            absol.append(f'<div class="abs z" style="left:{hx}px;top:26px">{R[t](it)}</div>'); has_head = True
+            absol.append(f'<div class="abs z"{layer} style="left:{hx}px;top:26px">{R[t](it)}</div>'); has_head = True
             continue
         if t in ('person', 'asset'):
             if t == 'person':
@@ -184,19 +187,21 @@ def frame_html(f, look):
                 x = it.get('x', 110 if (fss or side == 'right') else 1500); y = it.get('y', FLOOR['fss' if fss else 'anchor'] - round(h * 0.985))
                 o = {k: v for k, v in it.items() if k != 't'}; o.update(x=x, y=y, h=h)
                 if not fss: o.setdefault('nameClass', 'name dark')     # rule 6: big dark name pill over the anchor
+                if edit: o['specIdx'] = idx
                 js.append(f'V.person({json.dumps(o)});')
             else:
                 if 'y' in it:      # pinned by hand
                     o = {k: v for k, v in it.items() if k not in ('t', 'src')}
                 else:              # stand it on the floor, sized by role
                     o = floor_asset(it['src'], 'fss' if fss else 'anchor', it.get('x', 140), it.get('h'), it.get('w'), it.get('z'))
+                if edit: o['specIdx'] = idx
                 js.append(f'V.asset("../assets/{it["src"]}",{json.dumps(o)});')
             continue
         h = R[t](it)
         if 'x' in it or 'y' in it:
-            absol.append(f'<div class="abs z" style="left:{it.get("x",0)}px;top:{it.get("y",0)}px">{h}</div>')
+            absol.append(f'<div class="abs z"{layer} style="left:{it.get("x",0)}px;top:{it.get("y",0)}px">{h}</div>')
         else:
-            flow.append(h)
+            flow.append(f'<div{layer}>{h}</div>' if edit else h)
     # flow container = the safe content zone
     if fss:
         zone = 'left:{}px;top:40px;width:{}px;align-items:center'.format(*( (480, 1340) if f.get('person_left') else (160, 1600)))

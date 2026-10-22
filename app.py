@@ -116,10 +116,18 @@ def frame_for_render(p: dict, frame: dict) -> dict:
     return f
 
 
-def frame_page(theme, frame, look, base_href: str | None = None):
-    html = builder(theme).frame_html(frame, look)
+def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = False):
+    html = builder(theme).frame_html(frame, look, edit=edit)
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
-    return html.replace("<head>", f'<head><base href="{href}">', 1)
+    html = html.replace("<head>", f'<head><base href="{href}">', 1)
+    if edit:
+        html = html.replace(
+            "</head>",
+            '<link rel="stylesheet" href="/static/studio_edit.css"></head>',
+            1,
+        )
+        html = html.replace("</body>", '<script src="/static/studio_edit.js"></script></body>', 1)
+    return html
 
 # ------------------------------------------------------------------ API
 @app.get("/", response_class=HTMLResponse)
@@ -378,10 +386,10 @@ async def plate(pid: int, req: Request, file: UploadFile = File(...)):
     return load(pid)
 
 @app.get("/preview/{pid}/{fid}", response_class=HTMLResponse)
-def preview(pid: int, fid: str):
+def preview(pid: int, fid: str, edit: int = 0):
     p = load(pid); f = next((f for f in p["spec"]["frames"] if f["id"] == fid), None)
     if not f: raise HTTPException(404)
-    return frame_page(p["theme"], frame_for_render(p, f), effective_look(p))
+    return frame_page(p["theme"], frame_for_render(p, f), effective_look(p), edit=bool(edit))
 
 @app.get("/api/projects/{pid}/check")
 async def check(pid: int):

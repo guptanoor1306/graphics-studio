@@ -18,7 +18,8 @@ function place(node,x,y,z){node.style.position='absolute';node.style.left=x+'px'
 
 const V={};
 V.asset=(src,o={})=>{const i=document.createElement('img');i.src=src;if(o.w)i.style.width=o.w+'px';if(o.h)i.style.height=o.h+'px';
-  if(o.flip)i.style.transform='scaleX(-1)';return place(i,o.x||0,o.y||0,o.z)};
+  if(o.flip)i.style.transform='scaleX(-1)';const node=place(i,o.x||0,o.y||0,o.z);
+  if(o.specIdx!=null){node.dataset.specIdx=String(o.specIdx);node.classList.add('studio-editable');}return node};
 
 /* doodle person, drawn in a 200x400 box and scaled to height h */
 V.person=(o={})=>{
@@ -53,7 +54,8 @@ V.person=(o={})=>{
   if(o.name){const n=document.createElement('div');n.className=o.nameClass||'name';n.textContent=o.name;
     n.style.cssText='position:absolute;white-space:nowrap;top:-10px;left:'+(100*s)+'px;transform:translate(-50%,-100%)';wrap.appendChild(n)}
   wrap.style.width=200*s+'px';wrap.style.height=400*s+'px';
-  return place(wrap,o.x||0,o.y||0,o.z);
+  const node=place(wrap,o.x||0,o.y||0,o.z);
+  if(o.specIdx!=null){node.dataset.specIdx=String(o.specIdx);node.classList.add('studio-editable');}return node;
 };
 
 /* wire curve with square nodes (both FSS and anchor-side dressing) */
