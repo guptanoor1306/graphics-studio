@@ -33,6 +33,8 @@ h2.section{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacin
 .toolbar .spacer{flex:1}
 button{font:inherit;font-family:var(--font);font-size:14px;font-weight:500;border:1px solid var(--line-strong);background:var(--card);border-radius:var(--radius-sm);padding:10px 16px;cursor:pointer}
 button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+button.btn-neutral{background:#fff;border-color:var(--line-strong);color:var(--ink);font-weight:500}
+button.btn-neutral:hover{background:#f3f2f0;border-color:var(--mute)}
 button.ghost{background:transparent;border-color:transparent;color:var(--mute)}
 button.danger{color:#9c4221;border-color:#e8c4bc}
 button.danger:hover:not(:disabled){background:#fdf0eb;border-color:#d4a89a}
@@ -141,8 +143,13 @@ body.edit-mode-on #editModeApp{display:flex}
 .edit-frame-strip{overflow-y:auto;border-right:1px solid var(--line);padding:12px 10px;background:var(--bg-sidebar)}
 .edit-frame-thumb{cursor:pointer;margin-bottom:12px;border:2px solid transparent;border-radius:var(--radius-sm);overflow:hidden;background:#fff}
 .edit-frame-thumb.on{border-color:var(--beat-green);box-shadow:0 0 0 1px var(--beat-green-bg)}
-.edit-mode-center{position:relative;padding:16px 20px;min-width:0;display:flex;flex-direction:column;min-height:0}
-.edit-canvas-viewport{position:relative;flex:1;width:100%;min-height:200px;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.edit-mode-center{position:relative;padding:16px 20px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;overflow:auto}
+.edit-canvas-viewport{position:relative;width:100%;max-width:100%;flex:0 0 auto;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.edit-frame-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.edit-ref-check{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer}
+.edit-ref-check input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);flex-shrink:0}
+.sb-ref-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.sb-ref-grid img{width:72px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
 .canvas-edit-scale{transform-origin:0 0;width:1920px;height:1080px}
 .canvas-edit-scale iframe{display:block;width:1920px;height:1080px;border:0;pointer-events:auto}
 .edit-canvas-loader{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(26,25,23,.75);color:#fff;font-size:15px;border-radius:var(--radius-sm)}
@@ -189,15 +196,21 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   <aside class="edit-mode-side">
    <h3>Layers</h3><div id="canvasLayerList"></div>
    <h3>Frame changes</h3>
-   <textarea id="editFrameAsk" placeholder="Describe changes for the whole frame…" rows="3"></textarea>
-   <button type="button" class="p block" style="margin-top:10px" onclick="editApplyFrame()">Apply to frame</button>
-   <button type="button" class="block" style="margin-top:8px" onclick="editRegenFrame()">Regenerate frame</button>
+   <textarea id="editFrameAsk" placeholder="Describe changes for the whole frame…" rows="4" style="min-height:88px;resize:vertical"></textarea>
+   <div class="edit-frame-actions">
+    <button type="button" class="btn-neutral" onclick="editApplyFrame()">Apply to frame</button>
+    <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
+   </div>
    <h3>Reference image</h3>
-   <p class="edit-side-hint">Used for layer Replace or Apply — maps to kit assets (Smart replace) or pastes PNG (Flat).</p>
+   <p class="edit-side-hint">Layer <b>Replace</b> with a file uses the upload directly in that slot. Frame Apply uses Smart (kit) or Flat below.</p>
    <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
-   <label class="inline-check" style="display:flex;margin:10px 0 6px"><input type="checkbox" id="editRefReplace" checked> Smart replace</label>
-   <label class="inline-check" style="display:flex;margin:0 0 8px"><input type="checkbox" id="editRefFlat"> Flat paste</label>
+   <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
+   <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
    <span class="ref-name" id="editRefLabel"></span>
+   <h3>Anchor screen</h3>
+   <p class="edit-side-hint">Optional plate for anchor-side frames; applies look to all frames.</p>
+   <input type="file" id="editPlate" accept="image/*" onchange="upPlate(this)">
+   <button type="button" class="btn-neutral block" style="margin-top:8px" onclick="applyLook()">Apply look to all frames</button>
   </aside>
  </div>
 </div>
@@ -226,7 +239,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 <dialog id="layerEditDlg"><form class="modal-in" method="dialog" onsubmit="return submitLayerEdit(event)">
   <b id="layerEditTitle">Edit layer</b>
   <p id="layerEditMsg" class="modal-msg"></p>
-  <textarea id="layerEditText" required placeholder="Describe what this layer should become…"></textarea>
+  <textarea id="layerEditText" placeholder="Optional note (reference on the right can replace without text)…"></textarea>
   <div class="modal-actions">
     <button type="button" class="ghost" onclick="layerEditDlg.close()">Cancel</button>
     <button type="submit" class="p">Apply</button>
@@ -256,7 +269,7 @@ function initNav(){
   });
   if($('#navToggle'))$('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
 }
-function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
+function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';if(!l.ref_images)l.ref_images=[];return l}
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
   const id=fid.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -331,13 +344,20 @@ function lookForm(l){l=normLook(l);
   <div class="field"><label>Theme</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>
   <div class="field"><label>Anchor side</label>${sel('anchor',['right','left'])}</div>
   <div class="field"><label>FSS accent</label>${sel('fss',['blue','warm'])}</div>
-  <div class="field" style="grid-column:1/-1"><label>Graphics mix</label><select id="lk_graphics_mix"><option value="balanced" ${(l.graphics_mix||'balanced')==='balanced'?'selected':''}>Balanced (more FSS tables/lists)</option><option value="fss_heavy" ${l.graphics_mix==='fss_heavy'?'selected':''}>FSS-heavy (minimal anchor)</option><option value="minimal_anchor" ${l.graphics_mix==='minimal_anchor'?'selected':''}>Minimal anchor (≤2 OSA frames)</option></select></div>
+  <div class="field" style="grid-column:1/-1"><label>Graphics mix</label><select id="lk_graphics_mix"><option value="balanced" ${(l.graphics_mix||'balanced')==='balanced'?'selected':''}>Balanced — mix of FSS and anchor</option><option value="fss_heavy" ${l.graphics_mix==='fss_heavy'?'selected':''}>FSS-heavy — mostly full-screen frames</option><option value="minimal_anchor" ${l.graphics_mix==='minimal_anchor'?'selected':''}>Minimal anchor — at most 2 talking-head frames</option></select></div>
   <div class="field" style="grid-column:1/-1"><label>Topic props</label><p class="hint" style="margin:0 0 6px;font-size:12px;color:var(--muted)">First checked = corner dressing on text-only frames. All checked props hint storyboard + Apply to prefer matching kit assets (broker, bank, chart, etc.).</p><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div>
-  <div class="field" style="grid-column:1/-1"><label>Anchor grab (optional)</label><input type="file" id="plate" accept="image/*" onchange="upPlate(this)"></div></div>`}
+  <div class="field" style="grid-column:1/-1"><label>Storyboard references (optional, up to 10)</label><p class="hint" style="margin:0 0 6px;font-size:12px;color:var(--muted)">Style/layout hints when generating storyboard — not pasted into frames.</p><input type="file" id="sbRefUpload" accept="image/png,image/jpeg,image/webp" onchange="upStoryboardRef(this)"><div class="sb-ref-grid" id="sbRefGrid">${(l.ref_images||[]).map(r=>`<img src="/themes/${P.theme}/assets/${r}" alt="ref">`).join('')}</div></div></div>`}
 const getLook=()=>{
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
-  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{})};
+  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}),...(P.look?.ref_images?{ref_images:P.look.ref_images}:{})};
 };
+async function upStoryboardRef(input){
+ if(!input?.files?.[0]||!P)return;
+ const fd=new FormData();fd.append('file',input.files[0]);
+ const r=await fetch(`/api/projects/${P.id}/storyboard-ref`,{method:'POST',body:fd});
+ if(!r.ok)return alert(await r.text());
+ P=await r.json();P.look=normLook(P.look);input.value='';render();
+}
 function getScriptValue(){return $('#script')?.value??P.script??''}
 function getNotesValue(){return $('#notes')?.value??''}
 function openScriptEdit(){
@@ -370,10 +390,9 @@ function framesStudio(){
   return `<div class="frames-studio">
    <div class="studio-head"><div><div class="eyebrow">Frames</div><h2 class="studio-title">Generated frames</h2></div>
     <div class="studio-head-actions">
-     <button type="button" class="ghost" onclick="openScriptEdit()">Edit script</button>
-     <button type="button" onclick="openAllPreview()">Preview all</button>
-     <button type="button" class="p" onclick="openEditMode()">Edit mode</button>
-     <button type="button" class="p" id="gen" onclick="gen()">Regenerate all</button></div></div>
+     <button type="button" class="btn-neutral" onclick="openAllPreview()">Preview all</button>
+     <button type="button" class="btn-neutral" onclick="openEditMode()">Edit mode</button>
+     <button type="button" class="btn-neutral" id="gen" onclick="gen()">Regenerate all</button></div></div>
    <div id="layoutBanner" hidden></div>
    <div class="studio-split">
     <div><div class="panel-head"><span class="panel-label">Voiceover script</span>
@@ -417,7 +436,7 @@ function render(){
    ${P.spec?`<button type="button" onclick="qa()" title="Run automatic layout checks on every frame">Check layout</button><button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export</button>`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
-  <h2 class="section">1 · Look</h2><div class="card">${lookForm(P.look)}${P.spec?`<div class="row" style="margin-bottom:0"><button type="button" onclick="applyLook()">Apply look to all frames</button></div>`:''}</div>
+  <h2 class="section">1 · Look</h2><div class="card">${lookForm(P.look)}</div>
   ${P.spec?framesStudio():preSpec}<div id="warns"></div>`;
   fit();
   updateFrameNavButtons();
@@ -587,8 +606,21 @@ function askFromInput(){const inp=$('#frameAsk');if(!selectedFrameId)return;askF
 async function regenFrame(){
  if(!selectedFrameId)return;
  await askFrame(selectedFrameId,'',{regenerate:true})}
-async function applyLook(){P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look:getLook(),theme:$('#theme').value,note:'look'})});P.look=normLook(P.look);P.spec.frames.forEach(fr=>bumpFrame(fr.id))}
-async function upPlate(i){const fd=new FormData();fd.append('file',i.files[0]);const r=await fetch(`/api/projects/${P.id}/plate`,{method:'POST',body:fd});if(!r.ok)return alert(await r.text());P=await r.json();render()}
+async function applyLook(){
+ const look=document.getElementById('propPick')?getLook():normLook(P.look);
+ P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look,theme:P.theme,note:'look'})});
+ P.look=normLook(P.look);
+ P.spec.frames.forEach(fr=>bumpFrame(fr.id));
+ if(editModeOpen){buildEditFrameStrip();refreshEditCanvas()}else render();
+}
+async function upPlate(i){
+ if(!i?.files?.[0])return;
+ const fd=new FormData();fd.append('file',i.files[0]);
+ const r=await fetch(`/api/projects/${P.id}/plate`,{method:'POST',body:fd});
+ if(!r.ok)return alert(await r.text());
+ P=await r.json();P.look=normLook(P.look);
+ if(editModeOpen){buildEditFrameStrip();refreshEditCanvas()}else render();
+}
 function canvasEditUrl(){
  const v=frameVer[selectedFrameId]||0;
  return `/preview/${P.id}/${encodeURIComponent(selectedFrameId)}?edit=1&v=${v}`;
@@ -612,7 +644,7 @@ function openLayerEditDialog(action,idx){
  layerEditPending={action,idx};
  const isRep=action==='replace';
  $('#layerEditTitle').textContent=isRep?'Replace layer':'Edit layer';
- $('#layerEditMsg').textContent=isRep?'Describe the replacement. Upload a reference on the right if needed.':'Describe how this layer should change.';
+ $('#layerEditMsg').textContent=isRep?'Upload a reference on the right, then Apply — the file replaces this layer directly. Optional note below.':'Describe how this layer should change.';
  $('#layerEditText').value='';
  layerEditDlg.showModal();
  $('#layerEditText').focus();
@@ -621,14 +653,21 @@ async function submitLayerEdit(e){
  e.preventDefault();
  const ask=$('#layerEditText').value.trim();
  const p=layerEditPending;
+ const {ref}=refControls();
  layerEditPending=null;
  layerEditDlg.close();
- if(!p||!ask)return false;
+ if(!p)return false;
+ if(!ask&&!(p.action==='replace'&&ref?.files?.[0])){alert('Describe the change or attach a reference on the right.');return false}
  await runLayerAction(p.idx,p.action,ask);
  return false;
 }
 async function runLayerAction(idx,action,ask){
  if(action==='delete'){await deleteFrameItem(idx);return}
+ const {ref}=refControls();
+ if(action==='replace'&&ref?.files?.[0]){
+  await askFrame(selectedFrameId,ask||'Replace with reference image',{itemIndex:idx,itemReplace:true});
+  return;
+ }
  await askFrame(selectedFrameId,ask,{itemIndex:idx,itemReplace:action==='replace'});
 }
 async function canvasLayerAction(idx,action){

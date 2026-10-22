@@ -19,6 +19,7 @@ import copy
 import claude_client, exporter, spec_enrich
 from frame_edit_util import (
     apply_flat_paste_replace,
+    apply_layer_reference_replace,
     finalize_reference_edit,
     merge_item_edit,
     remove_scene_illustrations,
@@ -116,9 +117,10 @@ def builder(theme):
         spec.loader.exec_module(m); _mods[theme] = m
     return _mods[theme]
 
-def frame_for_render(p: dict, frame: dict) -> dict:
+def frame_for_render(p: dict, frame: dict, *, enrich: bool = True) -> dict:
     f = copy.deepcopy(frame)
-    spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "")
+    if enrich:
+        spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "")
     return f
 
 
@@ -324,8 +326,16 @@ async def edit(pid: int, fid: str, req: Request):
         raise HTTPException(400, "layer replace needs a prompt and/or reference image")
 
     sb_line = _storyboard_line_for_frame(p.get("storyboard") or "", fid)
+    storyboard_full = p.get("storyboard") or ""
     smart_ref = bool(ref_image) and not flat_paste
     before = spec["frames"][i]
+
+    if item_index is not None and ref_src:
+        new = apply_layer_reference_replace(before, item_index, ref_src)
+        spec["frames"][i] = new
+        save(pid, who(req), f"{fid}: layer ref #{item_index}", spec=spec)
+        return new
+
     edit_frame_in = copy.deepcopy(before)
     if smart_ref and replace_flag and item_index is None:
         edit_frame_in = remove_scene_illustrations(edit_frame_in)
@@ -344,6 +354,7 @@ async def edit(pid: int, fid: str, req: Request):
             flat_paste=flat_paste,
             regenerate=regenerate,
             storyboard_line=sb_line,
+            storyboard_full=storyboard_full,
         )
         if item_index is not None:
             new = merge_item_edit(before, new, item_index)
@@ -396,7 +407,32 @@ async def plate(pid: int, req: Request, file: UploadFile = File(...)):
 def preview(pid: int, fid: str, edit: int = 0):
     p = load(pid); f = next((f for f in p["spec"]["frames"] if f["id"] == fid), None)
     if not f: raise HTTPException(404)
-    return frame_page(p["theme"], frame_for_render(p, f), effective_look(p), edit=bool(edit))
+    return frame_page(
+        p["theme"],
+        frame_for_render(p, f, enrich=not bool(edit)),
+        effective_look(p),
+        edit=bool(edit),
+    )
+
+
+@app.post("/api/projects/{pid}/storyboard-ref")
+async def storyboard_ref(pid: int, req: Request, file: UploadFile = File(...)):
+    from PIL import Image
+    import io
+
+    p = load(pid)
+    refs = list((p.get("look") or {}).get("ref_images") or [])
+    if len(refs) >= 10:
+        raise HTTPException(400, "Maximum 10 storyboard reference images")
+    dest = THEMES / p["theme"] / "assets" / "uploads"
+    dest.mkdir(parents=True, exist_ok=True)
+    n = len(refs) + 1
+    rel = f"uploads/sbref_{pid}_{n}.png"
+    Image.open(io.BytesIO(await file.read())).convert("RGBA").save(dest / f"sbref_{pid}_{n}.png", "PNG")
+    refs.append(rel)
+    look = {**p["look"], "ref_images": refs}
+    save(pid, who(req), "storyboard ref", look=look)
+    return load(pid)
 
 @app.get("/api/projects/{pid}/check")
 async def check(pid: int):

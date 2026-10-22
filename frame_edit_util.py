@@ -88,6 +88,22 @@ def remove_scene_illustrations(frame: dict) -> dict:
     return {**frame, "items": items, "prop": False}
 
 
+def apply_layer_reference_replace(frame: dict, item_index: int, ref_src: str) -> dict:
+    """Paste uploaded reference PNG into one items[] slot (no kit mapping)."""
+    items = [it for it in frame.get("items") or [] if isinstance(it, dict)]
+    if item_index < 0 or item_index >= len(items):
+        return frame
+    old = items[item_index]
+    h = old.get("h") or (400 if frame.get("mode") == "fss" else 480)
+    new_item: dict = {"t": "asset", "src": ref_src, "x": old.get("x", 90), "h": h}
+    if old.get("y") is not None:
+        new_item["y"] = old["y"]
+    if old.get("w") is not None:
+        new_item["w"] = old["w"]
+    items[item_index] = new_item
+    return {**frame, "items": items, "prop": False}
+
+
 def merge_item_edit(before: dict, after: dict, item_index: int) -> dict:
     """Single-layer edit: swap one items[] slot; drop appended duplicates from the model."""
     bi = [it for it in before.get("items") or [] if isinstance(it, dict)]

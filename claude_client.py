@@ -311,10 +311,19 @@ def _call_storyboard(theme_dir, msg: str) -> dict:
 
 def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
+    refs = look.get("ref_images") or []
+    ref_note = ""
+    if refs:
+        ref_note = (
+            "Optional style reference PNGs (match layout/mood when choosing kit assets; paths under assets/):\n"
+            + "\n".join(f"- assets/{r}" for r in refs[:10])
+            + "\n"
+        )
     msg = (
         f"Look (copy into spec.look): {json.dumps(look)}\n"
         f"Topic props — first only as corner dressing; all checked guide OSA kit choices: {json.dumps(props if props else [])}\n"
         f"Notes: {notes or 'none'}\n\n"
+        f"{ref_note}"
         f"{_graphics_mix_rules(look)}"
         f"Follow app_storyboard_overrides.md + studio_brief.md: tag each beat OST/OSA/FSS in storyboard; spec must match tags.\n"
         f"Copy numbers exactly from the script.\n\nSCRIPT:\n{script}"
@@ -349,23 +358,27 @@ def edit_frame(
     flat_paste: bool = False,
     regenerate: bool = False,
     storyboard_line: str = "",
+    storyboard_full: str = "",
 ) -> dict:
     import base64
 
     tool = "submit_frame"
     if regenerate:
+        n_items = len(frame.get("items") or [])
+        sb_excerpt = (storyboard_full or "")[:6000]
         msg = (
             f"Look: {json.dumps(look)}\n"
-            f"Storyboard line: {storyboard_line or '(none)'}\n"
-            f"Current frame JSON (do NOT copy verbatim — produce a fresh spec):\n"
+            f"Storyboard line for this frame: {storyboard_line or '(none)'}\n"
+            f"Full storyboard doc (context):\n{sb_excerpt or '(none)'}\n\n"
+            f"Current frame JSON (rebuild this beat — do NOT shrink to one icon):\n"
             f"{json.dumps(frame, ensure_ascii=False)}\n\n"
             "REGENERATE this frame for the same beat and frame id.\n"
             "Requirements:\n"
-            "- Change materially: different kit `asset`/`person` paths from INDEX, and/or layout (x, person_left, table w, card structure).\n"
-            "- Do not return the same items[] as current unless the beat is title-only.\n"
-            "- Match storyboard tag (OST/OSA/FSS): add cards, bars, nlist, glass_table, calc_table when the beat needs them.\n"
-            "- Pick appropriate buildings, people, icons from assets/INDEX.md; at most 1–3 illustrations.\n"
-            "- Keep script numbers and htab text unless storyboard differs.\n"
+            f"- Prior frame had {n_items} items — regenerated frame must match storyboard richness (headers, points, tables, cards), not a single asset.\n"
+            "- Follow the storyboard line tag (OST/OSA/FSS) and example_spec.json density for that tag.\n"
+            "- Change kit paths and layout vs current, but include ALL content types the beat needs.\n"
+            "- Do not default to broker building + person unless the storyboard line explicitly asks for that OSA pair.\n"
+            "- Keep script numbers and htab copy from storyboard/script.\n"
         )
     else:
         msg = (
