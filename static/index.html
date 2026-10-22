@@ -211,7 +211,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
     <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
    </div>
    <h3>Reference image</h3>
-   <p class="edit-side-hint">Layer <b>Replace</b> with a file uses the upload directly in that slot. Frame Apply uses Smart (kit) or Flat below.</p>
+   <p class="edit-side-hint">Drag <b>assets</b> and <b>people</b> on the canvas to reposition (saved when you release). Layer <b>Replace</b> uses a reference file; frame Apply uses Smart or Flat below.</p>
    <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
    <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
    <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
@@ -737,6 +737,22 @@ function fitCanvasEdit(){
  sc.style.transform=`scale(${s})`;
  vp.style.height=Math.round(1080*s)+'px';
 }
+async function patchFrameItemMove(idx,x,y){
+ if(!selectedFrameId||!P?.spec||idx==null)return;
+ const fid=selectedFrameId;
+ const fi=P.spec.frames.findIndex(f=>f.id===fid);
+ if(fi<0)return;
+ const fr={...P.spec.frames[fi],items:[...(P.spec.frames[fi].items||[])]};
+ const it={...(fr.items[idx]||{})};
+ if(!it.t)return;
+ it.x=Math.round(x);
+ it.y=Math.round(y);
+ fr.items[idx]=it;
+ P.spec.frames[fi]=fr;
+ try{
+  await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'move '+fid+'#'+idx})});
+ }catch(e){alert(e.message);refreshEditCanvas()}
+}
 async function deleteFrameItem(idx){
  if(!selectedFrameId||!P?.spec)return;
  const fid=selectedFrameId;
@@ -788,7 +804,10 @@ async function exp(){
   a.download=(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip';a.click();URL.revokeObjectURL(a.href);
  }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
 }
-window.addEventListener('message',e=>{if(e.data?.studio==='edit')handleStudioEdit(e.data)});
+window.addEventListener('message',e=>{
+ if(e.data?.studio==='edit')handleStudioEdit(e.data);
+ if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y);
+});
 window.addEventListener('resize',()=>{if(editModeOpen)fitCanvasEdit()});
 initNav();
 bindProjectList();

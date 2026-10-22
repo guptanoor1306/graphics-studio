@@ -3,6 +3,18 @@ body.studio-edit-mode { cursor: default; }
   outline: 2px dashed rgba(36, 142, 247, 0.9) !important;
   outline-offset: 2px;
 }
+.studio-edit-mode [data-layer-type="asset"],
+.studio-edit-mode [data-layer-type="person"],
+.studio-edit-mode .abs.studio-editable {
+  cursor: grab;
+  touch-action: none;
+}
+.studio-edit-mode .studio-dragging {
+  cursor: grabbing !important;
+  z-index: 9999 !important;
+  outline: 2px solid rgba(36, 142, 247, 1) !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
 #studio-overlay {
   position: fixed;
   inset: 0;
