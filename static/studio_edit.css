@@ -1,10 +1,25 @@
-body.studio-edit-mode { cursor: default; }
-.studio-editable { position: relative; transition: outline 0.12s ease, box-shadow 0.12s ease; }
-.studio-editable.studio-hover {
-  outline: 2px solid #248ef7;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(36, 142, 247, 0.25);
-  z-index: 50 !important;
+body.studio-edit-mode { cursor: crosshair; }
+.studio-editable { position: relative; transition: outline 0.12s ease, box-shadow 0.12s ease; pointer-events: auto; }
+.studio-editable.studio-hover,
+[data-spec-idx].studio-hover {
+  outline: 3px solid #248ef7 !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(36, 142, 247, 0.35) !important;
+  z-index: 100 !important;
+}
+.studio-edit-empty {
+  position: fixed;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  z-index: 9998;
+  padding: 8px 14px;
+  background: rgba(224, 70, 58, 0.92);
+  color: #fff;
+  border-radius: 8px;
+  font: 14px/1.4 system-ui, sans-serif;
+  max-width: 90%;
+  text-align: center;
 }
 .studio-layer-bar {
   position: fixed;

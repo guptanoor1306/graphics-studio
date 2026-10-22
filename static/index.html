@@ -137,7 +137,8 @@ dialog#canvasEditDlg .canvas-edit-head b{flex:1;font-size:17px}
 dialog#canvasEditDlg .canvas-edit-in{padding:0 20px 20px}
 dialog#canvasEditDlg .canvas-edit-hint{margin:0 0 10px;font-size:12px;color:var(--mute)}
 dialog#canvasEditDlg .canvas-edit-viewport{position:relative;width:100%;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
-dialog#canvasEditDlg .canvas-edit-viewport iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:auto}
+dialog#canvasEditDlg .canvas-edit-scale{transform-origin:0 0;width:1920px;height:1080px}
+dialog#canvasEditDlg .canvas-edit-scale iframe{display:block;width:1920px;height:1080px;border:0;pointer-events:auto}
 @media (max-width:960px){
   body,body.nav-collapsed{grid-template-columns:1fr;height:auto}
   aside{max-height:36vh}
@@ -182,7 +183,7 @@ dialog#canvasEditDlg .canvas-edit-viewport iframe{position:absolute;left:0;top:0
     <button type="button" class="ghost" onclick="canvasEditDlg.close()">Close</button>
   </div></div>
   <div class="canvas-edit-in"><p class="canvas-edit-hint">Hover any element — use ✎ edit, ↻ replace, or × remove. Replace can use the Reference file on the frame panel.</p>
-  <div class="canvas-edit-viewport" id="canvasEditViewport"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div></dialog>
+  <div class="canvas-edit-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div></div></dialog>
 <script>
 let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null;
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
@@ -539,15 +540,16 @@ function openCanvasEdit(){
  if(!selectedFrameId||!P?.spec)return;
  $('#canvasEditTitle').textContent='Edit · '+frameLabel(selectedFrameId);
  const ifr=$('#canvasEditFrame');
+ ifr.onload=()=>{fitCanvasEdit();ifr.onload=null};
  ifr.src=canvasEditUrl();
  canvasEditDlg.showModal();
  requestAnimationFrame(fitCanvasEdit);
 }
 function fitCanvasEdit(){
- const vp=$('#canvasEditViewport');const ifr=$('#canvasEditFrame');
- if(!vp||!ifr)return;
+ const vp=$('#canvasEditViewport');const sc=$('#canvasEditScale');
+ if(!vp||!sc)return;
  const s=vp.clientWidth/1920;
- ifr.style.transform=`scale(${s})`;
+ sc.style.transform=`scale(${s})`;
  vp.style.height=Math.round(1080*s)+'px';
 }
 function refreshCanvasEdit(){

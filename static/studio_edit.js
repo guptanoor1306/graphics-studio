@@ -11,12 +11,8 @@
   let hoverEl = null;
   let idx = null;
 
-  function layers() {
-    return [...document.querySelectorAll("[data-spec-idx]")];
-  }
-
   function send(action) {
-    if (idx == null) return;
+    if (idx == null || Number.isNaN(idx)) return;
     window.parent.postMessage({ studio: "edit", action, idx }, "*");
   }
 
@@ -25,7 +21,7 @@
     bar.hidden = false;
     const bw = bar.offsetWidth || 120;
     let left = r.left + r.width / 2 - bw / 2;
-    let top = r.top - 44;
+    let top = r.top - 48;
     if (top < 8) top = r.bottom + 8;
     left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
     bar.style.left = left + "px";
@@ -39,33 +35,69 @@
     bar.hidden = true;
   }
 
+  function activate(el) {
+    if (!el || el === hoverEl) return;
+    if (hoverEl) hoverEl.classList.remove("studio-hover");
+    hoverEl = el;
+    idx = parseInt(el.dataset.specIdx, 10);
+    el.classList.add("studio-hover");
+    positionBar(el);
+  }
+
   bar.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-act]");
     if (!btn) return;
     e.stopPropagation();
+    e.preventDefault();
     send(btn.dataset.act);
   });
 
-  layers().forEach((el) => {
-    el.addEventListener("mouseenter", () => {
-      if (hoverEl && hoverEl !== el) hoverEl.classList.remove("studio-hover");
-      hoverEl = el;
-      idx = parseInt(el.dataset.specIdx, 10);
-      el.classList.add("studio-hover");
-      positionBar(el);
-    });
-    el.addEventListener("mouseleave", (ev) => {
-      if (bar.contains(ev.relatedTarget)) return;
+  document.addEventListener(
+    "mouseover",
+    (e) => {
+      const el = e.target.closest("[data-spec-idx]");
+      if (el) activate(el);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "mouseout",
+    (e) => {
+      if (!hoverEl) return;
+      const from = e.target.closest("[data-spec-idx]");
+      if (from !== hoverEl) return;
+      const rel = e.relatedTarget;
+      if (rel && (hoverEl.contains(rel) || bar.contains(rel))) return;
       clearHover();
-    });
-  });
+    },
+    true
+  );
 
   bar.addEventListener("mouseleave", (ev) => {
-    if (hoverEl && hoverEl.contains(ev.relatedTarget)) return;
+    if (hoverEl && ev.relatedTarget && hoverEl.contains(ev.relatedTarget)) return;
+    if (ev.relatedTarget && bar.contains(ev.relatedTarget)) return;
     clearHover();
   });
 
   window.addEventListener("scroll", () => {
     if (hoverEl) positionBar(hoverEl);
   });
+
+  function boot() {
+    const n = document.querySelectorAll("[data-spec-idx]").length;
+    if (!n) {
+      const tip = document.createElement("div");
+      tip.className = "studio-edit-empty";
+      tip.textContent =
+        "No editable layers found — regenerate the frame or use Apply on the frame panel.";
+      document.body.appendChild(tip);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
 })();

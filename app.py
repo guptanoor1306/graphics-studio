@@ -121,12 +121,13 @@ def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = Fa
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
     html = html.replace("<head>", f'<head><base href="{href}">', 1)
     if edit:
+        edit_css = (ROOT / "static" / "studio_edit.css").read_text()
+        html = html.replace("</head>", f"<style>{edit_css}</style></head>", 1)
         html = html.replace(
-            "</head>",
-            '<link rel="stylesheet" href="/static/studio_edit.css"></head>',
+            "</body>",
+            '<script src="/static/studio_edit.js?v=2"></script></body>',
             1,
         )
-        html = html.replace("</body>", '<script src="/static/studio_edit.js"></script></body>', 1)
     return html
 
 # ------------------------------------------------------------------ API
