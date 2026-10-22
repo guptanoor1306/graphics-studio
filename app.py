@@ -435,6 +435,19 @@ async def storyboard_ref(pid: int, req: Request, file: UploadFile = File(...)):
     return load(pid)
 
 
+@app.get("/api/projects/{pid}/look-ref")
+def look_ref_file(pid: int, path: str):
+    p = load(pid)
+    rel = (path or "").strip()
+    refs = list((p.get("look") or {}).get("ref_images") or [])
+    if rel not in refs or ".." in rel or not rel.startswith("uploads/sbref_"):
+        raise HTTPException(404, "Reference not found")
+    fp = THEMES / p["theme"] / "assets" / rel
+    if not fp.is_file():
+        raise HTTPException(404, "Reference file missing")
+    return FileResponse(fp)
+
+
 @app.delete("/api/projects/{pid}/storyboard-ref")
 async def delete_storyboard_ref(pid: int, req: Request):
     b = await req.json()
