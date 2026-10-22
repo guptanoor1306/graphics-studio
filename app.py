@@ -270,6 +270,7 @@ async def edit(pid: int, fid: str, req: Request):
     replace_flag = False
     flat_paste = False
     regenerate = False
+    item_index = None
     ct = (req.headers.get("content-type") or "").lower()
     if "multipart/form-data" in ct:
         form = await req.form()
@@ -277,6 +278,11 @@ async def edit(pid: int, fid: str, req: Request):
         replace_flag = form.get("replace") in ("1", "true", "on", "yes")
         flat_paste = form.get("flat") in ("1", "true", "on", "yes")
         regenerate = form.get("regenerate") in ("1", "true", "on", "yes")
+        if form.get("item_index") not in (None, ""):
+            try:
+                item_index = int(form.get("item_index"))
+            except (TypeError, ValueError):
+                item_index = None
         up = form.get("file")
         if up and getattr(up, "filename", None):
             raw = await up.read()
@@ -289,15 +295,28 @@ async def edit(pid: int, fid: str, req: Request):
         replace_flag = bool(b.get("replace"))
         flat_paste = bool(b.get("flat"))
         regenerate = bool(b.get("regenerate"))
+        if b.get("item_index") is not None:
+            try:
+                item_index = int(b["item_index"])
+            except (TypeError, ValueError):
+                item_index = None
+
+    if item_index is not None and ask:
+        ask = (
+            f"Edit ONLY items[{item_index}] (0-based index). Leave every other item unchanged. "
+            f"Task: {ask}"
+        )
 
     if not ask and not ref_src and not regenerate:
         raise HTTPException(400, "ask, reference image, or regenerate required")
+    if item_index is not None and not ask and not ref_src:
+        raise HTTPException(400, "layer replace needs a prompt and/or reference image")
 
     sb_line = _storyboard_line_for_frame(p.get("storyboard") or "", fid)
     smart_ref = bool(ref_image) and not flat_paste
     before = spec["frames"][i]
     edit_frame_in = copy.deepcopy(before)
-    if smart_ref and replace_flag:
+    if smart_ref and replace_flag and item_index is None:
         edit_frame_in = remove_scene_illustrations(edit_frame_in)
 
     try:
@@ -319,7 +338,11 @@ async def edit(pid: int, fid: str, req: Request):
             new = apply_flat_paste_replace(new, ref_src, ask, True)
         else:
             new = finalize_reference_edit(
-                before, new, replace=replace_flag, ref_src=ref_src, smart=smart_ref
+                before,
+                new,
+                replace=replace_flag and item_index is None,
+                ref_src=ref_src,
+                smart=smart_ref,
             )
     except Exception as e:
         _raise_claude_gateway(e)

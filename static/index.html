@@ -128,6 +128,10 @@ dialog .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:
 dialog#scriptEditDlg{width:min(720px,96vw);max-height:92vh;margin:auto}
 dialog#scriptEditDlg form.modal-in{display:flex;flex-direction:column;max-height:92vh;overflow:hidden;box-sizing:border-box}
 dialog#scriptEditDlg #scriptEditArea{flex:1 1 auto;min-height:160px;max-height:min(52vh,480px);resize:vertical;overflow:auto;margin-bottom:12px}
+.visual-item-list{display:flex;flex-direction:column;gap:8px;max-height:min(52vh,420px);overflow:auto;margin:12px 0}
+.visual-item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:13px;background:#fff}
+.visual-item .vi-meta{flex:1;min-width:0;font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.visual-item .vi-actions{display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0}
 @media (max-width:960px){
   body,body.nav-collapsed{grid-template-columns:1fr;height:auto}
   aside{max-height:36vh}
@@ -170,6 +174,15 @@ dialog#scriptEditDlg #scriptEditArea{flex:1 1 auto;min-height:160px;max-height:m
     <button type="submit" class="p">Save</button>
   </div>
 </form></dialog>
+<dialog id="visualEditDlg"><div class="in" style="padding:22px">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:4px"><b id="visualEditTitle" style="flex:1;font-size:17px"></b><button type="button" class="ghost" onclick="visualEditDlg.close()">Close</button></div>
+  <p class="hint" style="margin:0 0 8px;font-size:12px;color:var(--muted)">Layers = spec items. Delete is free (no AI). Replace one layer uses a small Apply call; attach Reference on the frame first if needed.</p>
+  <div class="visual-item-list" id="visualItemList"></div>
+  <div class="row" style="margin:0;flex-wrap:wrap;gap:8px">
+    <button type="button" onclick="makeSelectedFrameFss()">Make full-screen (FSS)</button>
+    <button type="button" onclick="makeSelectedFrameAnchor()">Back to anchor</button>
+  </div>
+</div></dialog>
 <script>
 let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null;
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
@@ -193,7 +206,7 @@ function initNav(){
   });
   if($('#navToggle'))$('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
 }
-function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}return l}
+function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
   const id=fid.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -268,11 +281,12 @@ function lookForm(l){l=normLook(l);
   <div class="field"><label>Theme</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>
   <div class="field"><label>Anchor side</label>${sel('anchor',['right','left'])}</div>
   <div class="field"><label>FSS accent</label>${sel('fss',['blue','warm'])}</div>
+  <div class="field" style="grid-column:1/-1"><label>Graphics mix</label><select id="lk_graphics_mix"><option value="balanced" ${(l.graphics_mix||'balanced')==='balanced'?'selected':''}>Balanced (more FSS tables/lists)</option><option value="fss_heavy" ${l.graphics_mix==='fss_heavy'?'selected':''}>FSS-heavy (minimal anchor)</option><option value="minimal_anchor" ${l.graphics_mix==='minimal_anchor'?'selected':''}>Minimal anchor (≤2 OSA frames)</option></select></div>
   <div class="field" style="grid-column:1/-1"><label>Topic props</label><p class="hint" style="margin:0 0 6px;font-size:12px;color:var(--muted)">First checked = corner dressing on text-only frames. All checked props hint storyboard + Apply to prefer matching kit assets (broker, bank, chart, etc.).</p><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div>
   <div class="field" style="grid-column:1/-1"><label>Anchor grab (optional)</label><input type="file" id="plate" accept="image/*" onchange="upPlate(this)"></div></div>`}
 const getLook=()=>{
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
-  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,props,...(P.look?.plate?{plate:P.look.plate}:{})};
+  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{})};
 };
 function getScriptValue(){return $('#script')?.value??P.script??''}
 function getNotesValue(){return $('#notes')?.value??''}
@@ -332,6 +346,7 @@ function framesStudio(){
        <div class="frame-edit-ctas">
         <span class="has-tip" data-tip="Prompt + optional reference. Smart replace maps the image to kit assets (default); Flat paste uses the file as one PNG. PSD not supported."><button type="button" class="p" onclick="askFromInput()">Apply</button></span>
         <span class="has-tip" data-tip="New kit layout and INDEX assets for this beat — should differ from the current frame."><button type="button" onclick="regenFrame()">Regenerate</button></span>
+        <button type="button" class="ghost" onclick="openVisualEdit()">Visual edit</button>
         <button type="button" class="ghost" onclick="openJson()">Edit JSON</button>
        </div>
        <div class="frame-edit-ref">
@@ -484,10 +499,10 @@ function deleteProject(){if(!P)return;
 }
 async function gen(){const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding… (1–2 min)');
  try{P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
-async function askFrame(fid,ask,{regenerate=false}={}){
+async function askFrame(fid,ask,{regenerate=false,itemIndex=null}={}){
  const ref=$('#frameRef');
  const refFile=ref?.files?.[0];
- if(!regenerate&&!ask?.trim()&&!refFile){alert('Type a change and/or attach a reference image.');return}
+ if(!regenerate&&!ask?.trim()&&!refFile){alert(itemIndex!=null?'Describe this layer change and/or attach reference on the frame.':'Type a change and/or attach a reference image.');return}
  if(!fid||!P?.spec){alert('No frame selected.');return}
  setFrameLoading(true);
  try{
@@ -497,12 +512,13 @@ async function askFrame(fid,ask,{regenerate=false}={}){
    if($('#frameRefReplace')?.checked)fd.append('replace','1');
    if($('#frameRefFlat')?.checked)fd.append('flat','1');
    if(regenerate)fd.append('regenerate','1');
+   if(itemIndex!=null)fd.append('item_index',String(itemIndex));
    const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:fd});
    if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
    updated=await r.json();
    ref.value='';const lb=$('#frameRefLabel');if(lb)lb.textContent='';
   }else{
-   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:!!$('#frameRefReplace')?.checked,flat:!!$('#frameRefFlat')?.checked})});
+   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:!!$('#frameRefReplace')?.checked,flat:!!$('#frameRefFlat')?.checked,...(itemIndex!=null?{item_index:itemIndex}:{})})});
   }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
@@ -515,6 +531,54 @@ async function regenFrame(){
  await askFrame(selectedFrameId,'',{regenerate:true})}
 async function applyLook(){P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look:getLook(),theme:$('#theme').value,note:'look'})});P.look=normLook(P.look);P.spec.frames.forEach(fr=>bumpFrame(fr.id))}
 async function upPlate(i){const fd=new FormData();fd.append('file',i.files[0]);const r=await fetch(`/api/projects/${P.id}/plate`,{method:'POST',body:fd});if(!r.ok)return alert(await r.text());P=await r.json();render()}
+function itemSummary(it,idx){
+ if(!it||typeof it!=='object')return `[${idx}] ?`;
+ const t=it.t||'?';
+ if(t==='asset')return `[${idx}] asset · ${it.src||''}`;
+ if(t==='person')return `[${idx}] person · ${it.name||'—'}`;
+ const tx=it.text||it.title||(it.items&&it.items[0])||'';
+ return `[${idx}] ${t} · ${String(tx).slice(0,48)}`;
+}
+function openVisualEdit(){
+ if(!selectedFrameId||!P?.spec)return;
+ const fid=selectedFrameId;
+ const fr=P.spec.frames.find(f=>f.id===fid);
+ if(!fr)return;
+ $('#visualEditTitle').textContent='Visual edit · '+frameLabel(fid)+' · '+(fr.mode||'anchor');
+ const list=$('#visualItemList');
+ list.innerHTML=(fr.items||[]).map((it,i)=>`<div class="visual-item"><div class="vi-meta" title="${esc(itemSummary(it,i))}">${esc(itemSummary(it,i))}</div><div class="vi-actions"><button type="button" class="ghost" onclick="deleteVisualItem(${i})">Delete</button><button type="button" onclick="replaceVisualItem(${i})">Replace…</button></div></div>`).join('')||'<p class="muted">No items — use Regenerate or Edit JSON.</p>';
+ visualEditDlg.showModal();
+}
+async function deleteVisualItem(idx){
+ if(!selectedFrameId||!P?.spec)return;
+ if(!confirm('Remove this layer from the frame?'))return;
+ const fid=selectedFrameId;
+ const i=P.spec.frames.findIndex(f=>f.id===fid);
+ if(i<0)return;
+ const fr={...P.spec.frames[i],items:[...(P.spec.frames[i].items||[])]};
+ fr.items.splice(idx,1);
+ P.spec.frames[i]=fr;
+ setFrameLoading(true);
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});bumpFrame(fid);openVisualEdit()}catch(e){alert(e.message)}finally{setFrameLoading(false)}
+}
+async function replaceVisualItem(idx){
+ if(!selectedFrameId)return;
+ const ask=prompt('What should this layer become? (e.g. swap building for bank from reference)');
+ if(ask==null||!ask.trim())return;
+ visualEditDlg.close();
+ await askFrame(selectedFrameId,ask.trim(),{itemIndex:idx});
+ openVisualEdit();
+}
+async function patchSelectedFrameMode(mode){
+ if(!selectedFrameId||!P?.spec)return;
+ const i=P.spec.frames.findIndex(f=>f.id===selectedFrameId);
+ if(i<0)return;
+ P.spec.frames[i]={...P.spec.frames[i],mode};
+ setFrameLoading(true);
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:mode+' '+selectedFrameId})});bumpFrame(selectedFrameId);openVisualEdit()}catch(e){alert(e.message)}finally{setFrameLoading(false)}
+}
+function makeSelectedFrameFss(){patchSelectedFrameMode('fss')}
+function makeSelectedFrameAnchor(){patchSelectedFrameMode('anchor')}
 function openJson(){
  if(!selectedFrameId||!P?.spec)return;
  const fid=selectedFrameId;

@@ -23,3 +23,17 @@ The skill allows **one** topic prop per video (`coins`, `tax`, `jar`, `house`, o
 - RMS definition / margin monitoring: **OSA** with broker building + optional persona.
 - Margin **numbers**: **OSA** `glass_table` or **FSS** `calc_table` if many rows.
 - “Situation 1 / 2 …” lists: **OSA** or **FSS** `nlist` when ≥4 bullets.
+
+## Graphics mix (Look → layout)
+Avoid “every frame = anchor + person on the right”. Vary layouts:
+
+| Mix | Rule |
+|-----|------|
+| **balanced** | ≥⅓ of non-title frames are `mode: "fss"`. Anchor OSA only for short 2–3 point intros. |
+| **fss_heavy** | ≥½ of non-title frames are FSS (tables, bars, nlist, cards). Anchor OSA at most 2 frames in the whole video. |
+| **minimal_anchor** | At most 2 anchor OSA frames total; everything else FSS or title-only OST. |
+
+**FSS** = full checker floor + sky plate, content centered — **no anchor sofa/plate persona layout**. Use `person_left` on FSS when a persona is needed beside a table, not the default anchor-right talking-head pattern.
+
+Prefer **FSS** for: numeric tables, comparisons, ≥4 bullets, bar charts, step lists, dense copy.
+Prefer **anchor OSA** only for: quick metaphor (building + 2 points) under ~15s VO.

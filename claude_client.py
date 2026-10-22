@@ -258,7 +258,44 @@ def spec_quality_issues(spec: dict, storyboard: str = "") -> list[str]:
         issues.append(
             "No mode:fss frames. Add full-screen (mode:fss) frames for tables, charts, comparisons, or long lists."
         )
+    non_title = [
+        f for f in frames
+        if isinstance(f, dict)
+        and not ({it.get("t") for it in f.get("items") or [] if isinstance(it, dict)} <= {"title", "pill", "hpill"})
+    ]
+    anchor_person = sum(
+        1
+        for f in non_title
+        if (f.get("mode") or "anchor") != "fss"
+        and any(isinstance(it, dict) and it.get("t") in ("asset", "person") for it in f.get("items") or [])
+    )
+    if len(non_title) >= 3 and anchor_person > max(2, int(len(non_title) * 0.55)):
+        issues.append(
+            "Too many similar anchor+illustration frames. Convert explanation beats to mode:fss (calc_table, nlist, bars, cards) — not anchor+person every time."
+        )
+    need_fss = max(1, len(non_title) // 3)
+    if len(non_title) >= 3 and fss_n < need_fss:
+        issues.append(
+            f"Need at least {need_fss} mode:fss frames for full-screen variety (see app_storyboard_overrides graphics mix)."
+        )
     return issues
+
+
+def _graphics_mix_rules(look: dict) -> str:
+    mix = (look.get("graphics_mix") or "balanced").strip()
+    if mix == "fss_heavy":
+        return (
+            "Graphics mix FSS-HEAVY: at least half of non-title frames must be mode:fss. "
+            "At most 2 anchor OSA frames in the entire video. No repeated anchor-right person pattern.\n"
+        )
+    if mix == "minimal_anchor":
+        return (
+            "Graphics mix MINIMAL ANCHOR: at most 2 anchor OSA frames total; other beats are FSS or title-only OST.\n"
+        )
+    return (
+        "Graphics mix BALANCED: at least one third of non-title frames mode:fss; "
+        "do not default every beat to anchor+person on the right.\n"
+    )
 
 
 def _call_storyboard(theme_dir, msg: str) -> dict:
@@ -278,6 +315,7 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
         f"Look (copy into spec.look): {json.dumps(look)}\n"
         f"Topic props — first only as corner dressing; all checked guide OSA kit choices: {json.dumps(props if props else [])}\n"
         f"Notes: {notes or 'none'}\n\n"
+        f"{_graphics_mix_rules(look)}"
         f"Follow app_storyboard_overrides.md + studio_brief.md: tag each beat OST/OSA/FSS in storyboard; spec must match tags.\n"
         f"Copy numbers exactly from the script.\n\nSCRIPT:\n{script}"
     )
