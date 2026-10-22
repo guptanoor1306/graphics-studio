@@ -298,19 +298,52 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
     return out
 
 
-def edit_frame(theme_dir: pathlib.Path, frame: dict, look: dict, ask: str) -> dict:
+def edit_frame(
+    theme_dir: pathlib.Path,
+    frame: dict,
+    look: dict,
+    ask: str,
+    ref_asset_src: str | None = None,
+    ref_image: tuple[str, bytes] | None = None,
+) -> dict:
+    import base64
+
     tool = "submit_frame"
     msg = (
         f"Look: {json.dumps(look)}\nCurrent frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"
         f"Change requested by the team member: {ask}\n"
+    )
+    if ref_asset_src:
+        msg += (
+            f"\nUploaded reference file is in the kit at assets/{ref_asset_src}. "
+            f"Add or update an `asset` item with \"src\": \"{ref_asset_src}\" (or redraw the idea using INDEX paths in house style). "
+            "Do not paste external URLs.\n"
+        )
+    if ref_image:
+        msg += (
+            "\nThe attached image is the team's visual reference for this edit — match layout/content in Varsity kit style "
+            "(components, colours, floor-line assets), not a pixel copy.\n"
+        )
+    msg += (
         "Return the whole edited frame via submit_frame. Keep everything not mentioned unchanged. "
         "Layout: FSS calc_table/glass_table can use item fields w, widths, person_left; center tables under the heading when asked. "
         "Use assets/INDEX.md paths for buildings, banks, people when the beat needs them."
     )
     if _tool_choice(tool)["type"] == "auto":
         msg += f"\n\nRespond only by calling the {tool} tool."
+    if ref_image:
+        media, raw = ref_image
+        content = [
+            {
+                "type": "image",
+                "source": {"type": "base64", "media_type": media, "data": base64.standard_b64encode(raw).decode()},
+            },
+            {"type": "text", "text": msg},
+        ]
+    else:
+        content = msg
     r = _messages_create(
         max_tokens=4000, system=_system(theme_dir),
         tools=[FRAME_TOOL], tool_choice=_tool_choice(tool),
-        messages=[{"role": "user", "content": msg}])
+        messages=[{"role": "user", "content": content}])
     return _tool_input(r, tool)["frame"]

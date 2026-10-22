@@ -5,7 +5,7 @@ Run:  copy .env.example to .env, set ANTHROPIC_API_KEY, then uvicorn app:app --h
 A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.md, templates/, assets/, scripts/build.py).
 Add a channel by dropping in another kit folder; nothing else changes.
 """
-import importlib.util, json, os, pathlib, time, asyncio
+import importlib.util, json, os, pathlib, re, time, asyncio
 from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
@@ -239,17 +239,65 @@ async def update(pid: int, req: Request):
             fields["spec"] = spec
     save(pid, who(req), b.get("note", "manual edit"), **fields); return load(pid)
 
+def _save_frame_reference(theme: str, pid: int, fid: str, raw: bytes) -> tuple[str, bytes]:
+    from PIL import Image
+    import io
+
+    dest = THEMES / theme / "assets" / "uploads"
+    dest.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^a-zA-Z0-9._-]", "_", fid)
+    path = dest / f"ref_{pid}_{safe}.png"
+    img = Image.open(io.BytesIO(raw))
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGBA")
+    img.save(path, "PNG")
+    rel = f"uploads/ref_{pid}_{safe}.png"
+    return rel, path.read_bytes()
+
+
 @app.post("/api/projects/{pid}/frames/{fid}/edit")
 async def edit(pid: int, fid: str, req: Request):
-    b = await req.json(); p = load(pid); spec = p["spec"]
+    p = load(pid)
+    spec = p["spec"]
     i = next((k for k, f in enumerate(spec["frames"]) if f["id"] == fid), None)
-    if i is None: raise HTTPException(404, "frame not found")
+    if i is None:
+        raise HTTPException(404, "frame not found")
+
+    ref_src = None
+    ref_image = None
+    ct = (req.headers.get("content-type") or "").lower()
+    if "multipart/form-data" in ct:
+        form = await req.form()
+        ask = (form.get("ask") or "").strip()
+        up = form.get("file")
+        if up and getattr(up, "filename", None):
+            raw = await up.read()
+            if raw:
+                ref_src, png_bytes = _save_frame_reference(p["theme"], pid, fid, raw)
+                ref_image = ("image/png", png_bytes)
+    else:
+        b = await req.json()
+        ask = (b.get("ask") or "").strip()
+
+    if not ask and not ref_src:
+        raise HTTPException(400, "ask or reference image required")
+
     try:
-        new = await asyncio.to_thread(claude_client.edit_frame, THEMES / p["theme"], spec["frames"][i], effective_look(p), b["ask"])
+        new = await asyncio.to_thread(
+            claude_client.edit_frame,
+            THEMES / p["theme"],
+            spec["frames"][i],
+            effective_look(p),
+            ask or "Use the uploaded reference on this frame.",
+            ref_src,
+            ref_image,
+        )
     except Exception as e:
         _raise_claude_gateway(e)
     spec["frames"][i] = new
-    save(pid, who(req), f"{fid}: {b['ask'][:80]}", spec=spec); return new
+    note = f"{fid}: {(ask or 'reference')[:80]}"
+    save(pid, who(req), note, spec=spec)
+    return new
 
 @app.post("/api/projects/{pid}/undo")
 def undo(pid: int, req: Request):

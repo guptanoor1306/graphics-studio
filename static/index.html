@@ -90,7 +90,10 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .ws-loader .spinner{border-color:rgba(255,255,255,.25);border-top-color:#fff}
 @keyframes spin{to{transform:rotate(360deg)}}
 .frame-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
-.frame-actions input{flex:1;min-width:160px;font-size:14px}
+.frame-edit-hint{font-size:12px;color:var(--mute);line-height:1.45;margin:0;flex:1 1 100%}
+.frame-ref-row{flex:1 1 100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+.frame-ref-row input[type=file]{max-width:min(100%,320px)}
+.frame-actions input#frameAsk{flex:1;min-width:160px;font-size:14px}
 .all-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-height:min(70vh,720px);overflow:auto;padding:4px}
 .mini-card{cursor:pointer;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:#fff;transition:border-color .15s,box-shadow .15s}
 .mini-card:hover{border-color:var(--beat-green);box-shadow:var(--shadow)}
@@ -314,10 +317,12 @@ function framesStudio(){
       <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
      </div>
      <div class="frame-actions">
-      <input id="frameAsk" placeholder="Ask Claude to change this frame…" onkeydown="if(event.key==='Enter')askFromInput()">
+      <p class="frame-edit-hint"><strong>Apply</strong> — your prompt only (layout, props, copy). Optional reference image below. <strong>Regenerate</strong> — Claude re-builds this frame with full kit visuals; ignores your prompt.</p>
+      <div class="frame-ref-row"><label>Reference image (optional)</label><input type="file" id="frameRef" accept="image/*"><span class="muted" id="frameRefLabel">PNG/JPG for this frame only</span></div>
+      <input id="frameAsk" placeholder="Apply: e.g. add bank building, enlarge table…" onkeydown="if(event.key==='Enter')askFromInput()">
       <button type="button" class="p" onclick="askFromInput()">Apply</button>
-      <button type="button" onclick="regenFrame()">Regenerate</button>
-      <button type="button" class="ghost" onclick="openJson('${esc(fr.id)}')">Edit JSON</button>
+      <button type="button" onclick="regenFrame()" title="Rebuild frame with kit assets; does not use the prompt box">Regenerate</button>
+      <button type="button" class="ghost" onclick="openJson()">Edit JSON</button>
      </div></div></div></div>`}
 function render(){
   P.look=normLook(P.look);
@@ -349,6 +354,7 @@ function selectFrame(fid){
   const ifr=$('#activeFrame');
   if(ifr)ifr.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${v}`;
   updateFrameNavButtons();
+  const ref=$('#frameRef');if(ref)ref.value='';
   fitOne($('#activeThumb'));
 }
 function updateFrameNavButtons(){
@@ -452,26 +458,45 @@ function deleteProject(){if(!P)return;
 }
 async function gen(){const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding… (1–2 min)');
  try{P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
-async function askFrame(fid,ask){
- if(!ask?.trim()){alert('Type a change for this frame first.');return}
+async function askFrame(fid,ask,{regenerate=false}={}){
+ const ref=$('#frameRef');
+ const refFile=ref?.files?.[0];
+ if(!regenerate&&!ask?.trim()&&!refFile){alert('Type a change and/or attach a reference image.');return}
  if(!fid||!P?.spec){alert('No frame selected.');return}
  setFrameLoading(true);
  try{
-  const updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask})});
+  let updated;
+  if(refFile){
+   const fd=new FormData();fd.append('ask',ask||'');fd.append('file',refFile);
+   const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:fd});
+   if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
+   updated=await r.json();
+   ref.value='';const lb=$('#frameRefLabel');if(lb)lb.textContent='PNG/JPG for this frame only';
+  }else{
+   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask})});
+  }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
   bumpFrame(fid);
-  const inp=$('#frameAsk');if(inp)inp.value='';
+  if(!regenerate){const inp=$('#frameAsk');if(inp)inp.value=''}
  }catch(e){alert(e.message)}finally{setFrameLoading(false)}}
 function askFromInput(){const inp=$('#frameAsk');if(!selectedFrameId)return;askFrame(selectedFrameId,inp?.value||'')}
 async function regenFrame(){
  if(!selectedFrameId)return;
- await askFrame(selectedFrameId,'Regenerate with full kit visuals: include relevant assets from INDEX (buildings, bank, people) for this beat; same frame id and storyboard intent.')}
+ await askFrame(selectedFrameId,'Regenerate with full kit visuals: include relevant assets from INDEX (buildings, bank, people) for this beat; same frame id and storyboard intent.',{regenerate:true})}
 async function applyLook(){P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look:getLook(),theme:$('#theme').value,note:'look'})});P.look=normLook(P.look);P.spec.frames.forEach(fr=>bumpFrame(fr.id))}
 async function upPlate(i){const fd=new FormData();fd.append('file',i.files[0]);const r=await fetch(`/api/projects/${P.id}/plate`,{method:'POST',body:fd});if(!r.ok)return alert(await r.text());P=await r.json();render()}
-function openJson(fid){const fr=P.spec.frames.find(f=>f.id==fid);$('#dlgTitle').textContent='Frame '+fid;$('#dlgJson').value=JSON.stringify(fr,null,1);$('#dlgJson').dataset.fid=fid;dlg.showModal()}
+function openJson(){
+ if(!selectedFrameId||!P?.spec)return;
+ const fid=selectedFrameId;
+ const fr=P.spec.frames.find(f=>f.id===fid);
+ if(!fr)return alert('Frame not found');
+ $('#dlgTitle').textContent='Frame '+fid;
+ $('#dlgJson').value=JSON.stringify(fr,null,1);
+ $('#dlgJson').dataset.fid=fid;
+ dlg.showModal()}
 async function saveJson(){let fr;try{fr=JSON.parse($('#dlgJson').value)}catch(e){return alert('JSON error: '+e.message)}
- const fid=$('#dlgJson').dataset.fid;P.spec.frames[P.spec.frames.findIndex(f=>f.id==fid)]=fr;
+ const fid=$('#dlgJson').dataset.fid;P.spec.frames[P.spec.frames.findIndex(f=>f.id===fid)]=fr;
  setFrameLoading(true);try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'json '+fr.id})});dlg.close();bumpFrame(fid)}catch(e){alert(e.message)}finally{setFrameLoading(false)}}
 async function undo(){P=await api(`/api/projects/${P.id}/undo`,{method:'POST'});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render()}
 function setLayoutBanner(kind,msg){
