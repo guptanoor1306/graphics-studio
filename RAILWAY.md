@@ -1,17 +1,22 @@
-# Deploy on Railway (no auth)
+# Deploy on Railway
 
-If Railway is unavailable, use **[Render](RENDER.md)** with the same repo (recommended). Vercel is not suitable — see [VERCEL.md](VERCEL.md).
+## One-time setup
 
-
-1. Push this repo to GitHub (see below).
-2. [Railway](https://railway.com) → **New project** → **Deploy from GitHub repo** → select `graphics-studio`.
-3. **Variables** (service → Variables):
+1. Install CLI: `npm i -g @railway/cli` (or use `railway up` from the Railway skill).
+2. From this repo root: `railway login` then `railway init` (new project) or link an existing project.
+3. Add **PostgreSQL** in the Railway dashboard (or `railway add --database postgres`). Railway sets **`DATABASE_URL`** on the web service automatically when you reference the plugin.
+4. Set variables on the **web** service:
    - `ANTHROPIC_API_KEY` — required
-   - `STUDIO_URL` — your public URL, e.g. `https://graphics-studio-production.up.railway.app` (copy from Railway **Settings → Networking → Public URL** after generate domain)
-   - Optional: `STUDIO_MODEL` (default `claude-opus-5-5`)
-4. **Volume** (recommended): mount `/app/data` so SQLite projects survive redeploys.
-5. **Generate domain** under Networking if Railway did not assign one.
+   - `STUDIO_URL` — optional; defaults to `http://127.0.0.1:$PORT` inside the container (used for export/layout checks)
+   - `STUDIO_MODEL` — optional
+5. Deploy: `railway up` (uses `Dockerfile` + Playwright Chromium image).
 
-No login is configured: everyone with the URL shares the same projects (author shows as `anonymous`). Add auth later via a reverse proxy if needed.
+## Migrate from Render
 
-**Themes** ship in the Docker image under `themes/`. **Projects** live in `data/studio.db` on the volume.
+1. Export or note projects from Render Postgres if you need data (pg_dump), or start fresh.
+2. Point DNS to Railway after the first successful deploy.
+3. Mount or accept ephemeral **`themes/*/assets/uploads`** and **`assets/plates`** — same as Render; use a Railway volume on `/app/themes` if you need persistent uploads.
+
+## Health
+
+GET `/` serves the studio UI. Railway healthcheck uses `/` per `railway.toml`.

@@ -4,3 +4,5 @@ data/studio.db
 __pycache__/
 *.pyc
 .env
+varsity-mf-graphics.zip
+.DS_Store

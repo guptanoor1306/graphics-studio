@@ -278,7 +278,8 @@ function initNav(){
   });
   if($('#navToggle'))$('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
 }
-function normLook(l){l=l||{};if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
+function isMfTheme(t){return t==='varsity-mf-graphics'}
+function normLook(l){l=l||{};if(P&&isMfTheme(P.theme)){if(l.look_line==null)l.look_line='';return l}if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
 const TOPIC_PROPS_TIP='First checked prop = corner dressing on text-only frames only. Every checked prop hints storyboard generation and frame Apply to prefer matching kit assets (broker, bank, chart, etc.).';
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
@@ -348,15 +349,20 @@ function fullScriptHtml(script,assign){
 }
 function frameLabel(fid){const i=(P.spec?.frames||[]).findIndex(f=>f.id===fid);return 'G'+String(i+1).padStart(2,'0')}
 function lookForm(l){l=normLook(l);
+  const themeField=`<div class="field"><label>Theme</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>`;
+  if(isMfTheme(P.theme)){
+    return `<div class="field-grid">${themeField}
+  <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · green search pills · blue table headers"></div></div>`}
   const sel=(k,opts)=>`<select id="lk_${k}">${opts.map(o=>`<option ${l[k]==o?'selected':''}>${o}</option>`).join('')}</select>`;
   const props=new Set(l.props||[]);
   return `<div class="field-grid">
-  <div class="field"><label>Theme</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>
+  ${themeField}
   <div class="field"><label>Anchor side</label>${sel('anchor',['right','left'])}</div>
   <div class="field"><label>FSS accent</label>${sel('fss',['blue','warm'])}</div>
   <div class="field" style="grid-column:1/-1"><label>Graphics mix</label><select id="lk_graphics_mix"><option value="balanced" ${(l.graphics_mix||'balanced')==='balanced'?'selected':''}>Balanced — mix of FSS and anchor</option><option value="fss_heavy" ${l.graphics_mix==='fss_heavy'?'selected':''}>FSS-heavy — mostly full-screen frames</option><option value="minimal_anchor" ${l.graphics_mix==='minimal_anchor'?'selected':''}>Minimal anchor — at most 2 talking-head frames</option></select></div>
   <div class="field" style="grid-column:1/-1"><div class="topic-props-head"><span class="field-label">Topic props</span><span class="tip-hover" tabindex="0"><span class="tip-hover-btn" aria-hidden="true">i</span><span class="tip-hover-panel" role="tooltip">${esc(TOPIC_PROPS_TIP)}</span></span></div><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div></div>`}
 const getLook=()=>{
+  if(isMfTheme(P.theme))return {look_line:$('#lk_look_line')?.value?.trim()||'',...(P.look?.plate?{plate:P.look.plate}:{})};
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
   return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{})};
 };
@@ -536,7 +542,7 @@ function refControls(){
 }
 function renderFrameModeSwitch(){
  const host=$('#frameModeSwitch');
- if(!host||!P?.spec||!selectedFrameId){if(host)host.innerHTML='';return}
+ if(!host||!P?.spec||!selectedFrameId||isMfTheme(P.theme)){if(host)host.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const mode=fr?.mode||'anchor';
  host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`;
@@ -572,7 +578,12 @@ function deleteProject(){if(!P)return;
   }});
 }
 async function gen(){const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding… (1–2 min)');
- try{P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
+ try{
+  const themeSel=$('#theme');
+  if(themeSel&&themeSel.value&&themeSel.value!==P.theme){
+   P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({theme:themeSel.value,note:'theme'})});
+  }
+  P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
 async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false}={}){
  const {ref,rep,flat,lb}=refControls();
  const refFile=ref?.files?.[0];
@@ -631,6 +642,10 @@ function layerRowLabel(it,idx){
 function renderCanvasLayerList(){
  const list=$('#canvasLayerList');
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
+ if(isMfTheme(P.theme)){
+  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
+  list.innerHTML=fr?`<p class="edit-side-hint" style="margin:0"><b>${esc(fr.type||'frame')}</b> — edit the whole frame with <b>Frame changes</b> or <b>Regenerate</b> (MF spec uses frame types, not layers).</p>`:'';
+  return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const items=fr?.items||[];
  list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span><span class="cl-actions"><button type="button" title="Edit" onclick="canvasLayerAction(${i},'edit')">✎</button><button type="button" title="Replace" onclick="canvasLayerAction(${i},'replace')">↻</button><button type="button" title="Delete" onclick="canvasLayerAction(${i},'delete')">×</button></span></div>`).join(''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
@@ -684,6 +699,11 @@ function buildEditFrameStrip(){
 function openEditMode(fid){
  if(!P?.spec){alert('Generate frames first.');return}
  editModeOpen=true;
+ document.querySelectorAll('.edit-mode-side h3,.edit-mode-side .edit-side-hint,.edit-mode-side input#editPlate,.edit-mode-side button[onclick="applyLook()"]').forEach(el=>{
+  if(!el)return;
+  const anchorBlock=el.textContent?.includes('Anchor screen')||el.id==='editPlate'||el.getAttribute('onclick')==='applyLook()';
+  if(anchorBlock)el.style.display=isMfTheme(P.theme)?'none':'';
+ });
  if(fid)selectedFrameId=fid;
  else if(!selectedFrameId)selectedFrameId=P.spec.frames[0]?.id;
  document.body.classList.add('edit-mode-on');

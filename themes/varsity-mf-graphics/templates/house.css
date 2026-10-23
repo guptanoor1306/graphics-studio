@@ -1,0 +1,101 @@
+/* Varsity Mutual Fund IP — house style. All sizes are px on a 1920x1080 stage. */
+@font-face{font-family:Inter;font-weight:500;src:url(fonts/inter-latin-500-normal.woff2) format("woff2")}
+@font-face{font-family:Inter;font-weight:600;src:url(fonts/inter-latin-600-normal.woff2) format("woff2")}
+@font-face{font-family:Inter;font-weight:700;src:url(fonts/inter-latin-700-normal.woff2) format("woff2")}
+@font-face{font-family:Inter;font-weight:800;src:url(fonts/inter-latin-800-normal.woff2) format("woff2")}
+@font-face{font-family:Inter;font-weight:900;src:url(fonts/inter-latin-900-normal.woff2) format("woff2")}
+
+:root{
+  --ink:#1d1d1d; --dark:#1b1b1b; --grid:#3a3a3a; --white:#fff; --soft:#f2f2f2;
+  --green-a:#4c9763; --green-b:#6cab7c; --green-c:#d3ebd9;
+  --blue-a:#1c2fae; --blue-b:#2f6fd2; --blue-c:#5ed0ef;
+  --orange:#f08a24; --yellow:#f2b632; --purple:#4b3fd8;
+  --tag-active:#e4950b; --tag-passive:#3da20c; --tag-fof:#4238c2;
+  --shadow:#0c0c0c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:transparent}
+body{font-family:Inter,sans-serif;color:var(--ink)}
+#stage{position:relative;width:1920px;height:1080px;overflow:hidden}
+.abs{position:absolute}
+.bg{position:absolute;inset:0;background-size:cover}
+.bg.light{background-image:url(../assets/bg/bg_light_grid.jpg)}
+.bg.dark{background:#1b1b1b}
+.bg.dark::after{content:"";position:absolute;inset:0;background:url(../assets/ui/grain.png);opacity:.18}
+.bg.plate{background-image:url(../assets/anchor/anchor_plate_right.jpg)}
+.gridlines{position:absolute;inset:0;pointer-events:none}
+.gridlines i{position:absolute;background:var(--grid)}
+
+/* grain overlay used on pills, ribbon text, tiles */
+.grain{position:absolute;inset:0;background:url(../assets/ui/grain.png);mix-blend-mode:overlay;opacity:.55;pointer-events:none;border-radius:inherit}
+
+/* ---------- keyword pill (search bar / coin) ---------- */
+.pill{position:absolute;display:flex;align-items:center;height:128px;border-radius:64px;padding:0 34px 0 22px;
+  background:linear-gradient(90deg,var(--green-a) 0%,var(--green-b) 50%,var(--green-c) 100%);
+  box-shadow:14px 14px 0 var(--shadow);white-space:nowrap}
+.pill::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(circle,rgba(20,40,25,.55) 1.4px,transparent 1.8px) 0 0/7px 7px;
+  -webkit-mask:linear-gradient(90deg,#000 0,transparent 14%,transparent 86%,#000 100%);mask:linear-gradient(90deg,#000 0,transparent 14%,transparent 86%,#000 100%)}
+.pill .ic{width:78px;height:78px;flex:none;margin-right:26px;position:relative;z-index:1}
+.pill .coin{width:116px;height:116px;border-radius:50%;background:#fff;flex:none;margin:0 30px 0 -16px;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+.pill .coin img{width:73px;height:73px}
+.pill .t{font-weight:900;font-size:70px;letter-spacing:-.5px;line-height:1;position:relative;z-index:1;color:var(--ink)}
+.pill .knob{width:104px;height:104px;border-radius:50%;background:#fff;flex:none;margin-left:34px;margin-right:-22px;position:relative;z-index:1;box-shadow:inset 0 0 0 3px rgba(0,0,0,.04)}
+.pill.sm{height:96px;border-radius:48px;box-shadow:10px 10px 0 var(--shadow)}
+.pill.sm .t{font-size:52px}.pill.sm .ic{width:58px;height:58px;margin-right:18px}
+.pill.sm .knob{width:76px;height:76px}.pill.sm .coin{width:86px;height:86px}.pill.sm .coin img{width:54px;height:54px}
+
+/* ---------- definition box ---------- */
+.deftab{position:absolute;height:128px;border-radius:0 64px 64px 0;background:linear-gradient(90deg,#3b6ff0 0%,#3d7ce6 45%,#3a95d8 75%,#3576d6 100%)}
+.defbox{position:absolute;border-radius:64px;background:#f2f2f2;padding:26px 66px;font-weight:500;font-size:35px;line-height:1.28;color:var(--ink);box-shadow:0 2px 0 rgba(0,0,0,.08)}
+
+/* ---------- SOP / question tiles (dark grid) ---------- */
+.tile{position:absolute;width:386px;height:386px;background-size:100% 100%;outline:2px dashed rgba(255,255,255,.9);outline-offset:-2px}
+.tile.orange{background-image:url(../assets/ui/tile_orange.png)}
+.tile.pink{background-image:url(../assets/ui/tile_pink.png)}
+.tile.green{background-image:url(../assets/ui/tile_green.png)}
+.tile .n{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:600;font-style:italic;font-size:104px;color:#fff}
+.tile .lbl{position:absolute;top:40px;left:0;right:0;text-align:center;font-weight:700;font-size:44px;color:#fff}
+.tile .art{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);max-width:70%;max-height:46%}
+.tile .h{position:absolute;width:26px;height:26px;background:#0b0b0b;border:1px solid #444}
+.qbox{position:absolute;background:#1b1b1b;border:2px solid #8a8a8a;padding:16px 30px;color:#fff;font-weight:500;font-size:52px;line-height:1.24;white-space:nowrap}
+.dim{opacity:.32;filter:saturate(.5)}
+
+/* ---------- tables ---------- */
+.tbl{position:absolute;background:#fff;border:3px solid #3d3d3d;border-collapse:collapse;table-layout:fixed}
+.tbl th{color:#fff;font-weight:700;font-size:40px;line-height:1.2;text-align:left;padding:22px 40px;vertical-align:middle;
+  background:radial-gradient(ellipse 60% 120% at 62% 30%,var(--blue-c) 0%,var(--blue-b) 30%,var(--blue-a) 72%);border-right:3px solid #3d3d3d}
+.tbl.center th{text-align:center}
+.tbl td{font-weight:500;font-size:30px;line-height:1.22;padding:14px 40px;border-top:3px solid #3d3d3d;border-right:3px solid #3d3d3d;color:#000;vertical-align:middle}
+.tbl td.hl{background:#fff4c7}
+.tbl tr.hl td{background:#fff4c7}
+.tbl .tag-active{color:var(--tag-active)} .tbl .tag-passive{color:var(--tag-passive)} .tbl .tag-fof{color:var(--tag-fof)}
+.tbl .blur{filter:blur(9px);opacity:.75}
+.marker{position:absolute;width:10px;background:#e9a628}
+.marker::before{content:"";position:absolute;left:-28px;top:-6px;width:66px;height:70px;background:#e9b13a;clip-path:polygon(0 0,100% 0,100% 62%,50% 100%,0 62%)}
+
+/* ---------- ribbon (roto big text) ---------- */
+.ribbon-text{font-family:Inter;font-weight:900;fill:var(--ink)}
+
+/* ---------- labels ---------- */
+.nlabel{position:absolute;display:flex;align-items:center;gap:22px;font-weight:700;font-size:42px;color:#070708;white-space:nowrap}
+.nlabel .c{width:46px;height:46px;border-radius:50%;border:3.5px solid #070708;background:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:700}
+.nlabel.on{color:#070708}
+.nlabel.on .c{background:var(--yellow)}
+.nlabel.off{opacity:.35}
+.chip{position:absolute;display:flex;align-items:center;gap:22px;padding:18px 34px 18px 18px;border-radius:999px;font-weight:700;font-size:44px;white-space:nowrap}
+.chip .k{width:70px;height:70px;border-radius:50%;background-size:cover;display:flex;align-items:center;justify-content:center;color:#fff;font-style:italic;font-weight:600;font-size:38px;flex:none}
+.chip.darkbg{background:#262626;border:2px solid #6b6b6b;color:#fff}
+.chip.lightbg{background:#fff;border:3px solid #1d1d1d;color:var(--ink);box-shadow:8px 8px 0 var(--shadow)}
+.chip.on{outline:4px solid var(--yellow);outline-offset:4px}
+.chip.off{opacity:.45}
+.arrow{position:absolute;font-weight:900;font-size:64px;color:var(--ink)}
+.disclaimer{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;white-space:nowrap;font-weight:500;font-size:22px;color:#333;background:#f7f7f0;border:1.5px solid #c9c9c0;padding:6px 18px;border-radius:6px;z-index:5}
+.darkmode .disclaimer{color:#bdbdbd}
+.caption{position:absolute;font-weight:500;font-size:26px;color:#555}
+.pill.lg{height:152px;border-radius:76px;padding:0 36px 0 30px}
+.pill.lg .t{font-size:88px}.pill.lg .ic{width:92px;height:92px;margin-right:30px}
+.pill.lg .knob{width:116px;height:116px}.pill.lg .coin{width:136px;height:136px}.pill.lg .coin img{width:86px;height:86px}
+
+.tbl th.empty{background:#fff}
+.tbl td.rh{font-weight:700;background:#f4f6fb}

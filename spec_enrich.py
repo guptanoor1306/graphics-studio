@@ -94,6 +94,8 @@ def enrich_spec(spec: dict, storyboard: str = "") -> dict:
     if not spec:
         return spec
     frames = spec.get("frames")
+    if frames and isinstance(frames[0], dict) and frames[0].get("type") and "mode" not in frames[0]:
+        return spec
     if not isinstance(frames, list):
         return spec
 

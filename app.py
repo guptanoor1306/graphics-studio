@@ -62,12 +62,33 @@ def load(pid):
 def effective_look(p: dict) -> dict:
     """Merge project look with spec.look; UI props[] always wins over Claude's single prop."""
     pl = p.get("look") or {}
-    sl = (p.get("spec") or {}).get("look") or {} if p.get("spec") else {}
-    out = {**sl, **pl}
+    spec = p.get("spec") or {}
+    sl = spec.get("look") if spec else {}
+    if isinstance(sl, str):
+        out = {**pl, "look_line": sl}
+    elif isinstance(sl, dict):
+        out = {**sl, **pl}
+    else:
+        out = {**pl}
     if pl.get("props"):
         out["props"] = pl["props"]
         out.pop("prop", None)
+    if pl.get("look_line"):
+        out["look_line"] = pl["look_line"]
     return out
+
+
+def is_mf_theme_name(theme: str) -> bool:
+    return (THEMES / theme / "templates" / "render.js").is_file()
+
+
+MF_OVERLAY_TYPES = frozenset({"ribbon", "definition", "anchor"})
+
+
+def frame_wants_overlay(theme: str, frame: dict) -> bool:
+    if is_mf_theme_name(theme):
+        return frame.get("type") in MF_OVERLAY_TYPES
+    return frame.get("mode") == "fss"
 
 
 def save(pid, author, note, **fields):
@@ -237,10 +258,17 @@ async def make_storyboard(pid: int, req: Request):
         out = await asyncio.to_thread(claude_client.storyboard, THEMES / p["theme"], script, look, b.get("notes", ""))
     except Exception as e:
         _raise_claude_gateway(e)
-    merged = effective_look({**p, "look": look, "spec": out["spec"]})
-    out["spec"]["look"] = merged
-    out["spec"] = spec_enrich.enrich_spec(out["spec"], out.get("storyboard") or "")
-    save(pid, who(req), "generated storyboard", script=script, look=merged, storyboard=out["storyboard"], spec=out["spec"])
+    if is_mf_theme_name(p["theme"]):
+        spec = out["spec"]
+        plook = {**look}
+        if isinstance(spec.get("look"), str):
+            plook["look_line"] = spec["look"]
+        save(pid, who(req), "generated storyboard", script=script, look=plook, storyboard=out["storyboard"], spec=spec)
+    else:
+        merged = effective_look({**p, "look": look, "spec": out["spec"]})
+        out["spec"]["look"] = merged
+        out["spec"] = spec_enrich.enrich_spec(out["spec"], out.get("storyboard") or "")
+        save(pid, who(req), "generated storyboard", script=script, look=merged, storyboard=out["storyboard"], spec=out["spec"])
     warn = claude_client.spec_quality_issues(out["spec"], out.get("storyboard") or "")
     return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn}
 
@@ -325,6 +353,8 @@ async def edit(pid: int, fid: str, req: Request):
         raise HTTPException(400, "ask, reference image, or regenerate required")
     if item_index is not None and not ask and not ref_src:
         raise HTTPException(400, "layer replace needs a prompt and/or reference image")
+    if is_mf_theme_name(p["theme"]) and item_index is not None:
+        raise HTTPException(400, "MF theme: edit the whole frame (no per-layer index)")
 
     sb_line = _storyboard_line_for_frame(p.get("storyboard") or "", fid)
     storyboard_full = p.get("storyboard") or ""
@@ -357,11 +387,11 @@ async def edit(pid: int, fid: str, req: Request):
             storyboard_line=sb_line,
             storyboard_full=storyboard_full,
         )
-        if item_index is not None:
+        if item_index is not None and not is_mf_theme_name(p["theme"]):
             new = merge_item_edit(before, new, item_index)
             if smart_ref and ref_src:
                 new = strip_upload_assets(new, ref_src)
-        elif flat_paste and ref_src and replace_flag:
+        elif flat_paste and ref_src and replace_flag and not is_mf_theme_name(p["theme"]):
             new = apply_flat_paste_replace(new, ref_src, ask, True)
         else:
             new = finalize_reference_edit(
@@ -475,8 +505,14 @@ async def check(pid: int):
         async with async_playwright() as pw:
             b = await exporter.launch_chromium(pw)
             pg = await b.new_page(viewport={"width": 1920, "height": 1080})
+            mf = is_mf_theme_name(p["theme"])
             for f in p["spec"]["frames"]:
                 await pg.goto(preview_url(pid, f["id"]), wait_until="load", timeout=120_000)
+                if mf:
+                    try:
+                        await pg.wait_for_function("window.RENDERED === true", timeout=20_000)
+                    except Exception:
+                        pass
                 await pg.wait_for_timeout(200)
                 warns += [f"{f['id']}: {w}" for w in await pg.evaluate(m.CHECK_JS)]
             await b.close()
@@ -495,7 +531,7 @@ async def export(pid: int, png: int = 1, only: str = ""):
         if ids and f["id"] not in ids:
             continue
         html = frame_page(p["theme"], frame_for_render(p, f), look, base_href=base)
-        pages.append((f["id"], html, f.get("mode") == "fss"))
+        pages.append((f["id"], html, frame_wants_overlay(p["theme"], f)))
     try:
         data = await asyncio.to_thread(exporter.export_zip, pages, THEMES / p["theme"], bool(png))
     except Exception as e:

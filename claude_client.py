@@ -35,18 +35,34 @@ def resolve_model(name: str | None = None) -> str:
 MODEL = resolve_model()
 
 
+def is_mf_theme(theme_dir: pathlib.Path) -> bool:
+    return (theme_dir / "templates" / "render.js").is_file()
+
+
 def theme_rules(theme_dir: pathlib.Path) -> str:
     """Skill rules + asset index + style guide so specs use kit buildings, people, etc."""
     parts = []
-    for rel in (
-        "SKILL.md",
-        "references/spec_format.md",
-        "references/studio_brief.md",
-        "references/app_storyboard_overrides.md",
-        "scenes/example_spec.json",
-        "assets/INDEX.md",
-        "references/deep/style_guide.md",
-    ):
+    if is_mf_theme(theme_dir):
+        rels = (
+            "SKILL.md",
+            "references/spec_format.md",
+            "references/studio_brief.md",
+            "references/style_guide.md",
+            "references/gift_city_breakdown.md",
+            "scenes/gift_city_spec.json",
+            "assets/INDEX.md",
+        )
+    else:
+        rels = (
+            "SKILL.md",
+            "references/spec_format.md",
+            "references/studio_brief.md",
+            "references/app_storyboard_overrides.md",
+            "scenes/example_spec.json",
+            "assets/INDEX.md",
+            "references/deep/style_guide.md",
+        )
+    for rel in rels:
         p = theme_dir / rel
         if p.exists():
             parts.append(f"===== {rel} =====\n{p.read_text()}")
@@ -90,6 +106,34 @@ SB_TOOL = {
                     "frames": {"type": "array", "items": _FRAME, "minItems": 1},
                 },
                 "required": ["look", "frames"],
+            },
+        },
+        "required": ["storyboard", "spec"],
+    },
+}
+MF_SB_TOOL = {
+    "name": "submit_storyboard",
+    "description": "Return the MF storyboard (SB Doc) and full spec.json (title, look string, frames with type).",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "storyboard": {"type": "string"},
+            "spec": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "look": {"type": "string", "description": "One-line visual brief for the video"},
+                    "frames": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "type"],
+                            "additionalProperties": True,
+                        },
+                    },
+                },
+                "required": ["title", "look", "frames"],
             },
         },
         "required": ["storyboard", "spec"],
@@ -182,8 +226,17 @@ def _client():
     return anthropic.Anthropic(api_key=k)
 
 
+_MF_ROLE = (
+    "You are the Varsity Mutual Fund IP graphics designer in the skill below. You run inside a web app, not a chat: "
+    "ignore local setup/build/zip delivery steps — only return storyboard + spec via submit_storyboard. "
+    "Follow SKILL.md beat rules and references/spec_format.md. Use assets/INDEX.md paths. "
+    "Types footage, screen, repeat are storyboard-only; all other graphic beats need full frame JSON."
+)
+
+
 def _system(theme_dir):
-    return [{"type": "text", "text": _ROLE},
+    role = _MF_ROLE if is_mf_theme(theme_dir) else _ROLE
+    return [{"type": "text", "text": role},
             {"type": "text", "text": theme_rules(theme_dir), "cache_control": {"type": "ephemeral"}}]
 
 
@@ -229,6 +282,8 @@ def _storyboard_line_for_frame(storyboard: str, fid: str) -> str:
 
 def spec_quality_issues(spec: dict, storyboard: str = "") -> list[str]:
     frames = (spec or {}).get("frames") or []
+    if frames and isinstance(frames[0], dict) and "type" in frames[0] and "mode" not in frames[0]:
+        return []
     issues: list[str] = []
     fss_n = 0
     sb = storyboard or ""
@@ -314,10 +369,17 @@ def _load_ref_images(theme_dir: pathlib.Path, rel_paths: list[str]) -> list[tupl
     return out
 
 
-def _call_storyboard(theme_dir, msg: str, ref_images: list[tuple[str, bytes]] | None = None) -> dict:
+def _call_storyboard(
+    theme_dir,
+    msg: str,
+    ref_images: list[tuple[str, bytes]] | None = None,
+    *,
+    sb_tool: dict | None = None,
+) -> dict:
     import base64
 
-    tool = "submit_storyboard"
+    tool_schema = sb_tool or SB_TOOL
+    tool = tool_schema["name"]
     if _tool_choice(tool)["type"] == "auto":
         msg += f"\n\nRespond only by calling the {tool} tool with the full storyboard and spec."
     if ref_images:
@@ -339,12 +401,23 @@ def _call_storyboard(theme_dir, msg: str, ref_images: list[tuple[str, bytes]] | 
         user_content = msg
     r = _messages_create(
         max_tokens=16384, system=_system(theme_dir),
-        tools=[SB_TOOL], tool_choice=_tool_choice(tool),
+        tools=[tool_schema], tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": user_content}])
     return _tool_input(r, tool)
 
 
 def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:
+    if is_mf_theme(theme_dir):
+        look_line = (look.get("look_line") or "").strip()
+        msg = (
+            f"Spec root look (one line — copy into spec.look): {look_line or 'anchor right · GIFT City house style per SKILL'}\n"
+            f"Notes: {notes or 'none'}\n\n"
+            "Follow SKILL.md + references/spec_format.md. Mirror scenes/gift_city_spec.json structure.\n"
+            f"Copy numbers exactly from the script.\n\nSCRIPT:\n{script}"
+        )
+        out = _call_storyboard(theme_dir, msg, sb_tool=MF_SB_TOOL)
+        return out
+
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
     msg = (
         f"Look (copy into spec.look): {json.dumps(look)}\n"
@@ -389,6 +462,39 @@ def edit_frame(
     import base64
 
     tool = "submit_frame"
+    if is_mf_theme(theme_dir):
+        sb_excerpt = (storyboard_full or "")[:6000]
+        if regenerate:
+            msg = (
+                f"Storyboard line: {storyboard_line or '(none)'}\nContext:\n{sb_excerpt or '(none)'}\n\n"
+                f"Current frame JSON (MF spec — keep id and type unless asked):\n"
+                f"{json.dumps(frame, ensure_ascii=False)}\n\n"
+                "REGENERATE this frame for the same beat. Match references/spec_format.md for this type.\n"
+            )
+        else:
+            msg = (
+                f"Current MF frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"
+                f"Change requested: {ask}\n"
+            )
+        msg += "\nReturn the whole edited frame via submit_frame only."
+        if _tool_choice(tool)["type"] == "auto":
+            msg += f"\n\nRespond only by calling the {tool} tool."
+        content = msg
+        if ref_image:
+            media, raw = ref_image
+            content = [
+                {"type": "image", "source": {"type": "base64", "media_type": media, "data": base64.standard_b64encode(raw).decode()}},
+                {"type": "text", "text": msg},
+            ]
+        r = _messages_create(
+            max_tokens=8000 if regenerate else 5000,
+            system=_system(theme_dir),
+            tools=[FRAME_TOOL],
+            tool_choice=_tool_choice(tool),
+            messages=[{"role": "user", "content": content}],
+        )
+        return _tool_input(r, tool)["frame"]
+
     if regenerate:
         n_items = len(frame.get("items") or [])
         sb_excerpt = (storyboard_full or "")[:6000]

@@ -37,12 +37,27 @@ def _data_uri(path: pathlib.Path) -> str:
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
 
 
+def _theme_css(base_dir: pathlib.Path) -> tuple[pathlib.Path, str]:
+    for name in ("varsity.css", "house.css"):
+        p = base_dir / "templates" / name
+        if p.is_file():
+            return p, name
+    raise FileNotFoundError(f"No theme CSS in {base_dir / 'templates'}")
+
+
 def inline_assets(html: str, base_dir: pathlib.Path) -> str:
     """Replace the stylesheet link with inline CSS (fonts embedded) and every relative src/url with data URIs."""
-    css_path = base_dir / "templates" / "varsity.css"
+    css_path, css_name = _theme_css(base_dir)
     css = css_path.read_text()
+    css = re.sub(
+        r"url\((\.\./fonts/[^)]+)\)",
+        lambda m: f"url({_data_uri((base_dir / 'templates' / 'fonts' / pathlib.Path(m.group(1)).name).resolve())})"
+        if (base_dir / "templates" / "fonts").is_dir()
+        else m.group(0),
+        css,
+    )
     css = re.sub(r"url\((\.\./fonts/[^)]+)\)", lambda m: f"url({_data_uri((base_dir / 'scenes' / m.group(1)).resolve())})", css)
-    html = re.sub(r'<link rel="stylesheet" href="[^"]*varsity.css">', f"<style>{css}</style>", html)
+    html = re.sub(rf'<link rel="stylesheet" href="[^"]*{re.escape(css_name)}">', f"<style>{css}</style>", html)
 
     def fix_src(m):
         url = m.group(2)
@@ -72,6 +87,11 @@ async def launch_chromium(pw):
 
 async def _load_frame(pg, html: str) -> None:
     await pg.set_content(html, wait_until="load", timeout=120_000)
+    if "window.RENDERED" in html or "render.js" in html:
+        try:
+            await pg.wait_for_function("window.RENDERED === true", timeout=20_000)
+        except Exception:
+            pass
     await pg.evaluate("document.fonts.ready")
     await pg.wait_for_timeout(120)
 

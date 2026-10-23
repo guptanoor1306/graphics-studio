@@ -1,0 +1,582 @@
+{
+ "title": "GIFT City Funds",
+ "look": "anchor right · hero keyword 'GIFT City Funds' · green search pills · blue table headers · orange/pink/green tiles",
+ "frames": [
+  {
+   "id": "0.00",
+   "type": "footage",
+   "vo": "Ever wanted to invest in stocks like Apple, Nvidia...",
+   "why": "first words to camera; the graphic lands on the brand names"
+  },
+  {
+   "id": "0.02",
+   "type": "scene",
+   "vo": "...stocks like Apple, Nvidia, or Microsoft from sitting in India?",
+   "why": "hook names three famous brands -> logos are instant recognition; 'investment' framed as a search bar",
+   "pill": {
+    "text": "Investment",
+    "icon": "search",
+    "y": 104
+   },
+   "burst": {
+    "x": 492,
+    "y": 316
+   },
+   "hero": {
+    "asset": "illus/vault_open.png",
+    "x": 739,
+    "y": 313,
+    "w": 612
+   },
+   "props": [
+    {
+     "asset": "illus/notes_coins_stack.png",
+     "x": 515,
+     "y": 828,
+     "w": 265
+    }
+   ],
+   "cards": [
+    {
+     "asset": "illus/logo_card_apple.png",
+     "x": 913,
+     "y": 537
+    },
+    {
+     "asset": "illus/logo_card_nvidia.png",
+     "x": 830,
+     "y": 670
+    },
+    {
+     "asset": "illus/logo_card_microsoft.png",
+     "x": 972,
+     "y": 667
+    }
+   ],
+   "disclaimer": true
+  },
+  {
+   "id": "0.10",
+   "type": "scene",
+   "vo": "The easiest option we had was Indian mutual funds with international exposure.",
+   "why": "names the familiar product and the one slice of it that matters -> show the parts, highlight International Equity",
+   "pill": {
+    "text": "Indian Mutual Funds",
+    "icon": "search",
+    "y": 75
+   },
+   "decorset": "light-frames",
+   "hero": {
+    "asset": "illus/folder_docs.png",
+    "x": 694,
+    "y": 416,
+    "w": 691
+   },
+   "props": [
+    {
+     "asset": "illus/coins_notes_flat.png",
+     "x": 1015,
+     "y": 839,
+     "w": 366
+    }
+   ],
+   "labels": {
+    "active": 1,
+    "items": [
+     {
+      "text": "International Equity",
+      "x": 112,
+      "y": 608
+     },
+     {
+      "text": "Bonds",
+      "x": 414,
+      "y": 416
+     },
+     {
+      "text": "Government Securities",
+      "x": 753,
+      "y": 294
+     },
+     {
+      "text": "Cash",
+      "x": 1382,
+      "y": 416
+     },
+     {
+      "text": "Other Assets",
+      "x": 1486,
+      "y": 608
+     }
+    ]
+   },
+   "cursor": {
+    "x": 1319,
+    "y": 703,
+    "style": "outline"
+   }
+  },
+  {
+   "id": "0.18",
+   "type": "footage",
+   "vo": "But not anymore. Most of them are closed for subscription.",
+   "why": "reaction line, no new noun or number"
+  },
+  {
+   "id": "0.24",
+   "type": "ribbon",
+   "text": "GIFT City Funds",
+   "vo": "...a new route ... GIFT City funds.",
+   "why": "first time the hero keyword is said -> roto big-text title"
+  },
+  {
+   "id": "0.27",
+   "type": "sop",
+   "vo": "We cover three things...",
+   "why": "spoken agenda of 3 questions -> SOP tiles; reused at every section start",
+   "questions": [
+    "What GIFT city funds are available\nand where do they invest?",
+    "How are they different from\nmutual funds?",
+    "How do they compare with\nforeign brokers?"
+   ]
+  },
+  {
+   "id": "0.44",
+   "type": "repeat",
+   "of": "0.27",
+   "note": "highlight Q1",
+   "vo": "Starting with question 1..."
+  },
+  {
+   "id": "0.55",
+   "type": "table",
+   "bg": "dark",
+   "vo": "...about five to six funds in GIFT City...",
+   "why": "7 funds x 4 attributes from 7 different sources -> one synthesised table; columns stay blurred and are revealed as the VO reaches them",
+   "box": {
+    "x": 70,
+    "y": 180,
+    "w": 1773
+   },
+   "widths": [
+    0.315,
+    0.24,
+    0.24,
+    0.205
+   ],
+   "head_h": 110,
+   "row_h": 98,
+   "font": 27,
+   "head_font": 36,
+   "reveal_upto": 1,
+   "columns": [
+    "Scheme",
+    "What it invests in",
+    "Style",
+    "Minimum"
+   ],
+   "rows": [
+    [
+     "DSP Global Equity Fund",
+     "Direct global equities",
+     "Active",
+     "$5,000"
+    ],
+    [
+     "Parag Parikh IFSC S&P 500 FoF",
+     "S&P 500-tracking ETFs/UCITS",
+     "Passive FoF",
+     "$500"
+    ],
+    [
+     "Parag Parikh IFSC Nasdaq 100 FoF",
+     "Nasdaq 100-tracking ETFs/UCITS",
+     "Passive FoF",
+     "$500"
+    ],
+    [
+     "Edelweiss Greater China Equity Fund",
+     "JPMorgan Funds- Greater China Fund",
+     "FoF- active underlying",
+     "$5,000"
+    ],
+    [
+     "HDFC Intl Developed Markets Equity Fund",
+     "Developed-market index exposure",
+     "Passive FoF",
+     "$5,000*"
+    ],
+    [
+     "HDFC Intl Emerging Markets Equity Fund",
+     "Emerging-market index exposure",
+     "Passive FoF",
+     "$5,000*"
+    ],
+    [
+     "Marcellus Global Equities Fund",
+     "Direct global equities",
+     "Active",
+     "$5,000"
+    ]
+   ],
+   "cursor": {
+    "x": 1006,
+    "y": 845
+   }
+  },
+  {
+   "id": "1.00",
+   "type": "screen",
+   "url": "https://giftcity.dspim.com/cms-content/product/june-portfolio-of-dsp-global-equity-fund.pdf",
+   "vo": "DSP ... top holdings Amazon, Tencent...",
+   "why": "named holdings live in the official factsheet -> show the source"
+  },
+  {
+   "id": "1.19",
+   "type": "screen",
+   "url": "marcellus factsheet PDF",
+   "vo": "Marcellus ... defence, power, AI infra, luxury",
+   "why": "themes are in the factsheet"
+  },
+  {
+   "id": "1.38",
+   "type": "definition",
+   "term": "Fund of Funds (FoF)",
+   "text": "A fund that invests in other mutual funds or investment\nfunds instead of directly investing in securities.",
+   "vo": "A fund of funds is basically a fund that does not buy stocks itself...",
+   "why": "new jargon + one-sentence meaning -> definition box over anchor"
+  },
+  {
+   "id": "1.39",
+   "type": "screen",
+   "url": "https://gift.ppfas.com/product/ + hdfcinternational.com",
+   "vo": "Parag Parikh and HDFC both have passive FoFs"
+  },
+  {
+   "id": "2.08",
+   "type": "repeat",
+   "of": "0.55",
+   "note": "unblur, highlight Parag Parikh + HDFC rows",
+   "vo": "Check this table for more details."
+  },
+  {
+   "id": "2.15",
+   "type": "screen",
+   "url": "https://www.edelweissmf.com/gift-city",
+   "vo": "Edelweiss Greater China ... JPMorgan"
+  },
+  {
+   "id": "2.30",
+   "type": "footage",
+   "vo": "You pay expense ratio both for the GIFT City fund as well as the underlying fund.",
+   "why": "caveat with no figure; anchor delivers the warning"
+  },
+  {
+   "id": "2.45",
+   "type": "repeat",
+   "of": "0.55",
+   "note": "highlight Minimum column ($500 / $5,000)",
+   "vo": "Parag Parikh is the only one with a minimum of $500..."
+  },
+  {
+   "id": "3.00",
+   "type": "footage",
+   "vo": "Now, how do you actually invest? ... fund house's website ... little inconvenience",
+   "why": "procedural aside; nothing new to show"
+  },
+  {
+   "id": "3.23",
+   "type": "repeat",
+   "of": "0.27",
+   "note": "highlight Q2"
+  },
+  {
+   "id": "3.23-a",
+   "type": "cycle",
+   "vo": "You invest money, you get units, the fund invests on your behalf, ... you redeem",
+   "why": "a 4-step loop said in one breath -> process cycle, steps fill in as spoken",
+   "pill": {
+    "text": "Indian Mutual Funds"
+   },
+   "active": 4,
+   "steps": [
+    {
+     "label": "You invest",
+     "asset": "illus/notes_coins_stack.png"
+    },
+    {
+     "label": "You get units",
+     "asset": "illus/folder_docs.png"
+    },
+    {
+     "label": "Fund invests",
+     "asset": "illus/vault_open.png"
+    },
+    {
+     "label": "You redeem",
+     "asset": "illus/coins_notes_flat.png"
+    }
+   ]
+  },
+  {
+   "id": "3.56",
+   "type": "sop",
+   "vo": "a quick explanation of what GIFT City is and how it works",
+   "why": "mini-agenda inside a section -> 2-tile SOP",
+   "questions": [
+    "What is GIFT City?",
+    "How does it work?"
+   ]
+  },
+  {
+   "id": "4.00",
+   "type": "scene",
+   "vo": "GIFT City is an international financial services centre ... Gandhinagar, Gujarat.",
+   "why": "a place -> map, with the location chain India > Gujarat > Gandhinagar > GIFT City",
+   "decorset": "light-frames",
+   "floor": false,
+   "hero": {
+    "asset": "illus/map_gift_city.png",
+    "x": 165,
+    "y": 53,
+    "w": 1578,
+    "bleed": true
+   },
+   "props": [
+    {
+     "asset": "illus/map_legend.png",
+     "x": 1569,
+     "y": 655,
+     "w": 270
+    }
+   ],
+   "pill": {
+    "text": "GIFT City, Gujarat",
+    "icon": "search",
+    "x": "right",
+    "y": 69
+   }
+  },
+  {
+   "id": "4.15",
+   "type": "footage",
+   "vo": "You know the duty-free zone at the airport? ...",
+   "why": "analogy told to camera; a picture would compete with the story"
+  },
+  {
+   "id": "4.53",
+   "type": "definition",
+   "term": "Liberalised Remittance Scheme",
+   "text": "RBI scheme that allows Indian residents to remit up to a\nspecified annual limit abroad for permitted purposes.",
+   "vo": "...LRS — the Liberalised Remittance Scheme."
+  },
+  {
+   "id": "5.00",
+   "type": "screen",
+   "url": "https://www.rbi.org.in/commonman/english/scripts/FAQs.aspx?Id=1834",
+   "vo": "...up to $250,000 abroad per year",
+   "why": "regulatory number -> show the regulator's page"
+  },
+  {
+   "id": "5.21",
+   "type": "definition",
+   "term": "Tax Collected at Source (TCS)",
+   "text": "Tax collected by the seller or authorised entity from the buyer\nat the time of certain transactions and paid to the government.",
+   "vo": "TCS — Tax Collected at Source."
+  },
+  {
+   "id": "5.58",
+   "type": "table",
+   "vo": "some terminology changes ... This table gives a quick snapshot.",
+   "why": "old term vs new term pairs -> 2-column table",
+   "box": {
+    "x": 436,
+    "y": 301,
+    "w": 1108
+   },
+   "head_h": 177,
+   "row_h": 92,
+   "columns": [
+    "What you know from\nIndian Mutual Funds",
+    "What it is called in\nGIFT city"
+   ],
+   "rows": [
+    [
+     "AMC (Asset Management Company)",
+     "Registered FME (Fund\nManagement Entity)"
+    ],
+    [
+     "Mutual fund scheme",
+     "Retail scheme"
+    ],
+    [
+     "SID or KIM (scheme details document)",
+     "Offer document"
+    ],
+    [
+     "SEBI",
+     "IFSCA"
+    ]
+   ],
+   "cursor": {
+    "x": 1626,
+    "y": 756,
+    "style": "outline"
+   }
+  },
+  {
+   "id": "6.04",
+   "type": "ribbon",
+   "text": "Taxation",
+   "vo": "Difference 1: Taxation",
+   "why": "numbered difference = section header -> ribbon"
+  },
+  {
+   "id": "6.10",
+   "type": "footage",
+   "vo": "Pay extra attention ... Sounds like music to your ears? Unfortunately...",
+   "why": "rhetorical build-up; anchor's delivery carries it"
+  },
+  {
+   "id": "8.22",
+   "type": "table",
+   "vo": "Short-term ... 42.74%. Long-term ... 14.95%.",
+   "why": "two tax rates said aloud -> rates table, short-term cell highlighted",
+   "pill": {
+    "text": "GIFT City Fund Rates",
+    "icon": "coin"
+   },
+   "columns": [
+    "Security type",
+    "Holding period for long-term gains",
+    "Long-term capital gains",
+    "Short-term capital gains"
+   ],
+   "rows": [
+    [
+     "Equity shares listed on overseas stock exchange",
+     "24 months",
+     "14.95%",
+     "42.74%"
+    ]
+   ],
+   "highlight_cells": [
+    [
+     1,
+     4
+    ]
+   ],
+   "box": {
+    "w": 1600
+   },
+   "row_h": 150
+  },
+  {
+   "id": "8.30",
+   "type": "ribbon",
+   "text": "GIFT City NAV",
+   "vo": "Difference 2: The NAV works differently"
+  },
+  {
+   "id": "8.42",
+   "type": "screen",
+   "url": "https://marcellus.in/portfolio-management-services/marcellus-global-equities-fund/",
+   "vo": "Subscription NAV ... Redemption NAV"
+  },
+  {
+   "id": "9.02",
+   "type": "repeat",
+   "of": "0.27",
+   "note": "highlight Q3"
+  },
+  {
+   "id": "9.18",
+   "type": "table",
+   "vo": "...as you see in this table.",
+   "why": "two routes compared on 6 attributes -> comparison table",
+   "widths": [
+    0.22,
+    0.39,
+    0.39
+   ],
+   "font": 25,
+   "head_font": 34,
+   "row_h": 92,
+   "box": {
+    "w": 1640
+   },
+   "columns": [
+    "",
+    "GIFT City fund",
+    "Direct via foreign broker"
+   ],
+   "rows": [
+    [
+     "What you own",
+     "Units of a GIFT City trust",
+     "The foreign security directly"
+    ],
+    [
+     "Foreign brokerage account",
+     "Not needed",
+     "Required"
+    ],
+    [
+     "Foreign bank account",
+     "Not needed",
+     "Sometimes required"
+    ],
+    [
+     "Costs",
+     "GIFT City fund TER + underlying fund expenses (for FoFs)",
+     "Underlying fund cost + brokerage + custody charges"
+    ],
+    [
+     "Other costs",
+     "Forex markup + bank charges; could be lower through partner banks",
+     "Forex markup + bank charges; depends on your bank"
+    ],
+    [
+     "Tax filing & reporting",
+     "Fund pays tax; Schedule FA better to comply voluntarily",
+     "You compute and file; Schedule FA mandatory"
+    ]
+   ]
+  },
+  {
+   "id": "9.27",
+   "type": "points",
+   "title": "Key Benefits of GIFT City Funds",
+   "vo": "The rupee depreciation point / The forex markup / Estate tax",
+   "why": "three named benefits, each opens a sub-section -> one list frame, item highlighted as it is reached",
+   "items": [
+    "Rupee depreciation not taxed",
+    "Better forex rate via partner banks",
+    "No foreign estate tax"
+   ],
+   "active": 1
+  },
+  {
+   "id": "11.36",
+   "type": "points",
+   "title": "Key Limitations of GIFT City Funds",
+   "vo": "Higher costs ... High short-term tax ... No single platform ... No SIP ... Bank transfer friction ... Slow redemption ... Limited comparison",
+   "why": "spoken checklist -> list revealed item by item",
+   "items": [
+    "Higher costs (two layers for FoFs)",
+    "High short-term tax (42.74%)",
+    "No single platform",
+    "No SIP option — lump sum only",
+    "Bank transfer friction",
+    "Slow redemption (~7 business days)",
+    "Limited comparison (no AMFI-style database)"
+   ]
+  },
+  {
+   "id": "12.50",
+   "type": "footage",
+   "vo": "To conclude ... a route worth checking out.",
+   "why": "conclusion to camera; CTA added by editor"
+  }
+ ]
+}
