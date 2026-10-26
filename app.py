@@ -42,10 +42,14 @@ app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
 
 
 @app.middleware("http")
-async def api_no_cache(request, call_next):
+async def cache_headers(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith("/api/"):
-        response.headers["Cache-Control"] = "no-store"
+    path = request.url.path
+    if path.startswith("/api/") or path == "/" or path.startswith("/preview/"):
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+    elif path.endswith("/render.js") or path.endswith("/components.js"):
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
     return response
 
 
@@ -211,6 +215,9 @@ def status():
         "project_count": n,
         "backend": backend(),
         "host": socket.gethostname(),
+        "studio_ui": os.environ.get("RAILWAY_GIT_COMMIT_SHA")
+        or os.environ.get("GIT_COMMIT")
+        or "dev",
     }
     if backend() == "sqlite":
         out["db_path"] = str(SQLITE_PATH)

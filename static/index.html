@@ -856,6 +856,7 @@ function buildEditFrameStrip(){
 function openEditMode(fid){
  if(!P?.spec){alert('Generate frames first.');return}
  editModeOpen=true;
+ api('/api/status?_='+Date.now()).then(st=>{if(st?.studio_ui)console.info('[Graphics Studio] UI build',st.studio_ui)}).catch(()=>{});
  document.querySelectorAll('.edit-mode-side h3,.edit-mode-side .edit-side-hint,.edit-mode-side input#editPlate,.edit-mode-side button[onclick="applyLook()"]').forEach(el=>{
   if(!el)return;
   const anchorBlock=el.textContent?.includes('Anchor screen')||el.id==='editPlate'||el.getAttribute('onclick')==='applyLook()';
