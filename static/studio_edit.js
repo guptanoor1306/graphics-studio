@@ -452,8 +452,12 @@
   window.studioBootLayers = bootLayers;
 
   function waitForMfRender(tries) {
-    if (window.RENDERED || tries <= 0) {
+    if (window.RENDERED) {
       bootLayers();
+      return;
+    }
+    if (tries <= 0) {
+      setTimeout(() => waitForMfRender(40), 120);
       return;
     }
     setTimeout(() => waitForMfRender(tries - 1), 80);

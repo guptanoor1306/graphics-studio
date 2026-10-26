@@ -168,6 +168,7 @@ body.edit-mode-on #editModeApp{display:flex}
 .edit-mode-side h3{margin:18px 0 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
 .edit-mode-side h3:first-child{margin-top:0}
 .edit-side-hint{font-size:12px;color:var(--mute);margin:0 0 10px;line-height:1.45}
+.edit-mode-script{max-height:min(220px,28vh);margin-bottom:4px;font-size:13px}
 .canvas-layer-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
 .canvas-layer-row:last-child{border-bottom:0}
 .canvas-layer-row .cl-name{flex:1;min-width:0;font-family:var(--mono);font-size:12px}
@@ -203,6 +204,8 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
    <div class="edit-canvas-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div>
   </div>
   <aside class="edit-mode-side">
+   <h3>Voiceover script</h3>
+   <div class="full-script edit-mode-script" id="editModeScript"></div>
    <h3>Layers</h3><div id="canvasLayerList"></div>
    <h3>Frame changes</h3>
    <textarea id="editFrameAsk" placeholder="Describe changes for the whole frame…" rows="4" style="min-height:88px;resize:vertical"></textarea>
@@ -370,7 +373,10 @@ const getLook=()=>{
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
   return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{})};
 };
-function getScriptValue(){return $('#script')?.value??P.script??''}
+function getScriptValue(){
+ if(P?.spec) return P.script??'';
+ return $('#script')?.value??P?.script??'';
+}
 function getNotesValue(){return $('#notes')?.value??''}
 function openScriptEdit(){
   $('#scriptEditArea').value=P.script||'';
@@ -774,6 +780,7 @@ function openEditMode(fid){
  document.body.classList.add('edit-mode-on');
  $('#editModeApp').hidden=false;
  buildEditFrameStrip();
+ renderEditModeScript();
  selectEditFrame(selectedFrameId);
  renderFrameModeSwitch();
 }
@@ -790,10 +797,20 @@ async function exitEditMode(){
  }
  render();
 }
+function renderEditModeScript(){
+ const el=$('#editModeScript');
+ if(!el||!P)return;
+ const script=P.script??'';
+ if(!script.trim()){el.innerHTML='<p class="edit-side-hint" style="margin:0">No script saved — use <b>Edit script</b> in the studio view.</p>';return}
+ const frames=studioFrames();
+ scriptAssign=assignScriptRanges(script,frames,P.storyboard);
+ el.innerHTML=fullScriptHtml(script,scriptAssign);
+}
 function selectEditFrame(fid){
  selectedFrameId=fid;
  document.querySelectorAll('.edit-frame-thumb').forEach(t=>t.classList.toggle('on',t.dataset.fid===fid));
  $('#editModeTitle').textContent=(P.name||'Video')+' · '+frameLabel(fid);
+ renderEditModeScript();
  renderCanvasLayerList();
  renderFrameModeSwitch();
  refreshEditCanvas();

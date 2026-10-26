@@ -397,10 +397,6 @@
     cursor(F.cursor); disclaimer();
   };
 
-  const fn = T[F.type];
-  if (!fn) { document.body.innerHTML = `<h1 style="color:red">Unknown type ${F.type}</h1>`; window.RENDER_ERROR = "unknown type " + F.type; }
-  else fn();
-
   function bindMfInline() {
     if (!O.studioEdit) return;
     function bindEl(el, path) {
@@ -507,6 +503,11 @@
   }
 
   window.initMfInlineText = notifyStudioLayers;
+
+  const fn = T[F.type];
+  if (!fn) { document.body.innerHTML = `<h1 style="color:red">Unknown type ${F.type}</h1>`; window.RENDER_ERROR = "unknown type " + F.type; }
+  else fn();
+  if (O.studioEdit) notifyStudioLayers();
 
   // ---------- QA: report off-frame, clipped text, anchor-face overlap ----------
   window.QA = function () {
