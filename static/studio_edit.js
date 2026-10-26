@@ -1,4 +1,5 @@
 (function () {
+  const useParentChrome = document.body.classList.contains("in-studio-iframe");
   const overlay = document.createElement("div");
   overlay.id = "studio-overlay";
   overlay.setAttribute("aria-hidden", "true");
@@ -20,15 +21,10 @@
   function chip(label, idx, layerEl) {
     const el = document.createElement("div");
     el.className = "studio-chip";
-    const canSize = !!resizeMode(layerEl);
-    const sizeBtns = canSize
-      ? '<button type="button" data-act="shrink" title="Smaller">−</button><button type="button" data-act="grow" title="Larger">+</button>'
-      : "";
     el.innerHTML =
       '<span class="studio-chip-label">' +
       label +
       '</span><span class="studio-chip-actions">' +
-      sizeBtns +
       '<button type="button" data-act="edit" title="Edit">✎</button>' +
       '<button type="button" data-act="replace" title="Replace">↻</button>' +
       '<button type="button" data-act="delete" title="Remove">×</button></span>';
@@ -36,12 +32,7 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();
-        const act = btn.dataset.act;
-        if (act === "shrink" || act === "grow") {
-          nudgeResize(layerEl, idx, act === "grow" ? 1 : -1);
-          return;
-        }
-        send(act, idx, layerEl);
+        send(btn.dataset.act, idx, layerEl);
       });
     });
     return el;
@@ -105,19 +96,21 @@
       emitLayerBoundsToParent();
       return;
     }
-    layers.forEach((L) => {
-      const el = L.el;
-      const idx = L.idx;
-      const c = chip(L.label || labelFor(el, idx), idx, el);
-      let top = L.top - 4;
-      let left = L.left;
-      if (top < 4) top = L.top + L.height + 4;
-      if (left + 160 > window.innerWidth) left = window.innerWidth - 168;
-      c.style.top = top + "px";
-      c.style.left = Math.max(4, left) + "px";
-      overlay.appendChild(c);
-    });
-    placeResizeHandles();
+    if (!useParentChrome) {
+      layers.forEach((L) => {
+        const el = L.el;
+        const idx = L.idx;
+        const c = chip(L.label || labelFor(el, idx), idx, el);
+        let top = L.top - 4;
+        let left = L.left;
+        if (top < 4) top = L.top + L.height + 4;
+        if (left + 160 > window.innerWidth) left = window.innerWidth - 168;
+        c.style.top = top + "px";
+        c.style.left = Math.max(4, left) + "px";
+        overlay.appendChild(c);
+      });
+    }
+    if (!useParentChrome) placeResizeHandles();
     emitLayerBoundsToParent();
   }
 
@@ -250,34 +243,45 @@
     schedulePlaceChips();
   }
 
-  function nudgeResize(layerEl, idx, dir) {
-    const mode = resizeMode(layerEl);
-    if (!mode || !dir) return;
-    let last = {};
-    if (mode === "font") {
-      last.size = applyFontResize(layerEl, readFontSize(layerEl) + dir * 2);
+  function beginResizeSession(el) {
+    const mode = resizeMode(el);
+    const box = widthBox(el);
+    return {
+      el,
+      mode,
+      startW: box.offsetWidth || el.offsetWidth,
+      startH: (() => {
+        if (mode !== "wh") return el.offsetHeight;
+        const svg = el.querySelector("svg");
+        const ah = svg && svg.getAttribute("height");
+        return ah ? parseFloat(ah) : el.offsetHeight;
+      })(),
+      startFs: mode === "font" ? readFontSize(el) : readTableFontSize(el),
+      last: {},
+    };
+  }
+
+  function applyResizeDelta(session, dx, dy) {
+    session.accDx = (session.accDx || 0) + dx;
+    session.accDy = (session.accDy || 0) + dy;
+    const adx = session.accDx;
+    const ady = session.accDy;
+    const { el, mode } = session;
+    if (mode === "person") {
+      session.last = { h: applyPersonSize(el, session.startH + ady) };
     } else if (mode === "asset") {
-      const img = layerEl.tagName === "IMG" ? layerEl : layerEl.querySelector("img");
-      const node = img || layerEl;
-      const w =
-        parseFloat(node.style.width) ||
-        node.offsetWidth ||
-        layerEl.offsetWidth ||
-        120;
-      last.w = applyAssetSize(layerEl, w + dir * 24);
-    } else if (mode === "person") {
-      last.h = applyPersonSize(layerEl, layerEl.offsetHeight + dir * 20);
+      const ar = session.startW / Math.max(session.startH, 1);
+      const dw = Math.abs(adx) >= Math.abs(ady) ? adx : ady * ar;
+      session.last = { w: applyAssetSize(el, session.startW + dw) };
     } else if (mode === "w") {
-      const box = widthBox(layerEl);
-      const startW = box.offsetWidth || layerEl.offsetWidth;
-      last = applyWidthResize(layerEl, startW + dir * 40, startW, readTableFontSize(layerEl));
+      const dw = Math.abs(adx) >= Math.abs(ady) ? adx : ady;
+      session.last = applyWidthResize(el, session.startW + dw, session.startW, session.startFs);
+    } else if (mode === "font") {
+      session.last = { size: applyFontResize(el, session.startFs + (adx + ady) * 0.35) };
     } else if (mode === "wh") {
-      const svg = layerEl.querySelector("svg");
-      const startW = layerEl.offsetWidth;
-      const startH = svg && svg.getAttribute("height") ? parseFloat(svg.getAttribute("height")) : layerEl.offsetHeight;
-      last = applyBarsResize(layerEl, startW + dir * 32, startH + dir * 24);
-    } else return;
-    postResize(layerEl, idx, last);
+      session.last = applyBarsResize(el, session.startW + adx, session.startH + ady);
+    }
+    return session.last;
   }
 
   function applyBarsResize(wrapper, w, h) {
@@ -294,9 +298,16 @@
   }
 
   function placeResizeHandles() {
+    if (useParentChrome) return;
     [...overlay.querySelectorAll(".studio-resize-handle")].forEach((h) => h.remove());
+    const sel = window.__studioSelected;
     document.querySelectorAll("[data-spec-idx].studio-editable, [data-mf-drag].studio-editable").forEach((el) => {
       if (!resizableLayer(el)) return;
+      if (sel) {
+        const idx = parseInt(el.dataset.specIdx, 10);
+        const mp = el.dataset.mfPath || el.dataset.mfDrag || null;
+        if (idx !== sel.idx || (mp || null) !== (sel.mfPath || null)) return;
+      }
       const r = el.getBoundingClientRect();
       if (r.width < 8 || r.height < 8) return;
       const h = document.createElement("div");
@@ -426,6 +437,7 @@
     pointerDragBound = true;
     let drag = null;
     let pending = null;
+    let layerTap = null;
     const DRAG_PX = 6;
 
     document.addEventListener(
@@ -437,9 +449,18 @@
         if (!el || !canDrag(el)) return;
         ensureAbsolute(el);
         const pos = readPos(el);
+        const idx = parseInt(el.dataset.specIdx, 10);
+        layerTap = {
+          el,
+          idx,
+          mfPath: el.dataset.mfPath || el.dataset.mfDrag || null,
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+        };
         pending = {
           el,
-          idx: parseInt(el.dataset.specIdx, 10),
+          idx,
           pointerId: e.pointerId,
           startX: e.clientX,
           startY: e.clientY,
@@ -480,6 +501,22 @@
     });
 
     function finishDrag(e) {
+      if (layerTap && e.pointerId === layerTap.pointerId) {
+        const dx = e.clientX - layerTap.startX;
+        const dy = e.clientY - layerTap.startY;
+        const tapped = !drag && Math.hypot(dx, dy) < DRAG_PX;
+        if (tapped && window.parent && window.parent !== window) {
+          window.parent.postMessage(
+            {
+              studio: "select-layer",
+              idx: layerTap.idx,
+              mfPath: layerTap.mfPath,
+            },
+            "*"
+          );
+        }
+        layerTap = null;
+      }
       if (pending && e.pointerId === pending.pointerId) {
         pending = null;
         return;
@@ -728,12 +765,45 @@
     return document.querySelector(`[data-spec-idx="${idx}"].studio-editable`);
   }
 
+  let parentResizeSession = null;
+
+  function applyStudioSelection(d) {
+    window.__studioSelected =
+      d.idx == null ? null : { idx: d.idx, mfPath: d.mfPath || null };
+    document.querySelectorAll(".studio-layer-selected").forEach((n) => {
+      n.classList.remove("studio-layer-selected");
+    });
+    if (window.__studioSelected) {
+      const el = layerElForNudge(d.idx, d.mfPath || null);
+      if (el) el.classList.add("studio-layer-selected");
+    }
+    if (!useParentChrome) schedulePlaceChips();
+  }
+
   window.addEventListener("message", (e) => {
     const d = e.data;
-    if (!d || d.studio !== "nudge-resize") return;
+    if (!d) return;
+    if (d.studio === "select-layer") {
+      applyStudioSelection(d);
+      return;
+    }
+    if (d.studio !== "parent-resize") return;
     const el = layerElForNudge(d.idx, d.mfPath || null);
-    if (!el) return;
-    nudgeResize(el, d.idx, d.dir > 0 ? 1 : -1);
+    if (!el || !resizableLayer(el)) return;
+    if (d.end) {
+      el.classList.remove("studio-resizing");
+      if (parentResizeSession && parentResizeSession.el === el) {
+        postResize(el, d.idx, parentResizeSession.last);
+        parentResizeSession = null;
+      }
+      return;
+    }
+    if (!parentResizeSession || parentResizeSession.el !== el) {
+      parentResizeSession = beginResizeSession(el);
+    }
+    applyResizeDelta(parentResizeSession, d.dx || 0, d.dy || 0);
+    el.classList.add("studio-resizing");
+    schedulePlaceChips();
   });
 
   if (document.readyState === "loading") {

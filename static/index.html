@@ -140,7 +140,9 @@ body.edit-mode-on #main{display:none}
 body.edit-mode-on #editModeApp{display:flex}
 body.edit-mode-on .plist-switchable,body.edit-mode-on aside .p.block{display:none!important}
 body.edit-mode-on .edit-nav-note{display:block!important}
-.canvas-parent-layer-outline{position:absolute;border:2px dashed rgba(36,142,247,.88);pointer-events:none;box-sizing:border-box;border-radius:4px}
+.canvas-parent-layer-outline{position:absolute;border:2px dashed rgba(36,142,247,.45);pointer-events:auto;box-sizing:border-box;border-radius:4px;cursor:pointer;z-index:1}
+.canvas-parent-layer-outline.sel{border-color:rgba(36,142,247,.95);border-width:2px;background:rgba(36,142,247,.06);z-index:2}
+.canvas-parent-resize-handle{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:auto;cursor:nwse-resize;border-radius:4px;background:#fff;border:2px solid rgba(36,142,247,.95);box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:5}
 .edit-mode-top{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);flex-shrink:0}
 .edit-mode-top .spacer{flex:1}
 .edit-mode-top b{font-size:16px;font-weight:600}
@@ -150,13 +152,12 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .edit-frame-thumb.on{border-color:var(--beat-green);box-shadow:0 0 0 1px var(--beat-green-bg)}
 .edit-mode-center{position:relative;padding:16px 20px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;overflow:auto}
 .edit-canvas-viewport{position:relative;width:100%;max-width:100%;flex:0 0 auto;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
-#canvasChipOverlay{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+#canvasChipOverlay{position:absolute;inset:0;z-index:12;pointer-events:none;overflow:visible}
 .canvas-parent-chip{position:absolute;pointer-events:auto;display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(26,25,23,.96);color:#fff;border-radius:10px;font:13px/1.2 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:min(280px,90vw)}
 .canvas-parent-chip .cl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .canvas-parent-chip .ca{display:flex;gap:4px;flex-shrink:0}
 .canvas-parent-chip .ca button{border:0;background:rgba(255,255,255,.14);color:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;line-height:1}
 .canvas-parent-chip .ca button:hover{background:rgba(255,255,255,.3)}
-.canvas-parent-chip .ca button[data-act=shrink],.canvas-parent-chip .ca button[data-act=grow]{width:32px;font-size:18px;font-weight:600}
 .edit-frame-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .edit-ref-check{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer}
 .edit-ref-check input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);flex-shrink:0}
@@ -184,6 +185,7 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .canvas-layer-row .cl-actions{display:flex;gap:6px;flex-shrink:0}
 .canvas-layer-row .cl-actions button{min-width:42px;height:42px;padding:0;font-size:17px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;cursor:pointer}
 .canvas-layer-row .cl-actions button:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
+.canvas-layer-row.on{background:var(--acc-soft);margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:var(--radius-sm)}
 dialog#layerEditDlg,dialog#toolModal{z-index:200000}
 dialog#layerEditDlg{width:min(480px,92vw)}
 dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
@@ -227,7 +229,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
     <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
    </div>
    <h3>Reference image</h3>
-   <p class="edit-side-hint">Each layer shows <b>− + ✎ ↻ ×</b> on the canvas (when resizable) and <b>✎ ↻ ×</b> in this list. Click dashed <b>text</b> to edit inline. Drag to move; drag the <b>blue corner handle</b> to resize, or use <b>− / +</b> on the canvas chip. Layer <b>Replace</b> opens a dialog to upload a reference.</p>
+   <p class="edit-side-hint">Click a layer on the canvas (dashed box) or in the list to select it — then <b>✎ ↻ ×</b> appear on the canvas. Drag to move; drag the <b>blue corner square</b> to resize. Click dashed <b>text</b> to edit inline.</p>
    <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
    <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
    <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
@@ -277,7 +279,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 </form></dialog>
 <script>
 let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
-let canvasChipOverlayBound=false,canvasChipRenderT=0,lastCanvasChipSig='';
+let canvasChipOverlayBound=false,canvasChipRenderT=0,lastCanvasChipSig='',lastCanvasLayers=[],selectedCanvasLayer=null,parentResizeBound=false,parentResize=null;
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 const ICON_DELETE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
 const ICON_EDIT='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
@@ -722,6 +724,44 @@ function mfLayerEntries(fr){
  (fr.items||[]).forEach((t,i)=>{if(typeof t==='string')out.push({label:'point '+(i+1)+': '+t.slice(0,36),mfPath:'items.'+i})});
  return out;
 }
+function mfPathAttr(mfPath){
+ if(mfPath==null||mfPath==='')return '';
+ return ",'"+String(mfPath).replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";
+}
+function canvasLayerSelected(L){
+ if(!selectedCanvasLayer||L==null)return false;
+ if(selectedCanvasLayer.idx!==L.idx)return false;
+ const a=selectedCanvasLayer.mfPath||null;
+ const b=L.mfPath||null;
+ return a===b;
+}
+function layerRowSelected(i,mfPath){
+ if(!selectedCanvasLayer)return false;
+ if(selectedCanvasLayer.idx!==i)return false;
+ const a=selectedCanvasLayer.mfPath||null;
+ const b=mfPath||null;
+ return a===b;
+}
+function syncIframeLayerSelect(){
+ try{
+  $('#canvasEditFrame')?.contentWindow?.postMessage({
+   studio:'select-layer',
+   idx:selectedCanvasLayer?.idx??null,
+   mfPath:selectedCanvasLayer?.mfPath??null
+  },'*');
+ }catch(_){}
+}
+function selectCanvasLayer(idx,mfPath=null){
+ selectedCanvasLayer={idx,mfPath:mfPath||null};
+ lastCanvasChipSig='';
+ renderParentCanvasChips(lastCanvasLayers);
+ renderCanvasLayerList();
+ syncIframeLayerSelect();
+}
+function selectCanvasLayerFromRow(ev,idx,mfPath=null){
+ if(ev.target.closest('button'))return;
+ selectCanvasLayer(idx,mfPath||null);
+}
 function layerRowActionButtons(i,mfPath){
  const mp=mfPath!=null&&mfPath!==''?`,'${String(mfPath).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`:'';
  return `<span class="cl-actions"><button type="button" title="Edit" onclick="canvasLayerAction(${i},'edit'${mp})">✎</button><button type="button" title="Replace" onclick="canvasLayerAction(${i},'replace'${mp})">↻</button><button type="button" title="Delete" onclick="canvasLayerAction(${i},'delete'${mp})">×</button></span>`;
@@ -747,10 +787,10 @@ function renderCanvasLayerList(){
  if(!fr){list.innerHTML='';return}
  if(isMfTheme(P.theme)){
   const rows=mfLayerEntries(fr);
-  list.innerHTML=rows.length?rows.map((r,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>`;
+  list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>`;
   return}
  const items=fr?.items||[];
- list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span>${layerRowActionButtons(i,null)}</div>`).join(''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
+ list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row${layerRowSelected(i,null)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i})"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span>${layerRowActionButtons(i,null)}</div>`).join(''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
 }
 function openLayerEditDialog(action,idx,mfPath=null){
  layerEditPending={action,idx,mfPath:mfPath||null};
@@ -848,65 +888,129 @@ function ensureCanvasChipOverlayActions(){
  if(!host||canvasChipOverlayBound)return;
  canvasChipOverlayBound=true;
  host.addEventListener('click',ev=>{
+  if(ev.target===host||ev.target.classList.contains('canvas-parent-layer-outline')){
+   if(!ev.target.closest('.canvas-parent-chip,.canvas-parent-resize-handle')){
+    selectedCanvasLayer=null;
+    lastCanvasChipSig='';
+    renderParentCanvasChips(lastCanvasLayers);
+    renderCanvasLayerList();
+    syncIframeLayerSelect();
+   }
+   return;
+  }
   const btn=ev.target.closest('button[data-act]');
   if(!btn||!editModeOpen)return;
   ev.preventDefault();ev.stopPropagation();
   const act=btn.dataset.act;
   const idx=parseInt(btn.dataset.idx,10);
   const path=btn.dataset.mfPath||null;
-  if(act==='shrink'||act==='grow'){
-   try{
-    $('#canvasEditFrame')?.contentWindow?.postMessage({studio:'nudge-resize',idx,mfPath:path,dir:act==='grow'?1:-1},'*');
-   }catch(_){}
-   return;
-  }
   if(act==='delete')void canvasLayerAction(idx,'delete',path);
   else openLayerEditDialog(act,idx,path);
  });
+ ensureParentResizeDrag();
+}
+function ensureParentResizeDrag(){
+ if(parentResizeBound)return;
+ parentResizeBound=true;
+ const host=$('#canvasChipOverlay');
+ host.addEventListener('pointerdown',ev=>{
+  const h=ev.target.closest('.canvas-parent-resize-handle');
+  if(!h||!editModeOpen)return;
+  ev.preventDefault();ev.stopPropagation();
+  parentResize={idx:parseInt(h.dataset.idx,10),mfPath:h.dataset.mfPath||null,pid:ev.pointerId,sx:ev.clientX,sy:ev.clientY};
+  h.setPointerCapture(ev.pointerId);
+ });
+ document.addEventListener('pointermove',ev=>{
+  if(!parentResize||ev.pointerId!==parentResize.pid)return;
+  const sc=canvasEditScale();
+  const dx=(ev.clientX-parentResize.sx)/sc;
+  const dy=(ev.clientY-parentResize.sy)/sc;
+  parentResize.sx=ev.clientX;
+  parentResize.sy=ev.clientY;
+  if(!dx&&!dy)return;
+  try{
+   $('#canvasEditFrame')?.contentWindow?.postMessage({studio:'parent-resize',idx:parentResize.idx,mfPath:parentResize.mfPath,dx,dy,end:false},'*');
+  }catch(_){}
+ });
+ const finish=ev=>{
+  if(!parentResize||ev.pointerId!==parentResize.pid)return;
+  try{
+   $('#canvasEditFrame')?.contentWindow?.postMessage({studio:'parent-resize',idx:parentResize.idx,mfPath:parentResize.mfPath,end:true},'*');
+  }catch(_){}
+  parentResize=null;
+ };
+ document.addEventListener('pointerup',finish);
+ document.addEventListener('pointercancel',finish);
 }
 function renderParentCanvasChips(layers){
  const host=$('#canvasChipOverlay');
  if(!host||!editModeOpen)return;
  ensureCanvasChipOverlayActions();
- const sig=JSON.stringify(layers||[]);
+ layers=layers||[];
+ const selKey=selectedCanvasLayer?selectedCanvasLayer.idx+':'+(selectedCanvasLayer.mfPath??''):'';
+ const sig=JSON.stringify(layers)+'|'+selKey;
  if(sig===lastCanvasChipSig)return;
  lastCanvasChipSig=sig;
  host.innerHTML='';
  const s=canvasEditScale();
- if(!layers?.length)return;
+ if(!layers.length)return;
+ let selectedL=null;
  layers.forEach((L)=>{
   const w=(L.width||120)*s;
   const h=(L.height||40)*s;
-  let top=(L.top||0)*s;
-  let left=(L.left||0)*s;
+  const top=(L.top||0)*s;
+  const left=(L.left||0)*s;
+  const sel=canvasLayerSelected(L);
+  if(sel)selectedL=L;
   const outline=document.createElement('div');
-  outline.className='canvas-parent-layer-outline';
+  outline.className='canvas-parent-layer-outline'+(sel?' sel':'');
   outline.style.top=top+'px';
   outline.style.left=left+'px';
   outline.style.width=Math.max(24,w)+'px';
   outline.style.height=Math.max(20,h)+'px';
+  outline.title='Select layer';
+  outline.addEventListener('click',ev=>{
+   ev.stopPropagation();
+   if(canvasLayerSelected(L)){selectedCanvasLayer=null;lastCanvasChipSig='';renderParentCanvasChips(lastCanvasLayers);renderCanvasLayerList();syncIframeLayerSelect();return}
+   selectCanvasLayer(L.idx,L.mfPath||null);
+  });
   host.appendChild(outline);
-  const chip=document.createElement('div');
-  chip.className='canvas-parent-chip';
-  const labelEl=document.createElement('span');labelEl.className='cl';labelEl.textContent=L.label||(L.type||'layer');
-  const actions=document.createElement('span');actions.className='ca';
-  const mkBtn=(act,title,sym)=>{
-   const b=document.createElement('button');b.type='button';b.title=title;b.textContent=sym;
-   b.dataset.act=act;b.dataset.idx=String(L.idx);
-   if(L.mfPath)b.dataset.mfPath=L.mfPath;
-   return b;
-  };
-  if(L.resize)actions.append(mkBtn('shrink','Smaller','−'),mkBtn('grow','Larger','+'));
-  actions.append(mkBtn('edit','Edit','✎'),mkBtn('replace','Replace','↻'),mkBtn('delete','Delete','×'));
-  chip.append(labelEl,actions);
-  let chipTop=top-4;
-  if(chipTop<4)chipTop=top+h+4;
-  chip.style.top=Math.max(4,chipTop)+'px';
-  chip.style.left=Math.max(4,left)+'px';
-  host.appendChild(chip);
  });
+ if(!selectedL)return;
+ const L=selectedL;
+ const w=(L.width||120)*s;
+ const h=(L.height||40)*s;
+ const top=(L.top||0)*s;
+ const left=(L.left||0)*s;
+ const chip=document.createElement('div');
+ chip.className='canvas-parent-chip';
+ const labelEl=document.createElement('span');labelEl.className='cl';labelEl.textContent=L.label||(L.type||'layer');
+ const actions=document.createElement('span');actions.className='ca';
+ const mkBtn=(act,title,sym)=>{
+  const b=document.createElement('button');b.type='button';b.title=title;b.textContent=sym;
+  b.dataset.act=act;b.dataset.idx=String(L.idx);
+  if(L.mfPath)b.dataset.mfPath=L.mfPath;
+  return b;
+ };
+ actions.append(mkBtn('edit','Edit','✎'),mkBtn('replace','Replace','↻'),mkBtn('delete','Delete','×'));
+ chip.append(labelEl,actions);
+ let chipTop=top-4;
+ if(chipTop<4)chipTop=top+h+4;
+ chip.style.top=Math.max(4,chipTop)+'px';
+ chip.style.left=Math.max(4,left)+'px';
+ host.appendChild(chip);
+ if(L.resize){
+  const rh=document.createElement('div');
+  rh.className='canvas-parent-resize-handle';
+  rh.title='Drag to resize';
+  rh.dataset.idx=String(L.idx);
+  if(L.mfPath)rh.dataset.mfPath=L.mfPath;
+  rh.style.left=(left+Math.max(24,w)-9)+'px';
+  rh.style.top=(top+Math.max(20,h)-9)+'px';
+  host.appendChild(rh);
+ }
 }
-function clearParentCanvasChips(){lastCanvasChipSig='';const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
+function clearParentCanvasChips(){lastCanvasChipSig='';selectedCanvasLayer=null;const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
 function selectEditFrame(fid){
  selectedFrameId=fid;
  clearParentCanvasChips();
@@ -1180,10 +1284,17 @@ window.addEventListener('message',e=>{
    if(w&&!w.__studioLayersBooted){w.__studioLayersBooted=true;w.studioBootLayers?.()}
   }catch(_){}
  }
+ if(e.data?.studio==='select-layer'&&editModeOpen){
+  if(e.data.idx==null)selectedCanvasLayer=null;
+  else selectedCanvasLayer={idx:e.data.idx,mfPath:e.data.mfPath||null};
+  lastCanvasChipSig='';
+  renderParentCanvasChips(lastCanvasLayers);
+  renderCanvasLayerList();
+ }
  if(e.data?.studio==='layer-bounds'&&editModeOpen){
   clearTimeout(canvasChipRenderT);
-  const layers=e.data.layers||[];
-  canvasChipRenderT=setTimeout(()=>renderParentCanvasChips(layers),32);
+  lastCanvasLayers=e.data.layers||[];
+  canvasChipRenderT=setTimeout(()=>renderParentCanvasChips(lastCanvasLayers),32);
  }
 });
 window.addEventListener('resize',()=>{

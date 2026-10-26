@@ -82,11 +82,9 @@ body.studio-edit-mode.in-studio-iframe #studio-overlay .studio-chip {
 }
 .studio-chip-actions button:hover { background: rgba(255, 255, 255, 0.3); }
 .studio-chip-actions button[data-act="delete"]:hover { background: rgba(224, 70, 58, 0.6); }
-.studio-chip-actions button[data-act="shrink"],
-.studio-chip-actions button[data-act="grow"] {
-  width: 32px;
-  font-size: 20px;
-  font-weight: 600;
+.studio-edit-mode [data-spec-idx].studio-layer-selected {
+  outline: 2px solid rgba(36, 142, 247, 1) !important;
+  outline-offset: 2px;
 }
 .studio-resize-handle {
   position: fixed;
