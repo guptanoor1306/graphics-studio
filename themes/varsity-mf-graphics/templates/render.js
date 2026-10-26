@@ -27,9 +27,19 @@
   }
   function add(e, parent) { (parent || stage).appendChild(e); return e; }
   function px(v) { return typeof v === "number" ? v + "px" : v; }
+  function assetPlaceholder(src) {
+    const s = String(src || "").trim();
+    if (!s) return true;
+    if (s.startsWith("TODO:")) return true;
+    if (/\.(png|jpe?g|webp|svg|gif)(\?.*)?$/i.test(s)) return false;
+    if (s.startsWith("http") || s.startsWith("data:") || s.startsWith("/") || s.startsWith("../")) return false;
+    if (/[: ]/.test(s)) return true;
+    return false;
+  }
   function img(src, x, y, w, extra) {
-    if (String(src).startsWith("TODO:")) {
-      const ph = el("div", "abs", Object.assign({ left: px(x), top: px(y), width: px(w || 300), height: px(Math.round((w || 300) * 0.75)), border: "4px dashed #e4950b", background: "rgba(255,255,255,.6)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", font: "600 24px Inter", color: "#a35f00", padding: "12px" }, extra || {}), "ASSET NEEDED<br>" + esc(src.slice(5)));
+    if (assetPlaceholder(src)) {
+      const note = String(src).startsWith("TODO:") ? src.slice(5) : src;
+      const ph = el("div", "abs", Object.assign({ left: px(x), top: px(y), width: px(w || 300), height: px(Math.round((w || 300) * 0.75)), border: "4px dashed #e4950b", background: "rgba(255,255,255,.6)", display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", font: "600 24px Inter", color: "#a35f00", padding: "12px" }, extra || {}), "ASSET NEEDED<br>" + esc(note));
       return add(ph);
     }
     const i = el("img", "abs", Object.assign({ left: px(x), top: px(y), width: w ? px(w) : "auto" }, extra || {}));

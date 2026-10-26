@@ -857,6 +857,7 @@ function buildEditFrameStrip(){
 function openEditMode(fid){
  if(!P?.spec){alert('Generate frames first.');return}
  editModeOpen=true;
+ stopBoundsPoll();
  api('/api/status?_='+Date.now()).then(st=>{if(st?.studio_ui)console.info('[Graphics Studio] UI build',st.studio_ui)}).catch(()=>{});
  document.querySelectorAll('.edit-mode-side h3,.edit-mode-side .edit-side-hint,.edit-mode-side input#editPlate,.edit-mode-side button[onclick="applyLook()"]').forEach(el=>{
   if(!el)return;
@@ -1003,7 +1004,10 @@ function renderParentCanvasChips(layers){
  if(!layers.length){
   const hint=document.createElement('div');
   hint.className='canvas-layer-bounds-hint';
-  hint.textContent='Layer outlines loading… click the canvas or wait a moment.';
+  hint.textContent='Layer outlines loading… wait a moment, or click a layer in the list on the right.';
+  hint.style.pointerEvents='auto';
+  hint.style.cursor='pointer';
+  hint.onclick=()=>{syncIframeLayerBounds();if(!lastCanvasLayers.length)startBoundsPoll()};
   host.appendChild(hint);
   return;
  }
