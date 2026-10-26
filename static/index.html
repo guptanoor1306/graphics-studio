@@ -138,6 +138,9 @@ dialog#scriptEditDlg #scriptEditArea{flex:1 1 auto;min-height:160px;max-height:m
 #editModeApp{display:none;grid-column:2;grid-row:1;flex-direction:column;height:100vh;overflow:hidden;background:var(--bg);min-width:0}
 body.edit-mode-on #main{display:none}
 body.edit-mode-on #editModeApp{display:flex}
+body.edit-mode-on .plist-switchable,body.edit-mode-on aside .p.block{display:none!important}
+body.edit-mode-on .edit-nav-note{display:block!important}
+.canvas-parent-layer-outline{position:absolute;border:2px dashed rgba(36,142,247,.88);pointer-events:none;box-sizing:border-box;border-radius:4px}
 .edit-mode-top{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);flex-shrink:0}
 .edit-mode-top .spacer{flex:1}
 .edit-mode-top b{font-size:16px;font-weight:600}
@@ -193,8 +196,10 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   <button type="button" class="nav-toggle" id="navToggle" title="Collapse projects panel" aria-label="Toggle projects">‹</button>
   <div class="sidebar-inner">
     <div class="hide-when-collapsed"><h1 class="brand">Graphics Studio</h1><p class="brand-sub">Storyboard &amp; frames</p></div>
-    <button class="p block hide-when-collapsed" onclick="newProject()">+ New video</button>
-    <div class="hide-when-collapsed"><div class="sidebar-label">Projects</div><div id="plist"></div></div>
+    <button class="p block hide-when-collapsed plist-switchable" onclick="newProject()">+ New video</button>
+    <div class="hide-when-collapsed"><div class="sidebar-label">Projects</div>
+    <p class="edit-nav-note muted" style="display:none;font-size:12px;line-height:1.45;margin:6px 0 0">Exit edit mode (<b>← Back to studio</b>) to switch projects.</p>
+    <div id="plist" class="plist-switchable"></div></div>
   </div>
 </aside>
 <main id="main"><p class="muted">Pick a video on the left, or start a new one.</p></main>
@@ -565,6 +570,7 @@ async function list(){
 }
 function bindProjectList(){
   $('#plist')?.addEventListener('click',e=>{
+    if(editModeOpen)return;
     const row=e.target.closest('.proj[data-pid]');
     if(row)open_(+row.dataset.pid);
   });
@@ -811,6 +817,56 @@ function canvasEditScale(){
  const vp=$('#canvasEditViewport');
  return vp?vp.clientWidth/1920:1;
 }
+function mfLayerGeom(fr,mfPath){
+ const pillW=p=>Math.min(560,Math.max(200,((p?.text||'').length||8)*17));
+ if(mfPath==='pill'&&fr.pill){
+  const w=pillW(fr.pill);let x=fr.pill.x;
+  if(x==='center'||x==null)x=960-w/2;else if(x==='right')x=1920-w-60;else if(x==='left')x=60;
+  return{top:fr.pill.y??104,left:x,width:w,height:56};
+ }
+ if(mfPath==='hero'&&fr.hero){
+  const w=fr.hero.w??320;return{top:fr.hero.y??420,left:fr.hero.x??580,width:w,height:Math.round(w*0.72)};
+ }
+ const lm=mfPath&&mfPath.match(/^labels\.items\.(\d+)$/);
+ if(lm&&fr.labels?.items?.[+lm[1]]){
+  const it=fr.labels.items[+lm[1]];return{top:it.y??(680+ +lm[1]*48),left:it.x??(120+ +lm[1]*40),width:it.w??300,height:40};
+ }
+ const pm=mfPath&&mfPath.match(/^props\.(\d+)$/);
+ if(pm&&fr.props?.[+pm[1]]){
+  const p=fr.props[+pm[1]];const w=p.w??140;return{top:p.y??500,left:p.x??200,width:w,height:w};
+ }
+ const cm=mfPath&&mfPath.match(/^cards\.(\d+)$/);
+ if(cm&&fr.cards?.[+cm[1]]){
+  const c=fr.cards[+cm[1]];const w=c.w??175;return{top:c.y??620,left:c.x??1400,width:w,height:w};
+ }
+ if(mfPath==='table'&&fr.type==='table'){
+  const box=fr.box||{};const w=box.w??(fr.columns?.length<=2?1200:1640);
+  const th=box.h??420;let x=box.x; if(x==null)x=960-w/2;
+  return{top:box.y??280,left:x,width:w,height:th};
+ }
+ if(mfPath==='term'&&fr.term)return{top:fr.y??238,left:20,width:320,height:56};
+ if(mfPath==='text'&&fr.type==='definition')return{top:(fr.y??238)+160,left:214,width:fr.maxw??900,height:120};
+ return null;
+}
+function layerRectsFromSpec(fr){
+ if(!fr)return [];
+ if(isMfTheme(P?.theme)){
+  return mfLayerEntries(fr).map((row,i)=>{
+   const g=mfLayerGeom(fr,row.mfPath)||{top:80+i*52,left:40,width:200,height:40};
+   return{idx:i,label:row.label,mfPath:row.mfPath,top:g.top,left:g.left,width:g.width,height:g.height};
+  });
+ }
+ return(fr.items||[]).map((it,i)=>({
+  idx:i,label:layerRowLabel(it,i),mfPath:null,
+  top:it.y??80+i*48,left:it.x??40,width:it.w??(it.t==='person'?200:280),height:it.h??(it.t==='person'?260:48)
+ }));
+}
+function syncParentCanvasLayers(){
+ if(!editModeOpen||!selectedFrameId||!P?.spec)return;
+ const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
+ if(!fr)return;
+ renderParentCanvasChips(layerRectsFromSpec(fr));
+}
 function renderParentCanvasChips(layers){
  const host=$('#canvasChipOverlay');
  if(!host||!editModeOpen)return;
@@ -818,16 +874,25 @@ function renderParentCanvasChips(layers){
  const s=canvasEditScale();
  if(!layers?.length)return;
  layers.forEach((L)=>{
+  const w=(L.width||120)*s;
+  const h=(L.height||40)*s;
+  let top=(L.top||0)*s;
+  let left=(L.left||0)*s;
+  const outline=document.createElement('div');
+  outline.className='canvas-parent-layer-outline';
+  outline.style.top=top+'px';
+  outline.style.left=left+'px';
+  outline.style.width=Math.max(24,w)+'px';
+  outline.style.height=Math.max(20,h)+'px';
+  host.appendChild(outline);
   const chip=document.createElement('div');
   chip.className='canvas-parent-chip';
   const lab=esc(L.label||(L.type||'layer'));
   const mp=L.mfPath?` data-mf-path="${esc(L.mfPath)}"`:'';
   chip.innerHTML=`<span class="cl">${lab}</span><span class="ca"><button type="button" title="Edit" data-act="edit" data-idx="${L.idx}"${mp}>✎</button><button type="button" title="Replace" data-act="replace" data-idx="${L.idx}"${mp}>↻</button><button type="button" title="Delete" data-act="delete" data-idx="${L.idx}"${mp}>×</button></span>`;
-  let top=(L.top||0)*s-4;
-  let left=(L.left||0)*s;
-  const h=(L.height||0)*s;
-  if(top<4)top=(L.top||0)*s+h+4;
-  chip.style.top=Math.max(4,top)+'px';
+  let chipTop=top-4;
+  if(chipTop<4)chipTop=top+h+4;
+  chip.style.top=Math.max(4,chipTop)+'px';
   chip.style.left=Math.max(4,left)+'px';
   chip.querySelectorAll('button').forEach(btn=>{
    btn.addEventListener('click',e=>{
@@ -851,6 +916,7 @@ function selectEditFrame(fid){
  renderCanvasLayerList();
  renderFrameModeSwitch();
  refreshEditCanvas();
+ syncParentCanvasLayers();
 }
 function editApplyFrame(){
  const ask=$('#editFrameAsk')?.value||'';
@@ -878,10 +944,11 @@ function refreshEditCanvas(){
    const poll=()=>{if(w?.RENDERED||++n>120){boot();return}requestAnimationFrame(poll)};
    poll();
   }
+  syncParentCanvasLayers();
   ifr.onload=null;
  };
  ifr.src=canvasEditUrl();
- requestAnimationFrame(fitCanvasEdit);
+ requestAnimationFrame(()=>{fitCanvasEdit();syncParentCanvasLayers()});
 }
 function fitCanvasEdit(){
  const vp=$('#canvasEditViewport');const sc=$('#canvasEditScale');
@@ -889,6 +956,7 @@ function fitCanvasEdit(){
  const s=vp.clientWidth/1920;
  sc.style.transform=`scale(${s})`;
  vp.style.height=Math.round(1080*s)+'px';
+ syncParentCanvasLayers();
 }
 function setSpecPath(obj,path,value){
  const keys=String(path).replace(/\[(\d+)\]/g,'.$1').split('.').filter(Boolean);
@@ -1073,7 +1141,7 @@ window.addEventListener('message',e=>{
  if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
  if(e.data?.studio==='layers-ready'){try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers()}catch(_){}}
- if(e.data?.studio==='layer-bounds'&&editModeOpen){renderParentCanvasChips(e.data.layers||[])}
+ if(e.data?.studio==='layer-bounds'&&editModeOpen&&(e.data.layers||[]).length)renderParentCanvasChips(e.data.layers);
 });
 window.addEventListener('resize',()=>{
  if(!editModeOpen)return;
