@@ -169,7 +169,10 @@
       i.dataset.mfProp = String(pi);
       content(i);
     });
-    (F.cards || []).forEach(logoCard);
+    (F.cards || []).forEach((c, ci) => {
+      const node = logoCard(c);
+      if (node) node.dataset.mfCard = String(ci);
+    });
     if (F.labels) {
       const L = F.labels, n = L.items.length;
       const pos = L.layout === "orbit" ? orbitPositions(n, L.cx || 960, L.cy || 760, L.rx || 720, L.ry || 470) : null;
@@ -436,7 +439,10 @@
     el.dataset.layerType = type;
     el.dataset.layerLabel = String(label || type).slice(0, 32);
     el.classList.add("studio-editable");
-    if (mfDrag) el.dataset.mfDrag = mfDrag;
+    if (mfDrag) {
+      el.dataset.mfDrag = mfDrag;
+      el.dataset.mfPath = mfDrag;
+    }
   }
 
   function tagMfStudioLayers() {
@@ -444,8 +450,18 @@
     window.__mfLayerSeq = 0;
     document.querySelectorAll(".pill").forEach((pillEl) => {
       const t = pillEl.querySelector(".t");
-      const label = (t && t.innerText) || (F.pill && F.pill.text) || (F.title) || "pill";
-      tagOne(pillEl, "pill", label, "pill");
+      const label = (t && t.innerText) || (F.pill && F.pill.text) || F.term || F.title || "pill";
+      const path = F.pill ? "pill" : F.term ? "term" : "pill";
+      tagOne(pillEl, "pill", label, path);
+    });
+    document.querySelectorAll(".defbox").forEach((el) => {
+      tagOne(el, "definition", String(F.text || el.innerText || "").slice(0, 32), "text");
+    });
+    document.querySelectorAll("[data-mf-card]").forEach((el) => {
+      const i = parseInt(el.dataset.mfCard, 10);
+      const c = F.cards && F.cards[i];
+      const lab = (c && (c.text || c.label || c.asset || "")).toString().split("/").pop();
+      tagOne(el, "card", lab || "card " + (i + 1), "cards." + i);
     });
     document.querySelectorAll("[data-content][data-hero]").forEach((el) => {
       tagOne(el, "hero", String(F.hero && F.hero.asset || "hero").split("/").pop(), "hero");
@@ -460,13 +476,18 @@
       tagOne(el, "prop", (p && p.asset || "prop").split("/").pop(), "props." + i);
     });
     document.querySelectorAll(".tbl").forEach((el) => {
-      tagOne(el, "table", F.caption || "table", null);
+      tagOne(el, "table", F.caption || "table", "table");
     });
     document.querySelectorAll(".tile").forEach((el, i) => {
-      tagOne(el, "tile", (el.querySelector(".lbl") || el).innerText.slice(0, 28) || "tile " + (i + 1), null);
+      const lbl = (el.querySelector(".lbl") || el.querySelector(".n") || el).innerText.slice(0, 28) || "tile " + (i + 1);
+      let path = null;
+      if (F.steps && F.steps[i]) path = "steps." + i + ".label";
+      else if (F.questions && F.questions[i] != null) path = "questions." + i;
+      tagOne(el, "tile", lbl, path);
     });
     document.querySelectorAll(".chip").forEach((el, i) => {
-      tagOne(el, "point", el.innerText.slice(0, 36), null);
+      const path = F.type === "points" && F.items ? "items." + i : null;
+      tagOne(el, "point", el.innerText.slice(0, 36), path);
     });
   }
 

@@ -211,7 +211,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
     <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
    </div>
    <h3>Reference image</h3>
-   <p class="edit-side-hint">Click dashed <b>text</b> to edit inline. Drag <b>assets/people</b> to move; drag the <b>corner handle</b> to resize. Layer <b>Replace</b> uses a reference file; frame Apply uses Smart or Flat below.</p>
+   <p class="edit-side-hint">Each layer shows <b>✎ ↻ ×</b> on the canvas and in this list. Click dashed <b>text</b> to edit inline. Drag layers to move; use the corner handle to resize where shown. Layer <b>Replace</b> uses a reference on the right; <b>Frame changes</b> below edits the whole frame.</p>
    <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
    <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
    <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
@@ -620,7 +620,7 @@ async function gen(){const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(
    P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({theme:themeSel.value,note:'theme'})});
   }
   P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
-async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false}={}){
+async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null}={}){
  const {ref,rep,flat,lb}=refControls();
  const refFile=ref?.files?.[0];
  if(!regenerate&&!ask?.trim()&&!refFile){alert(itemIndex!=null?'Describe this layer and/or attach a reference on the right.':'Type a change and/or attach a reference image.');return}
@@ -635,12 +635,13 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
    if(flat?.checked)fd.append('flat','1');
    if(regenerate)fd.append('regenerate','1');
    if(itemIndex!=null)fd.append('item_index',String(itemIndex));
+   if(mfPath)fd.append('mf_path',mfPath);
    const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:fd});
    if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
    updated=await r.json();
    if(ref)ref.value='';if(lb)lb.textContent='';
   }else{
-   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:doReplace,flat:!!flat?.checked,...(itemIndex!=null?{item_index:itemIndex}:{})})});
+   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:doReplace,flat:!!flat?.checked,...(itemIndex!=null?{item_index:itemIndex}:{}),...(mfPath?{mf_path:mfPath}:{})})});
   }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
@@ -669,25 +670,23 @@ function canvasEditUrl(){
 }
 function mfLayerEntries(fr){
  const out=[];
- if(fr.pill?.text)out.push({label:'pill: '+fr.pill.text,hint:'pill: '+fr.pill.text});
- if(fr.type==='points'&&fr.title)out.push({label:'title: '+fr.title,hint:'points title: '+fr.title});
- if(fr.term)out.push({label:'term: '+fr.term,hint:'definition term: '+fr.term});
- if(fr.text&&fr.type==='definition')out.push({label:'definition: '+String(fr.text).slice(0,40),hint:'definition text'});
- if(fr.hero?.asset)out.push({label:'hero: '+fr.hero.asset.split('/').pop(),hint:'hero illustration'});
- (fr.labels?.items||[]).forEach((it,i)=>out.push({label:'label '+(i+1)+': '+(it.text||'').slice(0,36),hint:'label '+(i+1)+': '+(it.text||'')}));
- (fr.props||[]).forEach((p,i)=>out.push({label:'prop: '+(p.asset||'').split('/').pop(),hint:'prop asset '+i}));
- (fr.cards||[]).forEach((c,i)=>out.push({label:'card: '+(c.text||c.label||String(i)).slice(0,36),hint:'logo card '+(c.text||c.label||i)}));
- if(fr.type==='table')out.push({label:'table ('+(fr.columns?.length||0)+' cols)',hint:'table layout and copy'});
- if(fr.type==='sop'&&(fr.questions||[]).length)out.push({label:'sop: '+fr.questions.length+' tiles',hint:'SOP tiles'});
- if(fr.type==='cycle'&&(fr.steps||[]).length)out.push({label:'cycle: '+fr.steps.length+' steps',hint:'cycle steps'});
- (fr.items||[]).forEach((t,i)=>{if(typeof t==='string')out.push({label:'point '+(i+1)+': '+t.slice(0,36),hint:'bullet '+(i+1)})});
+ if(fr.pill?.text)out.push({label:'pill: '+fr.pill.text,mfPath:'pill'});
+ if(fr.type==='points'&&fr.title)out.push({label:'title: '+fr.title,mfPath:'title'});
+ if(fr.term)out.push({label:'term: '+fr.term,mfPath:'term'});
+ if(fr.text&&fr.type==='definition')out.push({label:'definition: '+String(fr.text).slice(0,40),mfPath:'text'});
+ if(fr.hero?.asset)out.push({label:'hero: '+fr.hero.asset.split('/').pop(),mfPath:'hero'});
+ (fr.labels?.items||[]).forEach((it,i)=>out.push({label:'label '+(i+1)+': '+(it.text||'').slice(0,36),mfPath:'labels.items.'+i}));
+ (fr.props||[]).forEach((p,i)=>out.push({label:'prop: '+(p.asset||'').split('/').pop(),mfPath:'props.'+i}));
+ (fr.cards||[]).forEach((c,i)=>out.push({label:'card: '+(c.text||c.label||String(i)).slice(0,36),mfPath:'cards.'+i}));
+ if(fr.type==='table')out.push({label:'table ('+(fr.columns?.length||0)+' cols)',mfPath:'table'});
+ (fr.steps||[]).forEach((s,i)=>out.push({label:'step '+(i+1)+': '+String(s.label||'').slice(0,36),mfPath:'steps.'+i+'.label'}));
+ (fr.questions||[]).forEach((q,i)=>out.push({label:'tile '+(i+1)+': '+String(q).slice(0,36),mfPath:'questions.'+i}));
+ (fr.items||[]).forEach((t,i)=>{if(typeof t==='string')out.push({label:'point '+(i+1)+': '+t.slice(0,36),mfPath:'items.'+i})});
  return out;
 }
-function mfLayerPrompt(hint){
- const ta=$('#editFrameAsk');
- if(!ta)return;
- ta.value='Change '+hint+': ';
- ta.focus();
+function layerRowActionButtons(i,mfPath){
+ const mp=mfPath!=null&&mfPath!==''?`,'${String(mfPath).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`:'';
+ return `<span class="cl-actions"><button type="button" title="Edit" onclick="canvasLayerAction(${i},'edit'${mp})">✎</button><button type="button" title="Replace" onclick="canvasLayerAction(${i},'replace'${mp})">↻</button><button type="button" title="Delete" onclick="canvasLayerAction(${i},'delete'${mp})">×</button></span>`;
 }
 function layerRowLabel(it,idx){
  if(!it||typeof it!=='object')return 'layer '+idx;
@@ -706,18 +705,17 @@ function layerRowLabel(it,idx){
 function renderCanvasLayerList(){
  const list=$('#canvasLayerList');
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
- if(isMfTheme(P.theme)){
-  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
-  if(!fr){list.innerHTML='';return}
-  const rows=mfLayerEntries(fr);
-  list.innerHTML=rows.length?rows.map(r=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span><span class="cl-actions"><button type="button" title="Edit via Frame changes" data-mf-hint="${esc(r.hint)}" onclick="mfLayerPrompt(this.dataset.mfHint)">✎</button></span></div>`).join(''):`<p class="edit-side-hint" style="margin:0"><b>${esc(fr.type||'frame')}</b> — no named parts in spec; use <b>Frame changes</b>.</p>`;
-  return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
+ if(!fr){list.innerHTML='';return}
+ if(isMfTheme(P.theme)){
+  const rows=mfLayerEntries(fr);
+  list.innerHTML=rows.length?rows.map((r,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>`;
+  return}
  const items=fr?.items||[];
- list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span><span class="cl-actions"><button type="button" title="Edit" onclick="canvasLayerAction(${i},'edit')">✎</button><button type="button" title="Replace" onclick="canvasLayerAction(${i},'replace')">↻</button><button type="button" title="Delete" onclick="canvasLayerAction(${i},'delete')">×</button></span></div>`).join(''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p><p class="edit-side-hint" style="margin:8px 0 0">Text layers: click dashed text on the canvas to edit inline.</p>';
+ list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span>${layerRowActionButtons(i,null)}</div>`).join(''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
 }
-function openLayerEditDialog(action,idx){
- layerEditPending={action,idx};
+function openLayerEditDialog(action,idx,mfPath=null){
+ layerEditPending={action,idx,mfPath:mfPath||null};
  const isRep=action==='replace';
  $('#layerEditTitle').textContent=isRep?'Replace layer':'Edit layer';
  $('#layerEditMsg').textContent=isRep?'Upload a reference on the right, then Apply — the file replaces this layer directly. Optional note below.':'Describe how this layer should change.';
@@ -734,24 +732,25 @@ async function submitLayerEdit(e){
  layerEditDlg.close();
  if(!p)return false;
  if(!ask&&!(p.action==='replace'&&ref?.files?.[0])){alert('Describe the change or attach a reference on the right.');return false}
- await runLayerAction(p.idx,p.action,ask);
+ await runLayerAction(p.idx,p.action,ask,p.mfPath);
  return false;
 }
-async function runLayerAction(idx,action,ask){
- if(action==='delete'){await deleteFrameItem(idx);return}
+async function runLayerAction(idx,action,ask,mfPath=null){
+ if(action==='delete'){if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(idx);return}
  const {ref}=refControls();
+ const opts=mfPath?{mfPath,itemReplace:action==='replace'}:{itemIndex:idx,itemReplace:action==='replace'};
  if(action==='replace'&&ref?.files?.[0]){
-  await askFrame(selectedFrameId,ask||'Replace with reference image',{itemIndex:idx,itemReplace:true});
+  await askFrame(selectedFrameId,ask||'Replace with reference image',opts);
   return;
  }
- await askFrame(selectedFrameId,ask,{itemIndex:idx,itemReplace:action==='replace'});
+ await askFrame(selectedFrameId,ask,opts);
 }
-async function canvasLayerAction(idx,action){
+async function canvasLayerAction(idx,action,mfPath=null){
  if(action==='delete'){
-  openToolModal({title:'Remove layer',message:'Remove this layer from the frame?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{await deleteFrameItem(idx);renderCanvasLayerList()}});
+  openToolModal({title:'Remove layer',message:'Remove this layer from the frame?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(idx);renderCanvasLayerList()}});
   return;
  }
- openLayerEditDialog(action,idx);
+ openLayerEditDialog(action,idx,mfPath);
 }
 function buildEditFrameStrip(){
  const el=$('#editFrameStrip');
@@ -918,6 +917,33 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'move '+fid+'#'+idx})});
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
+function applyMfPathDelete(fr,mfPath){
+ if(mfPath==='pill'){delete fr.pill;return true}
+ if(mfPath==='hero'){delete fr.hero;return true}
+ if(mfPath==='term'){delete fr.term;return true}
+ if(mfPath==='title'){delete fr.title;return true}
+ if(mfPath==='text'&&fr.type==='definition'){delete fr.text;return true}
+ if(mfPath==='table'){return false}
+ let m;
+ if((m=mfPath.match(/^labels\.items\.(\d+)$/))&&fr.labels?.items){fr.labels.items.splice(+m[1],1);return true}
+ if((m=mfPath.match(/^props\.(\d+)$/))&&fr.props){fr.props.splice(+m[1],1);return true}
+ if((m=mfPath.match(/^items\.(\d+)$/))&&Array.isArray(fr.items)){fr.items.splice(+m[1],1);return true}
+ if((m=mfPath.match(/^cards\.(\d+)$/))&&fr.cards){fr.cards.splice(+m[1],1);return true}
+ if((m=mfPath.match(/^questions\.(\d+)$/))&&fr.questions){fr.questions.splice(+m[1],1);return true}
+ if((m=mfPath.match(/^steps\.(\d+)/))&&fr.steps){fr.steps.splice(+m[1],1);return true}
+ return false;
+}
+async function deleteMfPart(mfPath){
+ if(!selectedFrameId||!P?.spec||!mfPath)return;
+ const fid=selectedFrameId;
+ const i=P.spec.frames.findIndex(f=>f.id===fid);
+ if(i<0)return;
+ const fr=JSON.parse(JSON.stringify(P.spec.frames[i]));
+ if(!applyMfPathDelete(fr,mfPath)){alert('This layer cannot be removed directly — use Frame changes.');return}
+ P.spec.frames[i]=fr;
+ if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete mf '+fid+' '+mfPath})});bumpFrame(fid);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
+}
 async function deleteFrameItem(idx){
  if(!selectedFrameId||!P?.spec)return;
  const fid=selectedFrameId;
@@ -930,14 +956,12 @@ async function deleteFrameItem(idx){
  try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});bumpFrame(fid);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 async function handleStudioEdit(msg){
- if(P&&isMfTheme(P.theme)){
-  if(msg.action==='delete'){alert('MF frames are one JSON object — describe removals under Frame changes.');return}
-  const ta=$('#editFrameAsk');
-  if(ta){ta.value='Update the selected element (pill, hero, label, etc.): ';ta.focus()}
+ const mfPath=msg.mfPath||null;
+ if(msg.action==='delete'){
+  openToolModal({title:'Remove layer',message:'Remove this element?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(msg.idx);renderCanvasLayerList()}});
   return;
  }
- if(msg.action==='delete'){openToolModal({title:'Remove layer',message:'Remove this element?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{await deleteFrameItem(msg.idx)}});return}
- openLayerEditDialog(msg.action,msg.idx);
+ openLayerEditDialog(msg.action,msg.idx,mfPath);
 }
 async function patchSelectedFrameMode(mode){
  if(!selectedFrameId||!P?.spec)return;

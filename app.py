@@ -317,6 +317,7 @@ async def edit(pid: int, fid: str, req: Request):
     flat_paste = False
     regenerate = False
     item_index = None
+    mf_path = None
     ct = (req.headers.get("content-type") or "").lower()
     if "multipart/form-data" in ct:
         form = await req.form()
@@ -329,6 +330,7 @@ async def edit(pid: int, fid: str, req: Request):
                 item_index = int(form.get("item_index"))
             except (TypeError, ValueError):
                 item_index = None
+        mf_path = (form.get("mf_path") or "").strip() or None
         up = form.get("file")
         if up and getattr(up, "filename", None):
             raw = await up.read()
@@ -346,7 +348,13 @@ async def edit(pid: int, fid: str, req: Request):
                 item_index = int(b["item_index"])
             except (TypeError, ValueError):
                 item_index = None
+        mf_path = (b.get("mf_path") or "").strip() or None
 
+    if mf_path and ask:
+        ask = (
+            f"Edit ONLY the field `{mf_path}` on this frame JSON. "
+            f"Return the full frame but change ONLY that path — leave all other keys unchanged. Task: {ask}"
+        )
     if item_index is not None and ask:
         ask = (
             f"Edit ONLY items[{item_index}] (0-based index). Return the full frame but change ONLY that slot — "
@@ -357,7 +365,7 @@ async def edit(pid: int, fid: str, req: Request):
     if item_index is not None and not ask and not ref_src:
         raise HTTPException(400, "layer replace needs a prompt and/or reference image")
     if is_mf_theme_name(p["theme"]) and item_index is not None:
-        raise HTTPException(400, "MF theme: edit the whole frame (no per-layer index)")
+        raise HTTPException(400, "MF theme: use mf_path for layer edits, not item_index")
 
     sb_line = _storyboard_line_for_frame(p.get("storyboard") or "", fid)
     storyboard_full = p.get("storyboard") or ""

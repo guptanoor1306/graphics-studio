@@ -4,12 +4,20 @@
   overlay.setAttribute("aria-hidden", "true");
   document.body.appendChild(overlay);
 
-  function send(action, idx) {
+  function send(action, idx, layerEl) {
     if (idx == null || Number.isNaN(idx)) return;
-    window.parent.postMessage({ studio: "edit", action, idx }, "*");
+    const payload = { studio: "edit", action, idx };
+    if (layerEl) {
+      const mp = layerEl.dataset.mfPath || layerEl.dataset.mfDrag;
+      if (mp) payload.mfPath = mp;
+      if (layerEl.dataset.cardIdx != null) {
+        payload.cardIdx = parseInt(layerEl.dataset.cardIdx, 10);
+      }
+    }
+    window.parent.postMessage(payload, "*");
   }
 
-  function chip(label, idx) {
+  function chip(label, idx, layerEl) {
     const el = document.createElement("div");
     el.className = "studio-chip";
     el.innerHTML =
@@ -23,7 +31,7 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();
-        send(btn.dataset.act, idx);
+        send(btn.dataset.act, idx, layerEl);
       });
     });
     return el;
@@ -44,7 +52,7 @@
     if (!layers.length) {
       const empty = document.createElement("div");
       empty.className = "studio-edit-empty";
-      empty.textContent = "No tagged layers — use the Layers list on the right.";
+      empty.textContent = "No tagged layers yet — wait a moment or use Layers on the right.";
       overlay.appendChild(empty);
       return;
     }
@@ -52,7 +60,7 @@
       const idx = parseInt(el.dataset.specIdx, 10);
       const r = el.getBoundingClientRect();
       if (r.width < 2 && r.height < 2) return;
-      const c = chip(labelFor(el, idx), idx);
+      const c = chip(labelFor(el, idx), idx, el);
       let top = r.top - 4;
       let left = r.left;
       if (top < 4) top = r.bottom + 4;
