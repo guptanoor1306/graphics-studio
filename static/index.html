@@ -606,7 +606,15 @@ function newProject(){
     await list();
   }});
 }
-async function open_(id){P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);selectedFrameId=null;await list();render()}
+async function open_(id){
+ if(editModeOpen){
+  editModeOpen=false;
+  document.body.classList.remove('edit-mode-on');
+  $('#editModeApp').hidden=true;
+  clearParentCanvasChips();
+ }
+ P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);selectedFrameId=null;await list();render();
+}
 function renameProject(){if(!P)return;
   openToolModal({title:'Rename project',value:P.name,okLabel:'Save',onSubmit:async name=>{
     if(!name||name===P.name)return;
@@ -854,7 +862,9 @@ async function editRegenFrame(){
  await askFrame(selectedFrameId,'',{regenerate:true});
 }
 function refreshEditCanvas(){
- if(!selectedFrameId)return;
+ if(!selectedFrameId||!P?.spec?.frames?.length)return;
+ const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
+ if(!fr){clearParentCanvasChips();return}
  const ifr=$('#canvasEditFrame');
  if(!ifr)return;
  ifr.onload=()=>{

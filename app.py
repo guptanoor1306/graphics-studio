@@ -449,8 +449,11 @@ async def plate(pid: int, req: Request, file: UploadFile = File(...)):
 
 @app.get("/preview/{pid}/{fid}", response_class=HTMLResponse)
 def preview(pid: int, fid: str, edit: int = 0):
-    p = load(pid); f = next((f for f in p["spec"]["frames"] if f["id"] == fid), None)
-    if not f: raise HTTPException(404)
+    p = load(pid)
+    frames = (p.get("spec") or {}).get("frames") or []
+    f = next((fr for fr in frames if fr["id"] == fid), None)
+    if not f:
+        raise HTTPException(404, "frame not found")
     return frame_page(
         p["theme"],
         frame_for_render(p, f),
