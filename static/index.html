@@ -147,6 +147,12 @@ body.edit-mode-on #editModeApp{display:flex}
 .edit-frame-thumb.on{border-color:var(--beat-green);box-shadow:0 0 0 1px var(--beat-green-bg)}
 .edit-mode-center{position:relative;padding:16px 20px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;overflow:auto}
 .edit-canvas-viewport{position:relative;width:100%;max-width:100%;flex:0 0 auto;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
+#canvasChipOverlay{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+.canvas-parent-chip{position:absolute;pointer-events:auto;display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(26,25,23,.96);color:#fff;border-radius:10px;font:13px/1.2 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:min(280px,90vw)}
+.canvas-parent-chip .cl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.canvas-parent-chip .ca{display:flex;gap:4px;flex-shrink:0}
+.canvas-parent-chip .ca button{border:0;background:rgba(255,255,255,.14);color:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;line-height:1}
+.canvas-parent-chip .ca button:hover{background:rgba(255,255,255,.3)}
 .edit-frame-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .edit-ref-check{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer}
 .edit-ref-check input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);flex-shrink:0}
@@ -168,7 +174,6 @@ body.edit-mode-on #editModeApp{display:flex}
 .edit-mode-side h3{margin:18px 0 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
 .edit-mode-side h3:first-child{margin-top:0}
 .edit-side-hint{font-size:12px;color:var(--mute);margin:0 0 10px;line-height:1.45}
-.edit-mode-script{max-height:min(220px,28vh);margin-bottom:4px;font-size:13px}
 .canvas-layer-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
 .canvas-layer-row:last-child{border-bottom:0}
 .canvas-layer-row .cl-name{flex:1;min-width:0;font-family:var(--mono);font-size:12px}
@@ -201,11 +206,9 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   <aside class="edit-frame-strip" id="editFrameStrip"></aside>
   <div class="edit-mode-center">
    <div class="edit-canvas-loader" id="editCanvasLoader" hidden><div class="spinner"></div><span>Updating frame…</span></div>
-   <div class="edit-canvas-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div></div>
+   <div class="edit-canvas-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div><div id="canvasChipOverlay" aria-hidden="true"></div></div>
   </div>
   <aside class="edit-mode-side">
-   <h3>Voiceover script</h3>
-   <div class="full-script edit-mode-script" id="editModeScript"></div>
    <h3>Layers</h3><div id="canvasLayerList"></div>
    <h3>Frame changes</h3>
    <textarea id="editFrameAsk" placeholder="Describe changes for the whole frame…" rows="4" style="min-height:88px;resize:vertical"></textarea>
@@ -780,7 +783,6 @@ function openEditMode(fid){
  document.body.classList.add('edit-mode-on');
  $('#editModeApp').hidden=false;
  buildEditFrameStrip();
- renderEditModeScript();
  selectEditFrame(selectedFrameId);
  renderFrameModeSwitch();
 }
@@ -797,20 +799,47 @@ async function exitEditMode(){
  }
  render();
 }
-function renderEditModeScript(){
- const el=$('#editModeScript');
- if(!el||!P)return;
- const script=P.script??'';
- if(!script.trim()){el.innerHTML='<p class="edit-side-hint" style="margin:0">No script saved — use <b>Edit script</b> in the studio view.</p>';return}
- const frames=studioFrames();
- scriptAssign=assignScriptRanges(script,frames,P.storyboard);
- el.innerHTML=fullScriptHtml(script,scriptAssign);
+function canvasEditScale(){
+ const vp=$('#canvasEditViewport');
+ return vp?vp.clientWidth/1920:1;
 }
+function renderParentCanvasChips(layers){
+ const host=$('#canvasChipOverlay');
+ if(!host||!editModeOpen)return;
+ host.innerHTML='';
+ const s=canvasEditScale();
+ if(!layers?.length)return;
+ layers.forEach((L)=>{
+  const chip=document.createElement('div');
+  chip.className='canvas-parent-chip';
+  const lab=esc(L.label||(L.type||'layer'));
+  const mp=L.mfPath?` data-mf-path="${esc(L.mfPath)}"`:'';
+  chip.innerHTML=`<span class="cl">${lab}</span><span class="ca"><button type="button" title="Edit" data-act="edit" data-idx="${L.idx}"${mp}>✎</button><button type="button" title="Replace" data-act="replace" data-idx="${L.idx}"${mp}>↻</button><button type="button" title="Delete" data-act="delete" data-idx="${L.idx}"${mp}>×</button></span>`;
+  let top=(L.top||0)*s-4;
+  let left=(L.left||0)*s;
+  const h=(L.height||0)*s;
+  if(top<4)top=(L.top||0)*s+h+4;
+  chip.style.top=Math.max(4,top)+'px';
+  chip.style.left=Math.max(4,left)+'px';
+  chip.querySelectorAll('button').forEach(btn=>{
+   btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    const act=btn.dataset.act;
+    const idx=parseInt(btn.dataset.idx,10);
+    const mfPath=btn.dataset.mfPath||null;
+    if(act==='delete')canvasLayerAction(idx,'delete',mfPath);
+    else openLayerEditDialog(act,idx,mfPath);
+   });
+  });
+  host.appendChild(chip);
+ });
+}
+function clearParentCanvasChips(){const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
 function selectEditFrame(fid){
  selectedFrameId=fid;
+ clearParentCanvasChips();
  document.querySelectorAll('.edit-frame-thumb').forEach(t=>t.classList.toggle('on',t.dataset.fid===fid));
  $('#editModeTitle').textContent=(P.name||'Video')+' · '+frameLabel(fid);
- renderEditModeScript();
  renderCanvasLayerList();
  renderFrameModeSwitch();
  refreshEditCanvas();
@@ -828,7 +857,19 @@ function refreshEditCanvas(){
  if(!selectedFrameId)return;
  const ifr=$('#canvasEditFrame');
  if(!ifr)return;
- ifr.onload=()=>{fitCanvasEdit();try{ifr.contentWindow?.studioBootLayers?.()}catch(_){}ifr.onload=null};
+ ifr.onload=()=>{
+  fitCanvasEdit();
+  clearParentCanvasChips();
+  const w=ifr.contentWindow;
+  const boot=()=>{try{w?.studioBootLayers?.()}catch(_){}};
+  if(w?.RENDERED)boot();
+  else{
+   let n=0;
+   const poll=()=>{if(w?.RENDERED||++n>120){boot();return}requestAnimationFrame(poll)};
+   poll();
+  }
+  ifr.onload=null;
+ };
  ifr.src=canvasEditUrl();
  requestAnimationFrame(fitCanvasEdit);
 }
@@ -1022,8 +1063,13 @@ window.addEventListener('message',e=>{
  if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
  if(e.data?.studio==='layers-ready'){try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers()}catch(_){}}
+ if(e.data?.studio==='layer-bounds'&&editModeOpen){renderParentCanvasChips(e.data.layers||[])}
 });
-window.addEventListener('resize',()=>{if(editModeOpen)fitCanvasEdit()});
+window.addEventListener('resize',()=>{
+ if(!editModeOpen)return;
+ fitCanvasEdit();
+ try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers()}catch(_){}
+});
 initNav();
 bindProjectList();
 bindFrameEdit();

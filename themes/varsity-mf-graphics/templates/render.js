@@ -451,6 +451,12 @@
   function tagMfStudioLayers() {
     if (!O.studioEdit) return;
     window.__mfLayerSeq = 0;
+    document.querySelectorAll("[data-spec-idx]").forEach((el) => {
+      delete el.dataset.mfTagged;
+      delete el.dataset.specIdx;
+      delete el.dataset.mfPath;
+      delete el.dataset.mfDrag;
+    });
     document.querySelectorAll(".pill").forEach((pillEl) => {
       const t = pillEl.querySelector(".t");
       const label = (t && t.innerText) || (F.pill && F.pill.text) || F.term || F.title || "pill";
@@ -478,7 +484,7 @@
       const p = F.props && F.props[i];
       tagOne(el, "prop", (p && p.asset || "prop").split("/").pop(), "props." + i);
     });
-    document.querySelectorAll(".tbl").forEach((el) => {
+    document.querySelectorAll("table.tbl").forEach((el) => {
       tagOne(el, "table", F.caption || "table", "table");
     });
     document.querySelectorAll(".tile").forEach((el, i) => {

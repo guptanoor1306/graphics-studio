@@ -50,10 +50,13 @@
     overlay.innerHTML = "";
     const layers = [...document.querySelectorAll("[data-spec-idx]")];
     if (!layers.length) {
-      const empty = document.createElement("div");
-      empty.className = "studio-edit-empty";
-      empty.textContent = "No tagged layers yet — wait a moment or use Layers on the right.";
-      overlay.appendChild(empty);
+      if (!(window.OPTS && window.OPTS.studioEdit && window.FRAME)) {
+        const empty = document.createElement("div");
+        empty.className = "studio-edit-empty";
+        empty.textContent = "No tagged layers yet — wait a moment or use Layers on the right.";
+        overlay.appendChild(empty);
+      }
+      emitLayerBoundsToParent();
       return;
     }
     layers.forEach((el) => {
@@ -70,6 +73,28 @@
       overlay.appendChild(c);
     });
     placeResizeHandles();
+    emitLayerBoundsToParent();
+  }
+
+  function emitLayerBoundsToParent() {
+    if (!window.parent || window.parent === window) return;
+    const layers = [];
+    document.querySelectorAll("[data-spec-idx]").forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 && r.height < 2) return;
+      layers.push({
+        idx: parseInt(el.dataset.specIdx, 10),
+        type: el.dataset.layerType || "",
+        label: el.dataset.layerLabel || labelFor(el, parseInt(el.dataset.specIdx, 10)),
+        mfPath: el.dataset.mfPath || el.dataset.mfDrag || null,
+        cardIdx: el.dataset.cardIdx != null ? parseInt(el.dataset.cardIdx, 10) : null,
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+      });
+    });
+    window.parent.postMessage({ studio: "layer-bounds", layers }, "*");
   }
 
   function resizeMode(el) {
