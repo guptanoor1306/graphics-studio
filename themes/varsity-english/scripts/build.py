@@ -88,14 +88,40 @@ def folder(i):
     a = i.get('active', 0)
     lis = ''.join(f'<li class="{"" if n == a else "off"}">{n+1}. {E(t)}</li>' for n, t in enumerate(i['items']))
     return f'<div class="folder"><ol class="paper">{lis}</ol><div class="front"></div></div>'
-def cards(i):
+def cards(i, *, edit=False, spec_idx=None, layer_attrs=''):
     a = i.get('active')
+    items = i.get('items') or []
+    if edit and spec_idx is not None:
+        gap, card_w = 28, int(i.get('card_w', 300))
+        n = len(items)
+        total = n * card_w + max(0, n - 1) * gap
+        base_x = int(i.get('x', 960 - total // 2))
+        base_y = int(i.get('y', 420))
+        parts = []
+        for ci, c in enumerate(items):
+            st = '' if a is None else ('on' if ci == a else 'off')
+            img = f'<img src="../assets/{c["img"]}">' if c.get('img') else (c.get('svg') or '')
+            inner = f'<div class="icard {st}">{img}<b>{E(c["label"])}</b><span>{E(c.get("sub",""))}</span></div>'
+            cx = int(c.get('x', base_x + ci * (card_w + gap)))
+            cy = int(c.get('y', base_y))
+            lab = E(str(c.get('label', ''))[:28])
+            attrs = (
+                f'{layer_attrs} data-spec-idx="{spec_idx}" data-card-idx="{ci}" '
+                f'data-layer-type="card" data-layer-label="{lab}" data-resize="w"'
+            )
+            parts.append(
+                f'<div class="abs z studio-editable icard-wrap" {attrs} '
+                f'style="left:{cx}px;top:{cy}px;width:{card_w}px">{inner}</div>'
+            )
+        return ''.join(parts)
     out = ''
-    for n, c in enumerate(i['items']):
+    for n, c in enumerate(items):
         st = '' if a is None else ('on' if n == a else 'off')
         img = f'<img src="../assets/{c["img"]}">' if c.get('img') else (c.get('svg') or '')
         out += f'<div class="icard {st}">{img}<b>{E(c["label"])}</b><span>{E(c.get("sub",""))}</span></div>'
-    return f'<div style="display:flex;gap:28px;justify-content:center">{out}</div>'
+    w = i.get('w')
+    extra = f'width:{w}px;' if w else ''
+    return f'<div style="display:flex;gap:28px;justify-content:center;{extra}">{out}</div>'
 def bars(i):
     # bar chart in house style: boxed y-axis with labels, baseline, blue bars (amber = highlight), dashed target (review rule 7)
     W, H = i.get('w', 1200), i.get('h', 600); vals = i['values']; mx = i.get('max', max(vals + [i.get('target', 0)]) * 1.2)
@@ -196,6 +222,9 @@ def frame_html(f, look, edit=False):
             return t, (it.get('src') or '')[-28:]
         if t == 'person':
             return t, it.get('name') or 'person'
+        if t == 'cards':
+            labs = [str(c.get('label', ''))[:16] for c in (it.get('items') or []) if isinstance(c, dict)]
+            return t, ', '.join(labs)[:40] or f'{len(it.get("items") or [])} cards'
         for k in ('text', 'title', 'key'):
             if it.get(k):
                 return t, str(it[k])[:32]
@@ -204,7 +233,7 @@ def frame_html(f, look, edit=False):
     _INLINE = {'htab': 'text', 'text': 'text', 'label': 'text', 'pill': 'text', 'num': 'text', 'callout': 'text', 'result_pill': 'text'}
     _RESIZE = {
         'glass_table': 'w', 'calc_table': 'w', 'nlist': 'w', 'points': 'w',
-        'definition': 'w', 'defcard': 'w', 'popup': 'w', 'bars': 'wh',
+        'definition': 'w', 'defcard': 'w', 'popup': 'w', 'bars': 'wh', 'cards': 'w',
         'text': 'font', 'label': 'font', 'callout': 'font', 'num': 'font', 'pill': 'font',
         'result_pill': 'font', 'htab': 'font',
     }
@@ -246,7 +275,10 @@ def frame_html(f, look, edit=False):
                     o['layerLabel'] = ll
                 js.append(f'V.asset("../assets/{it["src"]}",{json.dumps(o)});')
             continue
-        h = R[t](it)
+        if t == 'cards' and edit:
+            absol.append(cards(it, edit=True, spec_idx=idx, layer_attrs=data_attrs.strip()))
+            continue
+        h = R[t](it) if t != 'cards' else cards(it)
         if 'x' in it or 'y' in it:
             cls = 'abs z studio-editable' if edit else 'abs z'
             absol.append(f'<div class="{cls}"{data_attrs} style="left:{it.get("x",0)}px;top:{it.get("y",0)}px">{h}</div>')

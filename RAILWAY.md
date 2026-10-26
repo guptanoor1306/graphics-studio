@@ -4,12 +4,17 @@
 
 1. Install CLI: `npm i -g @railway/cli` (or use `railway up` from the Railway skill).
 2. From this repo root: `railway login` then `railway init` (new project) or link an existing project.
-3. Add **PostgreSQL** in the Railway dashboard (or `railway add --database postgres`). Railway sets **`DATABASE_URL`** on the web service automatically when you reference the plugin.
-4. Set variables on the **web** service:
+3. Add **PostgreSQL** in the Railway dashboard (or `railway add --database postgres`).
+4. **Wire Postgres to the web service** (required — adding Postgres alone is not enough):
+   - Open your **app/web** service (not the database) → **Variables**.
+   - **Add variable** → **Add reference** → choose the Postgres service → select **`DATABASE_URL`** (or `DATABASE_PRIVATE_URL`).
+   - Redeploy the web service.
+   - Confirm: open `https://<your-app>/api/status` → `"backend":"postgres"`. If you see `"backend":"sqlite"`, projects are stored on ephemeral container disk and **vanish on every deploy**.
+5. Set other variables on the **web** service:
    - `ANTHROPIC_API_KEY` — required
    - `STUDIO_URL` — optional; defaults to `http://127.0.0.1:$PORT` inside the container (used for export/layout checks)
    - `STUDIO_MODEL` — optional
-5. Deploy: `railway up` (uses `Dockerfile` + Playwright Chromium image).
+6. Deploy: `railway up` (uses `Dockerfile` + Playwright Chromium image).
 
 ## Migrate from Render
 

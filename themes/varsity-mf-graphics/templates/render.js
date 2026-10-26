@@ -422,8 +422,42 @@
     const cap = document.querySelector(".caption");
     if (F.caption && cap) bindEl(cap, "caption");
   }
-  window.initMfInlineText = bindMfInline;
-  if (O.studioEdit) bindMfInline();
+  function tagMfStudioLayers() {
+    if (!O.studioEdit) return;
+    let seq = 0;
+    const pillEl = document.querySelector(".pill");
+    if (pillEl && F.pill) {
+      pillEl.dataset.specIdx = String(seq++);
+      pillEl.dataset.layerType = "pill";
+      pillEl.dataset.layerLabel = (F.pill.text || "").slice(0, 32);
+      pillEl.classList.add("studio-editable");
+      pillEl.dataset.mfDrag = "pill";
+    }
+    document.querySelectorAll("[data-content]").forEach((el) => {
+      if (!el.dataset.hero || !F.hero) return;
+      el.dataset.specIdx = String(seq++);
+      el.dataset.layerType = "hero";
+      el.dataset.layerLabel = String(F.hero.asset || "hero").split("/").pop().slice(0, 28);
+      el.classList.add("studio-editable");
+      el.dataset.mfDrag = "hero";
+    });
+    document.querySelectorAll(".nlabel").forEach((el, i) => {
+      el.dataset.specIdx = String(seq++);
+      el.dataset.layerType = "label";
+      const tx = (F.labels && F.labels.items && F.labels.items[i] && F.labels.items[i].text) || "";
+      el.dataset.layerLabel = String(tx).slice(0, 28);
+      el.classList.add("studio-editable");
+      el.dataset.mfDrag = "labels.items." + i;
+    });
+  }
+  window.initMfInlineText = function () {
+    bindMfInline();
+    tagMfStudioLayers();
+  };
+  if (O.studioEdit) {
+    bindMfInline();
+    tagMfStudioLayers();
+  }
 
   // ---------- QA: report off-frame, clipped text, anchor-face overlap ----------
   window.QA = function () {

@@ -31,7 +31,7 @@ body{font-family:Inter,sans-serif;color:var(--ink)}
 
 /* ---------- keyword pill (search bar / coin) ---------- */
 .pill{position:absolute;display:flex;align-items:center;height:128px;border-radius:64px;padding:0 34px 0 22px;
-  background:linear-gradient(90deg,var(--green-a) 0%,var(--green-b) 50%,var(--green-c) 100%);
+  background:linear-gradient(90deg,#4a44c9 0%,#5b55e6 45%,#7b76ee 100%);
   box-shadow:14px 14px 0 var(--shadow);white-space:nowrap}
 .pill::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:radial-gradient(circle,rgba(20,40,25,.55) 1.4px,transparent 1.8px) 0 0/7px 7px;
@@ -39,7 +39,7 @@ body{font-family:Inter,sans-serif;color:var(--ink)}
 .pill .ic{width:78px;height:78px;flex:none;margin-right:26px;position:relative;z-index:1}
 .pill .coin{width:116px;height:116px;border-radius:50%;background:#fff;flex:none;margin:0 30px 0 -16px;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
 .pill .coin img{width:73px;height:73px}
-.pill .t{font-weight:900;font-size:70px;letter-spacing:-.5px;line-height:1;position:relative;z-index:1;color:var(--ink)}
+.pill .t{font-weight:900;font-size:70px;letter-spacing:-.5px;line-height:1;position:relative;z-index:1;color:#fff}
 .pill .knob{width:104px;height:104px;border-radius:50%;background:#fff;flex:none;margin-left:34px;margin-right:-22px;position:relative;z-index:1;box-shadow:inset 0 0 0 3px rgba(0,0,0,.04)}
 .pill.sm{height:96px;border-radius:48px;box-shadow:10px 10px 0 var(--shadow)}
 .pill.sm .t{font-size:52px}.pill.sm .ic{width:58px;height:58px;margin-right:18px}

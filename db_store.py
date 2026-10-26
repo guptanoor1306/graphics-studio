@@ -44,7 +44,13 @@ CREATE TABLE IF NOT EXISTS versions(
 
 
 def database_url() -> str | None:
-    raw = (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL") or "").strip()
+    raw = (
+        os.environ.get("DATABASE_URL")
+        or os.environ.get("DATABASE_PRIVATE_URL")
+        or os.environ.get("DATABASE_PUBLIC_URL")
+        or os.environ.get("POSTGRES_URL")
+        or ""
+    ).strip()
     if not raw:
         return None
     if raw.startswith("postgres://"):

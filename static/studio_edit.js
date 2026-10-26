@@ -32,6 +32,9 @@
   function labelFor(el, idx) {
     const t = el.dataset.layerType || el.getAttribute("data-layer-type") || "layer";
     const short = el.dataset.layerLabel || "";
+    if (el.dataset.cardIdx != null) {
+      return short ? t + " · " + short : t + " #" + (parseInt(el.dataset.cardIdx, 10) + 1);
+    }
     return short ? t + " · " + short : t + " #" + (idx + 1);
   }
 
@@ -143,13 +146,14 @@
 
   function placeResizeHandles() {
     [...overlay.querySelectorAll(".studio-resize-handle")].forEach((h) => h.remove());
-    document.querySelectorAll("[data-spec-idx].studio-editable").forEach((el) => {
+    document.querySelectorAll("[data-spec-idx].studio-editable, [data-mf-drag].studio-editable").forEach((el) => {
       if (!resizableLayer(el)) return;
       const r = el.getBoundingClientRect();
       if (r.width < 8 || r.height < 8) return;
       const h = document.createElement("div");
       h.className = "studio-resize-handle";
       h.dataset.specIdx = el.dataset.specIdx;
+      if (el.dataset.cardIdx != null) h.dataset.cardIdx = el.dataset.cardIdx;
       h.style.left = r.right + "px";
       h.style.top = r.bottom + "px";
       h.title = "Drag to resize";
@@ -166,7 +170,8 @@
     if (!el || !el.classList.contains("studio-editable")) return false;
     if (el.dataset.specIdx == null) return false;
     const t = el.dataset.layerType || "";
-    if (t === "asset" || t === "person") return true;
+    if (t === "asset" || t === "person" || t === "card") return true;
+    if (el.dataset.mfDrag) return true;
     const pos = getComputedStyle(el).position;
     if (pos !== "absolute" && pos !== "fixed") return false;
     if (el.closest(".flow")) return false;
@@ -231,7 +236,10 @@
         el.releasePointerCapture(drag.pointerId);
       } catch (_) {}
       drag = null;
-      window.parent.postMessage({ studio: "move", idx, x, y }, "*");
+      const payload = { studio: "move", idx, x, y };
+      if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
+      if (el.dataset.mfDrag) payload.mfPath = el.dataset.mfDrag;
+      window.parent.postMessage(payload, "*");
       placeChips();
     }
 
@@ -276,7 +284,13 @@
         e.preventDefault();
         e.stopPropagation();
         const idx = parseInt(handle.dataset.specIdx, 10);
-        const el = document.querySelector(`[data-spec-idx="${idx}"].studio-editable`);
+        let el = null;
+        if (handle.dataset.cardIdx !== undefined && handle.dataset.cardIdx !== "") {
+          el = document.querySelector(
+            `[data-spec-idx="${idx}"][data-card-idx="${handle.dataset.cardIdx}"]`
+          );
+        }
+        if (!el) el = document.querySelector(`[data-spec-idx="${idx}"].studio-editable`);
         if (!el || !resizableLayer(el)) return;
         const mode = resizeMode(el);
         const box = widthBox(el);
@@ -359,6 +373,7 @@
       } else if (mode === "font") {
         payload.size = last.size != null ? last.size : readFontSize(el);
       }
+      if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
       resize = null;
       window.parent.postMessage(payload, "*");
       placeChips();

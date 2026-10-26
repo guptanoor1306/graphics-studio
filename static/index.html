@@ -353,7 +353,7 @@ function fullScriptHtml(script,assign){
 }
 function frameLabel(fid){const i=studioFrames().findIndex(f=>f.id===fid);return 'G'+String(Math.max(i,0)+1).padStart(2,'0')}
 function lookForm(l){l=normLook(l);
-  const themeField=`<div class="field"><label>Theme</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>`;
+  const themeField=`<div class="field"><label>Channel</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>`;
   if(isMfTheme(P.theme)){
     return `<div class="field-grid">${themeField}
   <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · green search pills · blue table headers"></div></div>`}
@@ -536,11 +536,23 @@ function submitToolModal(e){
   Promise.resolve(fn(inp.hidden?'':inp.value.trim())).then(()=>closeToolModal()).catch(err=>alert(err.message||err));
   return false;
 }
+async function checkDbBackend(){
+ if(!/railway\.app$/i.test(location.hostname))return;
+ try{
+  const st=await api('/api/status?_='+Date.now());
+  const host=$('#nav')?.querySelector('.sidebar-inner');
+  if(!host)return;
+  host.querySelector('#dbWarn')?.remove();
+  if(st.backend==='postgres')return;
+  host.insertAdjacentHTML('afterbegin','<div id="dbWarn" style="margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#fde8e6;border:1px solid #e0463a;font-size:12px;line-height:1.45"><b>No Postgres on this service.</b> Projects live in container disk and disappear on redeploy. In Railway: open your <b>web</b> service → Variables → add <b>DATABASE_URL</b> from the Postgres plugin (Reference), then redeploy.</div>');
+ }catch(_){}
+}
 async function list(){
   const ps=await api('/api/projects?_='+Date.now());
   const el=$('#plist');
   if(!el)return;
   el.innerHTML=ps.length?ps.map(p=>`<div class="proj ${P&&P.id==p.id?'on':''}" data-pid="${p.id}" role="button" tabindex="0"><b>${esc(p.name)}</b><small>${esc(p.theme)}</small></div>`).join(''):'<p class="muted" style="font-size:13px">No projects yet</p>';
+  checkDbBackend();
 }
 function bindProjectList(){
   $('#plist')?.addEventListener('click',e=>{
@@ -575,7 +587,7 @@ function setEditLoading(on){const el=$('#editCanvasLoader');if(el)el.hidden=!on}
 function newProject(){
   const themeOpts=themes.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
   openToolModal({title:'New video',placeholder:'Video name',okLabel:'Create',
-    extraHtml:`<div class="field" style="margin:12px 0 4px"><label>Kit / skill</label><select id="newProjectTheme">${themeOpts}</select></div><p class="muted" style="font-size:12px;margin:0">English = anchor/FSS props · MF = mutual-fund graphics kit</p>`,
+    extraHtml:`<div class="field" style="margin:0 0 4px"><label>Channel</label><select id="newProjectTheme">${themeOpts}</select></div>`,
     onSubmit:async name=>{
     if(!name)throw new Error('Enter a name');
     const theme=$('#newProjectTheme')?.value||themes[0];
@@ -660,7 +672,13 @@ function layerRowLabel(it,idx){
  const t=it.t||'?';
  if(t==='asset')return t+': '+(it.src||'').split('/').pop();
  if(t==='person')return 'person: '+(it.name||'—');
- const tx=it.text||it.title||it.key||(it.items&&it.items[0])||'';
+ if(t==='cards'){
+  const arr=it.items||[];
+  const labs=arr.map(c=>(c&&c.label)?String(c.label):'').filter(Boolean);
+  return labs.length?'cards: '+labs.join(', ').slice(0,48):'cards: '+arr.length+' card(s)';
+ }
+ let tx=it.text||it.title||it.key||'';
+ if(!tx&&Array.isArray(it.items)&&it.items[0]!=null&&typeof it.items[0]!=='object')tx=String(it.items[0]);
  return t+(tx?': '+String(tx).slice(0,36):'');
 }
 function renderCanvasLayerList(){
@@ -668,7 +686,15 @@ function renderCanvasLayerList(){
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
  if(isMfTheme(P.theme)){
   const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
-  list.innerHTML=fr?`<p class="edit-side-hint" style="margin:0"><b>${esc(fr.type||'frame')}</b> — click highlighted text on the canvas to edit inline, or use <b>Frame changes</b> / <b>Regenerate</b>.</p>`:'';
+  if(!fr){list.innerHTML='';return}
+  const bits=[];
+  if(fr.pill?.text)bits.push('pill');
+  if(fr.hero)bits.push('hero');
+  if(fr.labels?.items?.length)bits.push('labels');
+  if(fr.props?.length)bits.push('props');
+  if(fr.cards?.length)bits.push('cards');
+  const tagHint=bits.length?`Tagged on canvas: ${bits.join(', ')}.`:'Whole-frame JSON — use Frame changes.';
+  list.innerHTML=`<p class="edit-side-hint" style="margin:0"><b>${esc(fr.type||'frame')}</b> — ${tagHint} Click dashed text to edit inline; drag tagged elements to move.</p>`;
   return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const items=fr?.items||[];
@@ -809,7 +835,7 @@ async function patchFrameInline(msg){
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'inline '+selectedFrameId})});
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
-async function patchFrameItemResize(idx,{w,h,size}){
+async function patchFrameItemResize(idx,{w,h,size,cardIdx}){
  if(!selectedFrameId||!P?.spec||idx==null)return;
  const fi=P.spec.frames.findIndex(f=>f.id===selectedFrameId);
  if(fi<0)return;
@@ -824,23 +850,49 @@ async function patchFrameItemResize(idx,{w,h,size}){
   if(size!=null)it.size=size;
  }else if(t==='bars'){if(w!=null)it.w=w;if(h!=null)it.h=h}
  else if(['text','label','callout','num','pill','result_pill','htab'].includes(t)&&size!=null){it.size=size}
- else return;
+ else if(t==='cards'&&cardIdx!=null&&w!=null){
+  const cards=[...(it.items||[])];
+  cards[cardIdx]={...(cards[cardIdx]||{}),w:Math.round(w)};
+  it.items=cards;
+ }else return;
  fr.items[idx]=it;
  P.spec.frames[fi]=fr;
  try{
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'resize '+selectedFrameId+'#'+idx})});
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
-async function patchFrameItemMove(idx,x,y){
- if(!selectedFrameId||!P?.spec||idx==null)return;
+async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
+ if(!selectedFrameId||!P?.spec)return;
  const fid=selectedFrameId;
  const fi=P.spec.frames.findIndex(f=>f.id===fid);
  if(fi<0)return;
- const fr={...P.spec.frames[fi],items:[...(P.spec.frames[fi].items||[])]};
+ const fr=JSON.parse(JSON.stringify(P.spec.frames[fi]));
+ if(mfPath){
+  if(mfPath==='pill')fr.pill={...(fr.pill||{}),x:Math.round(x),y:Math.round(y)};
+  else if(mfPath==='hero')fr.hero={...(fr.hero||{}),x:Math.round(x),y:Math.round(y)};
+  else if(/^labels\.items\.\d+$/.test(mfPath)){
+   setSpecPath(fr,mfPath+'.x',Math.round(x));
+   setSpecPath(fr,mfPath+'.y',Math.round(y));
+  }else{
+   const val=mfPath.endsWith('.y')?Math.round(y):Math.round(x);
+   setSpecPath(fr,mfPath,val);
+  }
+  P.spec.frames[fi]=fr;
+  try{await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'mf move '+fid})})}catch(e){alert(e.message);refreshEditCanvas()}
+  return;
+ }
+ if(idx==null)return;
+ fr.items=[...(P.spec.frames[fi].items||[])];
  const it={...(fr.items[idx]||{})};
  if(!it.t)return;
- it.x=Math.round(x);
- it.y=Math.round(y);
+ if(cardIdx!=null&&it.t==='cards'&&Array.isArray(it.items)){
+  const cards=[...it.items];
+  cards[cardIdx]={...(cards[cardIdx]||{}),x:Math.round(x),y:Math.round(y)};
+  it.items=cards;
+ }else{
+  it.x=Math.round(x);
+  it.y=Math.round(y);
+ }
  fr.items[idx]=it;
  P.spec.frames[fi]=fr;
  try{
@@ -859,6 +911,12 @@ async function deleteFrameItem(idx){
  try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});bumpFrame(fid);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 async function handleStudioEdit(msg){
+ if(P&&isMfTheme(P.theme)){
+  if(msg.action==='delete'){alert('MF frames are one JSON object — describe removals under Frame changes.');return}
+  const ta=$('#editFrameAsk');
+  if(ta){ta.value='Update the selected element (pill, hero, label, etc.): ';ta.focus()}
+  return;
+ }
  if(msg.action==='delete'){openToolModal({title:'Remove layer',message:'Remove this element?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{await deleteFrameItem(msg.idx)}});return}
  openLayerEditDialog(msg.action,msg.idx);
 }
@@ -900,8 +958,8 @@ async function exp(){
 }
 window.addEventListener('message',e=>{
  if(e.data?.studio==='edit')handleStudioEdit(e.data);
- if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y);
- if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size});
+ if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y,e.data.cardIdx,e.data.mfPath);
+ if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
 });
 window.addEventListener('resize',()=>{if(editModeOpen)fitCanvasEdit()});
