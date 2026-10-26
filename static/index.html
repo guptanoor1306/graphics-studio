@@ -276,6 +276,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 </form></dialog>
 <script>
 let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
+let canvasChipOverlayBound=false,canvasChipRenderT=0,lastCanvasChipSig='';
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 const ICON_DELETE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
 const ICON_EDIT='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
@@ -841,9 +842,28 @@ function canvasEditScale(){
  const vp=$('#canvasEditViewport');
  return vp?vp.clientWidth/1920:1;
 }
+function ensureCanvasChipOverlayActions(){
+ const host=$('#canvasChipOverlay');
+ if(!host||canvasChipOverlayBound)return;
+ canvasChipOverlayBound=true;
+ host.addEventListener('click',ev=>{
+  const btn=ev.target.closest('button[data-act]');
+  if(!btn||!editModeOpen)return;
+  ev.preventDefault();ev.stopPropagation();
+  const act=btn.dataset.act;
+  const idx=parseInt(btn.dataset.idx,10);
+  const path=btn.dataset.mfPath||null;
+  if(act==='delete')void canvasLayerAction(idx,'delete',path);
+  else openLayerEditDialog(act,idx,path);
+ });
+}
 function renderParentCanvasChips(layers){
  const host=$('#canvasChipOverlay');
  if(!host||!editModeOpen)return;
+ ensureCanvasChipOverlayActions();
+ const sig=JSON.stringify(layers||[]);
+ if(sig===lastCanvasChipSig)return;
+ lastCanvasChipSig=sig;
  host.innerHTML='';
  const s=canvasEditScale();
  if(!layers?.length)return;
@@ -867,12 +887,6 @@ function renderParentCanvasChips(layers){
    const b=document.createElement('button');b.type='button';b.title=title;b.textContent=sym;
    b.dataset.act=act;b.dataset.idx=String(L.idx);
    if(L.mfPath)b.dataset.mfPath=L.mfPath;
-   b.addEventListener('click',ev=>{
-    ev.preventDefault();ev.stopPropagation();
-    const path=b.getAttribute('data-mf-path');
-    if(act==='delete')void canvasLayerAction(L.idx,'delete',path);
-    else openLayerEditDialog(act,L.idx,path);
-   });
    return b;
   };
   actions.append(mkBtn('edit','Edit','✎'),mkBtn('replace','Replace','↻'),mkBtn('delete','Delete','×'));
@@ -884,7 +898,7 @@ function renderParentCanvasChips(layers){
   host.appendChild(chip);
  });
 }
-function clearParentCanvasChips(){const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
+function clearParentCanvasChips(){lastCanvasChipSig='';const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
 function selectEditFrame(fid){
  selectedFrameId=fid;
  clearParentCanvasChips();
@@ -913,7 +927,8 @@ function refreshEditCanvas(){
   fitCanvasEdit();
   clearParentCanvasChips();
   const w=ifr.contentWindow;
-  const boot=()=>{try{w?.studioBootLayers?.()}catch(_){}};
+  if(w)w.__studioLayersBooted=false;
+  const boot=()=>{try{if(w&&!w.__studioLayersBooted){w.__studioLayersBooted=true;w.studioBootLayers?.()}}catch(_){}};
   if(w?.RENDERED)boot();
   else{
    let n=0;
@@ -1118,8 +1133,17 @@ window.addEventListener('message',e=>{
  if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y,e.data.cardIdx,e.data.mfPath);
  if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
- if(e.data?.studio==='layers-ready'){try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers()}catch(_){}}
- if(e.data?.studio==='layer-bounds'&&editModeOpen)renderParentCanvasChips(e.data.layers||[]);
+ if(e.data?.studio==='layers-ready'&&editModeOpen){
+  try{
+   const w=$('#canvasEditFrame')?.contentWindow;
+   if(w&&!w.__studioLayersBooted){w.__studioLayersBooted=true;w.studioBootLayers?.()}
+  }catch(_){}
+ }
+ if(e.data?.studio==='layer-bounds'&&editModeOpen){
+  clearTimeout(canvasChipRenderT);
+  const layers=e.data.layers||[];
+  canvasChipRenderT=setTimeout(()=>renderParentCanvasChips(layers),32);
+ }
 });
 window.addEventListener('resize',()=>{
  if(!editModeOpen)return;

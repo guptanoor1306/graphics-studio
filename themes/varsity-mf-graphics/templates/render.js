@@ -500,15 +500,23 @@
     });
   }
 
-  function notifyStudioLayers() {
+  function notifyStudioLayers(pingParent) {
     tagMfStudioLayers();
     bindMfInline();
-    if (window.parent && window.parent !== window) {
+    if (
+      pingParent !== false &&
+      window.parent &&
+      window.parent !== window &&
+      !window.__mfLayersReadyPinged
+    ) {
+      window.__mfLayersReadyPinged = true;
       window.parent.postMessage({ studio: "layers-ready" }, "*");
     }
   }
 
-  window.initMfInlineText = notifyStudioLayers;
+  window.initMfInlineText = function () {
+    notifyStudioLayers(false);
+  };
 
   const fn = T[F.type];
   if (!fn) { document.body.innerHTML = `<h1 style="color:red">Unknown type ${F.type}</h1>`; window.RENDER_ERROR = "unknown type " + F.type; }

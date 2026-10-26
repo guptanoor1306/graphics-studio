@@ -154,6 +154,10 @@ def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = Fa
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
     html = html.replace("<head>", f'<head><base href="{href}">', 1)
     if edit:
+        if "studio-edit-mode" in html:
+            html = html.replace("studio-edit-mode", "studio-edit-mode in-studio-iframe", 1)
+        else:
+            html = html.replace("<body>", '<body class="in-studio-iframe">', 1)
         edit_css = (ROOT / "static" / "studio_edit.css").read_text()
         registry_js = (ROOT / "static" / "layer_registry.js").read_text()
         interact_js = (ROOT / "static" / "interact.min.js").read_text()

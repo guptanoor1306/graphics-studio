@@ -111,6 +111,7 @@
     emitLayerBoundsToParent();
   }
 
+  let lastBoundsSig = "";
   function emitLayerBoundsToParent() {
     if (!window.parent || window.parent === window) return;
     const layers = registryLayers().map((L) => ({
@@ -119,11 +120,14 @@
       label: L.label,
       mfPath: L.mfPath,
       cardIdx: L.cardIdx,
-      top: L.top,
-      left: L.left,
-      width: L.width,
-      height: L.height,
+      top: Math.round(L.top),
+      left: Math.round(L.left),
+      width: Math.round(L.width),
+      height: Math.round(L.height),
     }));
+    const sig = JSON.stringify(layers);
+    if (sig === lastBoundsSig) return;
+    lastBoundsSig = sig;
     window.parent.postMessage({ studio: "layer-bounds", layers }, "*");
   }
 

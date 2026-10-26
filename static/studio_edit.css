@@ -42,6 +42,11 @@ body.studio-edit-mode { cursor: default; }
   pointer-events: none;
   z-index: 99990;
 }
+/* Parent page mirrors chips; hide iframe duplicates so clicks hit one control. */
+body.studio-edit-mode.in-studio-iframe #studio-overlay .studio-chip,
+body.studio-edit-mode.in-studio-iframe #studio-overlay .studio-resize-handle {
+  display: none !important;
+}
 .studio-chip {
   position: fixed;
   pointer-events: auto;
