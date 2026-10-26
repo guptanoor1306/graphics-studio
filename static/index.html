@@ -812,7 +812,7 @@ function refreshEditCanvas(){
  if(!selectedFrameId)return;
  const ifr=$('#canvasEditFrame');
  if(!ifr)return;
- ifr.onload=()=>{fitCanvasEdit();try{ifr.contentWindow?.studioBootLayers)ifr.contentWindow.studioBootLayers()}catch(_){}ifr.onload=null};
+ ifr.onload=()=>{fitCanvasEdit();try{ifr.contentWindow?.studioBootLayers?.()}catch(_){}ifr.onload=null};
  ifr.src=canvasEditUrl();
  requestAnimationFrame(fitCanvasEdit);
 }
