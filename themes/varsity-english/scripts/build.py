@@ -20,15 +20,25 @@ def title(i):
     tail = f'<div class="t-line {"b" if i.get("bold_lead") else ""}">{E(i["tail"])}</div>' if i.get('tail') else ''
     return f'<div>{lead}<div class="{key_cls}">{E(i["key"])}</div>{tail}</div>'
 
-def pill(i):   return f'<div><span class="pill-title">{E(i["text"])}</span></div>'
-def htab(i):   return f'<div style="text-align:center"><span class="htab {i.get("color","")} {"sm" if i.get("small") else ""}">{E(i["text"])}</span></div>'
-def num(i):    return f'<div class="num"><i>{E(str(i["n"]))}</i>{E(i["text"])}</div>'
+def pill(i):
+    fs = f' style="font-size:{i["size"]}px"' if i.get('size') else ''
+    return f'<div><span class="pill-title"{fs}>{E(i["text"])}</span></div>'
+def htab(i):
+    sm = i.get('small') and not i.get('size')
+    fs = f' style="font-size:{i["size"]}px"' if i.get('size') else ''
+    return f'<div style="text-align:center"><span class="htab {i.get("color","")} {"sm" if sm else ""}"{fs}>{E(i["text"])}</span></div>'
+def num(i):
+    fs = f' style="font-size:{i["size"]}px"' if i.get('size') else ''
+    return f'<div class="num"{fs}><i>{E(str(i["n"]))}</i>{E(i["text"])}</div>'
 def label(i):  return f'<div style="font-weight:{i.get("weight",700)};font-size:{i.get("size",34)}px;text-align:{i.get("align","left")}">{E(i["text"])}</div>'
 def text(i):   return f'<div style="font-size:{i.get("size",34)}px;line-height:1.3;font-weight:{i.get("weight",400)}">{E(i["text"])}</div>'
-def definition(i): return f'<div class="def"><div class="tag">{E(i["title"])}</div><div class="body">{E(i["text"])}</div></div>'
+def definition(i):
+    w = f' style="width:{i["w"]}px"' if i.get('w') else ''
+    return f'<div class="def"{w}><div class="tag">{E(i["title"])}</div><div class="body">{E(i["text"])}</div></div>'
 def defcard(i):
     lines = ''.join(f'<div class="t-key {"amber" if n == i.get("accent",1) else ""}">{E(w)}</div>' for n, w in enumerate(i['lines']))
-    return f'<div class="defcard">{lines}<p>{E(i["text"])}</p></div>'
+    w = f' style="width:{i["w"]}px"' if i.get('w') else ''
+    return f'<div class="defcard"{w}>{lines}<p>{E(i["text"])}</p></div>'
 
 def _row(cells, tag='td'):
     return '<tr>' + ''.join(f'<{tag}>{E(str(c))}</{tag}>' for c in cells) + '</tr>'
@@ -60,11 +70,16 @@ def calc_table(i):
 
 def popup(i):
     ul = '<ul>' + ''.join(f'<li>{E(b)}</li>' for b in i.get('bullets', [])) + '</ul>' if i.get('bullets') else ''
-    return f'<div style="padding-bottom:40px"><div class="popup"><div class="bar">{E(i["title"])}</div><div class="v">{E(i["value"])}</div>{ul}<div class="popup-base"></div></div></div>'
+    pw = f' style="width:{i["w"]}px"' if i.get('w') else ''
+    return f'<div style="padding-bottom:40px"><div class="popup"{pw}><div class="bar">{E(i["title"])}</div><div class="v">{E(i["value"])}</div>{ul}<div class="popup-base"></div></div></div>'
 
-def callout(i): return f'<div><span class="callout {"white" if i.get("white") else ""}">{E(i["text"])}</span></div>'
+def callout(i):
+    fs = f' style="font-size:{i["size"]}px"' if i.get('size') else ''
+    return f'<div{fs}><span class="callout {"white" if i.get("white") else ""}">{E(i["text"])}</span></div>'
 def hpill(i):   return f'<div><span class="hpill"><span>{E(i["label"])}</span><b>{E(i["value"])}</b></span></div>'
-def result_pill(i): return f'<div style="text-align:center"><span class="result-pill">{E(i["text"])}</span></div>'
+def result_pill(i):
+    fs = f' style="font-size:{i["size"]}px"' if i.get('size') else ''
+    return f'<div style="text-align:center"><span class="result-pill"{fs}>{E(i["text"])}</span></div>'
 def nlist(i):
     a = i.get('active', 0)
     lis = ''.join(f'<li class="{"" if n == a or a == "all" else "off"}"><b>{n+1}.</b>{E(t)}</li>' for n, t in enumerate(i['items']))
@@ -186,6 +201,13 @@ def frame_html(f, look, edit=False):
                 return t, str(it[k])[:32]
         return t, ''
 
+    _INLINE = {'htab': 'text', 'text': 'text', 'label': 'text', 'pill': 'text', 'num': 'text', 'callout': 'text', 'result_pill': 'text'}
+    _RESIZE = {
+        'glass_table': 'w', 'calc_table': 'w', 'nlist': 'w', 'points': 'w',
+        'definition': 'w', 'defcard': 'w', 'popup': 'w', 'bars': 'wh',
+        'text': 'font', 'label': 'font', 'callout': 'font', 'num': 'font', 'pill': 'font',
+        'result_pill': 'font', 'htab': 'font',
+    }
     for idx, it in enumerate(f['items']):
         t = it['t']
         lt, ll = _layer_label(it)
@@ -193,6 +215,10 @@ def frame_html(f, look, edit=False):
             f' data-spec-idx="{idx}" data-layer-type="{E(lt)}" data-layer-label="{E(ll)}"'
             if edit else ''
         )
+        if edit and t in _INLINE:
+            data_attrs += f' data-inline-field="{_INLINE[t]}"'
+        if edit and t in _RESIZE:
+            data_attrs += f' data-resize="{_RESIZE[t]}"'
         if t == 'htab' and not fss and 'x' not in it and 'y' not in it:
             hx = 140 if side == 'right' else 1040
             cls = 'abs z studio-editable' if edit else 'abs z'

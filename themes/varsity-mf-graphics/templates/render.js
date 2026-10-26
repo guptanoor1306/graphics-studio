@@ -384,6 +384,47 @@
   if (!fn) { document.body.innerHTML = `<h1 style="color:red">Unknown type ${F.type}</h1>`; window.RENDER_ERROR = "unknown type " + F.type; }
   else fn();
 
+  function bindMfInline() {
+    if (!O.studioEdit) return;
+    function bindEl(el, path) {
+      if (!el || el.dataset.inlineBound) return;
+      el.dataset.inlineBound = "1";
+      el.dataset.mfPath = path;
+      el.classList.add("studio-inline-edit");
+      el.contentEditable = "true";
+      el.spellcheck = true;
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.blur(); }
+      });
+      el.addEventListener("blur", () => {
+        const value = el.innerText.replace(/\u00a0/g, " ").trim();
+        window.parent.postMessage({ studio: "inline", mfPath: path, value }, "*");
+      });
+    }
+    const pillT = document.querySelector(".pill .t");
+    if (F.pill && pillT) bindEl(pillT, F.type === "definition" ? "term" : (F.type === "points" ? "title" : "pill.text"));
+    if (F.type === "definition") {
+      const d = document.querySelector(".defbox");
+      if (d) bindEl(d, "text");
+    }
+    document.querySelectorAll(".chip").forEach((chip, i) => {
+      const span = chip.querySelector("span:last-child");
+      if (span) bindEl(span, "items." + i);
+    });
+    document.querySelectorAll(".qbox").forEach((box, i) => bindEl(box, "questions." + i));
+    document.querySelectorAll(".nlabel").forEach((nl, i) => {
+      const span = nl.querySelector("span:last-child");
+      if (span) bindEl(span, "labels.items." + i + ".text");
+    });
+    document.querySelectorAll(".tile .lbl").forEach((lbl, i) => {
+      if (F.steps && F.steps[i]) bindEl(lbl, "steps." + i + ".label");
+    });
+    const cap = document.querySelector(".caption");
+    if (F.caption && cap) bindEl(cap, "caption");
+  }
+  window.initMfInlineText = bindMfInline;
+  if (O.studioEdit) bindMfInline();
+
   // ---------- QA: report off-frame, clipped text, anchor-face overlap ----------
   window.QA = function () {
     const warns = [];

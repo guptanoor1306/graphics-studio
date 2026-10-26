@@ -412,8 +412,14 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
         msg = (
             f"Spec root look (one line — copy into spec.look): {look_line or 'anchor right · GIFT City house style per SKILL'}\n"
             f"Notes: {notes or 'none'}\n\n"
-            "Follow SKILL.md + references/spec_format.md. Mirror scenes/gift_city_spec.json structure.\n"
-            f"Copy numbers exactly from the script.\n\nSCRIPT:\n{script}"
+            "GRAPHICS STUDIO RULES (critical):\n"
+            "- spec.frames must ONLY include beats that become PNG graphics: scene, ribbon, sop, table, cycle, points, definition, anchor, html.\n"
+            "- Do NOT put footage, screen, or repeat in spec.frames — those beats go ONLY in the storyboard string (with timestamps, no → frame id).\n"
+            "- Match the density and layout quality of scenes/gift_city_spec.json (hero assets, pills, tables, logo cards — not empty shells).\n"
+            "- Most of the video stays on footage; a graphic only when SKILL Step 3 says graphic/screen.\n"
+            "- Copy numbers exactly from the script.\n\n"
+            "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n\n"
+            f"SCRIPT:\n{script}"
         )
         out = _call_storyboard(theme_dir, msg, sb_tool=MF_SB_TOOL)
         return out

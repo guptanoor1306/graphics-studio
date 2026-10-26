@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import claude_client, exporter, spec_enrich
+import claude_client, exporter, mf_studio, spec_enrich
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -56,6 +56,8 @@ def load(pid):
     d = dict(r)
     d["look"] = json.loads(d["look"] or "{}")
     d["spec"] = json.loads(d["spec"] or "null")
+    if is_mf_theme_name(d.get("theme") or "") and d.get("spec"):
+        d["spec"] = mf_studio.compact_mf_spec_for_studio(d["spec"])
     return d
 
 
@@ -259,7 +261,7 @@ async def make_storyboard(pid: int, req: Request):
     except Exception as e:
         _raise_claude_gateway(e)
     if is_mf_theme_name(p["theme"]):
-        spec = out["spec"]
+        spec = mf_studio.compact_mf_spec_for_studio(out["spec"])
         plook = {**look}
         if isinstance(spec.get("look"), str):
             plook["look_line"] = spec["look"]
@@ -529,6 +531,8 @@ async def export(pid: int, png: int = 1, only: str = ""):
     pages = []
     for f in p["spec"]["frames"]:
         if ids and f["id"] not in ids:
+            continue
+        if is_mf_theme_name(p["theme"]) and not mf_studio.is_mf_renderable(f):
             continue
         html = frame_page(p["theme"], frame_for_render(p, f), look, base_href=base)
         pages.append((f["id"], html, frame_wants_overlay(p["theme"], f)))
