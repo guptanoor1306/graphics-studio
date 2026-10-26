@@ -186,6 +186,9 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 dialog#layerEditDlg,dialog#toolModal{z-index:200000}
 dialog#layerEditDlg{width:min(480px,92vw)}
 dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
+.layer-edit-ref{margin:0 0 12px}
+.layer-edit-ref input[type=file]{display:block;width:100%;font-size:13px;margin-top:6px}
+.layer-edit-ref-name{font-size:12px;color:var(--mute);margin-top:6px;min-height:1.2em}
 @media (max-width:960px){.edit-mode-grid{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}.edit-frame-strip{display:flex;gap:10px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.edit-frame-thumb{flex:0 0 120px;margin:0}}
 @media (max-width:960px){
   body,body.nav-collapsed{grid-template-columns:1fr;height:auto}
@@ -223,7 +226,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
     <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
    </div>
    <h3>Reference image</h3>
-   <p class="edit-side-hint">Each layer shows <b>✎ ↻ ×</b> on the canvas and in this list. Click dashed <b>text</b> to edit inline. Drag layers to move; use the corner handle to resize where shown. Layer <b>Replace</b> uses a reference on the right; <b>Frame changes</b> below edits the whole frame.</p>
+   <p class="edit-side-hint">Each layer shows <b>✎ ↻ ×</b> on the canvas and in this list. Click dashed <b>text</b> to edit inline. Drag layers to move; use the corner handle to resize where shown. Layer <b>Replace</b> opens a dialog to upload a reference; <b>Frame changes</b> below edits the whole frame.</p>
    <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
    <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
    <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
@@ -261,7 +264,11 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 <dialog id="layerEditDlg"><form class="modal-in" method="dialog" onsubmit="return submitLayerEdit(event)">
   <b id="layerEditTitle">Edit layer</b>
   <p id="layerEditMsg" class="modal-msg"></p>
-  <textarea id="layerEditText" placeholder="Optional note (reference on the right can replace without text)…"></textarea>
+  <div id="layerEditRefBlock" class="layer-edit-ref" hidden>
+   <label>Reference image<input type="file" id="layerEditRef" accept="image/png,image/jpeg,image/webp"></label>
+   <div class="layer-edit-ref-name" id="layerEditRefLabel"></div>
+  </div>
+  <textarea id="layerEditText" placeholder="Describe the change…"></textarea>
   <div class="modal-actions">
     <button type="button" class="ghost" onclick="layerEditDlg.close()">Cancel</button>
     <button type="submit" class="p">Apply</button>
@@ -582,6 +589,10 @@ function bindFrameEdit(){
      const lb=$('#editRefLabel');
      if(lb)lb.textContent=e.target.files?.[0]?.name||'';
     }
+    if(e.target.id==='layerEditRef'){
+     const lb=$('#layerEditRefLabel');
+     if(lb)lb.textContent=e.target.files?.[0]?.name||'';
+    }
   });
 }
 function refControls(){
@@ -644,17 +655,17 @@ async function gen(){const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(
    P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({theme:themeSel.value,note:'theme'})});
   }
   P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
-async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null}={}){
+async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null,refFile=null,clearLayerRef=false}={}){
  const {ref,rep,flat,lb}=refControls();
- const refFile=ref?.files?.[0];
- if(!regenerate&&!ask?.trim()&&!refFile){alert(itemIndex!=null?'Describe this layer and/or attach a reference on the right.':'Type a change and/or attach a reference image.');return}
+ const upload=refFile||ref?.files?.[0];
+ if(!regenerate&&!ask?.trim()&&!upload){alert(itemIndex!=null||mfPath?'Describe this layer and/or attach a reference image.':'Type a change and/or attach a reference image.');return}
  if(!fid||!P?.spec){alert('No frame selected.');return}
  if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
  try{
   let updated;
   const doReplace=!!(itemReplace||rep?.checked);
-  if(refFile){
-   const fd=new FormData();fd.append('ask',ask||'');fd.append('file',refFile);
+  if(upload){
+   const fd=new FormData();fd.append('ask',ask||'');fd.append('file',upload);
    if(doReplace)fd.append('replace','1');
    if(flat?.checked)fd.append('flat','1');
    if(regenerate)fd.append('regenerate','1');
@@ -663,7 +674,8 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
    const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:fd});
    if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
    updated=await r.json();
-   if(ref)ref.value='';if(lb)lb.textContent='';
+   if(refFile==null&&ref){ref.value='';if(lb)lb.textContent=''}
+   if(clearLayerRef){const lr=$('#layerEditRef');const ll=$('#layerEditRefLabel');if(lr)lr.value='';if(ll)ll.textContent=''}
   }else{
    updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:doReplace,flat:!!flat?.checked,...(itemIndex!=null?{item_index:itemIndex}:{}),...(mfPath?{mf_path:mfPath}:{})})});
   }
@@ -742,29 +754,40 @@ function openLayerEditDialog(action,idx,mfPath=null){
  layerEditPending={action,idx,mfPath:mfPath||null};
  const isRep=action==='replace';
  $('#layerEditTitle').textContent=isRep?'Replace layer':'Edit layer';
- $('#layerEditMsg').textContent=isRep?'Upload a reference on the right, then Apply — the file replaces this layer directly. Optional note below.':'Describe how this layer should change.';
+ $('#layerEditMsg').textContent=isRep?'Upload a reference image for this layer. Add an optional note if you want Claude to adjust placement or styling.':'Describe how this layer should change.';
+ const refBlock=$('#layerEditRefBlock');
+ const refInp=$('#layerEditRef');
+ const refLbl=$('#layerEditRefLabel');
+ if(refBlock)refBlock.hidden=!isRep;
+ if(refInp)refInp.value='';
+ if(refLbl)refLbl.textContent='';
  $('#layerEditText').value='';
+ $('#layerEditText').placeholder=isRep?'Optional note (e.g. match existing style, keep size)…':'Describe the change…';
  layerEditDlg.showModal();
- $('#layerEditText').focus();
+ (isRep?refInp:$('#layerEditText'))?.focus();
 }
 async function submitLayerEdit(e){
  e.preventDefault();
  const ask=$('#layerEditText').value.trim();
  const p=layerEditPending;
- const {ref}=refControls();
+ const layerFile=$('#layerEditRef')?.files?.[0]||null;
  layerEditPending=null;
  layerEditDlg.close();
  if(!p)return false;
- if(!ask&&!(p.action==='replace'&&ref?.files?.[0])){alert('Describe the change or attach a reference on the right.');return false}
- await runLayerAction(p.idx,p.action,ask,p.mfPath);
+ if(p.action==='replace'){
+  if(!layerFile){alert('Choose a reference image to replace this layer.');return false}
+ }else if(!ask){alert('Describe how this layer should change.');return false}
+ await runLayerAction(p.idx,p.action,ask,p.mfPath,layerFile);
  return false;
 }
-async function runLayerAction(idx,action,ask,mfPath=null){
+async function runLayerAction(idx,action,ask,mfPath=null,layerRefFile=null){
  if(action==='delete'){if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(idx);return}
- const {ref}=refControls();
  const opts=mfPath?{mfPath,itemReplace:action==='replace'}:{itemIndex:idx,itemReplace:action==='replace'};
- if(action==='replace'&&ref?.files?.[0]){
-  await askFrame(selectedFrameId,ask||'Replace with reference image',opts);
+ if(action==='replace'){
+  const {ref}=refControls();
+  const file=layerRefFile||ref?.files?.[0];
+  if(!file){alert('Choose a reference image in the Replace dialog.');return}
+  await askFrame(selectedFrameId,ask||'Replace with reference image',{...opts,refFile:file,clearLayerRef:!!layerRefFile});
   return;
  }
  await askFrame(selectedFrameId,ask,opts);
