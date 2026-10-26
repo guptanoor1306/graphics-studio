@@ -183,6 +183,7 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .canvas-layer-row .cl-actions{display:flex;gap:6px;flex-shrink:0}
 .canvas-layer-row .cl-actions button{min-width:42px;height:42px;padding:0;font-size:17px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;cursor:pointer}
 .canvas-layer-row .cl-actions button:hover{border-color:var(--acc);color:var(--acc);background:var(--acc-soft)}
+dialog#layerEditDlg,dialog#toolModal{z-index:200000}
 dialog#layerEditDlg{width:min(480px,92vw)}
 dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 @media (max-width:960px){.edit-mode-grid{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}.edit-frame-strip{display:flex;gap:10px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.edit-frame-thumb{flex:0 0 120px;margin:0}}
@@ -770,7 +771,7 @@ async function runLayerAction(idx,action,ask,mfPath=null){
 }
 async function canvasLayerAction(idx,action,mfPath=null){
  if(action==='delete'){
-  openToolModal({title:'Remove layer',message:'Remove this layer from the frame?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(idx);renderCanvasLayerList()}});
+  openToolModal({title:'Remove layer',message:'Remove this layer from the frame?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(idx);renderCanvasLayerList();try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}}});
   return;
  }
  openLayerEditDialog(action,idx,mfPath);
@@ -837,23 +838,26 @@ function renderParentCanvasChips(layers){
   host.appendChild(outline);
   const chip=document.createElement('div');
   chip.className='canvas-parent-chip';
-  const lab=esc(L.label||(L.type||'layer'));
-  const mp=L.mfPath?` data-mf-path="${esc(L.mfPath)}"`:'';
-  chip.innerHTML=`<span class="cl">${lab}</span><span class="ca"><button type="button" title="Edit" data-act="edit" data-idx="${L.idx}"${mp}>✎</button><button type="button" title="Replace" data-act="replace" data-idx="${L.idx}"${mp}>↻</button><button type="button" title="Delete" data-act="delete" data-idx="${L.idx}"${mp}>×</button></span>`;
+  const labelEl=document.createElement('span');labelEl.className='cl';labelEl.textContent=L.label||(L.type||'layer');
+  const actions=document.createElement('span');actions.className='ca';
+  const mkBtn=(act,title,sym)=>{
+   const b=document.createElement('button');b.type='button';b.title=title;b.textContent=sym;
+   b.dataset.act=act;b.dataset.idx=String(L.idx);
+   if(L.mfPath)b.dataset.mfPath=L.mfPath;
+   b.addEventListener('click',ev=>{
+    ev.preventDefault();ev.stopPropagation();
+    const path=b.getAttribute('data-mf-path');
+    if(act==='delete')void canvasLayerAction(L.idx,'delete',path);
+    else openLayerEditDialog(act,L.idx,path);
+   });
+   return b;
+  };
+  actions.append(mkBtn('edit','Edit','✎'),mkBtn('replace','Replace','↻'),mkBtn('delete','Delete','×'));
+  chip.append(labelEl,actions);
   let chipTop=top-4;
   if(chipTop<4)chipTop=top+h+4;
   chip.style.top=Math.max(4,chipTop)+'px';
   chip.style.left=Math.max(4,left)+'px';
-  chip.querySelectorAll('button').forEach(btn=>{
-   btn.addEventListener('click',e=>{
-    e.stopPropagation();
-    const act=btn.dataset.act;
-    const idx=parseInt(btn.dataset.idx,10);
-    const mfPath=btn.dataset.mfPath||null;
-    if(act==='delete')canvasLayerAction(idx,'delete',mfPath);
-    else openLayerEditDialog(act,idx,mfPath);
-   });
-  });
   host.appendChild(chip);
  });
 }
@@ -904,7 +908,6 @@ function fitCanvasEdit(){
  const s=vp.clientWidth/1920;
  sc.style.transform=`scale(${s})`;
  vp.style.height=Math.round(1080*s)+'px';
- try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}
 }
 function setSpecPath(obj,path,value){
  const keys=String(path).replace(/\[(\d+)\]/g,'.$1').split('.').filter(Boolean);
@@ -969,7 +972,11 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
  if(mfPath){
   if(mfPath==='pill')fr.pill={...(fr.pill||{}),x:Math.round(x),y:Math.round(y)};
   else if(mfPath==='hero')fr.hero={...(fr.hero||{}),x:Math.round(x),y:Math.round(y)};
-  else if(/^labels\.items\.\d+$/.test(mfPath)){
+  else if(mfPath==='table')fr.box={...(fr.box||{}),x:Math.round(x),y:Math.round(y)};
+  else if(/^cards\.\d+$/.test(mfPath)){
+   setSpecPath(fr,mfPath+'.x',Math.round(x));
+   setSpecPath(fr,mfPath+'.y',Math.round(y));
+  }else if(/^labels\.items\.\d+$/.test(mfPath)){
    setSpecPath(fr,mfPath+'.x',Math.round(x));
    setSpecPath(fr,mfPath+'.y',Math.round(y));
   }else if(/^props\.\d+$/.test(mfPath)){
@@ -1042,7 +1049,7 @@ async function deleteFrameItem(idx){
 async function handleStudioEdit(msg){
  const mfPath=msg.mfPath||null;
  if(msg.action==='delete'){
-  openToolModal({title:'Remove layer',message:'Remove this element?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(msg.idx);renderCanvasLayerList()}});
+  openToolModal({title:'Remove layer',message:'Remove this element?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(msg.idx);renderCanvasLayerList();try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}}});
   return;
  }
  openLayerEditDialog(msg.action,msg.idx,mfPath);

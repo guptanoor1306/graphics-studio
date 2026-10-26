@@ -228,18 +228,19 @@
     return Math.max(lo, Math.min(hi, n));
   }
 
-  /** asset/person + any absolutely positioned spec layer (html, htab, etc.) */
   function canDrag(el) {
     if (!el || !el.classList.contains("studio-editable")) return false;
     if (el.dataset.specIdx == null) return false;
+    if (el.dataset.mfPath || el.dataset.mfDrag) return true;
     const t = el.dataset.layerType || "";
-    if (t === "asset" || t === "person" || t === "card") return true;
-    if (el.dataset.mfDrag) return true;
+    if (["asset", "person", "card", "pill", "hero", "label", "prop", "table", "definition", "point"].includes(t)) {
+      return true;
+    }
     if (el.dataset.mfProp != null) return true;
     const pos = getComputedStyle(el).position;
-    if (pos !== "absolute" && pos !== "fixed") return false;
+    if (pos === "absolute" || pos === "fixed") return true;
     if (el.closest(".flow")) return false;
-    return true;
+    return false;
   }
 
   function readPos(el) {
@@ -275,49 +276,62 @@
     }
   }
 
+  function stageRestriction() {
+    return document.getElementById("stage") || document.body;
+  }
+
   function initInteractDrag() {
-    if (typeof interact === "undefined") {
-      initPointerDrag();
-      return;
-    }
+    initPointerDrag();
+    if (typeof interact === "undefined") return;
     interactTargets.forEach((t) => {
       try {
         t.unset();
       } catch (_) {}
     });
     interactTargets = [];
+    const restrict =
+      interact.modifiers && interact.modifiers.restrictRect
+        ? [
+            interact.modifiers.restrictRect({
+              restriction: stageRestriction(),
+              endOnly: true,
+            }),
+          ]
+        : [];
     document.querySelectorAll("[data-spec-idx].studio-editable").forEach((el) => {
       if (!canDrag(el)) return;
       ensureAbsolute(el);
       const idx = parseInt(el.dataset.specIdx, 10);
-      const draggable = interact(el).draggable({
-        inertia: { resistance: 10, minSpeed: 100, endSpeed: 50 },
-        modifiers: [
-          interact.modifiers.restrictRect({
-            restriction: STAGE_BOUNDS,
-            endOnly: true,
-          }),
-        ],
-        listeners: {
-          start() {
-            el.classList.add("studio-dragging");
+      try {
+        const draggable = interact(el).draggable({
+          hold: 110,
+          ignoreFrom: ".studio-chip, .studio-chip-actions, button",
+          modifiers: restrict,
+          listeners: {
+            start() {
+              el.classList.add("studio-dragging");
+            },
+            move(event) {
+              const x =
+                (parseFloat(el.getAttribute("data-x")) || parseFloat(el.style.left) || 0) + event.dx;
+              const y =
+                (parseFloat(el.getAttribute("data-y")) || parseFloat(el.style.top) || 0) + event.dy;
+              el.style.left = Math.round(x) + "px";
+              el.style.top = Math.round(y) + "px";
+              el.setAttribute("data-x", String(Math.round(x)));
+              el.setAttribute("data-y", String(Math.round(y)));
+              schedulePlaceChips();
+            },
+            end() {
+              el.classList.remove("studio-dragging");
+              postMove(el, idx);
+            },
           },
-          move(event) {
-            const x = (parseFloat(el.getAttribute("data-x")) || parseFloat(el.style.left) || 0) + event.dx;
-            const y = (parseFloat(el.getAttribute("data-y")) || parseFloat(el.style.top) || 0) + event.dy;
-            el.style.left = Math.round(x) + "px";
-            el.style.top = Math.round(y) + "px";
-            el.setAttribute("data-x", String(Math.round(x)));
-            el.setAttribute("data-y", String(Math.round(y)));
-            schedulePlaceChips();
-          },
-          end() {
-            el.classList.remove("studio-dragging");
-            postMove(el, idx);
-          },
-        },
-      });
-      interactTargets.push(draggable);
+        });
+        interactTargets.push(draggable);
+      } catch (_) {
+        /* pointer drag remains active */
+      }
     });
   }
 
@@ -325,32 +339,46 @@
     if (pointerDragBound) return;
     pointerDragBound = true;
     let drag = null;
+    let pending = null;
+    const DRAG_PX = 6;
 
     document.addEventListener(
       "pointerdown",
       (e) => {
         if (e.button !== 0) return;
+        if (e.target.closest(".studio-chip, button")) return;
         const el = e.target.closest("[data-spec-idx].studio-editable");
-        if (!el || e.target.closest(".studio-chip")) return;
-        if (e.target.closest('[contenteditable="true"]')) return;
-        if (!canDrag(el)) return;
-        e.preventDefault();
+        if (!el || !canDrag(el)) return;
+        ensureAbsolute(el);
         const pos = readPos(el);
-        drag = {
+        pending = {
           el,
           idx: parseInt(el.dataset.specIdx, 10),
           pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
           offX: e.clientX - pos.x,
           offY: e.clientY - pos.y,
         };
-        el.classList.add("studio-dragging");
-        el.setPointerCapture(e.pointerId);
       },
       true
     );
 
     document.addEventListener("pointermove", (e) => {
+      if (pending && !drag && e.pointerId === pending.pointerId) {
+        const dx = e.clientX - pending.startX;
+        const dy = e.clientY - pending.startY;
+        if (Math.hypot(dx, dy) < DRAG_PX) return;
+        drag = pending;
+        pending = null;
+        drag.el.classList.add("studio-dragging");
+        try {
+          drag.el.setPointerCapture(e.pointerId);
+        } catch (_) {}
+        e.preventDefault();
+      }
       if (!drag || e.pointerId !== drag.pointerId) return;
+      e.preventDefault();
       const w = elDim().w;
       const h = elDim().h;
       const ew = drag.el.offsetWidth || 80;
@@ -360,14 +388,19 @@
       drag.el.style.position = "absolute";
       drag.el.style.left = x + "px";
       drag.el.style.top = y + "px";
+      drag.el.setAttribute("data-x", String(x));
+      drag.el.setAttribute("data-y", String(y));
+      schedulePlaceChips();
     });
 
     function finishDrag(e) {
+      if (pending && e.pointerId === pending.pointerId) {
+        pending = null;
+        return;
+      }
       if (!drag || (e.pointerId != null && e.pointerId !== drag.pointerId)) return;
       const el = drag.el;
       const idx = drag.idx;
-      const x = parseInt(el.style.left, 10) || 0;
-      const y = parseInt(el.style.top, 10) || 0;
       el.classList.remove("studio-dragging");
       try {
         el.releasePointerCapture(drag.pointerId);
