@@ -117,6 +117,7 @@
   let lastBoundsSig = "";
   function emitLayerBoundsToParent() {
     if (!window.parent || window.parent === window) return;
+    if (document.querySelector(".studio-dragging, .studio-resizing")) return;
     const layers = registryLayers().map((L) => ({
       idx: L.idx,
       type: L.type,
@@ -530,6 +531,8 @@
       } catch (_) {}
       drag = null;
       postMove(el, idx);
+      lastBoundsSig = "";
+      emitLayerBoundsToParent();
     }
 
     document.addEventListener("pointerup", finishDrag);
@@ -757,8 +760,11 @@
 
   function layerElForNudge(idx, mfPath) {
     if (mfPath) {
+      const esc = (window.CSS && CSS.escape) ? CSS.escape(mfPath) : mfPath.replace(/"/g, '\\"');
+      const byPathOnly = document.querySelector(`[data-mf-path="${esc}"], [data-mf-drag="${esc}"]`);
+      if (byPathOnly) return byPathOnly;
       const byPath = document.querySelector(
-        `[data-spec-idx="${idx}"][data-mf-path="${mfPath}"], [data-spec-idx="${idx}"][data-mf-drag="${mfPath}"]`
+        `[data-spec-idx="${idx}"][data-mf-path="${esc}"], [data-spec-idx="${idx}"][data-mf-drag="${esc}"]`
       );
       if (byPath) return byPath;
     }
@@ -796,6 +802,7 @@
         postResize(el, d.idx, parentResizeSession.last);
         parentResizeSession = null;
       }
+      schedulePlaceChips();
       return;
     }
     if (!parentResizeSession || parentResizeSession.el !== el) {
@@ -803,7 +810,6 @@
     }
     applyResizeDelta(parentResizeSession, d.dx || 0, d.dy || 0);
     el.classList.add("studio-resizing");
-    schedulePlaceChips();
   });
 
   if (document.readyState === "loading") {

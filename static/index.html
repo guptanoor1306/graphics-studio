@@ -154,6 +154,8 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .edit-canvas-viewport{position:relative;width:100%;max-width:100%;flex:0 0 auto;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
 #canvasChipOverlay{position:absolute;inset:0;z-index:12;pointer-events:none;overflow:visible}
 .canvas-parent-chip{position:absolute;pointer-events:auto;display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(26,25,23,.96);color:#fff;border-radius:10px;font:13px/1.2 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:min(280px,90vw)}
+.canvas-parent-chip-float{padding:6px 8px;max-width:none}
+.canvas-parent-chip-float .ca{gap:6px}
 .canvas-parent-chip .cl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .canvas-parent-chip .ca{display:flex;gap:4px;flex-shrink:0}
 .canvas-parent-chip .ca button{border:0;background:rgba(255,255,255,.14);color:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;line-height:1}
@@ -836,6 +838,7 @@ async function runLayerAction(idx,action,ask,mfPath=null,layerRefFile=null){
 }
 async function canvasLayerAction(idx,action,mfPath=null){
  if(action==='delete'){
+  if(isMfTheme(P?.theme)&&!mfPath){alert('Select a specific layer to remove (use the layer list if needed).');return}
   openToolModal({title:'Remove layer',message:'Remove this layer from the frame?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(idx);renderCanvasLayerList();try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}}});
   return;
  }
@@ -968,7 +971,8 @@ function renderParentCanvasChips(layers){
   outline.style.left=left+'px';
   outline.style.width=Math.max(24,w)+'px';
   outline.style.height=Math.max(20,h)+'px';
-  outline.title='Select layer';
+  outline.style.pointerEvents=sel?'none':'auto';
+  outline.title=sel?'Selected — drag layer to move':'Select layer';
   outline.addEventListener('click',ev=>{
    ev.stopPropagation();
    if(canvasLayerSelected(L)){selectedCanvasLayer=null;lastCanvasChipSig='';renderParentCanvasChips(lastCanvasLayers);renderCanvasLayerList();syncIframeLayerSelect();return}
@@ -983,8 +987,8 @@ function renderParentCanvasChips(layers){
  const top=(L.top||0)*s;
  const left=(L.left||0)*s;
  const chip=document.createElement('div');
- chip.className='canvas-parent-chip';
- const labelEl=document.createElement('span');labelEl.className='cl';labelEl.textContent=L.label||(L.type||'layer');
+ chip.className='canvas-parent-chip canvas-parent-chip-float';
+ chip.title=L.label||(L.type||'layer');
  const actions=document.createElement('span');actions.className='ca';
  const mkBtn=(act,title,sym)=>{
   const b=document.createElement('button');b.type='button';b.title=title;b.textContent=sym;
@@ -993,9 +997,10 @@ function renderParentCanvasChips(layers){
   return b;
  };
  actions.append(mkBtn('edit','Edit','✎'),mkBtn('replace','Replace','↻'),mkBtn('delete','Delete','×'));
- chip.append(labelEl,actions);
- let chipTop=top-4;
- if(chipTop<4)chipTop=top+h+4;
+ chip.append(actions);
+ const chipH=44;
+ let chipTop=top-chipH-8;
+ if(chipTop<4)chipTop=top+h+8;
  chip.style.top=Math.max(4,chipTop)+'px';
  chip.style.left=Math.max(4,left)+'px';
  host.appendChild(chip);
@@ -1204,7 +1209,8 @@ function applyMfPathDelete(fr,mfPath){
  if((m=mfPath.match(/^items\.(\d+)$/))&&Array.isArray(fr.items)){fr.items.splice(+m[1],1);return true}
  if((m=mfPath.match(/^cards\.(\d+)$/))&&fr.cards){fr.cards.splice(+m[1],1);return true}
  if((m=mfPath.match(/^questions\.(\d+)$/))&&fr.questions){fr.questions.splice(+m[1],1);return true}
- if((m=mfPath.match(/^steps\.(\d+)/))&&fr.steps){fr.steps.splice(+m[1],1);return true}
+ if((m=mfPath.match(/^steps\.(\d+)\.label$/))&&fr.steps?.[+m[1]]){fr.steps[+m[1]].label='';return true}
+ if((m=mfPath.match(/^steps\.(\d+)$/))&&fr.steps){fr.steps.splice(+m[1],1);return true}
  return false;
 }
 async function deleteMfPart(mfPath){

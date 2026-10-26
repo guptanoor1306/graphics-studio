@@ -113,6 +113,7 @@
     e.style.left = (x === "center" ? (960 - w / 2) : x === "right" ? (1920 - w - 60) : x === "left" ? 60 : x) + "px";
     if (opts.cx !== undefined) e.style.left = (opts.cx - w / 2) + "px";
     e.style.top = y + "px";
+    if (opts.studioLayer) e.dataset.mfStudioLayer = opts.studioLayer;
     return e;
   }
   function cursor(c) {
@@ -191,7 +192,7 @@
       });
     }
     if (F.chain) chain(F.chain);
-    if (F.pill) pill(Object.assign({ size: "lg" }, F.pill), F.pill.x !== undefined ? F.pill.x : "center", F.pill.y !== undefined ? F.pill.y : 104);
+    if (F.pill) pill(Object.assign({ size: "lg" }, F.pill), F.pill.x !== undefined ? F.pill.x : "center", F.pill.y !== undefined ? F.pill.y : 104, { studioLayer: "pill" });
     if (F.html) add(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html));
     cursor(F.cursor);
     disclaimer();
@@ -235,7 +236,7 @@
     decor("anchor");
     const y = F.y || 238;
     add(el("div", "deftab", { left: "-20px", top: (y + 162) + "px", width: "213px" }));
-    pill({ text: F.term, icon: "coin", fontSize: F.term_font }, 20, y);
+    pill({ text: F.term, icon: "coin", fontSize: F.term_font }, 20, y, { studioLayer: "term" });
     const d = el("div", "defbox", { left: "214px", top: (y + 160) + "px", whiteSpace: "nowrap" }, rich(F.text));
     add(content(d));
     let f = F.def_font || 35;
@@ -246,7 +247,7 @@
   // Plain anchor frame with free html (e.g. a number popup)
   T.anchor = function () {
     background("plate"); decor("anchor");
-    if (F.pill) pill(F.pill, F.pill.x || 20, F.pill.y || 238);
+    if (F.pill) pill(F.pill, F.pill.x || 20, F.pill.y || 238, { studioLayer: "pill" });
     if (F.html) content(add(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html)));
   };
 
@@ -283,7 +284,7 @@
     }
     decor(bgk === "dark" ? "none" : "light-min");
     if (bgk === "dark") { diamond(230, 70, 26, "#6a64f0"); diamond(1610, 130, 20, "#f39a2b"); diamond(400, 1010, 20, "#8f8f8f"); diamond(1380, 1015, 30, "#f39a2b"); }
-    if (F.pill) pill(Object.assign({ size: "sm" }, F.pill), "center", F.pill.y || 60);
+    if (F.pill) pill(Object.assign({ size: "sm" }, F.pill), "center", F.pill.y || 60, { studioLayer: "pill" });
     const box = F.box || {};
     const t = el("table", "tbl" + (F.center ? " center" : ""));
     const cols = F.columns, W = box.w || (cols.length <= 2 ? 1200 : cols.length === 3 ? 1640 : 1760);
@@ -332,7 +333,7 @@
   T.cycle = function () {
     background("dark"); darkGrid(); decor("dark-min");
     img("decor/star_blue.png", 145, 690, 107); img("decor/leaf_green.png", 30, 160, 82);
-    if (F.pill) pill(Object.assign({ icon: "search", size: "lg" }, F.pill), "center", 104, { cx: 1150 });
+    if (F.pill) pill(Object.assign({ icon: "search", size: "lg" }, F.pill), "center", 104, { cx: 1150, studioLayer: "pill" });
     const steps = F.steps, n = steps.length, act = F.active || n;
     const cx = 1150, cy = 690, r = 220;
     const grads = ["url(#g1)", "url(#g2)", "url(#g3)", "url(#g4)"];
@@ -370,7 +371,7 @@
     const bgk = F.bg || "dark";
     background(bgk); if (bgk === "dark") darkGrid();
     decor(bgk === "dark" ? "dark" : "light-frames");
-    pill({ text: F.title, icon: F.pill_icon || "coin" }, "center", F.title_y || 80);
+    pill({ text: F.title, icon: F.pill_icon || "coin" }, "center", F.title_y || 80, { studioLayer: "title" });
     const items = F.items, n = items.length;
     const twoCol = n > 4, perCol = twoCol ? Math.ceil(n / 2) : n;
     const colors = ["orange", "pink", "green"];
@@ -398,7 +399,7 @@
   T.html = function () {
     background(F.bg || "light"); if (F.bg === "dark") darkGrid();
     decor(F.decorset || (F.bg === "dark" ? "dark" : "light"));
-    if (F.pill) pill(F.pill, F.pill.x !== undefined ? F.pill.x : "center", F.pill.y || 104);
+    if (F.pill) pill(F.pill, F.pill.x !== undefined ? F.pill.x : "center", F.pill.y || 104, { studioLayer: "pill" });
     content(add(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html || "")));
     cursor(F.cursor); disclaimer();
   };
@@ -472,10 +473,10 @@
       delete el.dataset.mfDrag;
       delete el.dataset.resize;
     });
-    document.querySelectorAll(".pill").forEach((pillEl) => {
+    document.querySelectorAll(".pill[data-mf-studio-layer]").forEach((pillEl) => {
       const t = pillEl.querySelector(".t");
-      const label = (t && t.innerText) || (F.pill && F.pill.text) || F.term || F.title || "pill";
-      const path = F.pill ? "pill" : F.term ? "term" : "pill";
+      const path = pillEl.dataset.mfStudioLayer;
+      const label = (t && t.innerText) || path || "pill";
       tagOne(pillEl, "pill", label, path);
     });
     document.querySelectorAll(".defbox").forEach((el) => {
