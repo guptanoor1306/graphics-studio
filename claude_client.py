@@ -524,6 +524,8 @@ def edit_frame(
         msg = (
             f"Look: {json.dumps(look)}\nCurrent frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"
             f"Change requested by the team member: {ask}\n"
+            "For `cards` layers: use `active` null (all visible, none dimmed) or a 0-based index for one highlight — "
+            "not active:\"all\". Size via `scale` (e.g. 1.3) and/or `card_w` on the cards item; do not invent `fade` unless dimming one card.\n"
         )
     if ref_image and smart_reference and not flat_paste:
         msg += (

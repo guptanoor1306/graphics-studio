@@ -104,6 +104,43 @@ def apply_layer_reference_replace(frame: dict, item_index: int, ref_src: str) ->
     return {**frame, "items": items, "prop": False}
 
 
+def normalize_cards_items(frame: dict) -> dict:
+    """Apply cards fields the renderer understands; fix common Claude mistakes."""
+    items = []
+    for it in frame.get("items") or []:
+        if not isinstance(it, dict) or it.get("t") != "cards":
+            items.append(it)
+            continue
+        it = {**it}
+        if it.get("active") == "all":
+            it["active"] = None
+        if it.get("scale") not in (None, 1, 1.0, "1"):
+            try:
+                s = float(it["scale"])
+                if s > 0:
+                    it["scale"] = round(s, 3)
+            except (TypeError, ValueError):
+                it.pop("scale", None)
+        card_w = it.get("card_w") or it.get("w")
+        if card_w is not None:
+            try:
+                it["card_w"] = int(card_w)
+            except (TypeError, ValueError):
+                pass
+        cleaned = []
+        for c in it.get("items") or []:
+            if not isinstance(c, dict):
+                cleaned.append(c)
+                continue
+            c = {**c}
+            if c.get("fade") is False:
+                c.pop("fade", None)
+            cleaned.append(c)
+        it["items"] = cleaned
+        items.append(it)
+    return {**frame, "items": items}
+
+
 def merge_item_edit(before: dict, after: dict, item_index: int) -> dict:
     """Single-layer edit: swap one items[] slot; drop appended duplicates from the model."""
     bi = [it for it in before.get("items") or [] if isinstance(it, dict)]

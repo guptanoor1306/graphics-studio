@@ -22,6 +22,7 @@ from frame_edit_util import (
     apply_layer_reference_replace,
     finalize_reference_edit,
     merge_item_edit,
+    normalize_cards_items,
     remove_scene_illustrations,
     strip_upload_assets,
 )
@@ -405,6 +406,8 @@ async def edit(pid: int, fid: str, req: Request):
             )
     except Exception as e:
         _raise_claude_gateway(e)
+    if not is_mf_theme_name(p["theme"]):
+        new = normalize_cards_items(new)
     spec["frames"][i] = new
     note = f"{fid}: {(ask or 'reference')[:80]}"
     save(pid, who(req), note, spec=spec)

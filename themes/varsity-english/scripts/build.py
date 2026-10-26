@@ -88,9 +88,27 @@ def folder(i):
     a = i.get('active', 0)
     lis = ''.join(f'<li class="{"" if n == a else "off"}">{n+1}. {E(t)}</li>' for n, t in enumerate(i['items']))
     return f'<div class="folder"><ol class="paper">{lis}</ol><div class="front"></div></div>'
+def _icard_state(active, index):
+    """active: null = all normal; 'all' = all highlighted; int = one highlighted, rest dimmed."""
+    if active is None:
+        return ''
+    if active == 'all':
+        return 'on'
+    if active == index or active == index + 1:
+        return 'on'
+    return 'off'
+
+
 def cards(i, *, edit=False, spec_idx=None, layer_attrs=''):
     a = i.get('active')
     items = i.get('items') or []
+    scale = i.get('scale')
+    scale_css = ''
+    if scale not in (None, 1, '1', 1.0):
+        try:
+            scale_css = f'transform:scale({float(scale)});transform-origin:center top;'
+        except (TypeError, ValueError):
+            scale_css = ''
     if edit and spec_idx is not None:
         gap, card_w = 28, int(i.get('card_w', 300))
         n = len(items)
@@ -99,7 +117,11 @@ def cards(i, *, edit=False, spec_idx=None, layer_attrs=''):
         base_y = int(i.get('y', 420))
         parts = []
         for ci, c in enumerate(items):
-            st = '' if a is None else ('on' if ci == a else 'off')
+            st = _icard_state(a, ci)
+            if c.get('fade') is False or c.get('visible') is True:
+                st = 'on' if st == 'off' and a not in (None, 'all') else (st or 'on')
+            if c.get('fade') is True:
+                st = 'off'
             img = f'<img src="../assets/{c["img"]}">' if c.get('img') else (c.get('svg') or '')
             inner = f'<div class="icard {st}">{img}<b>{E(c["label"])}</b><span>{E(c.get("sub",""))}</span></div>'
             cx = int(c.get('x', base_x + ci * (card_w + gap)))
@@ -116,12 +138,18 @@ def cards(i, *, edit=False, spec_idx=None, layer_attrs=''):
         return ''.join(parts)
     out = ''
     for n, c in enumerate(items):
-        st = '' if a is None else ('on' if n == a else 'off')
+        st = _icard_state(a, n)
+        if c.get('fade') is False or c.get('visible') is True:
+            st = 'on' if st == 'off' and a not in (None, 'all') else (st or 'on')
+        if c.get('fade') is True:
+            st = 'off'
+        op = c.get('opacity')
+        op_css = f'opacity:{float(op)};' if op is not None else ''
         img = f'<img src="../assets/{c["img"]}">' if c.get('img') else (c.get('svg') or '')
-        out += f'<div class="icard {st}">{img}<b>{E(c["label"])}</b><span>{E(c.get("sub",""))}</span></div>'
-    w = i.get('w')
+        out += f'<div class="icard {st}" style="{op_css}">{img}<b>{E(c["label"])}</b><span>{E(c.get("sub",""))}</span></div>'
+    w = i.get('card_w') or i.get('w')
     extra = f'width:{w}px;' if w else ''
-    return f'<div style="display:flex;gap:28px;justify-content:center;{extra}">{out}</div>'
+    return f'<div style="display:flex;gap:28px;justify-content:center;{extra}{scale_css}">{out}</div>'
 def bars(i):
     # bar chart in house style: boxed y-axis with labels, baseline, blue bars (amber = highlight), dashed target (review rule 7)
     W, H = i.get('w', 1200), i.get('h', 600); vals = i['values']; mx = i.get('max', max(vals + [i.get('target', 0)]) * 1.2)
