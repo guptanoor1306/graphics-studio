@@ -1,7 +1,14 @@
 // Varsity MF graphics renderer. window.FRAME (one frame from spec.json) + window.OPTS {overlay:bool}
 (function () {
  const fontsReady = Promise.all(["500","600","700","800","900"].map(w => document.fonts.load(w + " 40px Inter"))).catch(() => {});
- fontsReady.then(() => { try { run(); } catch (e) { window.RENDER_ERROR = "render error: " + e.message; } window.RENDERED = true; });
+ fontsReady.then(() => {
+  try { run(); } catch (e) { window.RENDER_ERROR = "render error: " + e.message; }
+  window.RENDERED = true;
+  if ((window.OPTS || {}).studioEdit) {
+    if (typeof window.initMfInlineText === "function") window.initMfInlineText();
+    if (typeof window.studioBootLayers === "function") window.studioBootLayers();
+  }
+ });
  function run() {
   const A = "../assets/";
   const F = window.FRAME, O = window.OPTS || {};
@@ -494,17 +501,12 @@
   function notifyStudioLayers() {
     tagMfStudioLayers();
     bindMfInline();
-    if (typeof window.studioBootLayers === "function") window.studioBootLayers();
-    else setTimeout(notifyStudioLayers, 40);
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ studio: "layers-ready" }, "*");
     }
   }
 
-  window.initMfInlineText = function () {
-    notifyStudioLayers();
-  };
-  if (O.studioEdit) notifyStudioLayers();
+  window.initMfInlineText = notifyStudioLayers;
 
   // ---------- QA: report off-frame, clipped text, anchor-face overlap ----------
   window.QA = function () {

@@ -462,12 +462,12 @@
   function boot() {
     initDrag();
     initResize();
-    bootLayers();
     window.addEventListener("resize", placeChips);
     window.addEventListener("scroll", placeChips, true);
     if (window.OPTS && window.OPTS.studioEdit && typeof window.FRAME !== "undefined") {
-      waitForMfRender(40);
+      waitForMfRender(100);
     } else {
+      bootLayers();
       setTimeout(bootLayers, 400);
       setTimeout(bootLayers, 1200);
     }
