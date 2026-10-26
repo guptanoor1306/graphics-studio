@@ -143,6 +143,7 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .canvas-parent-layer-outline{position:absolute;border:2px dashed rgba(36,142,247,.45);pointer-events:auto;box-sizing:border-box;border-radius:4px;cursor:pointer;z-index:1}
 .canvas-parent-layer-outline.sel{border-color:rgba(36,142,247,.95);border-width:2px;background:rgba(36,142,247,.06);z-index:2}
 .canvas-parent-resize-handle{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:auto;cursor:nwse-resize;border-radius:4px;background:#fff;border:2px solid rgba(36,142,247,.95);box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:5}
+.canvas-layer-bounds-hint{position:absolute;left:50%;top:12px;transform:translateX(-50%);pointer-events:none;padding:8px 14px;border-radius:8px;background:rgba(26,25,23,.88);color:#fff;font:13px/1.4 system-ui,sans-serif;z-index:3}
 .edit-mode-top{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);flex-shrink:0}
 .edit-mode-top .spacer{flex:1}
 .edit-mode-top b{font-size:16px;font-weight:600}
@@ -957,7 +958,13 @@ function renderParentCanvasChips(layers){
  lastCanvasChipSig=sig;
  host.innerHTML='';
  const s=canvasEditScale();
- if(!layers.length)return;
+ if(!layers.length){
+  const hint=document.createElement('div');
+  hint.className='canvas-layer-bounds-hint';
+  hint.textContent='Layer outlines loading… click the canvas or wait a moment.';
+  host.appendChild(hint);
+  return;
+ }
  let selectedL=null;
  layers.forEach((L)=>{
   const w=(L.width||120)*s;
@@ -1045,14 +1052,16 @@ function refreshEditCanvas(){
   fitCanvasEdit();
   clearParentCanvasChips();
   const w=ifr.contentWindow;
-  if(w)w.__studioLayersBooted=false;
-  const boot=()=>{try{if(w&&!w.__studioLayersBooted){w.__studioLayersBooted=true;w.studioBootLayers?.()}}catch(_){}};
+  const boot=()=>{try{w?.studioBootLayers?.()}catch(e){console.warn('layer boot',e)}};
   if(w?.RENDERED)boot();
   else{
    let n=0;
    const poll=()=>{if(w?.RENDERED||++n>120){boot();return}requestAnimationFrame(poll)};
    poll();
   }
+  setTimeout(boot,500);
+  setTimeout(boot,1500);
+  setTimeout(boot,3000);
   ifr.onload=null;
  };
  ifr.src=canvasEditUrl();
@@ -1286,10 +1295,7 @@ window.addEventListener('message',e=>{
  if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx,mfPath:e.data.mfPath||null});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
  if(e.data?.studio==='layers-ready'&&editModeOpen){
-  try{
-   const w=$('#canvasEditFrame')?.contentWindow;
-   if(w&&!w.__studioLayersBooted){w.__studioLayersBooted=true;w.studioBootLayers?.()}
-  }catch(_){}
+  try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}
  }
  if(e.data?.studio==='select-layer'&&editModeOpen){
   if(e.data.idx==null)selectedCanvasLayer=null;

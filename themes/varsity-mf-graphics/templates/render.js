@@ -522,6 +522,11 @@
   function notifyStudioLayers(pingParent) {
     tagMfStudioLayers();
     bindMfInline();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (typeof window.studioBootLayers === "function") window.studioBootLayers();
+      });
+    });
     if (
       pingParent !== false &&
       window.parent &&

@@ -726,16 +726,24 @@
   }
 
   function bootLayers() {
+    lastBoundsSig = "";
     initInlineText();
     initInteractDrag();
     placeChips();
   }
 
-  window.studioBootLayers = bootLayers;
+  function bootLayersDelayed() {
+    bootLayers();
+    setTimeout(bootLayers, 400);
+    setTimeout(bootLayers, 1200);
+    setTimeout(bootLayers, 2400);
+  }
+
+  window.studioBootLayers = bootLayersDelayed;
 
   function waitForMfRender(tries) {
     if (window.RENDERED) {
-      bootLayers();
+      bootLayersDelayed();
       return;
     }
     if (tries <= 0) {
@@ -752,9 +760,7 @@
     if (window.OPTS && window.OPTS.studioEdit && typeof window.FRAME !== "undefined") {
       waitForMfRender(100);
     } else {
-      bootLayers();
-      setTimeout(bootLayers, 400);
-      setTimeout(bootLayers, 1200);
+      bootLayersDelayed();
     }
   }
 
