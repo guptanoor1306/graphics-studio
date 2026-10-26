@@ -282,7 +282,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 </form></dialog>
 <script>
 let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
-let canvasChipOverlayBound=false,canvasChipRenderT=0,lastCanvasChipSig='',lastCanvasLayers=[],selectedCanvasLayer=null,parentResizeBound=false,parentResize=null;
+let canvasChipOverlayBound=false,canvasChipRenderT=0,lastCanvasChipSig='',lastCanvasLayers=[],selectedCanvasLayer=null,parentResizeBound=false,parentResize=null,boundsPollTimer=null;
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 const ICON_DELETE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
 const ICON_EDIT='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
@@ -873,6 +873,7 @@ function openEditMode(fid){
 }
 async function exitEditMode(){
  editModeOpen=false;
+ stopBoundsPoll();
  document.body.classList.remove('edit-mode-on');
  $('#editModeApp').hidden=true;
  if(P?.id){
@@ -887,6 +888,47 @@ async function exitEditMode(){
 function canvasEditScale(){
  const vp=$('#canvasEditViewport');
  return vp?vp.clientWidth/1920:1;
+}
+function stopBoundsPoll(){if(boundsPollTimer){clearInterval(boundsPollTimer);boundsPollTimer=null}}
+function pullLayerBoundsFromIframe(){
+ const doc=$('#canvasEditFrame')?.contentDocument;
+ if(!doc)return [];
+ const layers=[];
+ doc.querySelectorAll('[data-spec-idx]').forEach(el=>{
+  const r=el.getBoundingClientRect();
+  if(r.width<2&&r.height<2)return;
+  const idx=parseInt(el.dataset.specIdx,10);
+  if(Number.isNaN(idx))return;
+  layers.push({
+   idx,
+   type:el.dataset.layerType||'',
+   label:el.dataset.layerLabel||'',
+   mfPath:el.dataset.mfPath||el.dataset.mfDrag||null,
+   resize:el.dataset.resize||'',
+   top:Math.round(r.top),
+   left:Math.round(r.left),
+   width:Math.round(r.width),
+   height:Math.round(r.height)
+  });
+ });
+ return layers;
+}
+function syncIframeLayerBounds(){
+ if(!editModeOpen)return;
+ const layers=pullLayerBoundsFromIframe();
+ if(!layers.length)return;
+ lastCanvasLayers=layers;
+ lastCanvasChipSig='';
+ renderParentCanvasChips(layers);
+}
+function startBoundsPoll(){
+ stopBoundsPoll();
+ let n=0;
+ syncIframeLayerBounds();
+ boundsPollTimer=setInterval(()=>{
+  syncIframeLayerBounds();
+  if(lastCanvasLayers.length||++n>24)stopBoundsPoll();
+ },500);
 }
 function ensureCanvasChipOverlayActions(){
  const host=$('#canvasChipOverlay');
@@ -1061,7 +1103,7 @@ function refreshEditCanvas(){
   }
   setTimeout(boot,500);
   setTimeout(boot,1500);
-  setTimeout(boot,3000);
+  setTimeout(()=>{boot();startBoundsPoll()},800);
   ifr.onload=null;
  };
  ifr.src=canvasEditUrl();
@@ -1073,6 +1115,7 @@ function fitCanvasEdit(){
  const s=vp.clientWidth/1920;
  sc.style.transform=`scale(${s})`;
  vp.style.height=Math.round(1080*s)+'px';
+ if(editModeOpen&&lastCanvasLayers.length)renderParentCanvasChips(lastCanvasLayers);
 }
 function setSpecPath(obj,path,value){
  const keys=String(path).replace(/\[(\d+)\]/g,'.$1').split('.').filter(Boolean);
@@ -1306,8 +1349,13 @@ window.addEventListener('message',e=>{
  }
  if(e.data?.studio==='layer-bounds'&&editModeOpen){
   clearTimeout(canvasChipRenderT);
-  lastCanvasLayers=e.data.layers||[];
-  canvasChipRenderT=setTimeout(()=>renderParentCanvasChips(lastCanvasLayers),32);
+  const incoming=e.data.layers||[];
+  canvasChipRenderT=setTimeout(()=>{
+   if(incoming.length)lastCanvasLayers=incoming;
+   else syncIframeLayerBounds();
+   if(!lastCanvasLayers.length)syncIframeLayerBounds();
+   renderParentCanvasChips(lastCanvasLayers);
+  },32);
  }
 });
 window.addEventListener('resize',()=>{

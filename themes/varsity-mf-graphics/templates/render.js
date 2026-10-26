@@ -522,11 +522,6 @@
   function notifyStudioLayers(pingParent) {
     tagMfStudioLayers();
     bindMfInline();
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (typeof window.studioBootLayers === "function") window.studioBootLayers();
-      });
-    });
     if (
       pingParent !== false &&
       window.parent &&
@@ -538,9 +533,8 @@
     }
   }
 
-  window.initMfInlineText = function () {
-    notifyStudioLayers(false);
-  };
+  window.bindMfStudioInline = bindMfInline;
+  window.initMfInlineText = bindMfInline;
 
   const fn = T[F.type];
   if (!fn) { document.body.innerHTML = `<h1 style="color:red">Unknown type ${F.type}</h1>`; window.RENDER_ERROR = "unknown type " + F.type; }

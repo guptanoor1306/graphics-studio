@@ -720,14 +720,20 @@
         );
       });
     });
-    if (window.OPTS && window.OPTS.studioEdit && typeof window.initMfInlineText === "function") {
-      window.initMfInlineText();
+    if (window.OPTS && window.OPTS.studioEdit && typeof window.bindMfStudioInline === "function") {
+      window.bindMfStudioInline();
     }
+  }
+
+  function initInlineTextOnce() {
+    if (window.__studioInlineInit) return;
+    window.__studioInlineInit = true;
+    initInlineText();
   }
 
   function bootLayers() {
     lastBoundsSig = "";
-    initInlineText();
+    initInlineTextOnce();
     initInteractDrag();
     placeChips();
   }
@@ -736,7 +742,6 @@
     bootLayers();
     setTimeout(bootLayers, 400);
     setTimeout(bootLayers, 1200);
-    setTimeout(bootLayers, 2400);
   }
 
   window.studioBootLayers = bootLayersDelayed;
