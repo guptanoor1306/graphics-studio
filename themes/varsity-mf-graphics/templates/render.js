@@ -102,7 +102,7 @@
     let h = "";
     if (icon === "search") h += `<img class="ic" src="${A}ui/icon_search.png">`;
     if (icon === "coin") h += `<div class="coin"><img src="${A}ui/icon_rupee_coin.png"></div>`;
-    h += `<span class="t" style="color:#fff">${esc(p.text)}</span>`;
+    h += `<span class="t" style="color:#fff${p.fontSize ? ";font-size:" + p.fontSize + "px" : ""}">${esc(p.text)}</span>`;
     if (p.knob !== false && icon !== "coin") h += `<span class="knob"></span>`;
     h += `<div class="grain"></div>`;
     e.innerHTML = h;
@@ -141,6 +141,7 @@
   }
   function numLabel(it) {
     const e = el("div", "nlabel" + (it.state ? " " + it.state : ""), {}, `<span class="c">${it.n}</span><span>${esc(it.text)}</span>`);
+    if (it.fontSize) e.style.fontSize = it.fontSize + "px";
     add(content(e));
     const w = e.offsetWidth;
     const ax = it.align === "right" ? it.x - w : it.align === "center" ? it.x - w / 2 : it.x;
@@ -234,10 +235,12 @@
     decor("anchor");
     const y = F.y || 238;
     add(el("div", "deftab", { left: "-20px", top: (y + 162) + "px", width: "213px" }));
-    pill({ text: F.term, icon: "coin" }, 20, y);
+    pill({ text: F.term, icon: "coin", fontSize: F.term_font }, 20, y);
     const d = el("div", "defbox", { left: "214px", top: (y + 160) + "px", whiteSpace: "nowrap" }, rich(F.text));
     add(content(d));
-    let f = 35; while (d.offsetWidth > (F.maxw || 1100) && f > 24) { f -= 1; d.style.fontSize = f + "px"; }
+    let f = F.def_font || 35;
+    d.style.fontSize = f + "px";
+    while (d.offsetWidth > (F.maxw || 1100) && f > 24) { f -= 1; d.style.fontSize = f + "px"; }
   };
 
   // Plain anchor frame with free html (e.g. a number popup)
@@ -260,6 +263,7 @@
       add(content(t));
       const below = i % 2 === 0;
       const b = el("div", "qbox" + (dim ? " dim" : ""), {}, rich(text));
+      if (F.question_font) b.style.fontSize = F.question_font + "px";
       add(content(b));
       const w = b.offsetWidth, h = b.offsetHeight;
       let left = x + 193 - w / 2; left = Math.max(24, Math.min(1896 - w, left));
@@ -383,7 +387,9 @@
         `<span class="k" style="background-image:url(${A}ui/tile_${colors[i % 3]}.png)">${i + 1}</span><span>${rich(it)}</span>`);
       add(content(chip));
       if (!twoCol) { chip.style.fontSize = "54px"; chip.style.padding = "24px 40px 24px 24px"; chip.querySelector(".k").style.cssText += ";width:88px;height:88px;font-size:46px"; }
-      let f = twoCol ? 44 : 54; while (chip.offsetHeight > gapY - 24 && f > 30) { f -= 2; chip.style.fontSize = f + "px"; }
+      let f = F.point_font || (twoCol ? 44 : 54);
+      chip.style.fontSize = f + "px";
+      while (chip.offsetHeight > gapY - 24 && f > 30) { f -= 2; chip.style.fontSize = f + "px"; }
     });
     cursor(F.cursor);
   };
@@ -435,6 +441,12 @@
     const cap = document.querySelector(".caption");
     if (F.caption && cap) bindEl(cap, "caption");
   }
+  function mfResizeMode(type) {
+    if (["pill", "definition", "label", "point", "tile"].includes(type)) return "font";
+    if (type === "table") return "w";
+    if (["hero", "prop", "card"].includes(type)) return "asset";
+    return "";
+  }
   function tagOne(el, type, label, mfDrag) {
     if (!el || el.dataset.mfTagged) return;
     el.dataset.mfTagged = "1";
@@ -442,6 +454,8 @@
     el.dataset.layerType = type;
     el.dataset.layerLabel = String(label || type).slice(0, 32);
     el.classList.add("studio-editable");
+    const rm = mfResizeMode(type);
+    if (rm) el.dataset.resize = rm;
     if (mfDrag) {
       el.dataset.mfDrag = mfDrag;
       el.dataset.mfPath = mfDrag;
@@ -456,6 +470,7 @@
       delete el.dataset.specIdx;
       delete el.dataset.mfPath;
       delete el.dataset.mfDrag;
+      delete el.dataset.resize;
     });
     document.querySelectorAll(".pill").forEach((pillEl) => {
       const t = pillEl.querySelector(".t");
@@ -497,6 +512,9 @@
     document.querySelectorAll(".chip").forEach((el, i) => {
       const path = F.type === "points" && F.items ? "items." + i : null;
       tagOne(el, "point", el.innerText.slice(0, 36), path);
+    });
+    document.querySelectorAll(".qbox").forEach((el, i) => {
+      tagOne(el, "label", el.innerText.slice(0, 36), "questions." + i);
     });
   }
 

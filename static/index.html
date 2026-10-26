@@ -156,6 +156,7 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .canvas-parent-chip .ca{display:flex;gap:4px;flex-shrink:0}
 .canvas-parent-chip .ca button{border:0;background:rgba(255,255,255,.14);color:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;line-height:1}
 .canvas-parent-chip .ca button:hover{background:rgba(255,255,255,.3)}
+.canvas-parent-chip .ca button[data-act=shrink],.canvas-parent-chip .ca button[data-act=grow]{width:32px;font-size:18px;font-weight:600}
 .edit-frame-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .edit-ref-check{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer}
 .edit-ref-check input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);flex-shrink:0}
@@ -226,7 +227,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
     <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
    </div>
    <h3>Reference image</h3>
-   <p class="edit-side-hint">Each layer shows <b>✎ ↻ ×</b> on the canvas and in this list. Click dashed <b>text</b> to edit inline. Drag layers to move; use the corner handle to resize where shown. Layer <b>Replace</b> opens a dialog to upload a reference; <b>Frame changes</b> below edits the whole frame.</p>
+   <p class="edit-side-hint">Each layer shows <b>− + ✎ ↻ ×</b> on the canvas (when resizable) and <b>✎ ↻ ×</b> in this list. Click dashed <b>text</b> to edit inline. Drag to move; drag the <b>blue corner handle</b> to resize, or use <b>− / +</b> on the canvas chip. Layer <b>Replace</b> opens a dialog to upload a reference.</p>
    <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
    <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
    <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
@@ -853,6 +854,12 @@ function ensureCanvasChipOverlayActions(){
   const act=btn.dataset.act;
   const idx=parseInt(btn.dataset.idx,10);
   const path=btn.dataset.mfPath||null;
+  if(act==='shrink'||act==='grow'){
+   try{
+    $('#canvasEditFrame')?.contentWindow?.postMessage({studio:'nudge-resize',idx,mfPath:path,dir:act==='grow'?1:-1},'*');
+   }catch(_){}
+   return;
+  }
   if(act==='delete')void canvasLayerAction(idx,'delete',path);
   else openLayerEditDialog(act,idx,path);
  });
@@ -889,6 +896,7 @@ function renderParentCanvasChips(layers){
    if(L.mfPath)b.dataset.mfPath=L.mfPath;
    return b;
   };
+  if(L.resize)actions.append(mkBtn('shrink','Smaller','−'),mkBtn('grow','Larger','+'));
   actions.append(mkBtn('edit','Edit','✎'),mkBtn('replace','Replace','↻'),mkBtn('delete','Delete','×'));
   chip.append(labelEl,actions);
   let chipTop=top-4;
@@ -975,10 +983,43 @@ async function patchFrameInline(msg){
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'inline '+selectedFrameId})});
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
-async function patchFrameItemResize(idx,{w,h,size,cardIdx}){
- if(!selectedFrameId||!P?.spec||idx==null)return;
+async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
+ if(!selectedFrameId||!P?.spec)return;
  const fi=P.spec.frames.findIndex(f=>f.id===selectedFrameId);
  if(fi<0)return;
+ if(mfPath){
+  const fr=JSON.parse(JSON.stringify(P.spec.frames[fi]));
+  if(mfPath==='table'){
+   fr.box={...(fr.box||{}),...(w!=null?{w:Math.round(w)}:{})};
+   if(size!=null)fr.font=Math.round(size);
+  }else if(mfPath==='hero'){
+   fr.hero={...(fr.hero||{}),...(w!=null?{w:Math.round(w)}:{})};
+  }else if(mfPath==='pill'){
+   fr.pill={...(fr.pill||{}),...(size!=null?{fontSize:Math.round(size)}:{})};
+  }else if(mfPath==='term'){
+   if(size!=null)fr.term_font=Math.round(size);
+  }else if(mfPath==='text'){
+   if(size!=null)fr.def_font=Math.round(size);
+  }else if(/^props\.\d+$/.test(mfPath)){
+   if(w!=null)setSpecPath(fr,mfPath+'.w',Math.round(w));
+  }else if(/^cards\.\d+$/.test(mfPath)){
+   if(w!=null)setSpecPath(fr,mfPath+'.w',Math.round(w));
+  }else if(/^labels\.items\.\d+$/.test(mfPath)){
+   if(size!=null)setSpecPath(fr,mfPath+'.fontSize',Math.round(size));
+  }else if(/^items\.\d+$/.test(mfPath)&&size!=null){
+   fr.point_font=Math.round(size);
+  }else if(/^questions\.\d+$/.test(mfPath)&&size!=null){
+   fr.question_font=Math.round(size);
+  }else if(/^steps\.\d+\.label$/.test(mfPath)&&size!=null){
+   setSpecPath(fr,mfPath.replace(/\.label$/,'')+'.fontSize',Math.round(size));
+  }else return;
+  P.spec.frames[fi]=fr;
+  try{
+   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'mf resize '+selectedFrameId+' '+mfPath})});
+  }catch(e){alert(e.message);refreshEditCanvas()}
+  return;
+ }
+ if(idx==null)return;
  const fr={...P.spec.frames[fi],items:[...(P.spec.frames[fi].items||[])]};
  const it={...(fr.items[idx]||{})};
  if(!it.t)return;
@@ -1131,7 +1172,7 @@ async function exp(){
 window.addEventListener('message',e=>{
  if(e.data?.studio==='edit')handleStudioEdit(e.data);
  if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y,e.data.cardIdx,e.data.mfPath);
- if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx});
+ if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx,mfPath:e.data.mfPath||null});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
  if(e.data?.studio==='layers-ready'&&editModeOpen){
   try{

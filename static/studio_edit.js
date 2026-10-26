@@ -20,10 +20,15 @@
   function chip(label, idx, layerEl) {
     const el = document.createElement("div");
     el.className = "studio-chip";
+    const canSize = !!resizeMode(layerEl);
+    const sizeBtns = canSize
+      ? '<button type="button" data-act="shrink" title="Smaller">−</button><button type="button" data-act="grow" title="Larger">+</button>'
+      : "";
     el.innerHTML =
       '<span class="studio-chip-label">' +
       label +
       '</span><span class="studio-chip-actions">' +
+      sizeBtns +
       '<button type="button" data-act="edit" title="Edit">✎</button>' +
       '<button type="button" data-act="replace" title="Replace">↻</button>' +
       '<button type="button" data-act="delete" title="Remove">×</button></span>';
@@ -31,7 +36,12 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();
-        send(btn.dataset.act, idx, layerEl);
+        const act = btn.dataset.act;
+        if (act === "shrink" || act === "grow") {
+          nudgeResize(layerEl, idx, act === "grow" ? 1 : -1);
+          return;
+        }
+        send(act, idx, layerEl);
       });
     });
     return el;
@@ -120,6 +130,7 @@
       label: L.label,
       mfPath: L.mfPath,
       cardIdx: L.cardIdx,
+      resize: resizeMode(L.el),
       top: Math.round(L.top),
       left: Math.round(L.left),
       width: Math.round(L.width),
@@ -131,13 +142,37 @@
     window.parent.postMessage({ studio: "layer-bounds", layers }, "*");
   }
 
+  const LAYER_RESIZE = {
+    pill: "font",
+    definition: "font",
+    label: "font",
+    point: "font",
+    tile: "font",
+    text: "font",
+    callout: "font",
+    num: "font",
+    result_pill: "font",
+    htab: "font",
+    table: "w",
+    hero: "asset",
+    prop: "asset",
+    card: "asset",
+    person: "person",
+    asset: "asset",
+    glass_table: "w",
+    calc_table: "w",
+    nlist: "w",
+    points: "w",
+    defcard: "w",
+    popup: "w",
+    bars: "wh",
+  };
+
   function resizeMode(el) {
     if (!el) return "";
     if (el.dataset.resize) return el.dataset.resize;
     const t = el.dataset.layerType || "";
-    if (t === "person") return "person";
-    if (t === "asset") return "asset";
-    return "";
+    return LAYER_RESIZE[t] || "";
   }
 
   function resizableLayer(el) {
@@ -175,8 +210,12 @@
 
   function fontBox(wrapper) {
     return (
-      wrapper.querySelector(".htab, .callout, .num, .pill-title, .result-pill") ||
+      wrapper.querySelector(
+        ".htab, .callout, .num, .pill-title, .result-pill, .pill .t, .defbox, .nlabel, .qbox, .tile .lbl, .caption"
+      ) ||
+      wrapper.querySelector(".chip span:last-child") ||
       wrapper.querySelector("[style*='font-size']") ||
+      (wrapper.classList && wrapper.classList.contains("chip") ? wrapper : null) ||
       wrapper.firstElementChild ||
       wrapper
     );
@@ -188,14 +227,57 @@
   }
 
   function applyFontResize(wrapper, newFs) {
-    newFs = clamp(Math.round(newFs), 16, 96);
+    newFs = clamp(Math.round(newFs), 14, 96);
     const el = fontBox(wrapper);
     el.style.fontSize = newFs + "px";
-    if (wrapper.dataset.layerType === "text" || wrapper.dataset.layerType === "label") {
+    const lt = wrapper.dataset.layerType || "";
+    if (lt === "text" || lt === "label" || lt === "point") {
       const inner = wrapper.querySelector("[style*='font-size']");
-      if (inner) inner.style.fontSize = newFs + "px";
+      if (inner && inner !== el) inner.style.fontSize = newFs + "px";
+    }
+    if (lt === "point" && wrapper.classList.contains("chip")) {
+      wrapper.style.fontSize = newFs + "px";
     }
     return newFs;
+  }
+
+  function postResize(el, idx, fields) {
+    const payload = Object.assign({ studio: "resize", idx }, fields);
+    const mp = el.dataset.mfPath || el.dataset.mfDrag;
+    if (mp) payload.mfPath = mp;
+    if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
+    window.parent.postMessage(payload, "*");
+    schedulePlaceChips();
+  }
+
+  function nudgeResize(layerEl, idx, dir) {
+    const mode = resizeMode(layerEl);
+    if (!mode || !dir) return;
+    let last = {};
+    if (mode === "font") {
+      last.size = applyFontResize(layerEl, readFontSize(layerEl) + dir * 2);
+    } else if (mode === "asset") {
+      const img = layerEl.tagName === "IMG" ? layerEl : layerEl.querySelector("img");
+      const node = img || layerEl;
+      const w =
+        parseFloat(node.style.width) ||
+        node.offsetWidth ||
+        layerEl.offsetWidth ||
+        120;
+      last.w = applyAssetSize(layerEl, w + dir * 24);
+    } else if (mode === "person") {
+      last.h = applyPersonSize(layerEl, layerEl.offsetHeight + dir * 20);
+    } else if (mode === "w") {
+      const box = widthBox(layerEl);
+      const startW = box.offsetWidth || layerEl.offsetWidth;
+      last = applyWidthResize(layerEl, startW + dir * 40, startW, readTableFontSize(layerEl));
+    } else if (mode === "wh") {
+      const svg = layerEl.querySelector("svg");
+      const startW = layerEl.offsetWidth;
+      const startH = svg && svg.getAttribute("height") ? parseFloat(svg.getAttribute("height")) : layerEl.offsetHeight;
+      last = applyBarsResize(layerEl, startW + dir * 32, startH + dir * 24);
+    } else return;
+    postResize(layerEl, idx, last);
   }
 
   function applyBarsResize(wrapper, w, h) {
@@ -529,24 +611,22 @@
       try {
         resize.handle.releasePointerCapture(resize.pointerId);
       } catch (_) {}
-      const payload = { studio: "resize", idx };
-      if (mode === "person") payload.h = el.offsetHeight;
+      const fields = {};
+      if (mode === "person") fields.h = el.offsetHeight;
       else if (mode === "asset") {
         const img = el.tagName === "IMG" ? el : el.querySelector("img");
-        payload.w =
+        fields.w =
           last.w ||
           Math.round(parseFloat((img || el).style.width) || el.offsetWidth);
       } else if (mode === "w" || mode === "wh") {
-        if (last.w != null) payload.w = last.w;
-        if (last.h != null) payload.h = last.h;
-        if (last.size != null) payload.size = last.size;
+        if (last.w != null) fields.w = last.w;
+        if (last.h != null) fields.h = last.h;
+        if (last.size != null) fields.size = last.size;
       } else if (mode === "font") {
-        payload.size = last.size != null ? last.size : readFontSize(el);
+        fields.size = last.size != null ? last.size : readFontSize(el);
       }
-      if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
       resize = null;
-      window.parent.postMessage(payload, "*");
-      schedulePlaceChips();
+      postResize(el, idx, fields);
     }
 
     document.addEventListener("pointerup", finishResize);
@@ -637,6 +717,24 @@
       setTimeout(bootLayers, 1200);
     }
   }
+
+  function layerElForNudge(idx, mfPath) {
+    if (mfPath) {
+      const byPath = document.querySelector(
+        `[data-spec-idx="${idx}"][data-mf-path="${mfPath}"], [data-spec-idx="${idx}"][data-mf-drag="${mfPath}"]`
+      );
+      if (byPath) return byPath;
+    }
+    return document.querySelector(`[data-spec-idx="${idx}"].studio-editable`);
+  }
+
+  window.addEventListener("message", (e) => {
+    const d = e.data;
+    if (!d || d.studio !== "nudge-resize") return;
+    const el = layerElForNudge(d.idx, d.mfPath || null);
+    if (!el) return;
+    nudgeResize(el, d.idx, d.dir > 0 ? 1 : -1);
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
