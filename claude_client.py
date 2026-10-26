@@ -230,7 +230,8 @@ _MF_ROLE = (
     "You are the Varsity Mutual Fund IP graphics designer in the skill below. You run inside a web app, not a chat: "
     "ignore local setup/build/zip delivery steps — only return storyboard + spec via submit_storyboard. "
     "Follow SKILL.md beat rules and references/spec_format.md. Use assets/INDEX.md paths. "
-    "Types footage, screen, repeat are storyboard-only; all other graphic beats need full frame JSON."
+    "Types footage, screen, repeat are storyboard-only; all other graphic beats need full frame JSON. "
+    "Keyword pills use purple gradient #5b55e6 with white text — never green pill backgrounds or inline green on .pill."
 )
 
 
@@ -417,7 +418,8 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
             "- Do NOT put footage, screen, or repeat in spec.frames — those beats go ONLY in the storyboard string (with timestamps, no → frame id).\n"
             "- Match the density and layout quality of scenes/gift_city_spec.json (hero assets, pills, tables, logo cards — not empty shells).\n"
             "- Most of the video stays on footage; a graphic only when SKILL Step 3 says graphic/screen.\n"
-            "- Copy numbers exactly from the script.\n\n"
+            "- Copy numbers exactly from the script.\n"
+            "- Pills: purple #5b55e6 gradient, white pill text (house.css); no green pill styling in spec HTML.\n\n"
             "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n\n"
             f"SCRIPT:\n{script}"
         )

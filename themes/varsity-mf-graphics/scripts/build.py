@@ -117,8 +117,13 @@ def _studio_page_html(frame: dict, *, overlay: bool = False, edit: bool = False)
     opts: dict = {"overlay": overlay}
     if edit:
         opts["studioEdit"] = True
+    pill_css = (
+        "<style>.pill,.pill.sm,.pill.lg{background:linear-gradient(90deg,#4a44c9,#5b55e6,#7b76ee)!important}"
+        ".pill .t,.pill.sm .t,.pill.lg .t{color:#fff!important}"
+        ".pill::before{background:radial-gradient(circle,rgba(255,255,255,.28) 1.4px,transparent 1.8px) 0 0/7px 7px!important}</style>"
+    )
     return f"""<!doctype html><html><head><meta charset="utf-8">
-<link rel="stylesheet" href="../templates/house.css"></head><body><div id="stage"></div>
+<link rel="stylesheet" href="../templates/house.css">{pill_css}</head><body><div id="stage"></div>
 <script>window.FRAME={json.dumps(frame)};window.OPTS={json.dumps(opts)};</script>
 <script src="../templates/render.js"></script></body></html>"""
 

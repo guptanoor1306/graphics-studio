@@ -356,7 +356,7 @@ function lookForm(l){l=normLook(l);
   const themeField=`<div class="field"><label>Channel</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>`;
   if(isMfTheme(P.theme)){
     return `<div class="field-grid">${themeField}
-  <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · green search pills · blue table headers"></div></div>`}
+  <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · purple (#5b55e6) search pills · blue table headers"></div></div>`}
   const sel=(k,opts)=>`<select id="lk_${k}">${opts.map(o=>`<option ${l[k]==o?'selected':''}>${o}</option>`).join('')}</select>`;
   const props=new Set(l.props||[]);
   return `<div class="field-grid">

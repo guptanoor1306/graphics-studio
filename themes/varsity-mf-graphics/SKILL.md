@@ -90,4 +90,4 @@ Topic art you don't have (a new map, a product, a logo): use `"TODO:<what>"` as 
 ## Step 6: Deliver
 Zip `out/` (PNGs + overlays + `spec.json`) and send it with the storyboard. Close with the counts, the TODO assets, any flagged facts, and the reminder that `ribbon` frames need the editor to roto the anchor in front of the ribbon (`_overlay.png` has no anchor). Anyone can edit text in `spec.json` and rebuild.
 
-Don'ts: no graphics over the anchor's face (keep left of x≈1320 on anchor frames); no redrawn website or PDF (use a screen capture); no new frame for a re-mention; no invented or re-rounded numbers; Inter only; green pills, blue table headers, orange/pink/green tiles, nothing off-palette.
+Don'ts: no graphics over the anchor's face (keep left of x≈1320 on anchor frames); no redrawn website or PDF (use a screen capture); no new frame for a re-mention; no invented or re-rounded numbers; Inter only; **purple keyword pills** (#5b55e6 gradient, white text — never green pill backgrounds), blue table headers, orange/pink/green tiles, nothing off-palette.

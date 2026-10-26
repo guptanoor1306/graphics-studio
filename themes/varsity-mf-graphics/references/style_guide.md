@@ -18,7 +18,7 @@ Measured from the GIFT City PSDs (1920×1080). The templates already encode all 
 | dark bg | #1b1b1b + grain | SOP, cycle, lists, dark tables |
 | dark grid | #3a3a3a lines at x=384/767/1150/1535, y=310/694 | dark frames (tiles snap to these cells) |
 | cream bg | bg_light_grid.jpg | light scenes and tables |
-| pill green | #4c9763 → #6cab7c → #d3ebd9 (left→right) | every keyword pill |
+| pill purple | #4a44c9 → #5b55e6 → #7b76ee (left→right), text #fff | every keyword pill |
 | pill shadow | #0c0c0c, hard offset 14 px | under pills |
 | table header | radial: #5ed0ef glow → #2f6fd2 → #1c2fae | all tables |
 | tag Active | #e4950b | table tags |

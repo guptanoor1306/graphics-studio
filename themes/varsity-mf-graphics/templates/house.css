@@ -7,6 +7,7 @@
 
 :root{
   --ink:#1d1d1d; --dark:#1b1b1b; --grid:#3a3a3a; --white:#fff; --soft:#f2f2f2;
+  --pill-a:#4a44c9; --pill-b:#5b55e6; --pill-c:#7b76ee;
   --green-a:#4c9763; --green-b:#6cab7c; --green-c:#d3ebd9;
   --blue-a:#1c2fae; --blue-b:#2f6fd2; --blue-c:#5ed0ef;
   --orange:#f08a24; --yellow:#f2b632; --purple:#4b3fd8;
@@ -31,10 +32,10 @@ body{font-family:Inter,sans-serif;color:var(--ink)}
 
 /* ---------- keyword pill (search bar / coin) ---------- */
 .pill{position:absolute;display:flex;align-items:center;height:128px;border-radius:64px;padding:0 34px 0 22px;
-  background:linear-gradient(90deg,#4a44c9 0%,#5b55e6 45%,#7b76ee 100%);
+  background:linear-gradient(90deg,var(--pill-a) 0%,var(--pill-b) 45%,var(--pill-c) 100%);
   box-shadow:14px 14px 0 var(--shadow);white-space:nowrap}
 .pill::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-  background:radial-gradient(circle,rgba(20,40,25,.55) 1.4px,transparent 1.8px) 0 0/7px 7px;
+  background:radial-gradient(circle,rgba(255,255,255,.28) 1.4px,transparent 1.8px) 0 0/7px 7px;
   -webkit-mask:linear-gradient(90deg,#000 0,transparent 14%,transparent 86%,#000 100%);mask:linear-gradient(90deg,#000 0,transparent 14%,transparent 86%,#000 100%)}
 .pill .ic{width:78px;height:78px;flex:none;margin-right:26px;position:relative;z-index:1}
 .pill .coin{width:116px;height:116px;border-radius:50%;background:#fff;flex:none;margin:0 30px 0 -16px;display:flex;align-items:center;justify-content:center;position:relative;z-index:1}

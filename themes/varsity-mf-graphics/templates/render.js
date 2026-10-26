@@ -86,14 +86,16 @@
   }
 
   // ---------- components ----------
+  const PILL_BG = "linear-gradient(90deg,#4a44c9 0%,#5b55e6 50%,#7b76ee 100%)";
   function pill(p, x, y, opts) {
     opts = opts || {};
     const icon = p.icon || "search";
     const e = el("div", "pill" + (p.size ? " " + p.size : ""));
+    e.style.background = PILL_BG;
     let h = "";
     if (icon === "search") h += `<img class="ic" src="${A}ui/icon_search.png">`;
     if (icon === "coin") h += `<div class="coin"><img src="${A}ui/icon_rupee_coin.png"></div>`;
-    h += `<span class="t">${esc(p.text)}</span>`;
+    h += `<span class="t" style="color:#fff">${esc(p.text)}</span>`;
     if (p.knob !== false && icon !== "coin") h += `<span class="knob"></span>`;
     h += `<div class="grain"></div>`;
     e.innerHTML = h;
@@ -185,7 +187,7 @@
     c.items.forEach((t, i) => {
       if (i) wrap.appendChild(el("span", "", { fontWeight: 900, fontSize: "56px", color: c.dark ? "#fff" : "#1d1d1d" }, "→"));
       const on = c.active === undefined || c.active === i + 1 || c.active === "all";
-      const p = el("div", "pill sm", { position: "relative", opacity: on ? 1 : .35 }, `<span class="t">${esc(t)}</span><div class="grain"></div>`);
+      const p = el("div", "pill sm", { position: "relative", opacity: on ? 1 : .35, background: PILL_BG }, `<span class="t" style="color:#fff">${esc(t)}</span><div class="grain"></div>`);
       if (i === c.items.length - 1 && c.lastIcon !== false) p.innerHTML = `<img class="ic" src="${A}ui/icon_search.png">` + p.innerHTML;
       wrap.appendChild(p);
     });
