@@ -12,7 +12,6 @@ Optionally also PNGs. Everything is returned as a zip.
 import asyncio, base64, io, mimetypes, os, pathlib, re, zipfile
 
 FLATTEN_JS = r"""(overlay) => {
-  // 1. name layers from the builder's structure
   const name = (e) => {
     const c = (e.className && e.className.baseVal === undefined ? e.className : '') || e.tagName.toLowerCase();
     const t = (e.innerText || e.getAttribute('src') || '').trim().replace(/\s+/g,' ').slice(0,40);
@@ -20,12 +19,18 @@ FLATTEN_JS = r"""(overlay) => {
   };
   const plate = document.querySelector('.plate');
   if (plate) { plate.dataset.layer = 'plate:background'; if (overlay) plate.remove(); }
-  // 2. layer candidates: images, svgs, and the outermost styled blocks of each component
-  const blocks = [...document.querySelectorAll('body > .abs > *, body > .abs > * > *, body > div[style*="position: absolute"], body > img, body > svg')];
-  // 3. freeze geometry: give each candidate absolute px box relative to the page
+  if (typeof StudioLayerRegistry !== 'undefined') {
+    StudioLayerRegistry.flattenRegistryLayers(overlay);
+  }
+  const blocks = [...document.querySelectorAll('[data-spec-idx], body > .abs > *, body > .abs > * > *, body > div[style*="position: absolute"], body > img, body > svg')];
   const boxes = blocks.map(e => [e, e.getBoundingClientRect()]);
-  for (const [e, r] of boxes) { if (!r.width || !r.height) continue; e.dataset.layer = e.dataset.layer || name(e);
-    e.dataset.x = Math.round(r.left); e.dataset.y = Math.round(r.top); e.dataset.w = Math.round(r.width); e.dataset.h = Math.round(r.height); }
+  for (const [e, r] of boxes) {
+    if (!r.width || !r.height) continue;
+    if (e.dataset.x != null && e.dataset.y != null) continue;
+    e.dataset.layer = e.dataset.layer || name(e);
+    e.dataset.x = Math.round(r.left); e.dataset.y = Math.round(r.top);
+    e.dataset.w = Math.round(r.width); e.dataset.h = Math.round(r.height);
+  }
   document.querySelectorAll('script').forEach(s => s.remove());
   if (overlay) document.body.classList.add('overlay');
   return '<!doctype html>' + document.documentElement.outerHTML;
@@ -94,21 +99,35 @@ async def _load_frame(pg, html: str) -> None:
             pass
     await pg.evaluate("document.fonts.ready")
     await pg.wait_for_timeout(120)
+    await pg.evaluate(
+        """() => {
+      if (window.OPTS) window.OPTS.tagLayers = true;
+      if (typeof window.initMfInlineText === 'function') window.initMfInlineText();
+    }"""
+    )
+
+
+def _layer_registry_js() -> str:
+    p = pathlib.Path(__file__).resolve().parent / "static" / "layer_registry.js"
+    return p.read_text()
 
 
 async def _render(pages, want_png):
     from playwright.async_api import async_playwright
+    registry_js = _layer_registry_js()
     out = {}
     async with async_playwright() as p:
         b = await launch_chromium(p)
         pg = await b.new_page(viewport={"width": 1920, "height": 1080})
         for fid, html, fss in pages:
             await _load_frame(pg, html)
+            await pg.evaluate(registry_js)
             if want_png:
                 out[f"png/{fid}.png"] = await pg.screenshot()
             out[f"html/{fid}.html"] = await pg.evaluate(FLATTEN_JS, False)
             if not fss:
                 await _load_frame(pg, html)
+                await pg.evaluate(registry_js)
                 out[f"html_overlay/{fid}.html"] = await pg.evaluate(FLATTEN_JS, True)
                 if want_png:
                     await pg.evaluate(

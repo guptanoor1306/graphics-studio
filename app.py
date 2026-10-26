@@ -155,9 +155,16 @@ def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = Fa
     html = html.replace("<head>", f'<head><base href="{href}">', 1)
     if edit:
         edit_css = (ROOT / "static" / "studio_edit.css").read_text()
+        registry_js = (ROOT / "static" / "layer_registry.js").read_text()
+        interact_js = (ROOT / "static" / "interact.min.js").read_text()
         edit_js = (ROOT / "static" / "studio_edit.js").read_text()
         html = html.replace("</head>", f"<style>{edit_css}</style></head>", 1)
-        html = html.replace("</body>", f"<script>{edit_js}</script></body>", 1)
+        html = html.replace(
+            "</body>",
+            f"<script>{registry_js}</script><script>{interact_js}</script>"
+            f"<script>{edit_js}</script></body>",
+            1,
+        )
     return html
 
 # ------------------------------------------------------------------ API

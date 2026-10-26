@@ -48,7 +48,7 @@ Make a new skill kit for the channel (the same structure as `themes/varsity-engl
 | `html_overlay/<frame>.html` | anchor frames without the background plate (graphics only) |
 | `png/` | rendered frames, plus transparent `_overlay.png` for anchor frames |
 
-Every visual element carries `data-layer="<component>:<text>"` (e.g. `htab:Tax Calculation without HUF`, `plate:background`, `img:…building_company_3d.png`) and its rendered box `data-x / data-y / data-w / data-h` in px. Map these to layer names and positions. If your tool needs a different shape (absolute-only positioning, SVG text outlines, one file per video, a JSON layer list), change `FLATTEN_JS` in `exporter.py`; it's one function.
+Every visual element carries `data-layer="<component>:<text>"` (e.g. `htab:Tax Calculation without HUF`, `plate:background`, `img:…building_company_3d.png`) and its rendered box `data-x / data-y / data-w / data-h` in px. Edit mode and export share `static/layer_registry.js` (`data-spec-idx` layers first, then legacy DOM candidates). Drag uses [Interact.js](https://interactjs.io/) in the edit iframe. If your tool needs a different shape, change `FLATTEN_JS` in `exporter.py`.
 
 ## Where things live
 | File | Purpose |

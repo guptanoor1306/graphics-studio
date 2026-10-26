@@ -38,6 +38,9 @@
   }
 
   function labelFor(el, idx) {
+    if (window.StudioLayerRegistry) {
+      return window.StudioLayerRegistry.layerLabel(el, idx);
+    }
     const t = el.dataset.layerType || el.getAttribute("data-layer-type") || "layer";
     const short = el.dataset.layerLabel || "";
     if (el.dataset.cardIdx != null) {
@@ -46,9 +49,42 @@
     return short ? t + " · " + short : t + " #" + (idx + 1);
   }
 
+  function registryLayers() {
+    if (window.StudioLayerRegistry) {
+      return window.StudioLayerRegistry.layersFromDocument();
+    }
+    return [...document.querySelectorAll("[data-spec-idx]")]
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        const idx = parseInt(el.dataset.specIdx, 10);
+        return {
+          el,
+          idx,
+          type: el.dataset.layerType || "",
+          label: labelFor(el, idx),
+          mfPath: el.dataset.mfPath || el.dataset.mfDrag || null,
+          cardIdx: el.dataset.cardIdx != null ? parseInt(el.dataset.cardIdx, 10) : null,
+          top: r.top,
+          left: r.left,
+          width: r.width,
+          height: r.height,
+        };
+      })
+      .filter((L) => L.width >= 2 && L.height >= 2);
+  }
+
+  let chipRaf = 0;
+  function schedulePlaceChips() {
+    if (chipRaf) return;
+    chipRaf = requestAnimationFrame(() => {
+      chipRaf = 0;
+      placeChips();
+    });
+  }
+
   function placeChips() {
     overlay.innerHTML = "";
-    const layers = [...document.querySelectorAll("[data-spec-idx]")];
+    const layers = registryLayers();
     if (!layers.length) {
       if (!(window.OPTS && window.OPTS.studioEdit && window.FRAME)) {
         const empty = document.createElement("div");
@@ -59,14 +95,13 @@
       emitLayerBoundsToParent();
       return;
     }
-    layers.forEach((el) => {
-      const idx = parseInt(el.dataset.specIdx, 10);
-      const r = el.getBoundingClientRect();
-      if (r.width < 2 && r.height < 2) return;
-      const c = chip(labelFor(el, idx), idx, el);
-      let top = r.top - 4;
-      let left = r.left;
-      if (top < 4) top = r.bottom + 4;
+    layers.forEach((L) => {
+      const el = L.el;
+      const idx = L.idx;
+      const c = chip(L.label || labelFor(el, idx), idx, el);
+      let top = L.top - 4;
+      let left = L.left;
+      if (top < 4) top = L.top + L.height + 4;
       if (left + 160 > window.innerWidth) left = window.innerWidth - 168;
       c.style.top = top + "px";
       c.style.left = Math.max(4, left) + "px";
@@ -78,22 +113,17 @@
 
   function emitLayerBoundsToParent() {
     if (!window.parent || window.parent === window) return;
-    const layers = [];
-    document.querySelectorAll("[data-spec-idx]").forEach((el) => {
-      const r = el.getBoundingClientRect();
-      if (r.width < 2 && r.height < 2) return;
-      layers.push({
-        idx: parseInt(el.dataset.specIdx, 10),
-        type: el.dataset.layerType || "",
-        label: el.dataset.layerLabel || labelFor(el, parseInt(el.dataset.specIdx, 10)),
-        mfPath: el.dataset.mfPath || el.dataset.mfDrag || null,
-        cardIdx: el.dataset.cardIdx != null ? parseInt(el.dataset.cardIdx, 10) : null,
-        top: r.top,
-        left: r.left,
-        width: r.width,
-        height: r.height,
-      });
-    });
+    const layers = registryLayers().map((L) => ({
+      idx: L.idx,
+      type: L.type,
+      label: L.label,
+      mfPath: L.mfPath,
+      cardIdx: L.cardIdx,
+      top: L.top,
+      left: L.left,
+      width: L.width,
+      height: L.height,
+    }));
     window.parent.postMessage({ studio: "layer-bounds", layers }, "*");
   }
 
@@ -220,7 +250,80 @@
     return { x: r.left, y: r.top };
   }
 
-  function initDrag() {
+  const STAGE_BOUNDS = { left: 0, top: 0, right: 1920, bottom: 1080 };
+  let interactTargets = [];
+  let pointerDragBound = false;
+
+  function postMove(el, idx) {
+    const x = parseInt(el.style.left, 10) || 0;
+    const y = parseInt(el.style.top, 10) || 0;
+    const payload = { studio: "move", idx, x, y };
+    if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
+    const mp = el.dataset.mfPath || el.dataset.mfDrag;
+    if (mp) payload.mfPath = mp;
+    window.parent.postMessage(payload, "*");
+    schedulePlaceChips();
+  }
+
+  function ensureAbsolute(el) {
+    const pos = getComputedStyle(el).position;
+    if (pos !== "absolute" && pos !== "fixed") {
+      const r = el.getBoundingClientRect();
+      el.style.position = "absolute";
+      el.style.left = Math.round(r.left) + "px";
+      el.style.top = Math.round(r.top) + "px";
+    }
+  }
+
+  function initInteractDrag() {
+    if (typeof interact === "undefined") {
+      initPointerDrag();
+      return;
+    }
+    interactTargets.forEach((t) => {
+      try {
+        t.unset();
+      } catch (_) {}
+    });
+    interactTargets = [];
+    document.querySelectorAll("[data-spec-idx].studio-editable").forEach((el) => {
+      if (!canDrag(el)) return;
+      ensureAbsolute(el);
+      const idx = parseInt(el.dataset.specIdx, 10);
+      const draggable = interact(el).draggable({
+        inertia: { resistance: 10, minSpeed: 100, endSpeed: 50 },
+        modifiers: [
+          interact.modifiers.restrictRect({
+            restriction: STAGE_BOUNDS,
+            endOnly: true,
+          }),
+        ],
+        listeners: {
+          start() {
+            el.classList.add("studio-dragging");
+          },
+          move(event) {
+            const x = (parseFloat(el.getAttribute("data-x")) || parseFloat(el.style.left) || 0) + event.dx;
+            const y = (parseFloat(el.getAttribute("data-y")) || parseFloat(el.style.top) || 0) + event.dy;
+            el.style.left = Math.round(x) + "px";
+            el.style.top = Math.round(y) + "px";
+            el.setAttribute("data-x", String(Math.round(x)));
+            el.setAttribute("data-y", String(Math.round(y)));
+            schedulePlaceChips();
+          },
+          end() {
+            el.classList.remove("studio-dragging");
+            postMove(el, idx);
+          },
+        },
+      });
+      interactTargets.push(draggable);
+    });
+  }
+
+  function initPointerDrag() {
+    if (pointerDragBound) return;
+    pointerDragBound = true;
     let drag = null;
 
     document.addEventListener(
@@ -270,11 +373,7 @@
         el.releasePointerCapture(drag.pointerId);
       } catch (_) {}
       drag = null;
-      const payload = { studio: "move", idx, x, y };
-      if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
-      if (el.dataset.mfDrag) payload.mfPath = el.dataset.mfDrag;
-      window.parent.postMessage(payload, "*");
-      placeChips();
+      postMove(el, idx);
     }
 
     document.addEventListener("pointerup", finishDrag);
@@ -410,7 +509,7 @@
       if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
       resize = null;
       window.parent.postMessage(payload, "*");
-      placeChips();
+      schedulePlaceChips();
     }
 
     document.addEventListener("pointerup", finishResize);
@@ -471,6 +570,7 @@
 
   function bootLayers() {
     initInlineText();
+    initInteractDrag();
     placeChips();
   }
 
@@ -489,10 +589,9 @@
   }
 
   function boot() {
-    initDrag();
     initResize();
-    window.addEventListener("resize", placeChips);
-    window.addEventListener("scroll", placeChips, true);
+    window.addEventListener("resize", schedulePlaceChips);
+    window.addEventListener("scroll", schedulePlaceChips, true);
     if (window.OPTS && window.OPTS.studioEdit && typeof window.FRAME !== "undefined") {
       waitForMfRender(100);
     } else {

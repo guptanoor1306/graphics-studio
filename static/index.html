@@ -817,56 +817,6 @@ function canvasEditScale(){
  const vp=$('#canvasEditViewport');
  return vp?vp.clientWidth/1920:1;
 }
-function mfLayerGeom(fr,mfPath){
- const pillW=p=>Math.min(560,Math.max(200,((p?.text||'').length||8)*17));
- if(mfPath==='pill'&&fr.pill){
-  const w=pillW(fr.pill);let x=fr.pill.x;
-  if(x==='center'||x==null)x=960-w/2;else if(x==='right')x=1920-w-60;else if(x==='left')x=60;
-  return{top:fr.pill.y??104,left:x,width:w,height:56};
- }
- if(mfPath==='hero'&&fr.hero){
-  const w=fr.hero.w??320;return{top:fr.hero.y??420,left:fr.hero.x??580,width:w,height:Math.round(w*0.72)};
- }
- const lm=mfPath&&mfPath.match(/^labels\.items\.(\d+)$/);
- if(lm&&fr.labels?.items?.[+lm[1]]){
-  const it=fr.labels.items[+lm[1]];return{top:it.y??(680+ +lm[1]*48),left:it.x??(120+ +lm[1]*40),width:it.w??300,height:40};
- }
- const pm=mfPath&&mfPath.match(/^props\.(\d+)$/);
- if(pm&&fr.props?.[+pm[1]]){
-  const p=fr.props[+pm[1]];const w=p.w??140;return{top:p.y??500,left:p.x??200,width:w,height:w};
- }
- const cm=mfPath&&mfPath.match(/^cards\.(\d+)$/);
- if(cm&&fr.cards?.[+cm[1]]){
-  const c=fr.cards[+cm[1]];const w=c.w??175;return{top:c.y??620,left:c.x??1400,width:w,height:w};
- }
- if(mfPath==='table'&&fr.type==='table'){
-  const box=fr.box||{};const w=box.w??(fr.columns?.length<=2?1200:1640);
-  const th=box.h??420;let x=box.x; if(x==null)x=960-w/2;
-  return{top:box.y??280,left:x,width:w,height:th};
- }
- if(mfPath==='term'&&fr.term)return{top:fr.y??238,left:20,width:320,height:56};
- if(mfPath==='text'&&fr.type==='definition')return{top:(fr.y??238)+160,left:214,width:fr.maxw??900,height:120};
- return null;
-}
-function layerRectsFromSpec(fr){
- if(!fr)return [];
- if(isMfTheme(P?.theme)){
-  return mfLayerEntries(fr).map((row,i)=>{
-   const g=mfLayerGeom(fr,row.mfPath)||{top:80+i*52,left:40,width:200,height:40};
-   return{idx:i,label:row.label,mfPath:row.mfPath,top:g.top,left:g.left,width:g.width,height:g.height};
-  });
- }
- return(fr.items||[]).map((it,i)=>({
-  idx:i,label:layerRowLabel(it,i),mfPath:null,
-  top:it.y??80+i*48,left:it.x??40,width:it.w??(it.t==='person'?200:280),height:it.h??(it.t==='person'?260:48)
- }));
-}
-function syncParentCanvasLayers(){
- if(!editModeOpen||!selectedFrameId||!P?.spec)return;
- const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
- if(!fr)return;
- renderParentCanvasChips(layerRectsFromSpec(fr));
-}
 function renderParentCanvasChips(layers){
  const host=$('#canvasChipOverlay');
  if(!host||!editModeOpen)return;
@@ -916,7 +866,6 @@ function selectEditFrame(fid){
  renderCanvasLayerList();
  renderFrameModeSwitch();
  refreshEditCanvas();
- syncParentCanvasLayers();
 }
 function editApplyFrame(){
  const ask=$('#editFrameAsk')?.value||'';
@@ -944,11 +893,10 @@ function refreshEditCanvas(){
    const poll=()=>{if(w?.RENDERED||++n>120){boot();return}requestAnimationFrame(poll)};
    poll();
   }
-  syncParentCanvasLayers();
   ifr.onload=null;
  };
  ifr.src=canvasEditUrl();
- requestAnimationFrame(()=>{fitCanvasEdit();syncParentCanvasLayers()});
+ requestAnimationFrame(fitCanvasEdit);
 }
 function fitCanvasEdit(){
  const vp=$('#canvasEditViewport');const sc=$('#canvasEditScale');
@@ -956,7 +904,7 @@ function fitCanvasEdit(){
  const s=vp.clientWidth/1920;
  sc.style.transform=`scale(${s})`;
  vp.style.height=Math.round(1080*s)+'px';
- syncParentCanvasLayers();
+ try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}
 }
 function setSpecPath(obj,path,value){
  const keys=String(path).replace(/\[(\d+)\]/g,'.$1').split('.').filter(Boolean);
@@ -1141,7 +1089,7 @@ window.addEventListener('message',e=>{
  if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
  if(e.data?.studio==='layers-ready'){try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers()}catch(_){}}
- if(e.data?.studio==='layer-bounds'&&editModeOpen&&(e.data.layers||[]).length)renderParentCanvasChips(e.data.layers);
+ if(e.data?.studio==='layer-bounds'&&editModeOpen)renderParentCanvasChips(e.data.layers||[]);
 });
 window.addEventListener('resize',()=>{
  if(!editModeOpen)return;

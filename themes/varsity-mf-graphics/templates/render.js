@@ -449,7 +449,7 @@
   }
 
   function tagMfStudioLayers() {
-    if (!O.studioEdit) return;
+    if (!O.studioEdit && !O.tagLayers) return;
     window.__mfLayerSeq = 0;
     document.querySelectorAll("[data-spec-idx]").forEach((el) => {
       delete el.dataset.mfTagged;
@@ -514,6 +514,7 @@
   if (!fn) { document.body.innerHTML = `<h1 style="color:red">Unknown type ${F.type}</h1>`; window.RENDER_ERROR = "unknown type " + F.type; }
   else fn();
   if (O.studioEdit) notifyStudioLayers();
+  else if (O.tagLayers) tagMfStudioLayers();
 
   // ---------- QA: report off-frame, clipped text, anchor-face overlap ----------
   window.QA = function () {
