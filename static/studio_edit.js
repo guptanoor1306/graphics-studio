@@ -172,6 +172,7 @@
     const t = el.dataset.layerType || "";
     if (t === "asset" || t === "person" || t === "card") return true;
     if (el.dataset.mfDrag) return true;
+    if (el.dataset.mfProp != null) return true;
     const pos = getComputedStyle(el).position;
     if (pos !== "absolute" && pos !== "fixed") return false;
     if (el.closest(".flow")) return false;
@@ -435,21 +436,33 @@
     }
   }
 
+  function bootLayers() {
+    initInlineText();
+    placeChips();
+  }
+
+  window.studioBootLayers = bootLayers;
+
+  function waitForMfRender(tries) {
+    if (window.RENDERED || tries <= 0) {
+      bootLayers();
+      return;
+    }
+    setTimeout(() => waitForMfRender(tries - 1), 80);
+  }
+
   function boot() {
     initDrag();
     initResize();
-    initInlineText();
-    placeChips();
+    bootLayers();
     window.addEventListener("resize", placeChips);
     window.addEventListener("scroll", placeChips, true);
-    setTimeout(() => {
-      placeChips();
-      initInlineText();
-    }, 400);
-    setTimeout(() => {
-      placeChips();
-      initInlineText();
-    }, 1200);
+    if (window.OPTS && window.OPTS.studioEdit && typeof window.FRAME !== "undefined") {
+      waitForMfRender(40);
+    } else {
+      setTimeout(bootLayers, 400);
+      setTimeout(bootLayers, 1200);
+    }
   }
 
   if (document.readyState === "loading") {

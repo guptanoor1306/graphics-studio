@@ -163,7 +163,12 @@
     if (F.floor !== false && F.hero) img("decor/floor_stripes.png", 484, 778, 926);
     if (F.burst) img("decor/burst_orange.png", F.burst.x, F.burst.y, F.burst.w || 842);
     if (F.hero) { const h = img(F.hero.asset, F.hero.x, F.hero.y, F.hero.w); content(h); h.dataset.hero = "1"; if (F.hero.bleed) h.dataset.bleed = "1"; if (F.hero.rot) h.style.transform = `rotate(${F.hero.rot}deg)`; }
-    (F.props || []).forEach(p => { const i = img(p.asset, p.x, p.y, p.w); if (p.rot) i.style.transform = `rotate(${p.rot}deg)`; content(i); });
+    (F.props || []).forEach((p, pi) => {
+      const i = img(p.asset, p.x, p.y, p.w);
+      if (p.rot) i.style.transform = `rotate(${p.rot}deg)`;
+      i.dataset.mfProp = String(pi);
+      content(i);
+    });
     (F.cards || []).forEach(logoCard);
     if (F.labels) {
       const L = F.labels, n = L.items.length;
@@ -424,42 +429,61 @@
     const cap = document.querySelector(".caption");
     if (F.caption && cap) bindEl(cap, "caption");
   }
+  function tagOne(el, type, label, mfDrag) {
+    if (!el || el.dataset.mfTagged) return;
+    el.dataset.mfTagged = "1";
+    el.dataset.specIdx = String(window.__mfLayerSeq++);
+    el.dataset.layerType = type;
+    el.dataset.layerLabel = String(label || type).slice(0, 32);
+    el.classList.add("studio-editable");
+    if (mfDrag) el.dataset.mfDrag = mfDrag;
+  }
+
   function tagMfStudioLayers() {
     if (!O.studioEdit) return;
-    let seq = 0;
-    const pillEl = document.querySelector(".pill");
-    if (pillEl && F.pill) {
-      pillEl.dataset.specIdx = String(seq++);
-      pillEl.dataset.layerType = "pill";
-      pillEl.dataset.layerLabel = (F.pill.text || "").slice(0, 32);
-      pillEl.classList.add("studio-editable");
-      pillEl.dataset.mfDrag = "pill";
-    }
-    document.querySelectorAll("[data-content]").forEach((el) => {
-      if (!el.dataset.hero || !F.hero) return;
-      el.dataset.specIdx = String(seq++);
-      el.dataset.layerType = "hero";
-      el.dataset.layerLabel = String(F.hero.asset || "hero").split("/").pop().slice(0, 28);
-      el.classList.add("studio-editable");
-      el.dataset.mfDrag = "hero";
+    window.__mfLayerSeq = 0;
+    document.querySelectorAll(".pill").forEach((pillEl) => {
+      const t = pillEl.querySelector(".t");
+      const label = (t && t.innerText) || (F.pill && F.pill.text) || (F.title) || "pill";
+      tagOne(pillEl, "pill", label, "pill");
+    });
+    document.querySelectorAll("[data-content][data-hero]").forEach((el) => {
+      tagOne(el, "hero", String(F.hero && F.hero.asset || "hero").split("/").pop(), "hero");
     });
     document.querySelectorAll(".nlabel").forEach((el, i) => {
-      el.dataset.specIdx = String(seq++);
-      el.dataset.layerType = "label";
-      const tx = (F.labels && F.labels.items && F.labels.items[i] && F.labels.items[i].text) || "";
-      el.dataset.layerLabel = String(tx).slice(0, 28);
-      el.classList.add("studio-editable");
-      el.dataset.mfDrag = "labels.items." + i;
+      const tx = (F.labels && F.labels.items && F.labels.items[i] && F.labels.items[i].text) || el.innerText || "";
+      tagOne(el, "label", tx.slice(0, 32), "labels.items." + i);
+    });
+    document.querySelectorAll("img[data-mf-prop]").forEach((el) => {
+      const i = parseInt(el.dataset.mfProp, 10);
+      const p = F.props && F.props[i];
+      tagOne(el, "prop", (p && p.asset || "prop").split("/").pop(), "props." + i);
+    });
+    document.querySelectorAll(".tbl").forEach((el) => {
+      tagOne(el, "table", F.caption || "table", null);
+    });
+    document.querySelectorAll(".tile").forEach((el, i) => {
+      tagOne(el, "tile", (el.querySelector(".lbl") || el).innerText.slice(0, 28) || "tile " + (i + 1), null);
+    });
+    document.querySelectorAll(".chip").forEach((el, i) => {
+      tagOne(el, "point", el.innerText.slice(0, 36), null);
     });
   }
-  window.initMfInlineText = function () {
-    bindMfInline();
+
+  function notifyStudioLayers() {
     tagMfStudioLayers();
-  };
-  if (O.studioEdit) {
     bindMfInline();
-    tagMfStudioLayers();
+    if (typeof window.studioBootLayers === "function") window.studioBootLayers();
+    else setTimeout(notifyStudioLayers, 40);
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ studio: "layers-ready" }, "*");
+    }
   }
+
+  window.initMfInlineText = function () {
+    notifyStudioLayers();
+  };
+  if (O.studioEdit) notifyStudioLayers();
 
   // ---------- QA: report off-frame, clipped text, anchor-face overlap ----------
   window.QA = function () {

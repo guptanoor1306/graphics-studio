@@ -667,6 +667,28 @@ function canvasEditUrl(){
  const v=frameVer[selectedFrameId]||0;
  return `/preview/${P.id}/${encodeURIComponent(selectedFrameId)}?edit=1&v=${v}`;
 }
+function mfLayerEntries(fr){
+ const out=[];
+ if(fr.pill?.text)out.push({label:'pill: '+fr.pill.text,hint:'pill: '+fr.pill.text});
+ if(fr.type==='points'&&fr.title)out.push({label:'title: '+fr.title,hint:'points title: '+fr.title});
+ if(fr.term)out.push({label:'term: '+fr.term,hint:'definition term: '+fr.term});
+ if(fr.text&&fr.type==='definition')out.push({label:'definition: '+String(fr.text).slice(0,40),hint:'definition text'});
+ if(fr.hero?.asset)out.push({label:'hero: '+fr.hero.asset.split('/').pop(),hint:'hero illustration'});
+ (fr.labels?.items||[]).forEach((it,i)=>out.push({label:'label '+(i+1)+': '+(it.text||'').slice(0,36),hint:'label '+(i+1)+': '+(it.text||'')}));
+ (fr.props||[]).forEach((p,i)=>out.push({label:'prop: '+(p.asset||'').split('/').pop(),hint:'prop asset '+i}));
+ (fr.cards||[]).forEach((c,i)=>out.push({label:'card: '+(c.text||c.label||String(i)).slice(0,36),hint:'logo card '+(c.text||c.label||i)}));
+ if(fr.type==='table')out.push({label:'table ('+(fr.columns?.length||0)+' cols)',hint:'table layout and copy'});
+ if(fr.type==='sop'&&(fr.questions||[]).length)out.push({label:'sop: '+fr.questions.length+' tiles',hint:'SOP tiles'});
+ if(fr.type==='cycle'&&(fr.steps||[]).length)out.push({label:'cycle: '+fr.steps.length+' steps',hint:'cycle steps'});
+ (fr.items||[]).forEach((t,i)=>{if(typeof t==='string')out.push({label:'point '+(i+1)+': '+t.slice(0,36),hint:'bullet '+(i+1)})});
+ return out;
+}
+function mfLayerPrompt(hint){
+ const ta=$('#editFrameAsk');
+ if(!ta)return;
+ ta.value='Change '+hint+': ';
+ ta.focus();
+}
 function layerRowLabel(it,idx){
  if(!it||typeof it!=='object')return 'layer '+idx;
  const t=it.t||'?';
@@ -687,14 +709,8 @@ function renderCanvasLayerList(){
  if(isMfTheme(P.theme)){
   const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
   if(!fr){list.innerHTML='';return}
-  const bits=[];
-  if(fr.pill?.text)bits.push('pill');
-  if(fr.hero)bits.push('hero');
-  if(fr.labels?.items?.length)bits.push('labels');
-  if(fr.props?.length)bits.push('props');
-  if(fr.cards?.length)bits.push('cards');
-  const tagHint=bits.length?`Tagged on canvas: ${bits.join(', ')}.`:'Whole-frame JSON — use Frame changes.';
-  list.innerHTML=`<p class="edit-side-hint" style="margin:0"><b>${esc(fr.type||'frame')}</b> — ${tagHint} Click dashed text to edit inline; drag tagged elements to move.</p>`;
+  const rows=mfLayerEntries(fr);
+  list.innerHTML=rows.length?rows.map(r=>`<div class="canvas-layer-row"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span><span class="cl-actions"><button type="button" title="Edit via Frame changes" data-mf-hint="${esc(r.hint)}" onclick="mfLayerPrompt(this.dataset.mfHint)">✎</button></span></div>`).join(''):`<p class="edit-side-hint" style="margin:0"><b>${esc(fr.type||'frame')}</b> — no named parts in spec; use <b>Frame changes</b>.</p>`;
   return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const items=fr?.items||[];
@@ -796,7 +812,7 @@ function refreshEditCanvas(){
  if(!selectedFrameId)return;
  const ifr=$('#canvasEditFrame');
  if(!ifr)return;
- ifr.onload=()=>{fitCanvasEdit();ifr.onload=null};
+ ifr.onload=()=>{fitCanvasEdit();try{ifr.contentWindow?.studioBootLayers)ifr.contentWindow.studioBootLayers()}catch(_){}ifr.onload=null};
  ifr.src=canvasEditUrl();
  requestAnimationFrame(fitCanvasEdit);
 }
@@ -871,6 +887,9 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
   if(mfPath==='pill')fr.pill={...(fr.pill||{}),x:Math.round(x),y:Math.round(y)};
   else if(mfPath==='hero')fr.hero={...(fr.hero||{}),x:Math.round(x),y:Math.round(y)};
   else if(/^labels\.items\.\d+$/.test(mfPath)){
+   setSpecPath(fr,mfPath+'.x',Math.round(x));
+   setSpecPath(fr,mfPath+'.y',Math.round(y));
+  }else if(/^props\.\d+$/.test(mfPath)){
    setSpecPath(fr,mfPath+'.x',Math.round(x));
    setSpecPath(fr,mfPath+'.y',Math.round(y));
   }else{
@@ -961,6 +980,7 @@ window.addEventListener('message',e=>{
  if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y,e.data.cardIdx,e.data.mfPath);
  if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
+ if(e.data?.studio==='layers-ready'){try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers()}catch(_){}}
 });
 window.addEventListener('resize',()=>{if(editModeOpen)fitCanvasEdit()});
 initNav();
