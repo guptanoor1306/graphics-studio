@@ -82,7 +82,8 @@ def objcards(i):
         parts.append(f'<div style="display:flex;flex-direction:column;align-items:center"><div class="obj {c.get("color","yellow")}">{inner}</div>{cap}</div>')
         if k == 0 and i.get('between'):
             b = i['between']
-            parts.append(f'<div class="between"><b>{md(b.get("text",""))}</b>{f"<span>{md(b["sub"])}</span>" if b.get("sub") else ""}</div>' if isinstance(b, dict)
+            sub = f'<span>{md(b["sub"])}</span>' if b.get("sub") else ""
+            parts.append(f'<div class="between"><b>{md(b.get("text",""))}</b>{sub}</div>' if isinstance(b, dict)
                          else f'<div style="width:120px;text-align:center;font-size:80px;color:#fff">{E(b)}</div>')
     alert = ''
     if i.get('alert'):
@@ -165,7 +166,13 @@ def compare(i):
 
 def hub2(i):
     hc = i.get('hub_color', 'blue'); d = i.get('hub_size', 230)
-    hub = f'<div class="hubc" style="width:{d}px;height:{d}px;background:var(--{hc});font-size:{int(d*0.3)}px">{md(i["hub"])}{f"<small>{E(i.get("hub_sub",""))}</small>" if i.get("hub_sub") else ""}</div>' if i.get('hub') and d else '<div style="height:60px"></div>'
+    hub_sub = f'<small>{E(i.get("hub_sub", ""))}</small>' if i.get("hub_sub") else ""
+    hub = (
+        f'<div class="hubc" style="width:{d}px;height:{d}px;background:var(--{hc});font-size:{int(d*0.3)}px">'
+        f'{md(i["hub"])}{hub_sub}</div>'
+        if i.get("hub") and d
+        else '<div style="height:60px"></div>'
+    )
     arms = ''; act = i.get('active')
     for n_, a in enumerate(i['arms']):
         sub = f'<small>{E(a["sub"])}</small>' if a.get('sub') else ''
@@ -489,7 +496,7 @@ def _render_stage_inner(f, look):
     mode = f.get('mode', 'fss')
     flow_parts = []
     absol = []
-    for idx, it in enumerate(f['items']):
+    for idx, it in enumerate(f.get('items') or []):
         h = R[it['t']](it)
         scale = _zo_item_scale_style(it)
         if _zo_item_placed(it) and (it.get('x') is not None or it.get('y') is not None):
@@ -517,8 +524,11 @@ def _render_stage_inner(f, look):
         decor = anchor_decor(z) if f.get('decor', True) else ''
         align = z.get('align', 'center')
         if mode == 'tos':
-            t = f['title']; ty = f.get('title_y', p.get('tos_y', 500)); fs = f.get('title_size', 230 if len(t) <= 11 else int(230 * 11 / len(t)))
-            absol.append(f'<div class="tos back" style="top:{ty}px;font-size:{fs}px">{E(t)}</div><div class="tos front" style="top:{ty}px;font-size:{fs}px">{E(t)}</div>')
+            t = f.get('title')
+            if t:
+                ty = f.get('title_y', (p or {}).get('tos_y', 500))
+                fs = f.get('title_size', 230 if len(t) <= 11 else int(230 * 11 / len(t)))
+                absol.append(f'<div class="tos back" style="top:{ty}px;font-size:{fs}px">{E(t)}</div><div class="tos front" style="top:{ty}px;font-size:{fs}px">{E(t)}</div>')
     jc = {'top': 'flex-start', 'center': 'center', 'bottom': 'flex-end'}[z.get('valign', 'center')]
     ai = {'left': 'flex-start', 'center': 'center', 'right': 'flex-end'}[align]
     gap = f.get('gap', 40)

@@ -517,12 +517,15 @@ def preview(pid: int, fid: str, edit: int = 0):
     f = next((fr for fr in frames if fr["id"] == fid), None)
     if not f:
         raise HTTPException(404, "frame not found")
-    return frame_page(
-        p["theme"],
-        frame_for_render(p, f),
-        effective_look(p),
-        edit=bool(edit),
-    )
+    try:
+        return frame_page(
+            p["theme"],
+            frame_for_render(p, f),
+            effective_look(p),
+            edit=bool(edit),
+        )
+    except Exception as e:
+        raise HTTPException(502, detail=f"Preview render failed: {e}") from e
 
 
 @app.post("/api/projects/{pid}/storyboard-ref")
