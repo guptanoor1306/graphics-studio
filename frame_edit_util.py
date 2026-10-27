@@ -138,7 +138,32 @@ def normalize_cards_items(frame: dict) -> dict:
             cleaned.append(c)
         it["items"] = cleaned
         items.append(it)
-    return {**frame, "items": items}
+    out_items = []
+    for it in items:
+        if not isinstance(it, dict):
+            out_items.append(it)
+            continue
+        it = {**it}
+        if it.get("scale") not in (None, 1, 1.0, "1"):
+            try:
+                s = float(it["scale"])
+                if s > 0:
+                    it["scale"] = round(s, 3)
+                else:
+                    it.pop("scale", None)
+            except (TypeError, ValueError):
+                it.pop("scale", None)
+        out_items.append(it)
+    return {**frame, "items": out_items}
+
+
+def mf_path_item_index(mf_path: str | None) -> int | None:
+    if not mf_path:
+        return None
+    m = re.fullmatch(r"items\.(\d+)", mf_path.strip())
+    if not m:
+        return None
+    return int(m.group(1))
 
 
 def merge_item_edit(before: dict, after: dict, item_index: int) -> dict:

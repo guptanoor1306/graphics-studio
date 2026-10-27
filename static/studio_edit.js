@@ -96,20 +96,29 @@
       emitLayerBoundsToParent();
       return;
     }
-    if (!useParentChrome) {
-      layers.forEach((L) => {
-        const el = L.el;
-        const idx = L.idx;
-        const c = chip(L.label || labelFor(el, idx), idx, el);
-        let top = L.top - 4;
-        let left = L.left;
-        if (top < 4) top = L.top + L.height + 4;
-        if (left + 160 > window.innerWidth) left = window.innerWidth - 168;
-        c.style.top = top + "px";
-        c.style.left = Math.max(4, left) + "px";
-        overlay.appendChild(c);
+    let show = layers;
+    if (useParentChrome && window.__studioSelected) {
+      const sel = window.__studioSelected;
+      show = layers.filter((L) => {
+        if (L.idx !== sel.idx) return false;
+        const a = L.mfPath || null;
+        const b = sel.mfPath || null;
+        return a === b;
       });
+      if (!show.length) show = layers;
     }
+    show.forEach((L) => {
+      const el = L.el;
+      const idx = L.idx;
+      const c = chip(L.label || labelFor(el, idx), idx, el);
+      let top = L.top - 4;
+      let left = L.left;
+      if (top < 4) top = L.top + L.height + 4;
+      if (left + 160 > window.innerWidth) left = window.innerWidth - 168;
+      c.style.top = top + "px";
+      c.style.left = Math.max(4, left) + "px";
+      overlay.appendChild(c);
+    });
     if (!useParentChrome) placeResizeHandles();
     emitLayerBoundsToParent();
   }
@@ -326,14 +335,51 @@
     return Math.max(lo, Math.min(hi, n));
   }
 
+  function stageOrigin() {
+    const stage = document.getElementById("stage") || document.body;
+    const r = stage.getBoundingClientRect();
+    return { x: r.left, y: r.top };
+  }
+
+  function zoFlowLayer(el) {
+    const mp = el.dataset.mfPath || el.dataset.mfDrag || "";
+    const m = /^items\.(\d+)$/.exec(mp);
+    if (!m || !window.FRAME || !Array.isArray(window.FRAME.items)) return false;
+    const it = window.FRAME.items[parseInt(m[1], 10)];
+    return it && !it.abs && !it._abs;
+  }
+
+  function zoFitboxFlowItem(el) {
+    const zoEl =
+      el.closest("[data-zo-item]") || (el.hasAttribute("data-zo-item") ? el : null);
+    if (!zoEl || !zoEl.closest(".fitbox")) return false;
+    const idx = parseInt(zoEl.dataset.zoItem, 10);
+    const it = window.FRAME?.items?.[idx];
+    return it && !it.abs && !it._abs;
+  }
+
+  function skipInteractDrag(el) {
+    return zoFlowLayer(el) || zoFitboxFlowItem(el);
+  }
+
+  function canSelect(el) {
+    return !!(el && el.classList.contains("studio-editable") && el.dataset.specIdx != null);
+  }
+
   function canDrag(el) {
     if (!el || !el.classList.contains("studio-editable")) return false;
     if (el.dataset.specIdx == null) return false;
     if (el.dataset.mfPath || el.dataset.mfDrag) return true;
     const t = el.dataset.layerType || "";
-    if (["asset", "person", "card", "pill", "hero", "label", "prop", "table", "definition", "point"].includes(t)) {
+    const zoDrag = [
+      "heading", "status", "compare", "chart", "positions", "cards", "text", "note", "img", "phone",
+      "bars", "formula", "hub2", "hub_fan", "notepad", "objstat", "calendar", "week", "exchange",
+      "kite_watchlist", "kite_depth", "kite_chart", "auction", "row", "pillv",
+    ];
+    if (["asset", "person", "card", "pill", "hero", "label", "prop", "table", "definition", "point", "html", "block"].includes(t)) {
       return true;
     }
+    if (zoDrag.includes(t)) return true;
     if (el.dataset.mfProp != null) return true;
     const pos = getComputedStyle(el).position;
     if (pos === "absolute" || pos === "fixed") return true;
@@ -346,10 +392,21 @@
     const top = parseFloat(el.style.top);
     if (!Number.isNaN(left) && !Number.isNaN(top)) return { x: left, y: top };
     const r = el.getBoundingClientRect();
-    return { x: r.left, y: r.top };
+    const o = stageOrigin();
+    return { x: r.left - o.x, y: r.top - o.y };
   }
 
-  const STAGE_BOUNDS = { left: 0, top: 0, right: 1920, bottom: 1080 };
+  function readStageBounds() {
+    const meta = document.querySelector('meta[name="studio-canvas"]');
+    if (meta && meta.content) {
+      const p = meta.content.split(",").map((n) => parseInt(n, 10));
+      if (p.length >= 2 && p[0] > 0 && p[1] > 0) {
+        return { left: 0, top: 0, right: p[0], bottom: p[1] };
+      }
+    }
+    return { left: 0, top: 0, right: 1920, bottom: 1080 };
+  }
+  let STAGE_BOUNDS = readStageBounds();
   let interactTargets = [];
   let pointerDragBound = false;
 
@@ -366,12 +423,16 @@
 
   function ensureAbsolute(el) {
     const pos = getComputedStyle(el).position;
+    const r = el.getBoundingClientRect();
+    const o = stageOrigin();
     if (pos !== "absolute" && pos !== "fixed") {
-      const r = el.getBoundingClientRect();
       el.style.position = "absolute";
-      el.style.left = Math.round(r.left) + "px";
-      el.style.top = Math.round(r.top) + "px";
     }
+    if (el.style.transform && el.style.transform !== "none") {
+      el.style.transform = "none";
+    }
+    el.style.left = Math.round(r.left - o.x) + "px";
+    el.style.top = Math.round(r.top - o.y) + "px";
   }
 
   function stageRestriction() {
@@ -397,8 +458,7 @@
           ]
         : [];
     document.querySelectorAll("[data-spec-idx].studio-editable").forEach((el) => {
-      if (!canDrag(el)) return;
-      ensureAbsolute(el);
+      if (!canDrag(el) || skipInteractDrag(el)) return;
       const idx = parseInt(el.dataset.specIdx, 10);
       try {
         const draggable = interact(el).draggable({
@@ -445,11 +505,12 @@
       "pointerdown",
       (e) => {
         if (e.button !== 0) return;
-        if (e.target.closest(".studio-chip, button")) return;
+        if (e.target.closest(".studio-chip, .studio-chip-actions, button")) return;
         const el = e.target.closest("[data-spec-idx].studio-editable");
-        if (!el || !canDrag(el)) return;
-        ensureAbsolute(el);
-        const pos = readPos(el);
+        if (!canSelect(el)) return;
+        const onInline = e.target.closest(
+          ".studio-inline-edit,[contenteditable='true']"
+        );
         const idx = parseInt(el.dataset.specIdx, 10);
         layerTap = {
           el,
@@ -459,14 +520,20 @@
           startX: e.clientX,
           startY: e.clientY,
         };
+        if (onInline) return;
+        if (!canDrag(el)) return;
+        const pos = readPos(el);
+        const origin = stageOrigin();
         pending = {
           el,
           idx,
           pointerId: e.pointerId,
           startX: e.clientX,
           startY: e.clientY,
-          offX: e.clientX - pos.x,
-          offY: e.clientY - pos.y,
+          originX: origin.x,
+          originY: origin.y,
+          offX: e.clientX - origin.x - pos.x,
+          offY: e.clientY - origin.y - pos.y,
         };
       },
       true
@@ -479,6 +546,13 @@
         if (Math.hypot(dx, dy) < DRAG_PX) return;
         drag = pending;
         pending = null;
+        ensureAbsolute(drag.el);
+        const pos = readPos(drag.el);
+        const origin = stageOrigin();
+        drag.originX = origin.x;
+        drag.originY = origin.y;
+        drag.offX = e.clientX - origin.x - pos.x;
+        drag.offY = e.clientY - origin.y - pos.y;
         drag.el.classList.add("studio-dragging");
         try {
           drag.el.setPointerCapture(e.pointerId);
@@ -491,8 +565,10 @@
       const h = elDim().h;
       const ew = drag.el.offsetWidth || 80;
       const eh = drag.el.offsetHeight || 80;
-      const x = clamp(Math.round(e.clientX - drag.offX), 0, w - ew);
-      const y = clamp(Math.round(e.clientY - drag.offY), 0, h - eh);
+      const ox = drag.originX != null ? drag.originX : stageOrigin().x;
+      const oy = drag.originY != null ? drag.originY : stageOrigin().y;
+      const x = clamp(Math.round(e.clientX - ox - drag.offX), 0, w - ew);
+      const y = clamp(Math.round(e.clientY - oy - drag.offY), 0, h - eh);
       drag.el.style.position = "absolute";
       drag.el.style.left = x + "px";
       drag.el.style.top = y + "px";
@@ -678,8 +754,10 @@
   }
 
   const INLINE_SELECTORS = {
-    htab: ".htab",
+    heading: ".heading, .ihead b, .studio-editable",
     text: ".studio-editable",
+    note: ".note, .studio-editable",
+    htab: ".htab",
     label: ".studio-editable",
     pill: ".pill-title",
     num: ".num",
@@ -802,6 +880,7 @@
     if (!d) return;
     if (d.studio === "select-layer") {
       applyStudioSelection(d);
+      schedulePlaceChips();
       return;
     }
     if (d.studio !== "parent-resize") return;

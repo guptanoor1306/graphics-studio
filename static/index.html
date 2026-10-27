@@ -85,8 +85,8 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .frame-arrow{width:44px;height:44px;flex-shrink:0;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;color:var(--ink);font-size:22px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .frame-arrow:hover{background:var(--beat-green-bg);border-color:var(--beat-green);color:var(--beat-green)}
 .frame-arrow:disabled{opacity:.35;cursor:not-allowed}
-.thumb{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#1a1917;border-radius:var(--radius-sm);border:1px solid var(--line)}
-.thumb iframe,.mini-thumb iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
+.thumb{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.thumb iframe,.mini-thumb iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;pointer-events:none}
 .thumb .loader{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(26,25,23,.72);color:#fff;z-index:2;font-size:14px}
 #framePanel.is-loading .thumb .loader{display:flex}
 .spinner{width:36px;height:36px;border:3px solid rgba(0,0,0,.12);border-top-color:var(--acc);border-radius:50%;animation:spin .75s linear infinite}
@@ -109,6 +109,10 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
   border-radius:var(--radius-sm);box-shadow:var(--shadow);white-space:normal;text-align:left;word-break:normal;overflow-wrap:break-word;pointer-events:none}
 .has-tip.tip-above-right[data-tip]:hover::after,.has-tip.tip-above-right[data-tip]:focus-visible::after{left:auto;right:0;transform:none}
 .all-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;max-height:min(70vh,720px);overflow:auto;padding:4px}
+.all-grid.reel-all{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));max-height:min(78vh,820px)}
+.all-grid.reel-all .mini-thumb{aspect-ratio:9/16;background:#f0f0f4}
+.all-grid.reel-all .mini-thumb .preview-viewport{position:relative;width:100%;aspect-ratio:9/16;overflow:hidden}
+.all-grid.reel-all .mini-thumb .preview-viewport iframe{position:absolute;inset:0}
 .mini-card{cursor:pointer;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:#fff;transition:border-color .15s,box-shadow .15s}
 .mini-card:hover{border-color:var(--beat-green);box-shadow:var(--shadow)}
 .mini-thumb{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#111}
@@ -140,7 +144,7 @@ body.edit-mode-on #main{display:none}
 body.edit-mode-on #editModeApp{display:flex}
 body.edit-mode-on .plist-switchable,body.edit-mode-on aside .p.block{display:none!important}
 body.edit-mode-on .edit-nav-note{display:block!important}
-.canvas-parent-layer-outline{position:absolute;border:2px dashed rgba(36,142,247,.45);pointer-events:auto;box-sizing:border-box;border-radius:4px;cursor:pointer;z-index:1}
+.canvas-parent-layer-outline{position:absolute;border:2px dashed rgba(36,142,247,.45);pointer-events:none;box-sizing:border-box;border-radius:4px;z-index:1}
 .canvas-parent-layer-outline.sel{border-color:rgba(36,142,247,.95);border-width:2px;background:rgba(36,142,247,.06);z-index:2}
 .canvas-parent-resize-handle{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;pointer-events:auto;cursor:nwse-resize;border-radius:4px;background:#fff;border:2px solid rgba(36,142,247,.95);box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:5}
 .canvas-layer-bounds-hint{position:absolute;left:50%;top:12px;transform:translateX(-50%);pointer-events:none;padding:8px 14px;border-radius:8px;background:rgba(26,25,23,.88);color:#fff;font:13px/1.4 system-ui,sans-serif;z-index:3}
@@ -148,11 +152,35 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .edit-mode-top .spacer{flex:1}
 .edit-mode-top b{font-size:16px;font-weight:600}
 .edit-mode-grid{flex:1;display:grid;grid-template-columns:minmax(120px,150px) 1fr minmax(280px,340px);min-height:0}
-.edit-frame-strip{overflow-y:auto;border-right:1px solid var(--line);padding:12px 10px;background:var(--bg-sidebar)}
+.edit-mode-grid.reel-edit{grid-template-columns:minmax(168px,188px) 1fr minmax(280px,340px)}
+aside.edit-frame-strip{display:block;flex-direction:unset;gap:0;overflow-y:auto;border-right:1px solid var(--line);padding:12px 10px;background:var(--bg-sidebar)}
+.edit-frame-strip.reel-strip .edit-frame-thumb .mini-thumb{width:100%;height:auto;min-height:0;background:transparent}
+.edit-frame-strip.reel-strip .mini-thumb .preview-viewport{position:relative;width:100%;aspect-ratio:9/16;overflow:hidden;background:#f0f0f4;border-radius:inherit}
+@media (max-width:960px){aside.edit-frame-strip{display:flex;flex-direction:row;align-items:flex-start;gap:10px;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid var(--line)}.edit-frame-strip.reel-strip .edit-frame-thumb{flex:0 0 auto;width:min(132px,32vw)}}
+.edit-frame-strip.reel-strip .mini-label{padding:8px 6px 10px;font-family:var(--mono);font-size:11px;font-weight:600;text-align:center;line-height:1.3;color:var(--ink)}
 .edit-frame-thumb{cursor:pointer;margin-bottom:12px;border:2px solid transparent;border-radius:var(--radius-sm);overflow:hidden;background:#fff}
 .edit-frame-thumb.on{border-color:var(--beat-green);box-shadow:0 0 0 1px var(--beat-green-bg)}
-.edit-mode-center{position:relative;padding:16px 20px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:0;overflow:auto}
-.edit-canvas-viewport{position:relative;width:100%;max-width:100%;flex:0 0 auto;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.edit-mode-center{position:relative;padding:16px 20px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;overflow:hidden;flex:1}
+.edit-mode-center.reel-desk{background:linear-gradient(180deg,#efeff4 0%,#e2e2ea 55%,#d6d6e0 100%);justify-content:flex-start;overflow-x:hidden;overflow-y:auto;padding:20px 16px 28px}
+.edit-canvas-viewport{position:relative;width:100%;max-width:min(920px,100%);aspect-ratio:16/9;flex:0 0 auto;overflow:hidden;background:#111;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.edit-canvas-viewport.reel-mock{background:transparent;border:none;border-radius:0;aspect-ratio:unset;width:min(440px,calc(100% - 8px));height:min(78vh,760px);max-width:none;flex:0 0 auto;min-height:560px;margin:0 auto}
+.thumb.reel-mock,.mini-thumb.reel-mock{background:linear-gradient(180deg,#e8e8ed 0%,#d4d4dc 45%,#c8c8d2 100%)}
+.reel-phone-chrome{position:absolute;pointer-events:none;z-index:0;box-sizing:border-box;border-radius:clamp(18px,5.5%,40px);background:linear-gradient(145deg,#7a6794 0%,#5b4a72 22%,#4a3d62 55%,#6d5a88 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -2px 6px rgba(0,0,0,.25),0 0 0 1px rgba(0,0,0,.35),0 18px 40px rgba(40,30,60,.35),0 6px 16px rgba(0,0,0,.2)}
+.reel-phone-chrome::before{content:"";position:absolute;inset:clamp(5px,1.8%,11px);border-radius:inherit;background:linear-gradient(180deg,#0a0a0c 0%,#121214 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.reel-phone-chrome::after{content:"";position:absolute;pointer-events:none}
+.reel-phone-chrome .reel-phone-shadow{position:absolute;left:8%;right:8%;bottom:-6%;height:14%;background:radial-gradient(ellipse at 50% 0%,rgba(30,25,45,.45) 0%,transparent 72%);transform:translateY(50%);z-index:-1}
+.reel-phone-chrome .reel-phone-btn{position:absolute;background:linear-gradient(90deg,#3d3349,#5a4a6e,#3d3349);border-radius:2px;box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 0 0 1px rgba(0,0,0,.4)}
+.reel-phone-chrome .reel-phone-btn-v1{left:-3px;top:18%;width:3px;height:7%;border-radius:2px 0 0 2px}
+.reel-phone-chrome .reel-phone-btn-v2{left:-3px;top:27%;width:3px;height:7%;border-radius:2px 0 0 2px}
+.reel-phone-chrome .reel-phone-btn-mute{left:-3px;top:12%;width:3px;height:4%;border-radius:2px 0 0 2px}
+.reel-phone-chrome .reel-phone-btn-power{right:-3px;top:22%;width:3px;height:10%;border-radius:0 2px 2px 0}
+.reel-phone-ui{position:absolute;pointer-events:none;z-index:4;box-sizing:border-box}
+.reel-phone-island{left:50%;transform:translateX(-50%);top:0;width:32%;max-width:118px;min-width:42px;height:clamp(12px,4.2%,28px);border-radius:999px;background:#050506;box-shadow:0 0 0 1px rgba(255,255,255,.08),inset 0 1px 2px rgba(0,0,0,.8);display:flex;align-items:center;justify-content:flex-end;padding:0 12% 0 0}
+.reel-phone-island .reel-phone-cam{width:22%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2a2a4a,#0a0a12 70%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.reel-phone-home{left:50%;transform:translateX(-50%);bottom:2%;width:34%;max-width:104px;height:clamp(3px,1.1%,5px);border-radius:999px;background:rgba(255,255,255,.42)}
+.thumb.reel-mock .reel-phone-btn,.mini-thumb.reel-mock .reel-phone-btn{display:none}
+.thumb.reel-mock .reel-phone-shadow,.mini-thumb.reel-mock .reel-phone-shadow{bottom:-4%;height:10%}
+.reel-screen-bezel{box-shadow:inset 0 0 0 clamp(2px,.22vw,4px) #0a0a0c}
 #canvasChipOverlay{position:absolute;inset:0;z-index:12;pointer-events:none;overflow:visible}
 .canvas-parent-chip{position:absolute;pointer-events:auto;display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(26,25,23,.96);color:#fff;border-radius:10px;font:13px/1.2 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4);max-width:min(280px,90vw)}
 .canvas-parent-chip-float{padding:6px 8px;max-width:none}
@@ -174,9 +202,9 @@ body.edit-mode-on .edit-nav-note{display:block!important}
 .mode-switch{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--radius-sm);overflow:hidden;background:#fff}
 .mode-switch button{padding:8px 16px;border:0;background:transparent;font-size:13px;font-weight:500;color:var(--mute);cursor:pointer}
 .mode-switch button.on{background:var(--beat-green-bg);color:var(--beat-green);font-weight:600}
-.canvas-edit-scale{transform-origin:0 0;width:1920px;height:1080px}
-.canvas-edit-scale iframe{display:block;width:1920px;height:1080px;border:0;pointer-events:auto}
-.edit-canvas-loader{position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(26,25,23,.75);color:#fff;font-size:15px;border-radius:var(--radius-sm)}
+.canvas-edit-scale{position:absolute;left:0;top:0;transform-origin:0 0;z-index:1}
+.canvas-edit-scale iframe{display:block;border:0;pointer-events:auto}
+.edit-canvas-loader{position:absolute;inset:0;z-index:24;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:rgba(26,25,23,.75);color:#fff;font-size:15px;border-radius:var(--radius-sm)}
 .edit-canvas-loader[hidden]{display:none!important}
 .edit-mode-side{border-left:1px solid var(--line);padding:16px 18px;overflow-y:auto;background:var(--card)}
 .edit-mode-side h3{margin:18px 0 10px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
@@ -195,7 +223,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 .layer-edit-ref{margin:0 0 12px}
 .layer-edit-ref input[type=file]{display:block;width:100%;font-size:13px;margin-top:6px}
 .layer-edit-ref-name{font-size:12px;color:var(--mute);margin-top:6px;min-height:1.2em}
-@media (max-width:960px){.edit-mode-grid{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}.edit-frame-strip{display:flex;gap:10px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.edit-frame-thumb{flex:0 0 120px;margin:0}}
+@media (max-width:960px){.edit-mode-grid{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}.edit-frame-thumb{flex:0 0 120px;margin:0}}
 @media (max-width:960px){
   body,body.nav-collapsed{grid-template-columns:1fr;height:auto}
   aside{max-height:36vh}
@@ -221,9 +249,18 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   <aside class="edit-frame-strip" id="editFrameStrip"></aside>
   <div class="edit-mode-center">
    <div class="edit-canvas-loader" id="editCanvasLoader" hidden><div class="spinner"></div><span>Updating frame…</span></div>
-   <div class="edit-canvas-viewport" id="canvasEditViewport"><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div><div id="canvasChipOverlay" aria-hidden="true"></div></div>
+   <div class="edit-canvas-viewport" id="canvasEditViewport"><div class="reel-phone-chrome" id="reelPhoneChrome" hidden aria-hidden="true"></div><div class="reel-phone-ui reel-phone-island" id="reelPhoneIsland" hidden aria-hidden="true"><span class="reel-phone-cam"></span></div><div class="reel-phone-ui reel-phone-home" id="reelPhoneHome" hidden aria-hidden="true"></div><div class="canvas-edit-scale" id="canvasEditScale"><iframe id="canvasEditFrame" title="Frame editor"></iframe></div><div id="canvasChipOverlay" aria-hidden="true"></div></div>
   </div>
   <aside class="edit-mode-side">
+   <div id="editLookBlock" hidden>
+    <h3>Look</h3>
+    <p class="edit-side-hint">Visual theme for the whole reel (from Zero1 skill). Applies to storyboard regeneration context and look line on all frames.</p>
+    <label class="field-label" for="editReelTheme">Reel theme</label>
+    <select id="editReelTheme" class="block" style="width:100%;margin:6px 0 12px" onchange="syncReelLookLine('edit')"></select>
+    <label class="field-label" for="editLookLine">Look line</label>
+    <input id="editLookLine" type="text" placeholder="Theme + fonts + accent…" style="width:100%;margin:6px 0 12px">
+    <button type="button" class="btn-neutral block" onclick="applyLook()">Apply look to all frames</button>
+   </div>
    <h3>Layers</h3><div id="canvasLayerList"></div>
    <h3>Frame changes</h3>
    <textarea id="editFrameAsk" placeholder="Describe changes for the whole frame…" rows="4" style="min-height:88px;resize:vertical"></textarea>
@@ -281,7 +318,16 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   </div>
 </form></dialog>
 <script>
-let P=null,themes=[],frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
+let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
+const stageView={s:1,ox:0,oy:0};
+const REEL_LOOK_PRESETS=[
+ {id:'A',label:'A · Cream Editorial',line:'Theme A · Cream Editorial · cream #FCF8EE bg, black type, serif headline + Manrope body, orange accent #F85000'},
+ {id:'B',label:'B · Green Grid',line:'Theme B · Green Grid · green grid board #207C50, white grid lines, cream paper cards, Manrope body'},
+ {id:'C',label:'C · Dark Studio',line:'Theme C · Dark Studio · dark presenter bg, white/red type over presenter, Manrope body'},
+ {id:'D',label:'D · Burnt Orange',line:'Theme D · Burnt Orange · rust/orange bg #AE5430, cream type #FCF6F0, serif + sans'},
+ {id:'E',label:'E · Cinematic Film',line:'Theme E · Cinematic Film · film texture, photo scenes, oversized numbers, Manrope body'},
+ {id:'custom',label:'Custom (edit line below)',line:''}
+];
 let canvasChipOverlayBound=false,canvasChipRenderT=0,lastCanvasChipSig='',lastCanvasLayers=[],selectedCanvasLayer=null,parentResizeBound=false,parentResize=null,boundsPollTimer=null;
 const ICON_RENAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
 const ICON_DELETE='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
@@ -305,11 +351,122 @@ function initNav(){
   });
   if($('#navToggle'))$('#navToggle').textContent=document.body.classList.contains('nav-collapsed')?'›':'‹';
 }
-function isMfTheme(t){return t==='varsity-mf-graphics'}
-const MF_RENDERABLE=new Set(['scene','ribbon','sop','table','cycle','points','definition','anchor','html']);
-function studioFrames(){const all=P?.spec?.frames||[];if(!P||!isMfTheme(P.theme))return all;return all.filter(f=>MF_RENDERABLE.has(f.type||''))}
-function frameMetaLine(fr){if(!fr)return '';if(isMfTheme(P?.theme))return `${frameLabel(fr.id)} · ${fr.id} · ${fr.type||'frame'}`;return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||'anchor'}`}
-function normLook(l){l=l||{};if(P&&isMfTheme(P.theme)){if(l.look_line==null)l.look_line='';return l}if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
+function themeCanvas(t){const m=themeMeta[t||(P&&P.theme)]||{};return {w:m.w||1920,h:m.h||1080};}
+function stageFitInBox(boxW,boxH,stageW,stageH){
+ if(isPortraitStage(P?.theme)){
+  const padR=0.077,chinR=0.028;
+  const effW=stageW*(1+2*padR),effH=stageH+2*stageW*padR+stageW*chinR;
+  return Math.min(boxW/effW,boxH/effH)||1;
+ }
+ return Math.min(boxW/stageW,boxH/stageH)||1;
+}
+function isPortraitStage(t){const {w,h}=themeCanvas(t);return h>w;}
+function reelDeviceMetrics(dw,dh){
+ const innerBez=Math.max(2,Math.round(dw*0.022));
+ const frame=Math.max(6,Math.round(dw*0.052));
+ const chin=Math.max(3,Math.round(dw*0.026));
+ const pad=innerBez+frame;
+ return {innerBez,frame,chin,pad,outerW:Math.round(dw+pad*2),outerH:Math.round(dh+pad*2+chin)};
+}
+function buildPhoneChromeInner(chrome){
+ if(!chrome||chrome.dataset.built)return;
+ chrome.dataset.built='1';
+ chrome.innerHTML='<div class="reel-phone-shadow"></div><span class="reel-phone-btn reel-phone-btn-mute"></span><span class="reel-phone-btn reel-phone-btn-v1"></span><span class="reel-phone-btn reel-phone-btn-v2"></span><span class="reel-phone-btn reel-phone-btn-power"></span>';
+}
+function ensurePhoneChrome(container){
+ let c=container.querySelector('.reel-phone-chrome');
+ if(!c&&container){
+  c=document.createElement('div');
+  c.className='reel-phone-chrome';
+  c.hidden=true;
+  c.setAttribute('aria-hidden','true');
+  container.insertBefore(c,container.firstChild);
+ }
+ buildPhoneChromeInner(c);
+ return c;
+}
+function ensureThumbPhoneUi(container){
+ let island=container.querySelector('.reel-phone-island');
+ let home=container.querySelector('.reel-phone-home');
+ if(!island){
+  island=document.createElement('div');
+  island.className='reel-phone-ui reel-phone-island';
+  island.hidden=true;
+  island.setAttribute('aria-hidden','true');
+  island.innerHTML='<span class="reel-phone-cam"></span>';
+  container.appendChild(island);
+ }
+ if(!home){
+  home=document.createElement('div');
+  home.className='reel-phone-ui reel-phone-home';
+  home.hidden=true;
+  home.setAttribute('aria-hidden','true');
+  container.appendChild(home);
+ }
+ return {island,home};
+}
+function hideReelPhoneUi(container){
+ container?.classList.remove('reel-mock');
+ container?.querySelector('.reel-phone-chrome')&&(container.querySelector('.reel-phone-chrome').hidden=true);
+ container?.querySelectorAll('.reel-phone-island,.reel-phone-home').forEach(el=>{el.hidden=true});
+ const sc=container?.querySelector('.canvas-edit-scale');
+ if(sc){sc.classList.remove('reel-screen-bezel');sc.style.borderRadius='';sc.style.overflow=''}
+}
+function layoutReelPhoneChrome(container,ox,oy,dw,dh){
+ if(!container)return {ox,oy,dw,dh};
+ if(container.closest&&container.closest('.edit-frame-strip')){
+  container.classList.add('reel-mock');
+  container.querySelectorAll('.reel-phone-chrome,.reel-phone-island,.reel-phone-home').forEach(el=>{el.hidden=true});
+  return {ox,oy,dw,dh};
+ }
+ if(!isPortraitStage(P?.theme)){
+  hideReelPhoneUi(container);
+  if(container.id==='canvasEditViewport'){const i=$('#reelPhoneIsland'),h=$('#reelPhoneHome'),c=$('#reelPhoneChrome');if(i)i.hidden=true;if(h)h.hidden=true;if(c)c.hidden=true}
+  return {ox,oy,dw,dh};
+ }
+ container.classList.add('reel-mock');
+ const dev=reelDeviceMetrics(dw,dh);
+ const deviceLeft=Math.round(ox-dev.pad);
+ const deviceTop=Math.round(oy-dev.pad);
+ const chrome=container.id==='canvasEditViewport'?($('#reelPhoneChrome')||ensurePhoneChrome(container)):ensurePhoneChrome(container);
+ buildPhoneChromeInner(chrome);
+ chrome.hidden=false;
+ chrome.style.left=deviceLeft+'px';
+ chrome.style.top=deviceTop+'px';
+ chrome.style.width=dev.outerW+'px';
+ chrome.style.height=dev.outerH+'px';
+ let island,home;
+ if(container.id==='canvasEditViewport'){
+  island=$('#reelPhoneIsland');home=$('#reelPhoneHome');
+ }else({island,home}=ensureThumbPhoneUi(container));
+ [island,home].forEach(el=>{if(el)el.hidden=false});
+ const islandTop=Math.round(oy+Math.max(4,dev.innerBez*0.65));
+ const homeTop=Math.round(oy+dh-Math.max(10,dev.innerBez*2.2));
+ const pillW=Math.min(118,Math.max(36,Math.round(dw*0.34)));
+ const homeW=Math.min(104,Math.max(32,Math.round(dw*0.32)));
+ if(island){
+  island.style.left=Math.round(ox+(dw-pillW)/2)+'px';
+  island.style.top=islandTop+'px';
+  island.style.width=pillW+'px';
+  island.style.transform='none';
+ }
+ if(home){
+  home.style.left=Math.round(ox+(dw-homeW)/2)+'px';
+  home.style.top=homeTop+'px';
+  home.style.width=homeW+'px';
+  home.style.transform='none';
+ }
+ return {ox,oy,dw,dh,...dev,deviceLeft,deviceTop};
+}
+function isKitTheme(t){return !!(themeMeta[t]?.kit);}
+function isZoProduct(t){return (t||(P&&P.theme))==='zo-product-graphics'}
+function isChannelKit(t){return isKitTheme(t)||isZoProduct(t)}
+const KIT_SKIP_TYPES=new Set(['footage','screen','repeat']);
+const ZO_RENDER_MODES=new Set(['fss','osa','ost','tos']);
+function zoRenderable(f){const m=(f?.mode||'fss').toLowerCase();return ZO_RENDER_MODES.has(m)}
+function studioFrames(){const all=P?.spec?.frames||[];if(!P)return all;if(isKitTheme(P.theme))return all.filter(f=>!KIT_SKIP_TYPES.has(f.type||''));if(isZoProduct())return all.filter(zoRenderable);return all}
+function frameMetaLine(fr){if(!fr)return '';if(isKitTheme(P?.theme))return `${frameLabel(fr.id)} · ${fr.id} · ${fr.type||'frame'}`;if(isZoProduct()){const m=(fr.mode||'fss').toUpperCase();return `${frameLabel(fr.id)} · ${fr.id} · ${m}`}return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||'anchor'}`}
+function normLook(l){l=l||{};if(P&&(isKitTheme(P.theme)||isZoProduct())){if(l.look_line==null)l.look_line='';return l}if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
 const TOPIC_PROPS_TIP='First checked prop = corner dressing on text-only frames only. Every checked prop hints storyboard generation and frame Apply to prefer matching kit assets (broker, bank, chart, etc.).';
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
@@ -378,9 +535,52 @@ function fullScriptHtml(script,assign){
   }).join('');
 }
 function frameLabel(fid){const i=studioFrames().findIndex(f=>f.id===fid);return 'G'+String(Math.max(i,0)+1).padStart(2,'0')}
+function isReelChannel(t){return (t||(P&&P.theme))==='zero1-reel-graphics'}
+function reelThemePresetFromLine(line){
+ const s=String(line||'').toLowerCase();
+ for(const p of REEL_LOOK_PRESETS){if(p.id==='custom')continue;if(s.includes('theme '+p.id.toLowerCase())||s.startsWith('theme '+p.id.toLowerCase()))return p.id}
+ return 'custom';
+}
+function reelThemeSelectHtml(selectedId,prefix){
+ const id=prefix==='edit'?'editReelTheme':(prefix?prefix+'_reel_theme':'lk_reel_theme');
+ return REEL_LOOK_PRESETS.map(p=>`<option value="${p.id}" ${p.id===selectedId?'selected':''}>${esc(p.label)}</option>`).join('');
+}
+function syncReelLookLine(prefix){
+ const selId=prefix==='edit'?'editReelTheme':(prefix==='lk'?'lk_reel_theme':'lk_reel_theme');
+ const lineId=prefix==='edit'?'editLookLine':'lk_look_line';
+ const sel=document.getElementById(selId);
+ const preset=REEL_LOOK_PRESETS.find(p=>p.id===(sel&&sel.value));
+ if(!preset||preset.id==='custom')return;
+ const inp=document.getElementById(lineId);
+ if(inp)inp.value=preset.line;
+ const otherLine=document.getElementById(lineId==='editLookLine'?'lk_look_line':'editLookLine');
+ if(otherLine)otherLine.value=preset.line;
+ const otherSel=document.getElementById(selId==='editReelTheme'?'lk_reel_theme':'editReelTheme');
+ if(otherSel)otherSel.value=preset.id;
+}
+function populateEditLookBlock(){
+ const block=$('#editLookBlock');
+ if(!block)return;
+ if(!isReelChannel()){block.hidden=true;return}
+ block.hidden=false;
+ const l=normLook(P.look||{});
+ const preset=reelThemePresetFromLine(l.look_line);
+ const sel=$('#editReelTheme');
+ if(sel)sel.innerHTML=reelThemeSelectHtml(preset,'edit');
+ const line=$('#editLookLine');
+ if(line)line.value=l.look_line||'';
+}
 function lookForm(l){l=normLook(l);
   const themeField=`<div class="field"><label>Channel</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>`;
-  if(isMfTheme(P.theme)){
+  if(isReelChannel()){
+    const preset=reelThemePresetFromLine(l.look_line);
+    return `<div class="field-grid">${themeField}
+  <div class="field" style="grid-column:1/-1"><label>Reel visual theme</label><select id="lk_reel_theme" onchange="syncReelLookLine('lk')">${reelThemeSelectHtml(preset,'lk')}</select></div>
+  <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="Theme letter, fonts, accent colours…"></div></div>`}
+  if(isZoProduct()){
+    return `<div class="field-grid">${themeField}
+  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">FSS + anchor (OSA/OST/TOS) render in spec; upload an optional anchor plate in Edit mode. Screen capture and footage stay storyboard-only.</p></div>`}
+  if(isKitTheme(P.theme)){
     return `<div class="field-grid">${themeField}
   <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · purple (#5b55e6) search pills · blue table headers"></div></div>`}
   const sel=(k,opts)=>`<select id="lk_${k}">${opts.map(o=>`<option ${l[k]==o?'selected':''}>${o}</option>`).join('')}</select>`;
@@ -392,7 +592,12 @@ function lookForm(l){l=normLook(l);
   <div class="field" style="grid-column:1/-1"><label>Graphics mix</label><select id="lk_graphics_mix"><option value="balanced" ${(l.graphics_mix||'balanced')==='balanced'?'selected':''}>Balanced — mix of FSS and anchor</option><option value="fss_heavy" ${l.graphics_mix==='fss_heavy'?'selected':''}>FSS-heavy — mostly full-screen frames</option><option value="minimal_anchor" ${l.graphics_mix==='minimal_anchor'?'selected':''}>Minimal anchor — at most 2 talking-head frames</option></select></div>
   <div class="field" style="grid-column:1/-1"><div class="topic-props-head"><span class="field-label">Topic props</span><span class="tip-hover" tabindex="0"><span class="tip-hover-btn" aria-hidden="true">i</span><span class="tip-hover-panel" role="tooltip">${esc(TOPIC_PROPS_TIP)}</span></span></div><div class="prop-pick" id="propPick">${PROP_OPTS.map(p=>`<label class="chip"><input type="checkbox" value="${p}" ${props.has(p)?'checked':''}> ${p}</label>`).join('')}</div></div></div>`}
 const getLook=()=>{
-  if(isMfTheme(P.theme))return {look_line:$('#lk_look_line')?.value?.trim()||'',...(P.look?.plate?{plate:P.look.plate}:{})};
+  const mainLine=$('#lk_look_line')?.value?.trim()||'';
+  let look_line=mainLine;
+  if(editModeOpen&&isReelChannel()&&$('#editLookLine'))look_line=$('#editLookLine').value.trim()||mainLine;
+  if(isReelChannel())return {look_line,reel_theme:$('#editReelTheme')?.value||$('#lk_reel_theme')?.value||'',...(P.look?.plate?{plate:P.look.plate}:{})};
+  if(isZoProduct())return {...(P.look?.plate?{plate:P.look.plate}:{})};
+  if(isKitTheme(P.theme))return {look_line:look_line||mainLine,...(P.look?.plate?{plate:P.look.plate}:{})};
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
   return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{})};
 };
@@ -452,7 +657,7 @@ function framesStudio(){
        <iframe id="activeFrame" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>
       <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
      </div>
-     <p class="studio-hint" style="margin-top:12px">Open <b>Edit mode</b> to change layers, apply prompts, or switch anchor / full-screen layout.</p></div></div></div>`}
+     <p class="studio-hint" style="margin-top:12px">${isZoProduct()?'Open <b>Edit mode</b> to edit FSS components (compare, chart, positions, …) per layer.':'Open <b>Edit mode</b> to change layers, apply prompts, or switch anchor / full-screen layout.'}</p></div></div></div>`}
 function render(){
   P.look=normLook(P.look);
   const preSpec=`<h2 class="section">2 · Script</h2><div class="card"><div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
@@ -514,17 +719,62 @@ function frameNav(delta){
   i=Math.max(0,Math.min(frames.length-1,i+delta));
   if(frames[i].id!==selectedFrameId)selectFrame(frames[i].id);
 }
+function fitReelPreviewThumb(thumb){
+ if(!thumb||!isPortraitStage(P?.theme))return fitOne(thumb);
+ const {w,h}=themeCanvas(P?.theme);
+ const boxEl=thumb.querySelector('.preview-viewport')||thumb;
+ let boxW=boxEl.clientWidth,boxH=boxEl.clientHeight;
+ if((!boxW||!boxH)&&boxEl.getBoundingClientRect){const r=boxEl.getBoundingClientRect();boxW=r.width;boxH=r.height}
+ if(!boxW||!boxH)return;
+ const f=thumb.querySelector('iframe');
+ if(!f)return;
+ thumb.querySelectorAll('.reel-phone-chrome,.reel-phone-island,.reel-phone-home').forEach(el=>{el.hidden=true});
+ f.setAttribute('width',String(w));
+ f.setAttribute('height',String(h));
+ f.style.width=w+'px';
+ f.style.height=h+'px';
+ f.style.transformOrigin='0 0';
+ const s=Math.min(boxW/w,boxH/h);
+ const dw=w*s,dh=h*s;
+ f.style.transform=`scale(${s})`;
+ f.style.left=Math.round((boxW-dw)/2)+'px';
+ f.style.top=Math.round((boxH-dh)/2)+'px';
+ f.style.borderRadius=Math.max(2,Math.round(dw*0.02))+'px';
+}
+function bindPreviewIframeFit(container){
+ if(!container)return;
+ const thumb=container.classList?.contains('mini-thumb')?container:container.querySelector('.mini-thumb');
+ if(!thumb)return;
+ const ifr=thumb.querySelector('iframe');
+ const run=()=>requestAnimationFrame(()=>{
+  if(isReelChannel()&&!thumb.closest('#canvasEditViewport'))fitReelPreviewThumb(thumb);
+  else fitOne(thumb);
+ });
+ run();
+ if(ifr&&!ifr.dataset.fitBound){
+  ifr.dataset.fitBound='1';
+  ifr.addEventListener('load',run);
+ }
+ if(isReelChannel()&&!thumb.closest('#canvasEditViewport')&&!thumb.dataset.roBound&&typeof ResizeObserver!=='undefined'){
+  thumb.dataset.roBound='1';
+  new ResizeObserver(()=>run()).observe(thumb);
+ }
+}
 function openAllPreview(){
   const grid=$('#allGrid');
   if(!grid||!P.spec)return;
+  grid.classList.toggle('reel-all',isReelChannel());
   grid.innerHTML=studioFrames().map(fr=>{
     const v=frameVer[fr.id]||0;
-    return `<div class="mini-card" data-fid="${esc(fr.id)}" onclick="pickFromGrid('${esc(fr.id)}')"><div class="mini-thumb">
-     <iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>
+    const {w:sw,h:sh}=themeCanvas(P.theme);
+  const ifrInner=isReelChannel()
+   ? `<div class="preview-viewport"><iframe width="${sw}" height="${sh}" loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>`
+   : `<iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe>`;
+  return `<div class="mini-card" data-fid="${esc(fr.id)}" onclick="pickFromGrid('${esc(fr.id)}')"><div class="mini-thumb">${ifrInner}</div>
      <div class="mini-label">${frameLabel(fr.id)} · ${esc(fr.id)}</div></div>`;
   }).join('');
   allFramesDlg.showModal();
-  requestAnimationFrame(()=>document.querySelectorAll('.mini-thumb').forEach(fitOne));
+  requestAnimationFrame(()=>document.querySelectorAll('#allGrid .mini-thumb').forEach(t=>bindPreviewIframeFit(t)));
 }
 function pickFromGrid(fid){allFramesDlg.close();selectFrame(fid)}
 function setFrameLoading(on){$('#framePanel')?.classList.toggle('is-loading',on)}
@@ -539,8 +789,46 @@ function bumpFrame(fid){
   const strip=document.querySelector(`.edit-frame-thumb[data-fid="${CSS.escape(fid)}"] iframe`);
   if(strip)strip.src=`/preview/${P.id}/${encodeURIComponent(fid)}?v=${frameVer[fid]}`;
 }
-function fitOne(t){if(!t)return;const s=t.clientWidth/1920;const f=t.querySelector('iframe');if(f)f.style.transform=`scale(${s})`}
-function fit(){fitOne($('#activeThumb'));document.querySelectorAll('.mini-thumb').forEach(fitOne)}
+function fitOne(t){
+ if(!t)return;
+ if(isReelChannel()&&isPortraitStage(P?.theme)&&!t.closest('#canvasEditViewport'))return fitReelPreviewThumb(t);
+ const {w,h}=themeCanvas(P?.theme);
+ let boxW=t.clientWidth,boxH=t.clientHeight;
+ if((!boxW||!boxH)&&t.getBoundingClientRect){const r=t.getBoundingClientRect();boxW=r.width;boxH=r.height}
+ if(!boxW||!boxH)return;
+ const f=t.querySelector('iframe');
+ if(!f)return;
+ const isSmallPortraitPreview=isPortraitStage(P?.theme)&&(t.closest('#allGrid')||t.closest('#activeThumb'))&&!t.closest('#canvasEditViewport')&&!t.closest('.edit-frame-strip');
+ let s,ox,oy,dw,dh;
+ if(isSmallPortraitPreview){
+  s=Math.min(boxW/w,boxH/h);
+  dw=w*s;dh=h*s;
+  ox=Math.round((boxW-dw)/2);oy=Math.round((boxH-dh)/2);
+  t.querySelectorAll('.reel-phone-chrome,.reel-phone-island,.reel-phone-home').forEach(el=>{el.hidden=true});
+  t.classList.remove('reel-mock');
+  f.style.borderRadius=Math.max(3,Math.round(dw*0.025))+'px';
+  f.classList.remove('reel-screen-bezel');
+ }else{
+  s=stageFitInBox(boxW,boxH,w,h);
+  dw=w*s;dh=h*s;
+  ox=Math.round((boxW-dw)/2);oy=Math.round((boxH-dh)/2);
+  if(isPortraitStage(P?.theme)){
+   f.style.borderRadius=Math.max(5,Math.round(dw*0.038))+'px';
+   f.classList.add('reel-screen-bezel');
+   layoutReelPhoneChrome(t,ox,oy,dw,dh);
+  }else{f.style.borderRadius='';f.classList.remove('reel-screen-bezel');hideReelPhoneUi(t)}
+ }
+ f.style.width=w+'px';f.style.height=h+'px';
+ f.style.transformOrigin='0 0';
+ f.style.transform=`scale(${s})`;
+ f.style.left=ox+'px';
+ f.style.top=oy+'px';
+ f.style.overflow='hidden';
+}
+function fit(){
+ if(editModeOpen){fitCanvasEdit();document.querySelectorAll('.edit-frame-strip .mini-thumb').forEach(t=>bindPreviewIframeFit(t));return}
+ fitOne($('#activeThumb'));document.querySelectorAll('.mini-thumb').forEach(t=>bindPreviewIframeFit(t));
+}
 addEventListener('resize',fit);
 function closeToolModal(){toolModalFn=null;toolModal.close()}
 function openToolModal({title,message,placeholder,value='',okLabel,requireInput=true,okClass='p',extraHtml,onSubmit}){
@@ -607,7 +895,7 @@ function refControls(){
 }
 function renderFrameModeSwitch(){
  const host=$('#frameModeSwitch');
- if(!host||!P?.spec||!selectedFrameId||isMfTheme(P.theme)){if(host)host.innerHTML='';return}
+ if(!host||!P?.spec||!selectedFrameId||isChannelKit(P.theme)){if(host)host.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const mode=fr?.mode||'anchor';
  host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`;
@@ -625,7 +913,7 @@ function newProject(){
     onSubmit:async name=>{
     if(!name)throw new Error('Enter a name');
     const theme=$('#newProjectTheme')?.value||themes[0];
-    const look=isMfTheme(theme)?{look_line:''}:{props:[...DEFAULT_PROPS]};
+    const look=(isKitTheme(theme)||theme==='zo-product-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
     const p=await api('/api/projects',{method:'POST',body:JSON.stringify({name,theme,look})});
     await open_(p.id);
     await list();
@@ -668,6 +956,7 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
  if(!regenerate&&!ask?.trim()&&!upload){alert(itemIndex!=null||mfPath?'Describe this layer and/or attach a reference image.':'Type a change and/or attach a reference image.');return}
  if(!fid||!P?.spec){alert('No frame selected.');return}
  if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
+ const editUrl=`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`;
  try{
   let updated;
   const doReplace=!!(itemReplace||rep?.checked);
@@ -684,18 +973,25 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
    if(refFile==null&&ref){ref.value='';if(lb)lb.textContent=''}
    if(clearLayerRef){const lr=$('#layerEditRef');const ll=$('#layerEditRefLabel');if(lr)lr.value='';if(ll)ll.textContent=''}
   }else{
-   updated=await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/edit`,{method:'POST',body:JSON.stringify({ask,regenerate:!!regenerate,replace:doReplace,flat:!!flat?.checked,...(itemIndex!=null?{item_index:itemIndex}:{}),...(mfPath?{mf_path:mfPath}:{})})});
+   const ac=new AbortController();
+   const timer=setTimeout(()=>ac.abort(),600000);
+   const r=await fetch(editUrl,{method:'POST',cache:'no-store',headers:{'content-type':'application/json'},body:JSON.stringify({ask,regenerate:!!regenerate,replace:doReplace,flat:!!flat?.checked,...(itemIndex!=null?{item_index:itemIndex}:{}),...(mfPath?{mf_path:mfPath}:{})}),signal:ac.signal});
+   clearTimeout(timer);
+   if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
+   updated=await r.json();
   }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
   bumpFrame(fid);
-  if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}
+  if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList();syncIframeLayerBounds()}
+  else render();
   if(!regenerate){const ea=$('#editFrameAsk');if(ea)ea.value=''}
- }catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}}
+ }catch(e){alert(e.message||String(e))}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}}
 async function applyLook(){
- const look=document.getElementById('propPick')?getLook():normLook(P.look);
+ const look=getLook();
  P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look,theme:P.theme,note:'look'})});
  P.look=normLook(P.look);
+ populateEditLookBlock();
  P.spec.frames.forEach(fr=>bumpFrame(fr.id));
  if(editModeOpen){buildEditFrameStrip();refreshEditCanvas()}else render();
 }
@@ -713,6 +1009,8 @@ function canvasEditUrl(){
 }
 function mfLayerEntries(fr){
  const out=[];
+ if(fr.html)out.push({label:'html · '+(String(fr.html).replace(/<[^>]+>/g,' ').trim().slice(0,32)||'block'),mfPath:'html'});
+ if(fr.subtitle)out.push({label:'subtitle: '+String(fr.subtitle).slice(0,40),mfPath:'subtitle'});
  if(fr.pill?.text)out.push({label:'pill: '+fr.pill.text,mfPath:'pill'});
  if(fr.type==='points'&&fr.title)out.push({label:'title: '+fr.title,mfPath:'title'});
  if(fr.term)out.push({label:'term: '+fr.term,mfPath:'term'});
@@ -724,7 +1022,10 @@ function mfLayerEntries(fr){
  if(fr.type==='table')out.push({label:'table ('+(fr.columns?.length||0)+' cols)',mfPath:'table'});
  (fr.steps||[]).forEach((s,i)=>out.push({label:'step '+(i+1)+': '+String(s.label||'').slice(0,36),mfPath:'steps.'+i+'.label'}));
  (fr.questions||[]).forEach((q,i)=>out.push({label:'tile '+(i+1)+': '+String(q).slice(0,36),mfPath:'questions.'+i}));
- (fr.items||[]).forEach((t,i)=>{if(typeof t==='string')out.push({label:'point '+(i+1)+': '+t.slice(0,36),mfPath:'items.'+i})});
+ (fr.items||[]).forEach((t,i)=>{
+  if(typeof t==='object'&&t&&t.t){out.push({label:layerRowLabel(t,i),mfPath:'items.'+i});return}
+  if(typeof t==='string')out.push({label:'point '+(i+1)+': '+t.slice(0,36),mfPath:'items.'+i});
+ });
  return out;
 }
 function mfPathAttr(mfPath){
@@ -788,7 +1089,7 @@ function renderCanvasLayerList(){
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  if(!fr){list.innerHTML='';return}
- if(isMfTheme(P.theme)){
+ if(isKitTheme(P.theme)){
   const rows=mfLayerEntries(fr);
   list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>`;
   return}
@@ -796,6 +1097,8 @@ function renderCanvasLayerList(){
  list.innerHTML=items.length?items.map((it,i)=>`<div class="canvas-layer-row${layerRowSelected(i,null)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i})"><span class="cl-name" title="${esc(layerRowLabel(it,i))}">${esc(layerRowLabel(it,i))}</span>${layerRowActionButtons(i,null)}</div>`).join(''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
 }
 function openLayerEditDialog(action,idx,mfPath=null){
+ const dlg=document.getElementById('layerEditDlg');
+ if(!dlg){alert('Layer editor is not available on this page.');return}
  layerEditPending={action,idx,mfPath:mfPath||null};
  const isRep=action==='replace';
  $('#layerEditTitle').textContent=isRep?'Replace layer':'Edit layer';
@@ -808,7 +1111,7 @@ function openLayerEditDialog(action,idx,mfPath=null){
  if(refLbl)refLbl.textContent='';
  $('#layerEditText').value='';
  $('#layerEditText').placeholder=isRep?'Optional note (e.g. match existing style, keep size)…':'Describe the change…';
- layerEditDlg.showModal();
+ dlg.showModal();
  (isRep?refInp:$('#layerEditText'))?.focus();
 }
 async function submitLayerEdit(e){
@@ -839,7 +1142,7 @@ async function runLayerAction(idx,action,ask,mfPath=null,layerRefFile=null){
 }
 async function canvasLayerAction(idx,action,mfPath=null){
  if(action==='delete'){
-  if(isMfTheme(P?.theme)&&!mfPath){alert('Select a specific layer to remove (use the layer list if needed).');return}
+  if(isKitTheme(P?.theme)&&!mfPath){alert('Select a specific layer to remove (use the layer list if needed).');return}
   openToolModal({title:'Remove layer',message:'Remove this layer from the frame?',requireInput:false,okLabel:'Remove',okClass:'p danger',onSubmit:async()=>{if(mfPath)await deleteMfPart(mfPath);else await deleteFrameItem(idx);renderCanvasLayerList();try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}}});
   return;
  }
@@ -848,11 +1151,22 @@ async function canvasLayerAction(idx,action,mfPath=null){
 function buildEditFrameStrip(){
  const el=$('#editFrameStrip');
  if(!el||!P?.spec)return;
+ el.classList.toggle('reel-strip',isReelChannel());
+ document.querySelector('.edit-mode-grid')?.classList.toggle('reel-edit',isReelChannel());
+ const {w:sw,h:sh}=themeCanvas(P.theme);
+ const reel=isReelChannel();
  el.innerHTML=studioFrames().map(fr=>{
   const v=frameVer[fr.id]||0;
   const on=fr.id===selectedFrameId?' on':'';
-  return `<div class="edit-frame-thumb${on}" data-fid="${esc(fr.id)}" onclick="selectEditFrame('${esc(fr.id)}')"><div class="mini-thumb"><iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div><div class="mini-label">${frameLabel(fr.id)}</div></div>`}).join('');
- requestAnimationFrame(()=>el.querySelectorAll('.mini-thumb').forEach(fitOne));
+  const lab=`${frameLabel(fr.id)} · ${esc(fr.id)}`;
+  const ifr=reel
+   ? `<div class="preview-viewport"><iframe width="${sw}" height="${sh}" loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>`
+   : `<iframe loading="lazy" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe>`;
+  return `<div class="edit-frame-thumb${on}" data-fid="${esc(fr.id)}" onclick="selectEditFrame('${esc(fr.id)}')"><div class="mini-thumb">${ifr}</div><div class="mini-label">${lab}</div></div>`}).join('');
+ requestAnimationFrame(()=>{
+  el.querySelectorAll('.mini-thumb').forEach(t=>bindPreviewIframeFit(t));
+  if(isReelChannel())fitCanvasEdit();
+ });
 }
 function openEditMode(fid){
  if(!P?.spec){alert('Generate frames first.');return}
@@ -860,21 +1174,26 @@ function openEditMode(fid){
  stopBoundsPoll();
  api('/api/status?_='+Date.now()).then(st=>{if(st?.studio_ui)console.info('[Graphics Studio] UI build',st.studio_ui)}).catch(()=>{});
  document.querySelectorAll('.edit-mode-side h3,.edit-mode-side .edit-side-hint,.edit-mode-side input#editPlate,.edit-mode-side button[onclick="applyLook()"]').forEach(el=>{
-  if(!el)return;
+  if(!el||el.closest('#editLookBlock'))return;
   const anchorBlock=el.textContent?.includes('Anchor screen')||el.id==='editPlate'||el.getAttribute('onclick')==='applyLook()';
-  if(anchorBlock)el.style.display=isMfTheme(P.theme)?'none':'';
+  if(anchorBlock)el.style.display=isChannelKit(P.theme)?'none':'';
  });
  if(fid)selectedFrameId=fid;
  else if(!selectedFrameId)selectedFrameId=studioFrames()[0]?.id;
  document.body.classList.add('edit-mode-on');
  $('#editModeApp').hidden=false;
+ populateEditLookBlock();
+ document.querySelector('.edit-mode-center')?.classList.toggle('reel-desk',isReelChannel());
  buildEditFrameStrip();
  selectEditFrame(selectedFrameId);
  renderFrameModeSwitch();
+ requestAnimationFrame(()=>{fitCanvasEdit();document.querySelectorAll('.mini-thumb').forEach(t=>bindPreviewIframeFit(t))});
 }
 async function exitEditMode(){
  editModeOpen=false;
  stopBoundsPoll();
+ document.querySelector('.edit-mode-center')?.classList.remove('reel-desk');
+ document.querySelector('.edit-mode-grid')?.classList.remove('reel-edit');
  document.body.classList.remove('edit-mode-on');
  $('#editModeApp').hidden=true;
  if(P?.id){
@@ -886,10 +1205,7 @@ async function exitEditMode(){
  }
  render();
 }
-function canvasEditScale(){
- const vp=$('#canvasEditViewport');
- return vp?vp.clientWidth/1920:1;
-}
+function canvasEditScale(){return stageView.s||1;}
 function stopBoundsPoll(){if(boundsPollTimer){clearInterval(boundsPollTimer);boundsPollTimer=null}}
 function pullLayerBoundsFromIframe(){
  const doc=$('#canvasEditFrame')?.contentDocument;
@@ -936,24 +1252,14 @@ function ensureCanvasChipOverlayActions(){
  if(!host||canvasChipOverlayBound)return;
  canvasChipOverlayBound=true;
  host.addEventListener('click',ev=>{
-  if(ev.target===host||ev.target.classList.contains('canvas-parent-layer-outline')){
-   if(!ev.target.closest('.canvas-parent-chip,.canvas-parent-resize-handle')){
-    selectedCanvasLayer=null;
-    lastCanvasChipSig='';
-    renderParentCanvasChips(lastCanvasLayers);
-    renderCanvasLayerList();
-    syncIframeLayerSelect();
-   }
-   return;
+  if(ev.target.closest('.canvas-parent-layer-outline,.canvas-parent-resize-handle'))return;
+  if(ev.target===host){
+   selectedCanvasLayer=null;
+   lastCanvasChipSig='';
+   renderParentCanvasChips(lastCanvasLayers);
+   renderCanvasLayerList();
+   syncIframeLayerSelect();
   }
-  const btn=ev.target.closest('button[data-act]');
-  if(!btn||!editModeOpen)return;
-  ev.preventDefault();ev.stopPropagation();
-  const act=btn.dataset.act;
-  const idx=parseInt(btn.dataset.idx,10);
-  const path=btn.dataset.mfPath||null;
-  if(act==='delete')void canvasLayerAction(idx,'delete',path);
-  else openLayerEditDialog(act,idx,path);
  });
  ensureParentResizeDrag();
 }
@@ -1015,8 +1321,8 @@ function renderParentCanvasChips(layers){
  layers.forEach((L)=>{
   const w=(L.width||120)*s;
   const h=(L.height||40)*s;
-  const top=(L.top||0)*s;
-  const left=(L.left||0)*s;
+  const top=stageView.oy+(L.top||0)*s;
+  const left=stageView.ox+(L.left||0)*s;
   const sel=canvasLayerSelected(L);
   if(sel)selectedL=L;
   const outline=document.createElement('div');
@@ -1025,39 +1331,15 @@ function renderParentCanvasChips(layers){
   outline.style.left=left+'px';
   outline.style.width=Math.max(24,w)+'px';
   outline.style.height=Math.max(20,h)+'px';
-  outline.style.pointerEvents=sel?'none':'auto';
-  outline.title=sel?'Selected — drag layer to move':'Select layer';
-  outline.addEventListener('click',ev=>{
-   ev.stopPropagation();
-   if(canvasLayerSelected(L)){selectedCanvasLayer=null;lastCanvasChipSig='';renderParentCanvasChips(lastCanvasLayers);renderCanvasLayerList();syncIframeLayerSelect();return}
-   selectCanvasLayer(L.idx,L.mfPath||null);
-  });
+  outline.title=sel?'Selected':'';
   host.appendChild(outline);
  });
  if(!selectedL)return;
  const L=selectedL;
  const w=(L.width||120)*s;
  const h=(L.height||40)*s;
- const top=(L.top||0)*s;
- const left=(L.left||0)*s;
- const chip=document.createElement('div');
- chip.className='canvas-parent-chip canvas-parent-chip-float';
- chip.title=L.label||(L.type||'layer');
- const actions=document.createElement('span');actions.className='ca';
- const mkBtn=(act,title,sym)=>{
-  const b=document.createElement('button');b.type='button';b.title=title;b.textContent=sym;
-  b.dataset.act=act;b.dataset.idx=String(L.idx);
-  if(L.mfPath)b.dataset.mfPath=L.mfPath;
-  return b;
- };
- actions.append(mkBtn('edit','Edit','✎'),mkBtn('replace','Replace','↻'),mkBtn('delete','Delete','×'));
- chip.append(actions);
- const chipH=44;
- let chipTop=top-chipH-8;
- if(chipTop<4)chipTop=top+h+8;
- chip.style.top=Math.max(4,chipTop)+'px';
- chip.style.left=Math.max(4,left)+'px';
- host.appendChild(chip);
+ const top=stageView.oy+(L.top||0)*s;
+ const left=stageView.ox+(L.left||0)*s;
  if(L.resize){
   const rh=document.createElement('div');
   rh.className='canvas-parent-resize-handle';
@@ -1085,7 +1367,7 @@ function editApplyFrame(){
  askFrame(selectedFrameId,ask);
 }
 async function editRegenFrame(){
- if(!selectedFrameId)return;
+ if(!selectedFrameId||!P?.id){alert('Select a frame first.');return}
  await askFrame(selectedFrameId,'',{regenerate:true});
 }
 function refreshEditCanvas(){
@@ -1114,11 +1396,28 @@ function refreshEditCanvas(){
  requestAnimationFrame(fitCanvasEdit);
 }
 function fitCanvasEdit(){
- const vp=$('#canvasEditViewport');const sc=$('#canvasEditScale');
+ const vp=$('#canvasEditViewport');const sc=$('#canvasEditScale');const ifr=$('#canvasEditFrame');
  if(!vp||!sc)return;
- const s=vp.clientWidth/1920;
- sc.style.transform=`scale(${s})`;
- vp.style.height=Math.round(1080*s)+'px';
+ const {w,h}=themeCanvas(P?.theme);
+ sc.style.width=w+'px';sc.style.height=h+'px';
+ if(ifr){
+  ifr.style.width=w+'px';ifr.style.height=h+'px';
+  ifr.style.transform='';ifr.style.left='';ifr.style.top='';ifr.style.position='';
+  ifr.style.borderRadius='';ifr.classList.remove('reel-screen-bezel');
+ }
+ const boxW=vp.clientWidth,boxH=vp.clientHeight;
+ const s=stageFitInBox(boxW,boxH,w,h);
+ const dw=w*s,dh=h*s;
+ stageView.s=s;
+ stageView.ox=(boxW-dw)/2;
+ stageView.oy=(boxH-dh)/2;
+ sc.style.transform=`translate(${stageView.ox}px,${stageView.oy}px) scale(${s})`;
+ if(isPortraitStage(P?.theme)){
+  sc.style.borderRadius=Math.max(8,Math.round(dw*0.038))+'px';
+  sc.style.overflow='hidden';
+  sc.classList.add('reel-screen-bezel');
+ }else{sc.style.borderRadius='';sc.style.overflow='';sc.classList.remove('reel-screen-bezel')}
+ layoutReelPhoneChrome(vp,stageView.ox,stageView.oy,dw,dh);
  if(editModeOpen&&lastCanvasLayers.length)renderParentCanvasChips(lastCanvasLayers);
 }
 function setSpecPath(obj,path,value){
@@ -1147,6 +1446,7 @@ async function patchFrameInline(msg){
  P.spec.frames[i]=fr;
  try{
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'inline '+selectedFrameId})});
+  if(editModeOpen)refreshEditCanvas();
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
 async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
@@ -1172,8 +1472,10 @@ async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
    if(w!=null)setSpecPath(fr,mfPath+'.w',Math.round(w));
   }else if(/^labels\.items\.\d+$/.test(mfPath)){
    if(size!=null)setSpecPath(fr,mfPath+'.fontSize',Math.round(size));
-  }else if(/^items\.\d+$/.test(mfPath)&&size!=null){
-   fr.point_font=Math.round(size);
+  }else if(/^items\.\d+$/.test(mfPath)){
+   if(w!=null)setSpecPath(fr,mfPath+'.w',Math.round(w));
+   if(h!=null)setSpecPath(fr,mfPath+'.h',Math.round(h));
+   if(size!=null)setSpecPath(fr,mfPath+'.size',Math.round(size));
   }else if(/^questions\.\d+$/.test(mfPath)&&size!=null){
    fr.question_font=Math.round(size);
   }else if(/^steps\.\d+\.label$/.test(mfPath)&&size!=null){
@@ -1195,13 +1497,16 @@ async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
  else if(['glass_table','calc_table','nlist','points','definition','defcard','popup'].includes(t)){
   if(w!=null)it.w=w;
   if(size!=null)it.size=size;
- }else if(t==='bars'){if(w!=null)it.w=w;if(h!=null)it.h=h}
+ }else if(t==='bars'||t==='chart'||t==='kite_chart'||t==='img'){if(w!=null)it.w=w;if(h!=null)it.h=h;if(size!=null)it.size=size}
  else if(['text','label','callout','num','pill','result_pill','htab'].includes(t)&&size!=null){it.size=size}
- else if(t==='cards'&&cardIdx!=null&&w!=null){
+ else if(['status','compare','positions','notepad','note','phone','hub2','hub_fan','formula','objstat','week','exchange','kite_watchlist','kite_depth','row','pillv'].includes(t)){
+  if(w!=null)it.w=w;if(h!=null)it.h=h;if(size!=null)it.size=size;
+ }else if(t==='cards'&&cardIdx!=null&&w!=null){
   const cards=[...(it.items||[])];
   cards[cardIdx]={...(cards[cardIdx]||{}),w:Math.round(w)};
   it.items=cards;
- }else return;
+ }else if(t==='cards'&&(w!=null||h!=null||size!=null)){if(w!=null)it.w=w;if(h!=null)it.h=h;if(size!=null)it.size=size}
+ else return;
  fr.items[idx]=it;
  P.spec.frames[fi]=fr;
  try{
@@ -1227,6 +1532,10 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
   }else if(/^props\.\d+$/.test(mfPath)){
    setSpecPath(fr,mfPath+'.x',Math.round(x));
    setSpecPath(fr,mfPath+'.y',Math.round(y));
+  }else if(/^items\.\d+$/.test(mfPath)){
+   setSpecPath(fr,mfPath+'.x',Math.round(x));
+   setSpecPath(fr,mfPath+'.y',Math.round(y));
+   setSpecPath(fr,mfPath+'.abs',true);
   }else{
    const val=mfPath.endsWith('.y')?Math.round(y):Math.round(x);
    setSpecPath(fr,mfPath,val);
@@ -1246,6 +1555,7 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
  }else{
   it.x=Math.round(x);
   it.y=Math.round(y);
+  it.abs=true;
  }
  fr.items[idx]=it;
  P.spec.frames[fi]=fr;
@@ -1350,6 +1660,7 @@ window.addEventListener('message',e=>{
   lastCanvasChipSig='';
   renderParentCanvasChips(lastCanvasLayers);
   renderCanvasLayerList();
+  syncIframeLayerSelect();
  }
  if(e.data?.studio==='layer-bounds'&&editModeOpen){
   clearTimeout(canvasChipRenderT);
@@ -1372,5 +1683,5 @@ bindProjectList();
 bindFrameEdit();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')list()});
 setInterval(()=>{if(document.visibilityState==='visible')list()},45000);
-(async()=>{themes=await api('/api/themes');await list()})();
+(async()=>{themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}await list()})();
 </script></body></html>

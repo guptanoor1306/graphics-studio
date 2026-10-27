@@ -1,0 +1,15 @@
+/* Zero1 reel graphics — 1080×1920 stage */
+@import url("fonts.css");
+:root{
+  --cream:#FCF8EE; --ink:#111; --orange:#F85000; --green:#207C50;
+  --safe-top:240px; --safe-bottom:1540px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:transparent}
+body{font-family:Manrope,StackT,system-ui,sans-serif;color:var(--ink)}
+#stage{position:relative;width:1080px;height:1920px;overflow:hidden}
+.abs{position:absolute}
+.fill{position:absolute;inset:0}
+.bg-cream{background:var(--cream)}
+.bg-dark{background:#1b1b1b;color:#fff}
+.bg-green{background:var(--green);color:#fff}

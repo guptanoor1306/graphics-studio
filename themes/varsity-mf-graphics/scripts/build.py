@@ -11,6 +11,8 @@ import argparse, json, os, sys, pathlib, math
 
 KIT = pathlib.Path(__file__).resolve().parent.parent
 TPL = KIT / "templates"
+CANVAS_W, CANVAS_H = 1920, 1080
+CANVAS = (CANVAS_W, CANVAS_H)
 ANCHOR = {"ribbon", "definition", "anchor"}
 
 

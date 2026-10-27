@@ -1,0 +1,751 @@
+{
+ "frames": [
+  {
+   "id": "02a",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Gold",
+     "icon": "gold_bars",
+     "align": "left"
+    },
+    {
+     "t": "positions",
+     "cards": [
+      {
+       "icon": "gold_bars",
+       "title": "Gold option",
+       "sub": "(Expired)",
+       "chip": "Settled in cash",
+       "chip_color": "green"
+      },
+      {
+       "icon": "gold_bars",
+       "title": "Gold futures",
+       "sub": "(New position)",
+       "chip": "Requires margin",
+       "chip_color": "orange"
+      }
+     ],
+     "w": 820
+    }
+   ]
+  },
+  {
+   "id": "06a",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "ITM scenarios",
+     "sub": "(Call option)",
+     "sub_color": "green"
+    },
+    {
+     "t": "chart",
+     "shape": "flat_then_up",
+     "strike": 0.45,
+     "zone": "above",
+     "arrow": "up",
+     "w": 1300,
+     "h": 520,
+     "seed": 3
+    }
+   ]
+  },
+  {
+   "id": "07a",
+   "mode": "fss",
+   "gap": 30,
+   "items": [
+    {
+     "t": "heading",
+     "text": "Crude oil",
+     "icon": "crude_oil_barrel",
+     "line2": "Strike price ++₹7,900++",
+     "align": "left"
+    },
+    {
+     "t": "chart",
+     "shape": "up",
+     "strike": 0.35,
+     "zone": "above",
+     "strike_label": "Strike price - ₹7,900",
+     "w": 1500,
+     "h": 600,
+     "y_labels": [
+      "₹7,700",
+      "₹7,800",
+      "₹7,900",
+      "₹8,000",
+      "₹8,100"
+     ],
+     "y_hl": "₹7,900",
+     "x_labels": [
+      "9:15 AM",
+      "10:30 AM",
+      "12:00 PM",
+      "01:30 PM",
+      "03:00 PM",
+      "Expiry"
+     ],
+     "tags": [
+      {
+       "text": "Expiry settlement|₹8,000",
+       "color": "green",
+       "dy": -90
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "13a",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Commodity futures"
+    },
+    {
+     "t": "hub2",
+     "arms": [
+      {
+       "label": "Cash settled",
+       "color": "blue"
+      },
+      {
+       "label": "Physically settled",
+       "color": "green"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "13b",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Commodity futures"
+    },
+    {
+     "t": "hub2",
+     "arms": [
+      {
+       "label": "Cash settled",
+       "color": "blue",
+       "bullets": [
+        "The exchange calculates a __final settlement price__.",
+        "No __physical delivery__ takes place."
+       ],
+       "imgs": [
+        "crude_oil_icon_circle",
+        "natural_gas_flame"
+       ]
+      },
+      {
+       "label": "Physically settled",
+       "color": "green",
+       "bullets": [
+        "A __long position__ may mean taking delivery.",
+        "A __short position__ may mean delivering it."
+       ]
+      }
+     ],
+     "active": 0
+    }
+   ]
+  },
+  {
+   "id": "13c",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Commodity futures"
+    },
+    {
+     "t": "hub2",
+     "arms": [
+      {
+       "label": "Cash settled",
+       "color": "blue",
+       "bullets": [
+        "The exchange calculates a __final settlement price__.",
+        "No __physical delivery__ takes place."
+       ],
+       "imgs": [
+        "crude_oil_icon_circle",
+        "natural_gas_flame"
+       ]
+      },
+      {
+       "label": "Physically settled",
+       "color": "green",
+       "bullets": [
+        "A __long position__ may mean taking delivery.",
+        "A __short position__ may mean delivering it."
+       ]
+      }
+     ],
+     "active": 1
+    }
+   ]
+  },
+  {
+   "id": "14",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "note",
+     "text": "Positions in physically settled contracts must be closed before the tender or delivery period begins. Otherwise, Zerodha may square them off."
+    }
+   ]
+  },
+  {
+   "id": "17",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "phone",
+     "app": "Zerodha",
+     "title": "Option expiry alert",
+     "chip": "SMS",
+     "time": "Today, 11:45 AM",
+     "text": "Your option position(s) will expire today. Please either maintain enough margin for the futures position before 7 PM or close the option."
+    }
+   ]
+  },
+  {
+   "id": "18",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "status",
+     "title": "Account status",
+     "sections": [
+      {
+       "name": "Short option",
+       "rows": [
+        [
+         true,
+         "SPAN/Exposure margins collected"
+        ],
+        [
+         false,
+         "No square off"
+        ]
+       ]
+      },
+      {
+       "name": "Long option",
+       "rows": [
+        [
+         true,
+         "Enough margin for the futures position"
+        ],
+        [
+         true,
+         "Allowed to devolve"
+        ]
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2-06c",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "compare",
+     "ih": 400,
+     "left": {
+      "top": "10 lakh shares",
+      "img": "company_a_in_circle_blue",
+      "caption": "10 lakh shares × ₹100",
+      "value": "₹10 crore",
+      "value_color": "blue"
+     },
+     "right": {
+      "top": "1 lakh shares",
+      "img": "company_b_in_circle_green",
+      "caption": "1 lakh shares × ₹1,000",
+      "value": "₹10 crore",
+      "value_color": "green"
+     }
+    }
+   ]
+  },
+  {
+   "id": "v2-08",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Market capitalisation"
+    },
+    {
+     "t": "formula",
+     "terms": [
+      {
+       "value": "10,00,000",
+       "label": "Shares outstanding"
+      },
+      {
+       "value": "₹100",
+       "label": "Current market price"
+      },
+      {
+       "value": "₹10 crore",
+       "label": "Market cap",
+       "color": "blue"
+      }
+     ],
+     "ops": [
+      "×",
+      "="
+     ],
+     "definition": "Total shares outstanding × Current market price"
+    }
+   ]
+  },
+  {
+   "id": "v2-10b",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Look at the market cap",
+     "align": "left",
+     "underline": true
+    },
+    {
+     "t": "bars",
+     "w": 1100,
+     "h": 640,
+     "items": [
+      {
+       "label": "MRF",
+       "value": 55000,
+       "display": "₹55,000 crore",
+       "color": "orange"
+      },
+      {
+       "label": "Reliance",
+       "value": 1800000,
+       "display": "₹18,00,000 crore",
+       "color": "blue"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2-16a",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "compare",
+     "divider": "none",
+     "ih": 480,
+     "left": {
+      "img": "pizza_4_slices",
+      "caption": "4 slices"
+     },
+     "right": {
+      "img": "pizza_8_slices",
+      "caption": "8 slices"
+     }
+    },
+    {
+     "t": "pillv",
+     "text": "Same amount of pizza"
+    }
+   ]
+  },
+  {
+   "id": "v2-18",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "notepad",
+     "active": 0,
+     "items": [
+      "How much does the company earn?",
+      "How fast can it grow?",
+      "How profitable is it?",
+      "How much debt does it carry?",
+      "Is the business strong enough to justify its price?"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2-21",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "hub_fan",
+     "style": "mind",
+     "hub": "Share",
+     "hub_color": "yellow",
+     "items": [
+      {
+       "label": "Business",
+       "icon": "line_handshake"
+      },
+      {
+       "label": "Earnings",
+       "icon": "line_salary_bag"
+      },
+      {
+       "label": "Growth",
+       "icon": "line_growth_percent"
+      },
+      {
+       "label": "Valuation",
+       "icon": "line_analysis"
+      },
+      {
+       "label": "Profitability",
+       "icon": "line_profit_growth"
+      },
+      {
+       "label": "Debt",
+       "icon": "line_debt_burden"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v3-04a",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "hub_fan",
+     "style": "fan",
+     "hub": "SIF",
+     "items": [
+      {
+       "label": "Equity",
+       "icon": "icon_equity_chart"
+      },
+      {
+       "label": "Debt",
+       "icon": "icon_debt_moneybag"
+      },
+      {
+       "label": "REITs",
+       "icon": "icon_reits_house"
+      },
+      {
+       "label": "InvITs",
+       "icon": "icon_invits_tower"
+      },
+      {
+       "label": "Derivatives",
+       "icon": "icon_derivatives_gear"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v3-08b",
+   "mode": "fss",
+   "gap": 50,
+   "items": [
+    {
+     "t": "pillv",
+     "text": "Interval SIFs",
+     "color": "green"
+    },
+    {
+     "t": "text",
+     "text": "Listed on a stock exchange (NSE / BSE)",
+     "size": 36
+    },
+    {
+     "t": "exchange",
+     "left": {
+      "img": "investor_avatar",
+      "label": "Investor"
+     },
+     "right": {
+      "img": "stock_exchange_building",
+      "label": "Stock exchange"
+     }
+    },
+    {
+     "t": "week",
+     "label": "Trading window (set by the fund house)",
+     "on": [
+      "Monday",
+      "Wednesday"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v3-10",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "SIP investment requirements"
+    },
+    {
+     "t": "cards",
+     "items": [
+      {
+       "icon": "icon_amc_sip",
+       "label": "AMC SIP",
+       "bullets": [
+        "Every instalment must be at least ₹10 lakh.",
+        "Instalments below ₹10 lakh are not allowed."
+       ]
+      },
+      {
+       "icon": "icon_coin_sip",
+       "label": "Coin SIP",
+       "bullets": [
+        "Start with a ₹10 lakh lumpsum.",
+        "Then set up a Coin SIP for smaller amounts."
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v3-13c",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "objstat",
+     "title": "SIF investment",
+     "img": "vault_blue",
+     "value": "₹8,00,000",
+     "tag": "Active breach",
+     "chips": [
+      "Strategy A",
+      "Strategy B",
+      "Strategy C",
+      "Strategy D"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v3-14",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "row",
+     "gap": 260,
+     "items": [
+      {
+       "t": "objstat",
+       "title": "SIF investment",
+       "img": "vault_blue",
+       "ih": 170,
+       "value": "₹8,00,000"
+      },
+      {
+       "t": "calendar",
+       "month": "Restore within",
+       "day": 30,
+       "sub": "days"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "ex-chart-rupees",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "ABC Ltd",
+     "sub": "Trades at ₹1,500",
+     "sub_color": "blue"
+    },
+    {
+     "t": "chart",
+     "shape": "down",
+     "y_range": [
+      1350,
+      1550
+     ],
+     "strike": 1400,
+     "zone": "below",
+     "strike_label": "Trigger ₹1,400",
+     "strike_label_pos": "left",
+     "y_labels": [
+      "₹1,350",
+      "₹1,400",
+      "₹1,450",
+      "₹1,500",
+      "₹1,550"
+     ],
+     "y_hl": "₹1,400",
+     "x_labels": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri"
+     ],
+     "tags": [
+      {
+       "text": "LTP ₹1,500",
+       "at": 0,
+       "color": "blue",
+       "dy": -60
+      },
+      {
+       "text": "Trigger hit",
+       "at": "strike",
+       "color": "orange",
+       "dy": -70
+      }
+     ],
+     "arrow": "down",
+     "levels": [
+      {
+       "value": 1520,
+       "label": "Target ₹1,520",
+       "color": "green",
+       "pos": "right"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v4-01",
+   "items": [
+    {
+     "t": "kite_watchlist",
+     "hl": {
+      "name": "XYZ",
+      "change": "+0.20",
+      "pct": "+0.20%",
+      "price": "100.20",
+      "dir": "up"
+     }
+    }
+   ]
+  },
+  {
+   "id": "v4-03",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Stock market"
+    },
+    {
+     "t": "auction",
+     "buyers": [
+      "₹101",
+      "₹102",
+      "₹100"
+     ],
+     "sellers": [
+      "₹103",
+      "₹102",
+      "₹104"
+     ],
+     "match": "₹102"
+    }
+   ]
+  },
+  {
+   "id": "v4-04",
+   "items": [
+    {
+     "t": "kite_depth",
+     "name": "XYZ",
+     "ltp": "100.00",
+     "change": "+0.50 (+0.50%)",
+     "bids": [
+      [
+       "99.00",
+       5,
+       67
+      ],
+      [
+       "99.50",
+       5,
+       55
+      ],
+      [
+       "99.80",
+       4,
+       33
+      ],
+      [
+       "100.00",
+       8,
+       77
+      ]
+     ],
+     "offers": [
+      [
+       "100.50",
+       2,
+       45
+      ],
+      [
+       "100.80",
+       7,
+       65
+      ],
+      [
+       "100.10",
+       9,
+       37
+      ],
+      [
+       "100.00",
+       3,
+       26
+      ]
+     ],
+     "status": [
+      "No trade",
+      "No trade",
+      "No trade",
+      "Trade executed"
+     ],
+     "hl": [
+      3
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v4-10",
+   "items": [
+    {
+     "t": "kite_chart",
+     "name": "XYZ",
+     "ticks": [
+      12,
+      30,
+      62,
+      95,
+      128
+     ]
+    }
+   ]
+  }
+ ]
+}

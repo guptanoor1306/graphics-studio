@@ -42,9 +42,9 @@ body.studio-edit-mode { cursor: default; }
   pointer-events: none;
   z-index: 99990;
 }
-/* Parent page mirrors action chips; keep corner resize handles in the iframe. */
-body.studio-edit-mode.in-studio-iframe #studio-overlay .studio-chip {
-  display: none !important;
+/* Action chips live in the iframe; parent page shows selection outlines + resize handle. */
+body.studio-edit-mode.in-studio-iframe #studio-overlay {
+  z-index: 99995;
 }
 .studio-chip {
   position: fixed;

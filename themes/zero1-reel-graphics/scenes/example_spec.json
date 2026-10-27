@@ -1,0 +1,19 @@
+{
+  "title": "Example reel",
+  "look": "Theme A · Cream Editorial · Manrope body · Instrument Serif headlines",
+  "frames": [
+    {
+      "id": "01",
+      "type": "fss",
+      "bg": "cream",
+      "vo": "Hook line from script",
+      "html": "<div class='abs' data-mf-path='headline' style='left:50%;top:420px;transform:translateX(-50%);width:840px;text-align:center;font:700 64px Instrument Serif,serif;line-height:1.1'>Your reel hook <em style=\"font-style:italic\">headline</em></div><div class='abs' data-mf-path='sub' style='left:50%;top:620px;transform:translateX(-50%);width:720px;text-align:center;font:500 32px Manrope,sans-serif;color:#333'>One supporting line centred in the safe zone.</div>"
+    },
+    {
+      "id": "02",
+      "type": "fss",
+      "bg": "green",
+      "html": "<div class='abs' data-mf-path='stat' style='left:50%;top:480px;transform:translateX(-50%);width:680px;text-align:center;font:800 120px Manrope;color:#FCF8EE'>16.7%</div><div class='abs' data-mf-path='label' style='left:50%;top:720px;transform:translateX(-50%);font:600 36px Manrope;color:#FCF8EE;opacity:.9'>Returns · illustrative</div>"
+    }
+  ]
+}

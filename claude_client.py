@@ -39,10 +39,39 @@ def is_mf_theme(theme_dir: pathlib.Path) -> bool:
     return (theme_dir / "templates" / "render.js").is_file()
 
 
+def is_reel_theme(theme_dir: pathlib.Path) -> bool:
+    return theme_dir.name == "zero1-reel-graphics"
+
+
+def is_zo_product_theme(theme_dir: pathlib.Path) -> bool:
+    return theme_dir.name == "zo-product-graphics"
+
+
 def theme_rules(theme_dir: pathlib.Path) -> str:
     """Skill rules + asset index + style guide so specs use kit buildings, people, etc."""
     parts = []
-    if is_mf_theme(theme_dir):
+    if is_reel_theme(theme_dir):
+        rels = (
+            "SKILL.md",
+            "references/spec_format.md",
+            "references/studio_brief.md",
+            "references/Reel_Graphics_Rules.md",
+            "references/Moodboard_Inventory.md",
+            "references/Zero1_Reel_Graphics_Template_Spec.md",
+            "scenes/example_spec.json",
+            "assets/INDEX.md",
+        )
+    elif is_zo_product_theme(theme_dir):
+        rels = (
+            "SKILL.md",
+            "references/spec_format.md",
+            "references/studio_brief.md",
+            "references/kit_breakdown.md",
+            "references/deep/video_breakdowns.md",
+            "scenes/example_spec.json",
+            "assets/INDEX.md",
+        )
+    elif is_mf_theme(theme_dir):
         rels = (
             "SKILL.md",
             "references/spec_format.md",
@@ -106,6 +135,38 @@ SB_TOOL = {
                     "frames": {"type": "array", "items": _FRAME, "minItems": 1},
                 },
                 "required": ["look", "frames"],
+            },
+        },
+        "required": ["storyboard", "spec"],
+    },
+}
+ZO_SB_TOOL = {
+    "name": "submit_storyboard",
+    "description": "Return the Product IP storyboard and spec.json (FSS + anchor osa/ost/tos frames).",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "storyboard": {"type": "string"},
+            "spec": {
+                "type": "object",
+                "properties": {
+                    "look": {"type": "object"},
+                    "frames": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "items"],
+                            "properties": {
+                                "id": {"type": "string"},
+                                "mode": {"type": "string", "enum": ["fss", "osa", "ost", "tos"]},
+                                "items": {"type": "array", "minItems": 1},
+                            },
+                            "additionalProperties": True,
+                        },
+                    },
+                },
+                "required": ["frames"],
             },
         },
         "required": ["storyboard", "spec"],
@@ -234,9 +295,33 @@ _MF_ROLE = (
     "Keyword pills use purple gradient #5b55e6 with white text — never green pill backgrounds or inline green on .pill."
 )
 
+_REEL_ROLE = (
+    "You are the Zero1 reel graphics designer in the skill below. You run inside Graphics Studio (web app), not a chat: "
+    "ignore Figma fetch limits, zip delivery, and local render.py — only return storyboard + spec via submit_storyboard. "
+    "Follow SKILL.md hard rules and references/spec_format.md. Canvas is 1080×1920; centre all content in the safe zone. "
+    "One theme per reel; never Theme 2 Light Pop. Types footage, screen, repeat are storyboard-only. "
+    "Every FSS/OST/anchor beat needs a renderable frame (type fss, html, ost, or anchor) with complete html."
+)
+
+_ZO_ROLE = (
+    "You are the Zerodha Online Product IP graphics designer in the skill below. You run inside Graphics Studio (web app), not a chat: "
+    "ignore local zip delivery and CLI build steps — only return storyboard + spec via submit_storyboard. "
+    "Follow SKILL.md, references/spec_format.md, and references/kit_breakdown.md. Canvas is 1920×1080. "
+    "spec.frames = every designed beat: mode fss (full-screen items[]) OR mode osa|ost|tos (anchor-side items[] — lower, punch, bignum, scroll_list, …). "
+    "Set spec.look.plate (or per-frame plate) for anchor previews. Screen capture, footage, and repeat are storyboard-only — not in spec.frames. "
+    "Use assets/INDEX.md (grep by keyword); copy numbers exactly from the script (Indian ₹ grouping)."
+)
+
 
 def _system(theme_dir):
-    role = _MF_ROLE if is_mf_theme(theme_dir) else _ROLE
+    if is_reel_theme(theme_dir):
+        role = _REEL_ROLE
+    elif is_zo_product_theme(theme_dir):
+        role = _ZO_ROLE
+    elif is_mf_theme(theme_dir):
+        role = _MF_ROLE
+    else:
+        role = _ROLE
     return [{"type": "text", "text": role},
             {"type": "text", "text": theme_rules(theme_dir), "cache_control": {"type": "ephemeral"}}]
 
@@ -281,7 +366,43 @@ def _storyboard_line_for_frame(storyboard: str, fid: str) -> str:
     return ""
 
 
-def spec_quality_issues(spec: dict, storyboard: str = "") -> list[str]:
+_ZO_ITEM_TYPES = frozenset({
+    "heading", "compare", "hub2", "hub_fan", "cards", "positions", "chart", "bars", "formula",
+    "status", "phone", "week", "exchange", "notepad", "objstat", "calendar", "note",
+    "kite_watchlist", "kite_depth", "kite_chart", "auction", "text", "img", "pillv", "row", "html",
+    "lower", "punch", "bignum", "side_list", "scroll_list", "objcards", "ticket", "mini_table", "ladder",
+})
+_ZO_ANCHOR_MODES = frozenset({"osa", "ost", "tos"})
+
+
+def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") -> list[str]:
+    if theme == "zo-product-graphics":
+        issues: list[str] = []
+        frames = (spec or {}).get("frames") or []
+        for f in frames:
+            if not isinstance(f, dict):
+                continue
+            fid = f.get("id") or "?"
+            mode = str(f.get("mode") or "fss").strip().lower()
+            if mode not in ({"fss"} | _ZO_ANCHOR_MODES):
+                issues.append(f'Frame "{fid}": mode must be fss, osa, ost, or tos (not "{mode}").')
+            items = f.get("items") or []
+            if mode == "fss" and not items:
+                issues.append(f'Frame "{fid}": FSS frame needs at least one items[] entry.')
+            if mode in _ZO_ANCHOR_MODES:
+                if mode == "tos" and not f.get("title") and not items:
+                    issues.append(f'Frame "{fid}": TOS frame needs title and/or anchor items[].')
+                elif mode != "tos" and not items:
+                    issues.append(f'Frame "{fid}": anchor frame needs at least one items[] entry.')
+            for it in items:
+                if isinstance(it, dict) and it.get("t") and it["t"] not in _ZO_ITEM_TYPES:
+                    issues.append(f'Frame "{fid}": unknown item type "{it["t"]}" — see spec_format.md.')
+        if len(frames) >= 2 and not any(
+            isinstance(f, dict) and ((f.get("items") or []) or (f.get("mode") == "tos" and f.get("title")))
+            for f in frames
+        ):
+            issues.append("No renderable items in spec.frames.")
+        return issues
     frames = (spec or {}).get("frames") or []
     if frames and isinstance(frames[0], dict) and "type" in frames[0] and "mode" not in frames[0]:
         return []
@@ -408,21 +529,80 @@ def _call_storyboard(
 
 
 def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:
-    if is_mf_theme(theme_dir):
-        look_line = (look.get("look_line") or "").strip()
+    if is_zo_product_theme(theme_dir):
+        plate_hint = ""
+        if isinstance(look, dict) and look.get("plate"):
+            plate_hint = f"- Project look.plate is already set to {look['plate']!r} — use it on anchor frames (osa/ost/tos).\n"
         msg = (
-            f"Spec root look (one line — copy into spec.look): {look_line or 'anchor right · GIFT City house style per SKILL'}\n"
             f"Notes: {notes or 'none'}\n\n"
-            "GRAPHICS STUDIO RULES (critical):\n"
-            "- spec.frames must ONLY include beats that become PNG graphics: scene, ribbon, sop, table, cycle, points, definition, anchor, html.\n"
-            "- Do NOT put footage, screen, or repeat in spec.frames — those beats go ONLY in the storyboard string (with timestamps, no → frame id).\n"
-            "- Match the density and layout quality of scenes/gift_city_spec.json (hero assets, pills, tables, logo cards — not empty shells).\n"
-            "- Most of the video stays on footage; a graphic only when SKILL Step 3 says graphic/screen.\n"
-            "- Copy numbers exactly from the script.\n"
-            "- Pills: purple #5b55e6 gradient, white pill text (house.css); no green pill styling in spec HTML.\n\n"
-            "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n\n"
+            "GRAPHICS STUDIO RULES (Zerodha Online Product IP):\n"
+            "- spec.frames: FSS (mode fss) AND anchor graphics (mode osa | ost | tos with lower, punch, bignum, scroll_list, …).\n"
+            "- Storyboard tags: FSS | OSA | OST | TOS | Screen | Footage | Repeat. Every OSA/OST/TOS beat needs a matching spec frame (not text-only).\n"
+            "- Do NOT put screen capture, footage, or repeat in spec.frames.\n"
+            f"{plate_hint}"
+            "- Fewest frames that carry the script; a/b/c ids only when the same picture gains new facts (max 3 states).\n"
+            "- Match density + layout quality of scenes/example_spec.json and video_breakdowns learned patterns.\n"
+            "- Kite UI beats: use kite_watchlist, kite_depth, kite_chart, auction — vector mocks, generic tickers unless script names one.\n"
+            "- Copy numbers exactly from the script (Indian digit grouping).\n\n"
+            "Follow SKILL.md + spec_format.md + kit_breakdown.md + studio_brief.md.\n\n"
             f"SCRIPT:\n{script}"
         )
+        out = _call_storyboard(theme_dir, msg, sb_tool=ZO_SB_TOOL)
+        from mf_studio import compact_zo_spec_for_studio
+
+        spec = compact_zo_spec_for_studio(out.get("spec") or {})
+        if isinstance(look, dict) and look.get("plate"):
+            lk = spec.setdefault("look", {})
+            if isinstance(lk, dict):
+                lk.setdefault("plate", look["plate"])
+        out["spec"] = spec
+        for _ in range(2):
+            issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="zo-product-graphics")
+            if not issues:
+                break
+            retry = (
+                "Your previous zo-product spec was rejected by the studio quality gate. Fix ALL issues; "
+                "return storyboard + spec via submit_storyboard only:\n"
+                + "\n".join(f"- {x}" for x in issues)
+                + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
+            )
+            out = _call_storyboard(theme_dir, retry, sb_tool=ZO_SB_TOOL)
+            spec = compact_zo_spec_for_studio(out.get("spec") or {})
+            if isinstance(look, dict) and look.get("plate"):
+                lk = spec.setdefault("look", {})
+                if isinstance(lk, dict):
+                    lk.setdefault("plate", look["plate"])
+            out["spec"] = spec
+        return out
+    if is_mf_theme(theme_dir):
+        look_line = (look.get("look_line") or "").strip()
+        if is_reel_theme(theme_dir):
+            msg = (
+                f"Spec root look (one line — copy into spec.look): {look_line or 'Theme A · Cream Editorial per SKILL'}\n"
+                f"Notes: {notes or 'none'}\n\n"
+                "GRAPHICS STUDIO RULES (Zero1 reel):\n"
+                "- Canvas 1080×1920. spec.frames ONLY for static graphics: fss, html, ost, anchor.\n"
+                "- Do NOT put footage, screen, or repeat in spec.frames — storyboard text only.\n"
+                "- Number frames 01, 02… in storyboard row order. Each graphic needs rich `html` (centred safe zone).\n"
+                "- Copy numbers exactly from script / data sheet. One theme for the whole reel.\n"
+                "- Use data-mf-path on major blocks in html for studio layer editing.\n\n"
+                "Follow SKILL.md + references/spec_format.md + Reel_Graphics_Rules.md.\n\n"
+                f"SCRIPT:\n{script}"
+            )
+        else:
+            msg = (
+                f"Spec root look (one line — copy into spec.look): {look_line or 'anchor right · GIFT City house style per SKILL'}\n"
+                f"Notes: {notes or 'none'}\n\n"
+                "GRAPHICS STUDIO RULES (critical):\n"
+                "- spec.frames must ONLY include beats that become PNG graphics: scene, ribbon, sop, table, cycle, points, definition, anchor, html.\n"
+                "- Do NOT put footage, screen, or repeat in spec.frames — those beats go ONLY in the storyboard string (with timestamps, no → frame id).\n"
+                "- Match the density and layout quality of scenes/gift_city_spec.json (hero assets, pills, tables, logo cards — not empty shells).\n"
+                "- Most of the video stays on footage; a graphic only when SKILL Step 3 says graphic/screen.\n"
+                "- Copy numbers exactly from the script.\n"
+                "- Pills: purple #5b55e6 gradient, white pill text (house.css); no green pill styling in spec HTML.\n\n"
+                "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n\n"
+                f"SCRIPT:\n{script}"
+            )
         out = _call_storyboard(theme_dir, msg, sb_tool=MF_SB_TOOL)
         return out
 
@@ -470,18 +650,21 @@ def edit_frame(
     import base64
 
     tool = "submit_frame"
-    if is_mf_theme(theme_dir):
+    if is_mf_theme(theme_dir) or is_zo_product_theme(theme_dir):
+        kit = "Product IP" if is_zo_product_theme(theme_dir) else "MF"
         sb_excerpt = (storyboard_full or "")[:6000]
         if regenerate:
             msg = (
                 f"Storyboard line: {storyboard_line or '(none)'}\nContext:\n{sb_excerpt or '(none)'}\n\n"
-                f"Current frame JSON (MF spec — keep id and type unless asked):\n"
+                f"Current frame JSON ({kit} spec — keep id unless asked):\n"
                 f"{json.dumps(frame, ensure_ascii=False)}\n\n"
-                "REGENERATE this frame for the same beat. Match references/spec_format.md for this type.\n"
+                "REGENERATE this frame for the same beat. Match references/spec_format.md.\n"
+                "Make a visibly fresh version vs the current JSON: change layout emphasis, headline/sub copy, "
+                "card labels, or component params while keeping the same beat facts and script numbers.\n"
             )
         else:
             msg = (
-                f"Current MF frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"
+                f"Current frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"
                 f"Change requested: {ask}\n"
             )
         msg += "\nReturn the whole edited frame via submit_frame only."

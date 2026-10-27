@@ -112,13 +112,14 @@ def _layer_registry_js() -> str:
     return p.read_text()
 
 
-async def _render(pages, want_png):
+async def _render(pages, want_png, viewport=(1920, 1080)):
     from playwright.async_api import async_playwright
     registry_js = _layer_registry_js()
+    vw, vh = viewport
     out = {}
     async with async_playwright() as p:
         b = await launch_chromium(p)
-        pg = await b.new_page(viewport={"width": 1920, "height": 1080})
+        pg = await b.new_page(viewport={"width": vw, "height": vh})
         for fid, html, fss in pages:
             await _load_frame(pg, html)
             await pg.evaluate(registry_js)
@@ -139,17 +140,18 @@ async def _render(pages, want_png):
     return out
 
 
-def export_zip(pages, theme_dir: pathlib.Path, want_png=True) -> bytes:
+def export_zip(pages, theme_dir: pathlib.Path, want_png=True, viewport=(1920, 1080)) -> bytes:
     """pages: list of (frame_id, full_html, is_fss). Base href in html must point at this server's /themes/."""
-    files = asyncio.run(_render(pages, want_png))
+    files = asyncio.run(_render(pages, want_png, viewport))
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         for name, data in files.items():
             if name.endswith('.html'):
                 data = inline_assets(data, theme_dir).encode()
             z.writestr(name, data)
+        vw, vh = viewport
         z.writestr('README.txt', 'html/          one static self-contained page per frame (plate included)\n'
                                  'html_overlay/  anchor frames without the plate (graphics only)\n'
                                  'png/           rendered frames (+ _overlay.png with transparency)\n'
-                                 'Every element carries data-layer="<type>:<text>" and data-x/y/w/h (px at 1920x1080).\n')
+                                 f'Layer coordinates are in px at {vw}x{vh}.\n')
     return buf.getvalue()

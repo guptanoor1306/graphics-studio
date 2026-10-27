@@ -16,12 +16,13 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import claude_client, exporter, mf_studio, spec_enrich
+import claude_client, exporter, mf_studio, spec_enrich, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
     finalize_reference_edit,
     merge_item_edit,
+    mf_path_item_index,
     normalize_cards_items,
     remove_scene_illustrations,
     strip_upload_assets,
@@ -89,10 +90,16 @@ def is_mf_theme_name(theme: str) -> bool:
     return (THEMES / theme / "templates" / "render.js").is_file()
 
 
+def is_zo_theme_name(theme: str) -> bool:
+    return theme == "zo-product-graphics"
+
+
 MF_OVERLAY_TYPES = frozenset({"ribbon", "definition", "anchor"})
 
 
 def frame_wants_overlay(theme: str, frame: dict) -> bool:
+    if theme == "zero1-reel-graphics":
+        return frame.get("type") in {"ost", "anchor"}
     if is_mf_theme_name(theme):
         return frame.get("type") in MF_OVERLAY_TYPES
     return frame.get("mode") == "fss"
@@ -156,11 +163,19 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
 def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = False):
     html = builder(theme).frame_html(frame, look, edit=edit)
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
+    cw, ch = theme_canvas.canvas_for_theme(theme)
+    canvas_meta = f'<meta name="studio-canvas" content="{cw},{ch}">'
+    if 'name="studio-canvas"' not in html:
+        html = html.replace("<head>", f"<head>{canvas_meta}", 1)
     html = html.replace("<head>", f'<head><base href="{href}">', 1)
     if edit:
-        if "studio-edit-mode" in html:
-            html = html.replace("studio-edit-mode", "studio-edit-mode in-studio-iframe", 1)
-        else:
+        if 'class="studio-edit-mode"' in html:
+            html = html.replace(
+                'class="studio-edit-mode"',
+                'class="studio-edit-mode in-studio-iframe"',
+                1,
+            )
+        elif "<body>" in html:
             html = html.replace("<body>", '<body class="in-studio-iframe">', 1)
         edit_css = (ROOT / "static" / "studio_edit.css").read_text()
         registry_js = (ROOT / "static" / "layer_registry.js").read_text()
@@ -206,6 +221,11 @@ def claude_key_clear():
 def themes(): return sorted(p.name for p in THEMES.iterdir() if (p / "SKILL.md").exists())
 
 
+@app.get("/api/theme-meta")
+def theme_meta():
+    return theme_canvas.theme_meta_map()
+
+
 @app.get("/api/status")
 def status():
     import socket
@@ -217,7 +237,7 @@ def status():
         "host": socket.gethostname(),
         "studio_ui": os.environ.get("RAILWAY_GIT_COMMIT_SHA")
         or os.environ.get("GIT_COMMIT")
-        or "dev",
+        or str(int((ROOT / "static" / "index.html").stat().st_mtime)),
     }
     if backend() == "sqlite":
         out["db_path"] = str(SQLITE_PATH)
@@ -285,12 +305,18 @@ async def make_storyboard(pid: int, req: Request):
         if isinstance(spec.get("look"), str):
             plook["look_line"] = spec["look"]
         save(pid, who(req), "generated storyboard", script=script, look=plook, storyboard=out["storyboard"], spec=spec)
+    elif is_zo_theme_name(p["theme"]):
+        spec = mf_studio.compact_zo_spec_for_studio(out["spec"])
+        if isinstance(look, dict) and look.get("plate") and isinstance(spec.get("look"), dict):
+            spec["look"].setdefault("plate", look["plate"])
+        save(pid, who(req), "generated storyboard", script=script, look=look, storyboard=out["storyboard"], spec=spec)
+        out["spec"] = spec
     else:
         merged = effective_look({**p, "look": look, "spec": out["spec"]})
         out["spec"]["look"] = merged
         out["spec"] = spec_enrich.enrich_spec(out["spec"], out.get("storyboard") or "")
         save(pid, who(req), "generated storyboard", script=script, look=merged, storyboard=out["storyboard"], spec=out["spec"])
-    warn = claude_client.spec_quality_issues(out["spec"], out.get("storyboard") or "")
+    warn = claude_client.spec_quality_issues(out["spec"], out.get("storyboard") or "", theme=p["theme"])
     return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn}
 
 @app.put("/api/projects/{pid}")
@@ -373,6 +399,13 @@ async def edit(pid: int, fid: str, req: Request):
             f"Edit ONLY the field `{mf_path}` on this frame JSON. "
             f"Return the full frame but change ONLY that path — leave all other keys unchanged. Task: {ask}"
         )
+        if is_zo_theme_name(p["theme"]) and mf_path_item_index(mf_path) is not None:
+            ask += (
+                "\n\nZo Product IP renderer (apply to that items[] slot): "
+                "heading — 72px fixed; use numeric \"scale\" (e.g. 1.2) to enlarge the block; default centered (align \"left\" for left). "
+                "cards — w, icon_size, gap, scale. pillv/compare/chart — adjust copy and component fields in spec_format.md. "
+                "Frame fitbox — optional frame-level \"fit\" (default 1.6) scales non-heading content."
+            )
     if item_index is not None and ask:
         ask = (
             f"Edit ONLY items[{item_index}] (0-based index). Return the full frame but change ONLY that slot — "
@@ -382,7 +415,7 @@ async def edit(pid: int, fid: str, req: Request):
         raise HTTPException(400, "ask, reference image, or regenerate required")
     if item_index is not None and not ask and not ref_src:
         raise HTTPException(400, "layer replace needs a prompt and/or reference image")
-    if is_mf_theme_name(p["theme"]) and item_index is not None:
+    if is_mf_theme_name(p["theme"]) and not is_zo_theme_name(p["theme"]) and item_index is not None:
         raise HTTPException(400, "MF theme: use mf_path for layer edits, not item_index")
 
     sb_line = _storyboard_line_for_frame(p.get("storyboard") or "", fid)
@@ -416,12 +449,21 @@ async def edit(pid: int, fid: str, req: Request):
             storyboard_line=sb_line,
             storyboard_full=storyboard_full,
         )
+        mf_item_ix = mf_path_item_index(mf_path) if mf_path else None
         if item_index is not None and not is_mf_theme_name(p["theme"]):
             new = merge_item_edit(before, new, item_index)
             if smart_ref and ref_src:
                 new = strip_upload_assets(new, ref_src)
+        elif mf_item_ix is not None and is_mf_theme_name(p["theme"]):
+            new = merge_item_edit(before, new, mf_item_ix)
+            if smart_ref and ref_src:
+                new = strip_upload_assets(new, ref_src)
         elif flat_paste and ref_src and replace_flag and not is_mf_theme_name(p["theme"]):
             new = apply_flat_paste_replace(new, ref_src, ask, True)
+        elif regenerate and not ref_src:
+            pass
+        elif mf_path and is_mf_theme_name(p["theme"]) and not ref_src:
+            pass
         else:
             new = finalize_reference_edit(
                 before,
@@ -432,7 +474,7 @@ async def edit(pid: int, fid: str, req: Request):
             )
     except Exception as e:
         _raise_claude_gateway(e)
-    if not is_mf_theme_name(p["theme"]):
+    if is_zo_theme_name(p["theme"]) or not is_mf_theme_name(p["theme"]):
         new = normalize_cards_items(new)
     spec["frames"][i] = new
     note = f"{fid}: {(ask or 'reference')[:80]}"
@@ -460,7 +502,10 @@ async def plate(pid: int, req: Request, file: UploadFile = File(...)):
     from PIL import Image
     import io
     p = load(pid); name = f"user_{pid}"
-    Image.open(io.BytesIO(await file.read())).convert("RGB").resize((1920, 1080)).save(THEMES / p["theme"] / "assets/plates" / f"{name}.png")
+    cw, ch = theme_canvas.canvas_for_theme(p["theme"])
+    Image.open(io.BytesIO(await file.read())).convert("RGB").resize((cw, ch)).save(
+        THEMES / p["theme"] / "assets/plates" / f"{name}.png"
+    )
     look = {**p["look"], "plate": name}; save(pid, who(req), "uploaded anchor plate", look=look)
     if p["spec"]: p["spec"]["look"]["plate"] = name; save(pid, who(req), "plate on spec", spec=p["spec"])
     return load(pid)
@@ -538,7 +583,8 @@ async def check(pid: int):
     try:
         async with async_playwright() as pw:
             b = await exporter.launch_chromium(pw)
-            pg = await b.new_page(viewport={"width": 1920, "height": 1080})
+            cw, ch = theme_canvas.canvas_for_theme(p["theme"])
+            pg = await b.new_page(viewport={"width": cw, "height": ch})
             mf = is_mf_theme_name(p["theme"])
             for f in p["spec"]["frames"]:
                 await pg.goto(preview_url(pid, f["id"]), wait_until="load", timeout=120_000)
@@ -569,7 +615,10 @@ async def export(pid: int, png: int = 1, only: str = ""):
         html = frame_page(p["theme"], frame_for_render(p, f), look, base_href=base)
         pages.append((f["id"], html, frame_wants_overlay(p["theme"], f)))
     try:
-        data = await asyncio.to_thread(exporter.export_zip, pages, THEMES / p["theme"], bool(png))
+        cw, ch = theme_canvas.canvas_for_theme(p["theme"])
+        data = await asyncio.to_thread(
+            exporter.export_zip, pages, THEMES / p["theme"], bool(png), (cw, ch)
+        )
     except Exception as e:
         raise HTTPException(502, detail=f"Export failed: {e}") from e
     fn = f"{p['name'].replace(' ', '_')}_frames.zip"
