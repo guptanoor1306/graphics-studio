@@ -604,7 +604,7 @@ async def check(pid: int):
     return warns
 
 @app.get("/api/projects/{pid}/export")
-async def export(pid: int, png: int = 1, only: str = ""):
+async def export(pid: int, png: int = 1, only: str = "", scale: float | None = None):
     p = load(pid)
     ids = set(only.split(",")) if only else None
     base = f"{preview_base()}/themes/{p['theme']}/scenes/"
@@ -620,7 +620,12 @@ async def export(pid: int, png: int = 1, only: str = ""):
     try:
         cw, ch = theme_canvas.canvas_for_theme(p["theme"])
         data = await asyncio.to_thread(
-            exporter.export_zip, pages, THEMES / p["theme"], bool(png), (cw, ch)
+            exporter.export_zip,
+            pages,
+            THEMES / p["theme"],
+            bool(png),
+            (cw, ch),
+            scale,
         )
     except Exception as e:
         raise HTTPException(502, detail=f"Export failed: {e}") from e
