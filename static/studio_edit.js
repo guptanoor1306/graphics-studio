@@ -829,6 +829,10 @@
 
   function bootLayersDelayed() {
     bootLayers();
+    if (useParentChrome) {
+      setTimeout(bootLayers, 400);
+      return;
+    }
     setTimeout(bootLayers, 400);
     setTimeout(bootLayers, 1200);
   }

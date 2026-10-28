@@ -984,7 +984,7 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
   bumpFrame(fid);
-  if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList();syncIframeLayerBounds()}
+  if(editModeOpen){refreshEditCanvas();renderCanvasLayerList();syncIframeLayerBounds()}
   else render();
   if(!regenerate){const ea=$('#editFrameAsk');if(ea)ea.value=''}
  }catch(e){alert(e.message||String(e))}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}}
@@ -994,7 +994,7 @@ async function applyLook(){
  P.look=normLook(P.look);
  populateEditLookBlock();
  P.spec.frames.forEach(fr=>bumpFrame(fr.id));
- if(editModeOpen){buildEditFrameStrip();refreshEditCanvas()}else render();
+ if(editModeOpen){refreshEditCanvas()}else render();
 }
 async function upPlate(i){
  if(!i?.files?.[0])return;
@@ -1002,7 +1002,7 @@ async function upPlate(i){
  const r=await fetch(`/api/projects/${P.id}/plate`,{method:'POST',body:fd});
  if(!r.ok)return alert(await r.text());
  P=await r.json();P.look=normLook(P.look);
- if(editModeOpen){buildEditFrameStrip();refreshEditCanvas()}else render();
+ if(editModeOpen){refreshEditCanvas()}else render();
 }
 function canvasEditUrl(){
  const v=frameVer[selectedFrameId]||0;
@@ -1344,11 +1344,24 @@ function ensureParentResizeDrag(){
  document.addEventListener('pointerup',finish);
  document.addEventListener('pointercancel',finish);
 }
+function normalizeOverlayLayers(layers){
+ return(layers||[]).map(L=>({
+  idx:L.idx,
+  type:L.type||'',
+  label:L.label||'',
+  mfPath:L.mfPath||null,
+  resize:L.resize||'',
+  top:Math.round(L.top||0),
+  left:Math.round(L.left||0),
+  width:Math.round(L.width||0),
+  height:Math.round(L.height||0)
+ }));
+}
 function renderParentCanvasChips(layers){
  const host=$('#canvasChipOverlay');
  if(!host||!editModeOpen)return;
  ensureCanvasChipOverlayActions();
- layers=layers||[];
+ layers=normalizeOverlayLayers(layers);
  const selKey=selectedCanvasLayer?selectedCanvasLayer.idx+':'+(selectedCanvasLayer.mfPath??''):'';
  const sig=JSON.stringify(layers)+'|'+selKey;
  if(sig===lastCanvasChipSig)return;
@@ -1402,7 +1415,8 @@ function renderParentCanvasChips(layers){
   host.appendChild(rh);
  }
 }
-function clearParentCanvasChips(){lastCanvasChipSig='';selectedCanvasLayer=null;const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
+function clearParentOverlayDom(){lastCanvasChipSig='';const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
+function clearParentCanvasChips(){clearParentOverlayDom();selectedCanvasLayer=null}
 function selectEditFrame(fid){
  selectedFrameId=fid;
  clearParentCanvasChips();
@@ -1441,9 +1455,12 @@ function refreshEditCanvas(){
  if(!fr){clearParentCanvasChips();return}
  const ifr=$('#canvasEditFrame');
  if(!ifr)return;
+ const nextUrl=new URL(canvasEditUrl(),location.origin).href;
+ if(ifr.dataset.studioUrl===nextUrl)return;
+ ifr.dataset.studioUrl=nextUrl;
  ifr.onload=()=>{
   fitCanvasEdit();
-  clearParentCanvasChips();
+  clearParentOverlayDom();
   const w=ifr.contentWindow;
   const boot=()=>{try{w?.studioBootLayers?.()}catch(e){console.warn('layer boot',e)}};
   if(w?.RENDERED)boot();
@@ -1452,12 +1469,10 @@ function refreshEditCanvas(){
    const poll=()=>{if(w?.RENDERED||++n>120){boot();return}requestAnimationFrame(poll)};
    poll();
   }
-  setTimeout(boot,500);
-  setTimeout(boot,1500);
-  setTimeout(()=>{boot();startBoundsPoll()},800);
+  setTimeout(()=>{boot();startBoundsPoll()},400);
   ifr.onload=null;
  };
- ifr.src=canvasEditUrl();
+ ifr.src=nextUrl;
  requestAnimationFrame(fitCanvasEdit);
 }
 function fitCanvasEdit(){
@@ -1511,7 +1526,6 @@ async function patchFrameInline(msg){
  P.spec.frames[i]=fr;
  try{
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'inline '+selectedFrameId})});
-  if(editModeOpen)refreshEditCanvas();
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
 async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
@@ -1654,7 +1668,7 @@ async function deleteMfPart(mfPath){
  if(!applyMfPathDelete(fr,mfPath)){alert('This layer cannot be removed directly — use Frame changes.');return}
  P.spec.frames[i]=fr;
  if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
- try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete mf '+fid+' '+mfPath})});bumpFrame(fid);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete mf '+fid+' '+mfPath})});bumpFrame(fid);if(editModeOpen){refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 async function deleteFrameItem(idx){
  if(!selectedFrameId||!P?.spec)return;
@@ -1665,7 +1679,7 @@ async function deleteFrameItem(idx){
  fr.items.splice(idx,1);
  P.spec.frames[i]=fr;
  if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
- try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});bumpFrame(fid);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete item '+fid+'#'+idx})});bumpFrame(fid);if(editModeOpen){refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 async function handleStudioEdit(msg){
  const mfPath=msg.mfPath||null;
@@ -1681,7 +1695,7 @@ async function patchSelectedFrameMode(mode){
  if(i<0)return;
  P.spec.frames[i]={...P.spec.frames[i],mode};
  if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
- try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:mode+' '+selectedFrameId})});bumpFrame(selectedFrameId);if(editModeOpen){buildEditFrameStrip();refreshEditCanvas();renderFrameModeSwitch()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
+ try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:mode+' '+selectedFrameId})});bumpFrame(selectedFrameId);if(editModeOpen){refreshEditCanvas();renderFrameModeSwitch()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
 }
 function makeSelectedFrameFss(){patchSelectedFrameMode('fss')}
 function makeSelectedFrameAnchor(){patchSelectedFrameMode('anchor')}
@@ -1729,13 +1743,14 @@ window.addEventListener('message',e=>{
  }
  if(e.data?.studio==='layer-bounds'&&editModeOpen){
   clearTimeout(canvasChipRenderT);
-  const incoming=e.data.layers||[];
+  const incoming=normalizeOverlayLayers(e.data.layers||[]);
   canvasChipRenderT=setTimeout(()=>{
-   if(incoming.length)lastCanvasLayers=incoming;
-   else syncIframeLayerBounds();
-   if(!lastCanvasLayers.length)syncIframeLayerBounds();
+   if(incoming.length){
+    lastCanvasLayers=incoming;
+    stopBoundsPoll();
+   }else if(!lastCanvasLayers.length)syncIframeLayerBounds();
    renderParentCanvasChips(lastCanvasLayers);
-  },32);
+  },80);
  }
 });
 window.addEventListener('resize',()=>{
