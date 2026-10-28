@@ -189,6 +189,7 @@ aside.edit-frame-strip{display:block;flex-direction:unset;gap:0;overflow-y:auto;
 .canvas-parent-chip .ca{display:flex;gap:4px;flex-shrink:0}
 .canvas-parent-chip .ca button{border:0;background:rgba(255,255,255,.14);color:#fff;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;line-height:1}
 .canvas-parent-chip .ca button:hover{background:rgba(255,255,255,.3)}
+.canvas-parent-chip .ca button[data-act="delete"]:hover{background:rgba(224,70,58,.65)}
 .edit-frame-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .edit-ref-check{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:13px;cursor:pointer}
 .edit-ref-check input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);flex-shrink:0}
@@ -269,7 +270,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
     <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
    </div>
    <h3>Reference image</h3>
-   <p class="edit-side-hint">Click a layer on the canvas (dashed box) or in the list to select it — then <b>✎ ↻ ×</b> appear on the canvas. Drag to move; drag the <b>blue corner square</b> to resize. Click dashed <b>text</b> to edit inline.</p>
+   <p class="edit-side-hint">Click a dashed box on the canvas or a row in Layers — <b>✎ ↻ ×</b> show on the overlay (scaled with the frame). Drag the layer to move; drag the <b>blue corner</b> to resize. Click text in the frame to edit inline.</p>
    <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
    <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
    <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
@@ -1252,7 +1253,15 @@ function ensureCanvasChipOverlayActions(){
  if(!host||canvasChipOverlayBound)return;
  canvasChipOverlayBound=true;
  host.addEventListener('click',ev=>{
-  if(ev.target.closest('.canvas-parent-layer-outline,.canvas-parent-resize-handle'))return;
+  const actBtn=ev.target.closest('.canvas-parent-chip button[data-act]');
+  if(actBtn){
+   ev.stopPropagation();
+   const idx=parseInt(actBtn.dataset.idx,10);
+   const mp=actBtn.dataset.mfPath||null;
+   canvasLayerAction(idx,actBtn.dataset.act,mp);
+   return;
+  }
+  if(ev.target.closest('.canvas-parent-resize-handle,.canvas-parent-chip'))return;
   if(ev.target===host){
    selectedCanvasLayer=null;
    lastCanvasChipSig='';
@@ -1262,6 +1271,45 @@ function ensureCanvasChipOverlayActions(){
   }
  });
  ensureParentResizeDrag();
+}
+function appendParentLayerActionChip(host,L,top,left,w,h){
+ const chip=document.createElement('div');
+ chip.className='canvas-parent-chip canvas-parent-chip-float';
+ chip.style.zIndex='6';
+ const ca=document.createElement('span');
+ ca.className='ca';
+ const mf=L.mfPath||'';
+ [['edit','Edit','✎'],['replace','Replace','↻'],['delete','Remove','×']].forEach(([act,title,glyph])=>{
+  const b=document.createElement('button');
+  b.type='button';b.title=title;b.dataset.act=act;b.dataset.idx=String(L.idx);
+  if(mf)b.dataset.mfPath=mf;
+  b.textContent=glyph;
+  ca.appendChild(b);
+ });
+ chip.appendChild(ca);
+ const bw=Math.max(24,w);
+ const bh=Math.max(20,h);
+ const chipH=48;
+ let chipTop=top+bh+8;
+ const vp=$('#canvasEditViewport');
+ const vpH=vp?.clientHeight||800;
+ if(chipTop+chipH>vpH-8)chipTop=top-chipH-8;
+ chip.style.top=Math.max(4,chipTop)+'px';
+ chip.style.left=Math.max(4,left+bw/2-66)+'px';
+ host.appendChild(chip);
+ const labelChip=document.createElement('div');
+ labelChip.className='canvas-parent-chip';
+ labelChip.style.zIndex='6';
+ labelChip.style.maxWidth=Math.min(280,bw+40)+'px';
+ const lab=document.createElement('span');
+ lab.className='cl';
+ lab.textContent=L.label||('layer #'+(L.idx+1));
+ labelChip.appendChild(lab);
+ let labTop=top-40;
+ if(labTop<4)labTop=top+bh+52;
+ labelChip.style.top=Math.max(4,labTop)+'px';
+ labelChip.style.left=Math.max(4,left)+'px';
+ host.appendChild(labelChip);
 }
 function ensureParentResizeDrag(){
  if(parentResizeBound)return;
@@ -1327,11 +1375,13 @@ function renderParentCanvasChips(layers){
   if(sel)selectedL=L;
   const outline=document.createElement('div');
   outline.className='canvas-parent-layer-outline'+(sel?' sel':'');
+  outline.dataset.idx=String(L.idx);
+  if(L.mfPath)outline.dataset.mfPath=L.mfPath;
   outline.style.top=top+'px';
   outline.style.left=left+'px';
   outline.style.width=Math.max(24,w)+'px';
   outline.style.height=Math.max(20,h)+'px';
-  outline.title=sel?'Selected':'';
+  outline.title=sel?'Selected':(L.label||'Select layer');
   host.appendChild(outline);
  });
  if(!selectedL)return;
@@ -1340,6 +1390,7 @@ function renderParentCanvasChips(layers){
  const h=(L.height||40)*s;
  const top=stageView.oy+(L.top||0)*s;
  const left=stageView.ox+(L.left||0)*s;
+ appendParentLayerActionChip(host,L,top,left,w,h);
  if(L.resize){
   const rh=document.createElement('div');
   rh.className='canvas-parent-resize-handle';
@@ -1364,6 +1415,20 @@ function selectEditFrame(fid){
 function editApplyFrame(){
  const ask=$('#editFrameAsk')?.value||'';
  if(!selectedFrameId)return;
+ const {ref}=refControls();
+ const upload=ref?.files?.[0];
+ if(selectedCanvasLayer){
+  if(upload){
+   runLayerAction(selectedCanvasLayer.idx,'replace',ask,selectedCanvasLayer.mfPath,upload);
+   return;
+  }
+  if(ask.trim()){
+   runLayerAction(selectedCanvasLayer.idx,'edit',ask,selectedCanvasLayer.mfPath);
+   return;
+  }
+  alert('Describe a change for the selected layer, or attach a reference image to replace it.');
+  return;
+ }
  askFrame(selectedFrameId,ask);
 }
 async function editRegenFrame(){
@@ -1498,7 +1563,7 @@ async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
   if(w!=null)it.w=w;
   if(size!=null)it.size=size;
  }else if(t==='bars'||t==='chart'||t==='kite_chart'||t==='img'){if(w!=null)it.w=w;if(h!=null)it.h=h;if(size!=null)it.size=size}
- else if(['text','label','callout','num','pill','result_pill','htab'].includes(t)&&size!=null){it.size=size}
+ else if(['text','label','callout','num','pill','result_pill','htab','title'].includes(t)&&size!=null){it.size=size}
  else if(['status','compare','positions','notepad','note','phone','hub2','hub_fan','formula','objstat','week','exchange','kite_watchlist','kite_depth','row','pillv'].includes(t)){
   if(w!=null)it.w=w;if(h!=null)it.h=h;if(size!=null)it.size=size;
  }else if(t==='cards'&&cardIdx!=null&&w!=null){

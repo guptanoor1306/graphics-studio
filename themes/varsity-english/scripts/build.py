@@ -14,11 +14,18 @@ E = html.escape
 
 # ----------------------------------------------------------------- item renderers
 def title(i):
-    col = i.get('color', 'white'); size = i.get('size', 'md' if len(i.get('key', '')) > 9 else '')
-    key_cls = 't-key ' + ('' if col == 'white' else col) + ' ' + size
+    col = i.get('color', 'white')
+    raw_size = i.get('size', 'md' if len(i.get('key', '')) > 9 else '')
+    px_style = ''
+    if isinstance(raw_size, (int, float)) or (isinstance(raw_size, str) and str(raw_size).isdigit()):
+        key_cls = 't-key ' + ('' if col == 'white' else col)
+        px_style = f' style="font-size:{int(raw_size)}px"'
+    else:
+        size = raw_size if raw_size in ('xl', 'md') else ('md' if len(i.get('key', '')) > 9 else '')
+        key_cls = 't-key ' + ('' if col == 'white' else col) + (' ' + size if size else '')
     lead = f'<div class="t-line {"b" if i.get("bold_lead") else ""}">{E(i["lead"])}</div>' if i.get('lead') else ''
     tail = f'<div class="t-line {"b" if i.get("bold_lead") else ""}">{E(i["tail"])}</div>' if i.get('tail') else ''
-    return f'<div>{lead}<div class="{key_cls}">{E(i["key"])}</div>{tail}</div>'
+    return f'<div>{lead}<div class="{key_cls.strip()}"{px_style}>{E(i["key"])}</div>{tail}</div>'
 
 def pill(i):
     fs = f' style="font-size:{i["size"]}px"' if i.get('size') else ''
@@ -263,7 +270,7 @@ def frame_html(f, look, edit=False):
         'glass_table': 'w', 'calc_table': 'w', 'nlist': 'w', 'points': 'w',
         'definition': 'w', 'defcard': 'w', 'popup': 'w', 'bars': 'wh', 'cards': 'w',
         'text': 'font', 'label': 'font', 'callout': 'font', 'num': 'font', 'pill': 'font',
-        'result_pill': 'font', 'htab': 'font',
+        'result_pill': 'font', 'htab': 'font', 'title': 'font',
     }
     for idx, it in enumerate(f['items']):
         t = it['t']

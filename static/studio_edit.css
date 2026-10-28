@@ -42,7 +42,7 @@ body.studio-edit-mode { cursor: default; }
   pointer-events: none;
   z-index: 99990;
 }
-/* Action chips live in the iframe; parent page shows selection outlines + resize handle. */
+/* In edit iframe: parent page shows outlines, resize handle, and action chips (#canvasChipOverlay). */
 body.studio-edit-mode.in-studio-iframe #studio-overlay {
   z-index: 99995;
 }

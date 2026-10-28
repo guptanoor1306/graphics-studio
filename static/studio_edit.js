@@ -96,6 +96,10 @@
       emitLayerBoundsToParent();
       return;
     }
+    if (useParentChrome) {
+      emitLayerBoundsToParent();
+      return;
+    }
     let show = layers;
     if (useParentChrome && window.__studioSelected) {
       const sel = window.__studioSelected;
@@ -156,6 +160,7 @@
     num: "font",
     result_pill: "font",
     htab: "font",
+    title: "font",
     table: "w",
     hero: "asset",
     prop: "asset",
@@ -214,7 +219,7 @@
   function fontBox(wrapper) {
     return (
       wrapper.querySelector(
-        ".htab, .callout, .num, .pill-title, .result-pill, .pill .t, .defbox, .nlabel, .qbox, .tile .lbl, .caption"
+        ".t-key, .t-line, .htab, .callout, .num, .pill-title, .result-pill, .pill .t, .defbox, .nlabel, .qbox, .tile .lbl, .caption"
       ) ||
       wrapper.querySelector(".chip span:last-child") ||
       wrapper.querySelector("[style*='font-size']") ||
@@ -383,7 +388,13 @@
     if (el.dataset.mfProp != null) return true;
     const pos = getComputedStyle(el).position;
     if (pos === "absolute" || pos === "fixed") return true;
-    if (el.closest(".flow")) return false;
+    if (el.closest(".flow")) {
+      const flowDrag = [
+        "title", "text", "label", "pill", "num", "points", "nlist", "definition", "defcard",
+        "popup", "glass_table", "calc_table", "callout", "result_pill", "htab", "bars", "cards",
+      ];
+      return flowDrag.includes(t);
+    }
     return false;
   }
 
