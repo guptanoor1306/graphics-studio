@@ -67,7 +67,9 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
             "references/spec_format.md",
             "references/studio_brief.md",
             "references/kit_breakdown.md",
+            "references/anchor_plates.md",
             "references/deep/video_breakdowns.md",
+            "assets/plates/plates.json",
             "scenes/example_spec.json",
             "assets/INDEX.md",
         )
@@ -306,10 +308,12 @@ _REEL_ROLE = (
 _ZO_ROLE = (
     "You are the Zerodha Online Product IP graphics designer in the skill below. You run inside Graphics Studio (web app), not a chat: "
     "ignore local zip delivery and CLI build steps — only return storyboard + spec via submit_storyboard. "
-    "Follow SKILL.md, references/spec_format.md, and references/kit_breakdown.md. Canvas is 1920×1080. "
-    "spec.frames = every designed beat: mode fss (full-screen items[]) OR mode osa|ost|tos (anchor-side items[] — lower, punch, bignum, scroll_list, …). "
-    "Set spec.look.plate (or per-frame plate) for anchor previews. Screen capture, footage, and repeat are storyboard-only — not in spec.frames. "
-    "Use assets/INDEX.md (grep by keyword); copy numbers exactly from the script (Indian ₹ grouping)."
+    "Follow SKILL.md, references/spec_format.md, kit_breakdown.md, anchor_plates.md, and video_breakdowns (patterns only). Canvas is 1920×1080. "
+    "Design for the user's script: ~90% house toolkit (component types, plates, INDEX illustrations, layout grammar from kit_breakdown) "
+    "and ~10% fresh creative choices (headlines, which objects, compare pairings, anchor copy) — do NOT clone scenes/example_spec.json or ship unrelated Devolvement/SIF frames. "
+    "spec.frames = FSS (mode fss) + anchor (osa|ost|tos with lower, punch, scroll_list, …). Set spec.look.plate from anchor_plates.md (default m1_wide_centre). "
+    "One primary anchor graphic per frame (one lower OR one punch OR one side list — avoid stacking multiple punchlines on wide-centre plates). "
+    "Screen capture, footage, repeat are storyboard-only. Copy script numbers exactly (Indian ₹ grouping)."
 )
 
 
@@ -394,6 +398,15 @@ def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") ->
                     issues.append(f'Frame "{fid}": TOS frame needs title and/or anchor items[].')
                 elif mode != "tos" and not items:
                     issues.append(f'Frame "{fid}": anchor frame needs at least one items[] entry.')
+                plate = f.get("plate") or (spec.get("look") or {}).get("plate") if isinstance(spec.get("look"), dict) else None
+                from mf_studio import ZO_PLATE_KEYS, _ZO_SIDE_PANEL_TYPES
+
+                if plate and plate not in ZO_PLATE_KEYS and plate not in ("default", ""):
+                    issues.append(f'Frame "{fid}": unknown plate {plate!r} — use keys from anchor_plates.md.')
+                if len(items) > 2 and not ({it.get("t") for it in items} & _ZO_SIDE_PANEL_TYPES):
+                    issues.append(
+                        f'Frame "{fid}": too many stacked anchor items — use one lower/punch OR move list to side_list/scroll_list on m1_close_left.'
+                    )
             for it in items:
                 if isinstance(it, dict) and it.get("t") and it["t"] not in _ZO_ITEM_TYPES:
                     issues.append(f'Frame "{fid}": unknown item type "{it["t"]}" — see spec_format.md.')
@@ -531,20 +544,22 @@ def _call_storyboard(
 def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:
     if is_zo_product_theme(theme_dir):
         plate_hint = ""
-        if isinstance(look, dict) and look.get("plate"):
-            plate_hint = f"- Project look.plate is already set to {look['plate']!r} — use it on anchor frames (osa/ost/tos).\n"
+        if isinstance(look, dict) and look.get("plate") and look.get("plate") not in ("default", ""):
+            plate_hint = f"- Project look.plate is {look['plate']!r} — use on anchor frames unless a frame needs another key from anchor_plates.md.\n"
+        else:
+            plate_hint = "- Set spec.look.plate to m1_wide_centre (or f1_centre_circle for female-anchor concept videos) per anchor_plates.md.\n"
         msg = (
             f"Notes: {notes or 'none'}\n\n"
             "GRAPHICS STUDIO RULES (Zerodha Online Product IP):\n"
-            "- spec.frames: FSS (mode fss) AND anchor graphics (mode osa | ost | tos with lower, punch, bignum, scroll_list, …).\n"
-            "- Storyboard tags: FSS | OSA | OST | TOS | Screen | Footage | Repeat. Every OSA/OST/TOS beat needs a matching spec frame (not text-only).\n"
-            "- Do NOT put screen capture, footage, or repeat in spec.frames.\n"
+            "- spec.frames: FSS (mode fss) AND anchor (mode osa | ost | tos). Every OSA/OST/TOS storyboard beat → matching spec frame with plate + items.\n"
+            "- Storyboard tags: FSS | OSA | OST | TOS | Screen | Footage | Repeat. Screen/footage/repeat NOT in spec.frames.\n"
             f"{plate_hint}"
-            "- Fewest frames that carry the script; a/b/c ids only when the same picture gains new facts (max 3 states).\n"
-            "- Match density + layout quality of scenes/example_spec.json and video_breakdowns learned patterns.\n"
-            "- Kite UI beats: use kite_watchlist, kite_depth, kite_chart, auction — vector mocks, generic tickers unless script names one.\n"
-            "- Copy numbers exactly from the script (Indian digit grouping).\n\n"
-            "Follow SKILL.md + spec_format.md + kit_breakdown.md + studio_brief.md.\n\n"
+            "- CREATIVE MIX: ~90% kit grammar (kit_breakdown + video_breakdowns component picks, plates, INDEX assets) "
+            "~10% new for THIS script (wording, metaphors, which compare/chart). Do NOT reuse example_spec.json frame content for unrelated topics.\n"
+            "- Anchor layout: one main item per frame on wide-centre plates; side lists → plate m1_close_left; TOS → m1_tos + title field.\n"
+            "- Fewest frames; a/b/c only when the same picture gains new facts (max 3 states).\n"
+            "- Kite UI: kite_watchlist, kite_depth, kite_chart, auction — vector mocks; script numbers exactly (Indian grouping).\n\n"
+            "Follow SKILL.md + spec_format.md + kit_breakdown.md + anchor_plates.md + studio_brief.md.\n\n"
             f"SCRIPT:\n{script}"
         )
         out = _call_storyboard(theme_dir, msg, sb_tool=ZO_SB_TOOL)
@@ -662,6 +677,11 @@ def edit_frame(
                 "Make a visibly fresh version vs the current JSON: change layout emphasis, headline/sub copy, "
                 "card labels, or component params while keeping the same beat facts and script numbers.\n"
             )
+            if is_zo_product_theme(theme_dir):
+                msg += (
+                    "Zo Product IP: keep valid plate from anchor_plates.md; anchor = one primary item when possible. "
+                    "~90% kit components, ~10% fresh copy vs the current JSON.\n"
+                )
         else:
             msg = (
                 f"Current frame JSON:\n{json.dumps(frame, ensure_ascii=False)}\n\n"

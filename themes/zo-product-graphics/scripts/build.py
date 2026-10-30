@@ -16,6 +16,31 @@ CANVAS = (CANVAS_W, CANVAS_H)
 E = html.escape
 _pj = os.path.join(KIT, 'assets', 'plates', 'plates.json')
 PLATES = json.load(open(_pj)) if os.path.exists(_pj) else {}
+_PLATE_KEYS = frozenset(PLATES.keys()) if PLATES else frozenset({
+    'm1_wide_centre', 'm1_mid_centre', 'm1_close_left', 'm1_tos',
+    'f1_left_circle', 'f1_centre_circle', 'f1_centre', 'f1_close_right',
+    'm2_centre', 'm2_centre_dark', 'm2_left', 'm2_right',
+})
+_SIDE_PANEL = frozenset({'side_list', 'scroll_list', 'ladder', 'mini_table', 'ticket'})
+
+
+def _resolve_plate(f, look):
+    mode = f.get('mode', 'fss')
+    if mode == 'fss':
+        return None
+    raw = f.get('plate') or (look or {}).get('plate') or 'm1_wide_centre'
+    if raw in ('', 'default', None):
+        raw = 'm1_wide_centre'
+    if mode == 'tos':
+        return 'm1_tos' if 'm1_tos' in _PLATE_KEYS else raw
+    types = {it.get('t') for it in (f.get('items') or []) if isinstance(it, dict)}
+    if types & _SIDE_PANEL and 'm1_close_left' in _PLATE_KEYS:
+        return 'm1_close_left'
+    if 'objcards' in types and 'm2_centre_dark' in _PLATE_KEYS:
+        return 'm2_centre_dark'
+    if raw in _PLATE_KEYS:
+        return raw
+    return 'm1_wide_centre' if 'm1_wide_centre' in _PLATE_KEYS else next(iter(_PLATE_KEYS), raw)
 
 def md(s):
     """**yellow**  ++blue++  __bold__  {g:green} {o:orange}  | = line break"""
@@ -511,7 +536,7 @@ def _render_stage_inner(f, look):
         body, plate, decor, cut = 'fss', '', fss_decor(hash(f['id']) % 997), ''
         align = 'center'
     else:
-        pname = f.get('plate') or look.get('plate')
+        pname = _resolve_plate(f, look)
         p = PLATES.get(pname) if pname else None
         if p:
             z = dict(p['zone']); z.update(f.get('zone', {}))
@@ -531,10 +556,10 @@ def _render_stage_inner(f, look):
                 absol.append(f'<div class="tos back" style="top:{ty}px;font-size:{fs}px">{E(t)}</div><div class="tos front" style="top:{ty}px;font-size:{fs}px">{E(t)}</div>')
     jc = {'top': 'flex-start', 'center': 'center', 'bottom': 'flex-end'}[z.get('valign', 'center')]
     ai = {'left': 'flex-start', 'center': 'center', 'right': 'flex-end'}[align]
-    gap = f.get('gap', 40)
+    gap = f.get('gap', 40 if mode == 'fss' else 24)
     heads = [html for t, html in flow_parts if t == 'heading']
     rest = [html for t, html in flow_parts if t != 'heading']
-    fitmax = f.get('fit', 1.6 if mode == 'fss' else 1.15)
+    fitmax = f.get('fit', 1.6 if mode == 'fss' else 0.95)
     if fitmax is False: fitmax = 1
     origin = {'left': 'left', 'center': 'center', 'right': 'right'}[align]
     hd = f'<div style="width:100%;text-align:{align};display:flex;flex-direction:column;align-items:{ai}">{"".join(heads)}</div>' if heads else ''
@@ -542,7 +567,7 @@ def _render_stage_inner(f, look):
           f'align-items:{ai};gap:{gap}px;text-align:{align}">{hd}'
           f'<div class="fitwrap" style="flex:1;min-height:0;width:100%;display:flex;align-items:{jc};justify-content:{ai}">'
           f'<div class="fitbox" data-max="{fitmax}" style="display:flex;flex-direction:column;align-items:{ai};gap:{gap}px;transform-origin:{origin} center">{"".join(rest)}</div></div></div>')
-    pname = f.get('plate') or look.get('plate')
+    pname = _resolve_plate(f, look) if mode != 'fss' else None
     face = json.dumps((PLATES.get(pname) or {}).get('face')) if mode != 'fss' else 'null'
     inner = f'{plate}{decor}{fl}{"".join(absol)}{cut}'
     return inner, body, mode, face

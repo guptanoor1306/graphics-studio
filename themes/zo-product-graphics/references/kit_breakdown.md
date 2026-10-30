@@ -2,6 +2,8 @@
 
 Studio renders **FSS + anchor** (`mode: fss | osa | ost | tos`, `items[]` from `spec_format.md`). Screen / footage / repeat stay **storyboard-only**.
 
+**Studio creativity:** use kit_breakdown + video_breakdowns as **grammar** (~90%), not a template to copy. Each new script gets fresh copy, INDEX picks, and layout choices (~10%) — never paste unrelated frames from `example_spec.json`.
+
 ## Beat labels (one per script beat)
 
 | Label | In `spec.frames`? | Storyboard line format |

@@ -4,7 +4,7 @@ Web app renders **FSS + anchor** frames from `spec.json` via `scripts/build.py` 
 
 - **Storyboard** may include Screen capture, Footage, Repeat — those beats are **not** in `spec.frames`.
 - **spec.frames** = designed graphics: `mode: "fss"` (full-screen `items[]`) and `mode: "osa" | "ost" | "tos"` (anchor-side `items[]` — `lower`, `punch`, `bignum`, `scroll_list`, …). TOS frames also need `title`.
-- Set **`look.plate`** (or upload in Edit mode) so anchor previews use the correct framing; optional per-frame `plate`.
+- Default **`look.plate`**: `m1_wide_centre` (see `references/anchor_plates.md` + `assets/plates/`). Per-frame `plate` overrides for side panels / TOS.
 - Use `scenes/example_spec.json` as the FSS quality bar. Anchor patterns: `references/spec_format.md` § Anchor.
 
 When generating via the app: return storyboard + spec through `submit_storyboard`; ignore zip delivery and local CLI-only steps.

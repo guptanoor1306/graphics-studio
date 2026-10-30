@@ -1,5 +1,14 @@
 {
+ "look": {"plate": "m1_wide_centre"},
  "frames": [
+  {
+   "id": "anchor-sample",
+   "mode": "ost",
+   "plate": "m1_wide_centre",
+   "items": [
+    {"t": "lower", "lead": "Example only — do not copy into new videos", "text": "One **lower third** per frame"}
+   ]
+  },
   {
    "id": "02a",
    "mode": "fss",

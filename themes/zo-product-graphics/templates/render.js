@@ -9,8 +9,10 @@
       const w = b.parentElement;
       if (!w) return;
       const mx = parseFloat(b.dataset.max || "1");
+      const anchor = stage && !stage.classList.contains("fss");
+      const minS = anchor ? 0.42 : 0.55;
       const s = Math.max(
-        0.55,
+        minS,
         Math.min(
           (w.clientWidth * 0.94) / b.offsetWidth,
           (w.clientHeight * 0.94) / b.offsetHeight,

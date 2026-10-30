@@ -1,0 +1,232 @@
+{
+ "m1_wide_centre": {
+  "file": "m1_wide_centre.jpg",
+  "anchor": "V1 male (Devolvement)",
+  "framing": "wide, centre, bottom fade",
+  "face": [
+   830,
+   170,
+   1100,
+   470
+  ],
+  "zone": {
+   "x": 160,
+   "y": 640,
+   "w": 1600,
+   "h": 400,
+   "valign": "center",
+   "align": "center"
+  }
+ },
+ "m1_mid_centre": {
+  "file": "m1_mid_centre.jpg",
+  "anchor": "V1 male",
+  "framing": "punch-in, centre, bottom fade",
+  "face": [
+   800,
+   40,
+   1120,
+   390
+  ],
+  "zone": {
+   "x": 100,
+   "y": 600,
+   "w": 1720,
+   "h": 450,
+   "valign": "center",
+   "align": "center"
+  }
+ },
+ "m1_close_left": {
+  "file": "m1_close_left.jpg",
+  "anchor": "V1 male",
+  "framing": "close-up on the left, right half black",
+  "face": [
+   330,
+   40,
+   720,
+   460
+  ],
+  "zone": {
+   "x": 1000,
+   "y": 140,
+   "w": 860,
+   "h": 840,
+   "valign": "center",
+   "align": "left"
+  }
+ },
+ "m1_tos": {
+  "file": "m1_tos.jpg",
+  "cutout": "m1_tos_cutout.png",
+  "anchor": "V1 male",
+  "framing": "wide centre, for a title behind the anchor",
+  "face": [
+   800,
+   170,
+   1100,
+   470
+  ],
+  "zone": {
+   "x": 160,
+   "y": 760,
+   "w": 1600,
+   "h": 280,
+   "valign": "center",
+   "align": "center"
+  },
+  "tos_y": 480
+ },
+ "f1_left_circle": {
+  "file": "f1_left_circle.jpg",
+  "anchor": "V2 female (Share price)",
+  "framing": "anchor on the left, soft circle + dark on the right",
+  "face": [
+   250,
+   30,
+   650,
+   430
+  ],
+  "zone": {
+   "x": 980,
+   "y": 160,
+   "w": 880,
+   "h": 800,
+   "valign": "center",
+   "align": "left"
+  }
+ },
+ "f1_centre_circle": {
+  "file": "f1_centre_circle.jpg",
+  "anchor": "V2 female",
+  "framing": "centre, circle behind, bottom fade",
+  "face": [
+   780,
+   50,
+   1140,
+   470
+  ],
+  "zone": {
+   "x": 160,
+   "y": 700,
+   "w": 1600,
+   "h": 340,
+   "valign": "center",
+   "align": "center"
+  }
+ },
+ "f1_centre": {
+  "file": "f1_centre.jpg",
+  "anchor": "V2 female",
+  "framing": "centre, no fade (text on both sides, place items with x/y)",
+  "face": [
+   780,
+   50,
+   1140,
+   470
+  ],
+  "zone": {
+   "x": 60,
+   "y": 250,
+   "w": 620,
+   "h": 700,
+   "valign": "center",
+   "align": "left"
+  }
+ },
+ "f1_close_right": {
+  "file": "f1_close_right.jpg",
+  "anchor": "V2 female",
+  "framing": "camera-2 side close-up on the right, grey wall left",
+  "face": [
+   1150,
+   60,
+   1720,
+   820
+  ],
+  "zone": {
+   "x": 110,
+   "y": 160,
+   "w": 920,
+   "h": 800,
+   "valign": "center",
+   "align": "left"
+  }
+ },
+ "m2_centre": {
+  "file": "m2_centre.jpg",
+  "anchor": "V3 male with mic (SIFs)",
+  "framing": "centre, bottom fade",
+  "face": [
+   790,
+   20,
+   1110,
+   430
+  ],
+  "zone": {
+   "x": 160,
+   "y": 760,
+   "w": 1600,
+   "h": 300,
+   "valign": "center",
+   "align": "center"
+  }
+ },
+ "m2_centre_dark": {
+  "file": "m2_centre_dark.jpg",
+  "anchor": "V3 male",
+  "framing": "centre, darker; flanking cards left/right or lower third",
+  "face": [
+   800,
+   20,
+   1110,
+   430
+  ],
+  "zone": {
+   "x": 100,
+   "y": 560,
+   "w": 1720,
+   "h": 490,
+   "valign": "center",
+   "align": "center"
+  }
+ },
+ "m2_left": {
+  "file": "m2_left.jpg",
+  "anchor": "V3 male",
+  "framing": "anchor on the left, right dark",
+  "face": [
+   430,
+   90,
+   800,
+   520
+  ],
+  "zone": {
+   "x": 1060,
+   "y": 150,
+   "w": 800,
+   "h": 820,
+   "valign": "center",
+   "align": "left"
+  }
+ },
+ "m2_right": {
+  "file": "m2_right.jpg",
+  "anchor": "V3 male",
+  "framing": "anchor on the right, left dark",
+  "face": [
+   1040,
+   110,
+   1430,
+   560
+  ],
+  "zone": {
+   "x": 80,
+   "y": 150,
+   "w": 840,
+   "h": 820,
+   "valign": "center",
+   "align": "left"
+  }
+ }
+}

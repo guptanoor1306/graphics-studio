@@ -83,6 +83,8 @@ def effective_look(p: dict) -> dict:
         out.pop("prop", None)
     if pl.get("look_line"):
         out["look_line"] = pl["look_line"]
+    if is_zo_theme_name(p.get("theme") or "") and out.get("plate") in (None, "", "default"):
+        out["plate"] = mf_studio.ZO_DEFAULT_PLATE
     return out
 
 
