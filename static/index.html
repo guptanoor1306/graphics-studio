@@ -246,9 +246,8 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 <div id="editModeApp" hidden>
  <header class="edit-mode-top"><button type="button" class="ghost" onclick="exitEditMode()">← Back to studio</button>
   <b id="editModeTitle">Edit frames</b><span class="spacer"></span>
-  <button type="button" class="btn-neutral" onclick="expFrame(null,'png')">Download PNG</button>
-  <button type="button" class="btn-neutral" onclick="expFrame()">Export frame (HTML+PNG)</button>
-  <button type="button" class="p" onclick="exp()">Export all</button>
+  <button type="button" class="btn-neutral" onclick="expFrame()">Export Frame</button>
+  <button type="button" class="p" onclick="exp()">Export All</button>
   <div id="frameModeSwitch"></div></header>
  <div class="edit-mode-grid">
   <aside class="edit-frame-strip" id="editFrameStrip"></aside>
@@ -662,10 +661,7 @@ function framesStudio(){
        <iframe id="activeFrame" src="/preview/${P.id}/${encodeURIComponent(fr.id)}?v=${v}"></iframe></div>
       <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
      </div>
-     <div class="frame-export-row">
-      <button type="button" class="btn-neutral" onclick="expFrame(null,'png')">Download PNG</button>
-      <button type="button" class="btn-neutral" onclick="expFrame()">Export frame (HTML+PNG)</button>
-     </div>
+     <div class="frame-export-row"><button type="button" class="btn-neutral" onclick="expFrame()">Export Frame</button></div>
      <p class="studio-hint" style="margin-top:12px">${isZoProduct()?'Open <b>Edit mode</b> to edit FSS components (compare, chart, positions, …) per layer.':'Open <b>Edit mode</b> to change layers, apply prompts, or switch anchor / full-screen layout.'}</p></div></div></div>`}
 function render(){
   P.look=normLook(P.look);
@@ -673,7 +669,7 @@ function render(){
    <div class="row" style="margin-bottom:0"><div class="field"><label>Notes</label><input id="notes" placeholder="e.g. include buildings for broker/RMS beats"></div>
    <button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button></div></div>`;
   $('#main').innerHTML=`<div class="toolbar"><h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
-   ${P.spec?`<button type="button" onclick="qa()" title="Run automatic layout checks on every frame">Check layout</button><button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()" title="Zip of every frame: html/, html_overlay/, png/">Export all (HTML+PNG)</button>`:''}
+   ${P.spec?`<button type="button" onclick="qa()" title="Run automatic layout checks on every frame">Check layout</button><button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export All</button>`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
   <h2 class="section">1 · Look</h2><div class="card">${lookForm(P.look)}</div>
@@ -1731,27 +1727,19 @@ async function downloadExportResponse(r, fallbackName){
 }
 async function exp(){
  if(!P?.spec)return;
- if(!confirm('Export all frames (HTML + PNG) can take 1–3 minutes. Continue?'))return;
+ if(!confirm('Export all frames can take 1–3 minutes. Continue?'))return;
  setWorkspaceLoading(true,'Building export zip…');
  try{
   const r=await fetch(`/api/projects/${P.id}/export?png=1`,{cache:'no-store'});
   await downloadExportResponse(r,(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip');
  }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
 }
-async function expFrame(fid,mode){
+async function expFrame(fid){
  if(!P?.spec)return;
  fid=fid||selectedFrameId||studioFrames()[0]?.id;
  if(!fid){alert('No frame selected');return}
  const label=frameLabel(fid);
- if(mode==='png'){
-  setWorkspaceLoading(true,`Rendering ${label} PNG…`);
-  try{
-   const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/export.png`,{cache:'no-store'});
-   await downloadExportResponse(r,`${fid}.png`);
-  }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
-  return;
- }
- setWorkspaceLoading(true,`Exporting ${label} (HTML + PNG)…`);
+ setWorkspaceLoading(true,`Exporting ${label}…`);
  try{
   const r=await fetch(`/api/projects/${P.id}/export?png=1&only=${encodeURIComponent(fid)}`,{cache:'no-store'});
   await downloadExportResponse(r,`${(P.name||'frame').replace(/\s+/g,'_')}_${fid}_export.zip`);
