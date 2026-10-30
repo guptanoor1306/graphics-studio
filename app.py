@@ -98,8 +98,11 @@ MF_OVERLAY_TYPES = frozenset({"ribbon", "definition", "anchor"})
 
 
 def frame_wants_overlay(theme: str, frame: dict) -> bool:
+    """True = full frame (skip html_overlay); False = anchor-style (emit overlay export)."""
     if theme == "zero1-reel-graphics":
         return frame.get("type") in {"ost", "anchor"}
+    if is_zo_theme_name(theme):
+        return (frame.get("mode") or "fss") == "fss"
     if is_mf_theme_name(theme):
         return frame.get("type") in MF_OVERLAY_TYPES
     return frame.get("mode") == "fss"
@@ -604,28 +607,25 @@ async def check(pid: int):
     return warns
 
 @app.get("/api/projects/{pid}/export")
-async def export(pid: int, png: int = 1, only: str = "", scale: float | None = None):
+async def export(pid: int, png: int = 1, only: str = ""):
     p = load(pid)
     ids = set(only.split(",")) if only else None
     base = f"{preview_base()}/themes/{p['theme']}/scenes/"
     look = effective_look(p)
     pages = []
-    for f in p["spec"]["frames"]:
+    for f in (p.get("spec") or {}).get("frames") or []:
         if ids and f["id"] not in ids:
             continue
-        if is_mf_theme_name(p["theme"]) and not mf_studio.is_mf_renderable(f):
+        if is_mf_theme_name(p["theme"]) and not is_zo_theme_name(p["theme"]) and not mf_studio.is_mf_renderable(f):
+            continue
+        if is_zo_theme_name(p["theme"]) and not mf_studio.is_zo_renderable(f):
             continue
         html = frame_page(p["theme"], frame_for_render(p, f), look, base_href=base)
         pages.append((f["id"], html, frame_wants_overlay(p["theme"], f)))
     try:
         cw, ch = theme_canvas.canvas_for_theme(p["theme"])
         data = await asyncio.to_thread(
-            exporter.export_zip,
-            pages,
-            THEMES / p["theme"],
-            bool(png),
-            (cw, ch),
-            scale,
+            exporter.export_zip, pages, THEMES / p["theme"], bool(png), (cw, ch)
         )
     except Exception as e:
         raise HTTPException(502, detail=f"Export failed: {e}") from e

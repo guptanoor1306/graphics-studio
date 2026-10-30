@@ -12,8 +12,6 @@ sys.path.insert(0, str(ROOT))
 
 from frame_edit_util import apply_layer_reference_replace  # noqa: E402
 from theme_canvas import theme_meta_map  # noqa: E402
-from exporter import export_scale  # noqa: E402
-
 THEMES = ROOT / "themes"
 
 
@@ -43,17 +41,6 @@ def example_frame(theme: str) -> dict | None:
         if frames and not is_kit:
             return frames[0]
     return None
-
-
-def test_export_scale_default(monkeypatch=None):
-    import os
-
-    os.environ.pop("EXPORT_SCALE", None)
-    assert export_scale() == 2.0
-    os.environ["EXPORT_SCALE"] = "1"
-    assert export_scale() == 1.0
-    os.environ["EXPORT_SCALE"] = "2"
-    assert export_scale() == 2.0
 
 
 def test_layer_reference_replace_title_to_asset():

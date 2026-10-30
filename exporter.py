@@ -11,15 +11,7 @@ Optionally also PNGs. Everything is returned as a zip.
 """
 import asyncio, base64, io, mimetypes, os, pathlib, re, zipfile
 
-FLATTEN_JS = r"""(flattenOpts) => {
-  let overlay = false;
-  let scale = 1;
-  if (flattenOpts === true) overlay = true;
-  else if (flattenOpts === false) overlay = false;
-  else if (flattenOpts && typeof flattenOpts === 'object') {
-    overlay = !!flattenOpts.overlay;
-    scale = Math.max(1, Number(flattenOpts.scale) || 1);
-  }
+FLATTEN_JS = r"""(overlay) => {
   const name = (e) => {
     const c = (e.className && e.className.baseVal === undefined ? e.className : '') || e.tagName.toLowerCase();
     const t = (e.innerText || e.getAttribute('src') || '').trim().replace(/\s+/g,' ').slice(0,40);
@@ -36,32 +28,13 @@ FLATTEN_JS = r"""(flattenOpts) => {
     if (!r.width || !r.height) continue;
     if (e.dataset.x != null && e.dataset.y != null) continue;
     e.dataset.layer = e.dataset.layer || name(e);
-    e.dataset.x = String(Math.round(r.left)); e.dataset.y = String(Math.round(r.top));
-    e.dataset.w = String(Math.round(r.width)); e.dataset.h = String(Math.round(r.height));
-  }
-  if (scale !== 1) {
-    const mul = (n) => Math.round(parseFloat(n) * scale);
-    document.querySelectorAll('[data-x],[data-y],[data-w],[data-h]').forEach((el) => {
-      for (const k of ['x', 'y', 'w', 'h']) {
-        if (el.dataset[k] == null || el.dataset[k] === '') continue;
-        el.dataset[k] = String(mul(el.dataset[k]));
-      }
-    });
+    e.dataset.x = Math.round(r.left); e.dataset.y = Math.round(r.top);
+    e.dataset.w = Math.round(r.width); e.dataset.h = Math.round(r.height);
   }
   document.querySelectorAll('script').forEach(s => s.remove());
   if (overlay) document.body.classList.add('overlay');
   return '<!doctype html>' + document.documentElement.outerHTML;
 }"""
-
-
-def export_scale() -> float:
-    """Pixel multiplier for PNG + layer coords (2 = 1920×1080 → 3840×2160). Set EXPORT_SCALE=1 for legacy."""
-    raw = (os.environ.get("EXPORT_SCALE") or "2").strip()
-    try:
-        s = float(raw)
-    except ValueError:
-        s = 2.0
-    return max(1.0, min(4.0, s))
 
 
 def _data_uri(path: pathlib.Path) -> str:
@@ -70,10 +43,15 @@ def _data_uri(path: pathlib.Path) -> str:
 
 
 def _theme_css(base_dir: pathlib.Path) -> tuple[pathlib.Path, str]:
-    for name in ("varsity.css", "house.css"):
+    for name in ("varsity.css", "house.css", "zo.css", "reel.css"):
         p = base_dir / "templates" / name
         if p.is_file():
             return p, name
+    tpl = base_dir / "templates"
+    if tpl.is_dir():
+        for p in sorted(tpl.glob("*.css")):
+            if p.name != "fonts.css":
+                return p, p.name
     raise FileNotFoundError(f"No theme CSS in {base_dir / 'templates'}")
 
 
@@ -98,6 +76,8 @@ def inline_assets(html: str, base_dir: pathlib.Path) -> str:
         p = (base_dir / "scenes" / re.sub(r"^.*?/assets/", "../assets/", url)).resolve()
         if not p.exists():
             p = (base_dir / url.split('/kit/')[-1]).resolve()
+        if not p.exists() and url.startswith("../"):
+            p = (base_dir / url).resolve()
         return f'{m.group(1)}="{_data_uri(p)}"' if p.exists() else m.group(0)
     html = re.sub(r'(src)="([^"]+)"', fix_src, html)
     html = re.sub(r'<base [^>]*>', '', html)
@@ -139,51 +119,41 @@ def _layer_registry_js() -> str:
     return p.read_text()
 
 
-async def _render(pages, want_png, viewport=(1920, 1080), scale: float = 1.0):
+async def _render(pages, want_png, viewport=(1920, 1080)):
     from playwright.async_api import async_playwright
     registry_js = _layer_registry_js()
     vw, vh = viewport
-    scale = max(1.0, min(4.0, float(scale or 1.0)))
-    flat = {"scale": scale}
     out = {}
     async with async_playwright() as p:
         b = await launch_chromium(p)
-        ctx = await b.new_context(
-            viewport={"width": vw, "height": vh},
-            device_scale_factor=scale,
-        )
-        pg = await ctx.new_page()
+        pg = await b.new_page(viewport={"width": vw, "height": vh})
         for fid, html, fss in pages:
             await _load_frame(pg, html)
             await pg.evaluate(registry_js)
             if want_png:
                 out[f"png/{fid}.png"] = await pg.screenshot()
-            out[f"html/{fid}.html"] = await pg.evaluate(FLATTEN_JS, {**flat, "overlay": False})
+            out[f"html/{fid}.html"] = await pg.evaluate(FLATTEN_JS, False)
             if not fss:
                 await _load_frame(pg, html)
                 await pg.evaluate(registry_js)
-                out[f"html_overlay/{fid}.html"] = await pg.evaluate(FLATTEN_JS, {**flat, "overlay": True})
+                out[f"html_overlay/{fid}.html"] = await pg.evaluate(FLATTEN_JS, True)
                 if want_png:
                     await pg.evaluate(
                         "document.body.classList.add('overlay');"
                         "document.querySelectorAll('.plate').forEach(e=>e.remove())"
                     )
                     out[f"png/{fid}_overlay.png"] = await pg.screenshot(omit_background=True)
-        await ctx.close()
         await b.close()
     return out
 
 
-def export_zip(
-    pages,
-    theme_dir: pathlib.Path,
-    want_png=True,
-    viewport=(1920, 1080),
-    scale: float | None = None,
-) -> bytes:
+def export_zip(pages, theme_dir: pathlib.Path, want_png=True, viewport=(1920, 1080)) -> bytes:
     """pages: list of (frame_id, full_html, is_fss). Base href in html must point at this server's /themes/."""
-    sc = export_scale() if scale is None else max(1.0, min(4.0, float(scale)))
-    files = asyncio.run(_render(pages, want_png, viewport, sc))
+    if not pages:
+        raise ValueError("No frames to export")
+    files = asyncio.run(_render(pages, want_png, viewport))
+    if not files:
+        raise ValueError("Export produced no files")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         for name, data in files.items():
@@ -191,13 +161,8 @@ def export_zip(
                 data = inline_assets(data, theme_dir).encode()
             z.writestr(name, data)
         vw, vh = viewport
-        pw, ph = int(vw * sc), int(vh * sc)
-        z.writestr(
-            'README.txt',
-            'html/          one static self-contained page per frame (plate included)\n'
-            'html_overlay/  anchor frames without the plate (graphics only)\n'
-            'png/           rendered frames (+ _overlay.png with transparency)\n'
-            f'Design canvas: {vw}x{vh} CSS px. Export scale: {sc:g}x → PNG size {pw}x{ph}.\n'
-            f'Layer data-x/y/w/h are in export px ({pw}x{ph} space). Set EXPORT_SCALE=1 on the server for 1:1 1080p.\n',
-        )
+        z.writestr('README.txt', 'html/          one static self-contained page per frame (plate included)\n'
+                                 'html_overlay/  anchor frames without the plate (graphics only)\n'
+                                 'png/           rendered frames (+ _overlay.png with transparency)\n'
+                                 f'Layer coordinates are in px at {vw}x{vh}.\n')
     return buf.getvalue()

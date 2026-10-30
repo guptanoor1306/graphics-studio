@@ -48,8 +48,6 @@ Make a new skill kit for the channel (the same structure as `themes/varsity-engl
 | `html_overlay/<frame>.html` | anchor frames without the background plate (graphics only) |
 | `png/` | rendered frames, plus transparent `_overlay.png` for anchor frames |
 
-**Export scale (default 2×):** PNGs and `data-x/y/w/h` use **`EXPORT_SCALE`** (default **`2`**) so a 1920×1080 kit exports at **3840×2160** for 4K timelines. Set `EXPORT_SCALE=1` on the server for legacy 1080p, or pass `?scale=1` on `/api/projects/{id}/export`.
-
 Every visual element carries `data-layer="<component>:<text>"` (e.g. `htab:Tax Calculation without HUF`, `plate:background`, `img:…building_company_3d.png`) and its rendered box `data-x / data-y / data-w / data-h` in px. Edit mode and export share `static/layer_registry.js` (`data-spec-idx` layers first, then legacy DOM candidates). Drag uses [Interact.js](https://interactjs.io/) in the edit iframe. If your tool needs a different shape, change `FLATTEN_JS` in `exporter.py`.
 
 ## Where things live
