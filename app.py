@@ -606,28 +606,64 @@ async def check(pid: int):
         raise HTTPException(502, detail=f"Layout check failed: {e}") from e
     return warns
 
-@app.get("/api/projects/{pid}/export")
-async def export(pid: int, png: int = 1, only: str = ""):
-    p = load(pid)
-    ids = set(only.split(",")) if only else None
+def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, str, bool]]:
+    if not p.get("spec"):
+        raise HTTPException(400, "Project has no spec")
     base = f"{preview_base()}/themes/{p['theme']}/scenes/"
     look = effective_look(p)
-    pages = []
+    pages: list[tuple[str, str, bool]] = []
     for f in (p.get("spec") or {}).get("frames") or []:
-        if ids and f["id"] not in ids:
+        fid = str(f.get("id") or "")
+        if only_ids is not None and fid not in only_ids:
             continue
         if is_mf_theme_name(p["theme"]) and not is_zo_theme_name(p["theme"]) and not mf_studio.is_mf_renderable(f):
             continue
         if is_zo_theme_name(p["theme"]) and not mf_studio.is_zo_renderable(f):
             continue
         html = frame_page(p["theme"], frame_for_render(p, f), look, base_href=base)
-        pages.append((f["id"], html, frame_wants_overlay(p["theme"], f)))
+        pages.append((fid, html, frame_wants_overlay(p["theme"], f)))
+    if only_ids is not None and not pages:
+        raise HTTPException(404, "Frame not found or not exportable")
+    return pages
+
+
+def _dl_name(base: str, suffix: str) -> str:
+    safe = re.sub(r"[^\w.-]+", "_", (base or "export").strip()) or "export"
+    return f"{safe}{suffix}"
+
+
+@app.get("/api/projects/{pid}/export")
+async def export(pid: int, png: int = 1, only: str = ""):
+    p = load(pid)
+    ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
+    pages = _export_pages(p, ids)
     try:
         cw, ch = theme_canvas.canvas_for_theme(p["theme"])
         data = await asyncio.to_thread(
             exporter.export_zip, pages, THEMES / p["theme"], bool(png), (cw, ch)
         )
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(502, detail=f"Export failed: {e}") from e
-    fn = f"{p['name'].replace(' ', '_')}_frames.zip"
+    if ids and len(ids) == 1:
+        fid = next(iter(ids))
+        fn = _dl_name(f"{p['name']}_{fid}", "_export.zip")
+    else:
+        fn = _dl_name(p["name"], "_frames.zip")
     return Response(data, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{fn}"'})
+
+
+@app.get("/api/projects/{pid}/frames/{fid}/export.png")
+async def export_frame_png(pid: int, fid: str):
+    p = load(pid)
+    pages = _export_pages(p, {fid})
+    try:
+        cw, ch = theme_canvas.canvas_for_theme(p["theme"])
+        data = await asyncio.to_thread(exporter.export_png, pages, (cw, ch))
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e)) from e
+    except Exception as e:
+        raise HTTPException(502, detail=f"PNG export failed: {e}") from e
+    fn = _dl_name(f"{p['name']}_{fid}", ".png")
+    return Response(data, media_type="image/png", headers={"Content-Disposition": f'attachment; filename="{fn}"'})

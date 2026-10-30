@@ -48,6 +48,8 @@ Make a new skill kit for the channel (the same structure as `themes/varsity-engl
 | `html_overlay/<frame>.html` | anchor frames without the background plate (graphics only) |
 | `png/` | rendered frames, plus transparent `_overlay.png` for anchor frames |
 
+**Single frame:** `GET /api/projects/{id}/export?only={frameId}&png=1` → zip with that frame’s `html/`, optional `html_overlay/`, and `png/`. `GET /api/projects/{id}/frames/{frameId}/export.png` → one PNG. Same controls in the studio frame panel and in Edit mode.
+
 Every visual element carries `data-layer="<component>:<text>"` (e.g. `htab:Tax Calculation without HUF`, `plate:background`, `img:…building_company_3d.png`) and its rendered box `data-x / data-y / data-w / data-h` in px. Edit mode and export share `static/layer_registry.js` (`data-spec-idx` layers first, then legacy DOM candidates). Drag uses [Interact.js](https://interactjs.io/) in the edit iframe. If your tool needs a different shape, change `FLATTEN_JS` in `exporter.py`.
 
 ## Where things live

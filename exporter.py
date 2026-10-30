@@ -147,6 +147,18 @@ async def _render(pages, want_png, viewport=(1920, 1080)):
     return out
 
 
+def export_png(pages, viewport=(1920, 1080)) -> bytes:
+    """Render the first page as a single PNG (full frame with plate when present)."""
+    if not pages:
+        raise ValueError("No frames to export")
+    files = asyncio.run(_render(pages, True, viewport))
+    fid = pages[0][0]
+    key = f"png/{fid}.png"
+    if key not in files:
+        raise ValueError("Export produced no PNG")
+    return files[key]
+
+
 def export_zip(pages, theme_dir: pathlib.Path, want_png=True, viewport=(1920, 1080)) -> bytes:
     """pages: list of (frame_id, full_html, is_fss). Base href in html must point at this server's /themes/."""
     if not pages:
