@@ -202,6 +202,40 @@ MF_SB_TOOL = {
         "required": ["storyboard", "spec"],
     },
 }
+GRAPHIC_BATCH_TOOL = {
+    "name": "submit_graphic_batch",
+    "description": (
+        "From a human storyboard PDF: normalized storyboard text (first batch) and the next batch of "
+        "renderable spec frames only. Skip footage, screen, and repeat beats."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "storyboard": {
+                "type": "string",
+                "description": "Batch 1 only: full SB Doc from the PDF, one line per beat with skill tags.",
+            },
+            "frames": {
+                "type": "array",
+                "minItems": 1,
+                "items": {"type": "object", "additionalProperties": True},
+            },
+            "spec_meta": {
+                "type": "object",
+                "description": "Batch 1 only for MF/reel kits: title and one-line look string.",
+                "properties": {
+                    "title": {"type": "string"},
+                    "look": {"type": "string"},
+                },
+            },
+            "pdf_progress": {
+                "type": "string",
+                "description": "Where this batch ended in the PDF (page or beat id).",
+            },
+        },
+        "required": ["frames"],
+    },
+}
 FRAME_TOOL = {
     "name": "submit_frame",
     "description": "Return the edited frame object (same id unless asked to rename).",
@@ -539,6 +573,240 @@ def _call_storyboard(
         tools=[tool_schema], tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": user_content}])
     return _tool_input(r, tool)
+
+
+def _call_with_pdf(
+    theme_dir,
+    msg: str,
+    pdf_bytes: bytes,
+    *,
+    sb_tool: dict | None = None,
+    page_images: list[tuple[str, bytes]] | None = None,
+    max_tokens: int = 16384,
+) -> dict:
+    import base64
+
+    tool_schema = sb_tool or GRAPHIC_BATCH_TOOL
+    tool = tool_schema["name"]
+    if _tool_choice(tool)["type"] == "auto":
+        msg += f"\n\nRespond only by calling the {tool} tool."
+    preface = ""
+    if page_images:
+        preface = (
+            "The storyboard PDF is attached below as a document, followed by JPEG renders of each page "
+            "(use these for timestamps, small type, and sketches).\n\n"
+        )
+    content: list[dict] = [
+        {
+            "type": "document",
+            "source": {
+                "type": "base64",
+                "media_type": "application/pdf",
+                "data": base64.standard_b64encode(pdf_bytes).decode(),
+            },
+        },
+    ]
+    for media, raw in (page_images or [])[:20]:
+        content.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media,
+                    "data": base64.standard_b64encode(raw).decode(),
+                },
+            }
+        )
+    content.append({"type": "text", "text": preface + msg})
+    r = _messages_create(
+        max_tokens=max_tokens,
+        system=_system(theme_dir),
+        tools=[tool_schema],
+        tool_choice=_tool_choice(tool),
+        messages=[{"role": "user", "content": content}],
+    )
+    return _tool_input(r, tool)
+
+
+def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
+    if is_zo_product_theme(theme_dir):
+        plate_hint = ""
+        if isinstance(look, dict) and look.get("plate") and look.get("plate") not in ("default", ""):
+            plate_hint = f"- Project look.plate is {look['plate']!r} — use on anchor frames unless a frame needs another key from anchor_plates.md.\n"
+        else:
+            plate_hint = "- Set spec.look.plate to m1_wide_centre (or f1_centre_circle for female-anchor concepts) per anchor_plates.md.\n"
+        return (
+            "GRAPHICS STUDIO RULES (Zerodha Online Product IP):\n"
+            "- spec.frames: FSS (mode fss) AND anchor (mode osa | ost | tos). Every OSA/OST/TOS PDF beat → matching frame with plate + items.\n"
+            "- Storyboard tags: FSS | OSA | OST | TOS | Screen | Footage | Repeat. Screen/footage/repeat NOT in frames.\n"
+            f"{plate_hint}"
+            "- ~90% kit grammar (kit_breakdown, INDEX assets, plates) ~10% script-specific wording/layout.\n"
+            "- Anchor: one main item on wide-centre plates; side lists → m1_close_left; TOS → m1_tos + title.\n"
+            "- Kite UI mocks where needed; copy numbers exactly from script/PDF.\n"
+            "Follow SKILL.md + spec_format.md + kit_breakdown.md + anchor_plates.md + studio_brief.md.\n"
+        )
+    if is_mf_theme(theme_dir):
+        look_line = (look.get("look_line") or "").strip()
+        if is_reel_theme(theme_dir):
+            return (
+                f"Spec root look (one line): {look_line or 'Theme A · Cream Editorial per SKILL'}\n"
+                "GRAPHICS STUDIO RULES (Zero1 reel):\n"
+                "- Canvas 1080×1920. frames ONLY: fss, html, ost, anchor.\n"
+                "- No footage/screen/repeat in frames — storyboard text only.\n"
+                "- Number frames 01, 02… in PDF order. Rich `html` in safe zone; data-mf-path on major blocks.\n"
+                "Follow SKILL.md + references/spec_format.md + Reel_Graphics_Rules.md.\n"
+            )
+        return (
+            f"Spec root look (one line): {look_line or 'anchor right · GIFT City house style per SKILL'}\n"
+            "GRAPHICS STUDIO RULES (MF kit):\n"
+            "- frames ONLY for PNG graphics: scene, ribbon, sop, table, cycle, points, definition, anchor, html.\n"
+            "- Footage/screen/repeat → storyboard string only.\n"
+            "- Timestamp storyboard PDFs: each row with a graphic (FSS/table/scene/etc.) → one frame in time order; "
+            "B-roll/footage rows → storyboard text only.\n"
+            "- Every frame object MUST include string `id` (01, 02, …) and string `type` from the skill.\n"
+            "- Match gift_city_spec.json density; copy numbers from PDF and/or script.\n"
+            "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n"
+        )
+    props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
+    return (
+        f"Look (use in frames): {json.dumps(look)}\n"
+        f"Topic props: {json.dumps(props if props else [])}\n"
+        f"{_graphics_mix_rules(look)}"
+        "Follow app_storyboard_overrides.md + studio_brief.md: tag OST/OSA/FSS; frames must match tags.\n"
+    )
+
+
+def _normalize_pdf_batch_out(out: dict) -> dict:
+    frames = out.get("frames")
+    if not frames and isinstance(out.get("spec"), dict):
+        frames = out["spec"].get("frames")
+    if not isinstance(frames, list):
+        frames = []
+    out["frames"] = frames
+    if not (out.get("storyboard") or "").strip() and isinstance(out.get("spec"), dict):
+        out["storyboard"] = out["spec"].get("storyboard") or ""
+    if not out.get("spec_meta") and isinstance(out.get("spec"), dict):
+        sp = out["spec"]
+        meta = {}
+        if sp.get("title"):
+            meta["title"] = sp["title"]
+        if sp.get("look"):
+            meta["look"] = sp["look"]
+        if meta:
+            out["spec_meta"] = meta
+    return out
+
+
+def _ensure_frame_ids(frames: list, occupied: set[str]) -> list[dict]:
+    cleaned: list[dict] = []
+    n = 1
+    for fr in frames:
+        if not isinstance(fr, dict):
+            continue
+        fid = str(fr.get("id") or "").strip()
+        if not fid:
+            while f"{n:02d}" in occupied:
+                n += 1
+            fid = f"{n:02d}"
+            n += 1
+            fr = {**fr, "id": fid}
+        if fid in occupied:
+            continue
+        occupied.add(fid)
+        cleaned.append(fr)
+    return cleaned
+
+
+def storyboard_pdf_batch(
+    theme_dir: pathlib.Path,
+    pdf_bytes: bytes,
+    script: str,
+    look: dict,
+    notes: str = "",
+    *,
+    batch_size: int = 5,
+    finish_all: bool = False,
+    existing_spec: dict | None = None,
+    existing_storyboard: str = "",
+) -> dict:
+    """Read human SB PDF; return next batch of frames (+ storyboard on first batch)."""
+    from storyboard_pdf import raster_pages
+
+    existing_spec = existing_spec or {}
+    existing_frames = existing_spec.get("frames") or []
+    done_ids = [f["id"] for f in existing_frames if isinstance(f, dict) and f.get("id")]
+    first_batch = not done_ids
+    batch_size = max(1, min(10, int(batch_size)))
+    page_images = raster_pages(pdf_bytes)
+    max_tokens = 64000 if finish_all else 16384
+    rules = _pdf_batch_rules(theme_dir, look)
+    if first_batch:
+        batch_line = (
+            f"BATCH: Generate exactly up to {batch_size} renderable graphic frames from the START of the PDF "
+            "(in story/time order)."
+        )
+    elif finish_all:
+        batch_line = (
+            "BATCH: Generate ALL remaining renderable graphic frames from the PDF after the last generated id — "
+            "every graphic beat not yet built. Return them in one submit_graphic_batch call."
+        )
+    else:
+        batch_line = (
+            f"BATCH: Generate the NEXT up to {batch_size} renderable graphic frames after the last generated id, "
+            "in PDF order."
+        )
+    if first_batch:
+        msg = (
+            "The attached PDF is the team's human storyboard (may include sketches, screenshots, timestamps, and notes).\n"
+            "Read every page (document + page images). The PDF is the source of truth for WHICH beats need graphics.\n\n"
+            f"Notes: {notes or 'none'}\n\n"
+            f"{rules}\n"
+            f"{batch_line} Put transcribed storyboard lines in `storyboard` (all beats you can read, not only this batch).\n"
+            "Each item in `frames` MUST have a unique string `id` (e.g. 01, 02). Use submit_graphic_batch only.\n"
+            "Voiceover script below is OPTIONAL — use it for exact numbers/wording when the PDF does not spell them out:\n\n"
+            f"SCRIPT:\n{script.strip() or '(none — infer copy from PDF)'}"
+        )
+    else:
+        msg = (
+            "Same human storyboard PDF attached (document + page images).\n\n"
+            f"Notes: {notes or 'none'}\n\n"
+            f"{rules}\n"
+            f"ALREADY GENERATED frame ids (do NOT duplicate): {json.dumps(done_ids)}\n\n"
+            f"Existing storyboard text:\n{existing_storyboard[:12000]}\n\n"
+            f"{batch_line} Return `frames` only (omit storyboard unless fixing a typo). Set pdf_progress.\n"
+            f"Optional script:\n\n{script or '(none)'}"
+        )
+
+    def _call(msg_text: str) -> dict:
+        return _call_with_pdf(
+            theme_dir,
+            msg_text,
+            pdf_bytes,
+            page_images=page_images,
+            max_tokens=max_tokens,
+        )
+
+    out = _call(msg)
+    out = _normalize_pdf_batch_out(out)
+    frames = _ensure_frame_ids(out.get("frames") or [], set(done_ids))
+    if not frames and (first_batch or finish_all):
+        retry = (
+            msg
+            + "\n\nRETRY: Your last response had no usable frames. Call submit_graphic_batch with a non-empty "
+            "`frames` array. Each frame needs id + type (MF) or id + mode + items (Zo/varsity)."
+        )
+        out = _normalize_pdf_batch_out(_call(retry))
+        frames = _ensure_frame_ids(out.get("frames") or [], set(done_ids))
+    seen = set(done_ids)
+    added = sum(1 for fr in frames if fr.get("id") not in seen)
+    return {
+        "storyboard": out.get("storyboard") or "",
+        "frames": frames,
+        "spec_meta": out.get("spec_meta") or {},
+        "pdf_progress": out.get("pdf_progress") or "",
+        "frames_added": added,
+        "raw_frame_count": len(out.get("frames") or []),
+    }
 
 
 def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:

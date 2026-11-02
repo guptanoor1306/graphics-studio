@@ -1,6 +1,7 @@
 .venv/
 data/settings.json
 data/studio.db
+data/storyboard_pdfs/
 __pycache__/
 *.pyc
 .env

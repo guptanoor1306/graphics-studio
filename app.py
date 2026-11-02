@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import claude_client, exporter, mf_studio, spec_enrich, theme_canvas
+import claude_client, exporter, mf_studio, spec_enrich, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -54,6 +54,23 @@ async def cache_headers(request, call_next):
     return response
 
 
+def _storyboard_pdf_on_disk(pid: int) -> bool:
+    return storyboard_pdf.pdf_path(pid).is_file()
+
+
+def _apply_storyboard_pdf_meta(d: dict) -> dict:
+    pid = d["id"]
+    has = _storyboard_pdf_on_disk(pid)
+    d["has_storyboard_pdf"] = has
+    look = d.get("look")
+    if not isinstance(look, dict):
+        look = {}
+    if has and look.get("sb_import") != "script":
+        look = {**look, "sb_import": "pdf"}
+    d["look"] = look
+    return d
+
+
 def load(pid):
     with connect() as c:
         r = c.execute("select * from projects where id=?", (pid,)).fetchone()
@@ -64,7 +81,7 @@ def load(pid):
     d["spec"] = json.loads(d["spec"] or "null")
     if is_mf_theme_name(d.get("theme") or "") and d.get("spec"):
         d["spec"] = mf_studio.compact_mf_spec_for_studio(d["spec"])
-    return d
+    return _apply_storyboard_pdf_meta(d)
 
 
 def effective_look(p: dict) -> dict:
@@ -115,6 +132,11 @@ def save(pid, author, note, **fields):
         cur = c.execute("select spec, storyboard from projects where id=?", (pid,)).fetchone()
         if not cur:
             raise HTTPException(404, "project not found")
+        if "look" in fields and isinstance(fields["look"], dict):
+            lk = dict(fields["look"])
+            if _storyboard_pdf_on_disk(pid) and lk.get("sb_import") != "script":
+                lk.setdefault("sb_import", "pdf")
+            fields["look"] = lk
         if "spec" in fields or "storyboard" in fields:
             c.execute(
                 "insert into versions(project_id,spec,storyboard,author,note,ts) values(?,?,?,?,?,?)",
@@ -323,6 +345,147 @@ async def make_storyboard(pid: int, req: Request):
         save(pid, who(req), "generated storyboard", script=script, look=merged, storyboard=out["storyboard"], spec=out["spec"])
     warn = claude_client.spec_quality_issues(out["spec"], out.get("storyboard") or "", theme=p["theme"])
     return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn}
+
+
+def _merge_pdf_batch_spec(
+    p: dict,
+    batch: dict,
+    look: dict,
+) -> tuple[dict, str]:
+    existing = p.get("spec") or {}
+    old_frames = list(existing.get("frames") or [])
+    seen = {f["id"] for f in old_frames if isinstance(f, dict) and f.get("id")}
+    for fr in batch.get("frames") or []:
+        if not isinstance(fr, dict):
+            continue
+        fid = fr.get("id")
+        if not fid or fid in seen:
+            continue
+        seen.add(fid)
+        old_frames.append(fr)
+    spec = {**existing, "frames": old_frames}
+    meta = batch.get("spec_meta") or {}
+    if isinstance(meta, dict):
+        for key in ("title", "look"):
+            if meta.get(key) and not spec.get(key):
+                spec[key] = meta[key]
+    old_sb = (p.get("storyboard") or "").strip()
+    new_sb = (batch.get("storyboard") or "").strip()
+    storyboard = new_sb if (new_sb and not old_sb) else (p.get("storyboard") or new_sb or "")
+    if is_mf_theme_name(p["theme"]) and isinstance(look, dict) and look.get("look_line") and not spec.get("look"):
+        spec["look"] = look["look_line"]
+    return spec, storyboard
+
+
+def _finalize_spec_after_batch(spec: dict, storyboard: str, theme: str, look: dict, p: dict) -> dict:
+    if is_mf_theme_name(theme):
+        return mf_studio.compact_mf_spec_for_studio(spec)
+    if is_zo_theme_name(theme):
+        spec = mf_studio.compact_zo_spec_for_studio(spec)
+        if isinstance(look, dict) and look.get("plate") and isinstance(spec.get("look"), dict):
+            spec["look"].setdefault("plate", look["plate"])
+        return spec
+    merged = effective_look({**p, "look": look, "spec": spec})
+    spec["look"] = merged
+    return spec_enrich.enrich_spec(spec, storyboard)
+
+
+@app.get("/api/projects/{pid}/storyboard-pdf")
+def has_storyboard_pdf(pid: int):
+    load(pid)
+    return {"has_pdf": storyboard_pdf.pdf_path(pid).is_file()}
+
+
+@app.post("/api/projects/{pid}/storyboard-pdf")
+async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(...)):
+    load(pid)
+    ct = (file.content_type or "").split(";")[0].strip().lower()
+    if ct not in ("application/pdf", "application/octet-stream", ""):
+        raise HTTPException(400, "Upload a PDF file")
+    raw = await file.read()
+    try:
+        storyboard_pdf.save_pdf(pid, raw)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    p = load(pid)
+    look = {**(p.get("look") or {}), "sb_import": "pdf"}
+    save(pid, who(req), "upload storyboard PDF", look=look)
+    return {"ok": True, "has_pdf": True}
+
+
+@app.post("/api/projects/{pid}/storyboard-pdf/batch")
+async def storyboard_pdf_batch_route(pid: int, req: Request):
+    b = await req.json()
+    p = load(pid)
+    try:
+        pdf_bytes = storyboard_pdf.read_pdf(pid)
+    except FileNotFoundError:
+        raise HTTPException(400, "Upload a storyboard PDF first")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    look = effective_look(p)
+    if isinstance(look, dict):
+        look = {**look, "sb_import": "pdf"}
+    finish_all = bool(b.get("finish_all"))
+    batch_size = min(10, max(1, int(b.get("batch_size", 5))))
+    script = b.get("script", p.get("script") or "")
+    try:
+        out = await asyncio.to_thread(
+            claude_client.storyboard_pdf_batch,
+            THEMES / p["theme"],
+            pdf_bytes,
+            script,
+            look if isinstance(look, dict) else {},
+            b.get("notes", ""),
+            batch_size=batch_size,
+            finish_all=finish_all,
+            existing_spec=p.get("spec") or {},
+            existing_storyboard=p.get("storyboard") or "",
+        )
+    except Exception as e:
+        _raise_claude_gateway(e)
+    if not out.get("frames_added"):
+        raw = out.get("raw_frame_count", 0)
+        if raw:
+            detail = (
+                "Claude returned frames but none could be merged (missing ids or duplicates). "
+                "Add Notes describing which PDF rows are graphics vs footage, then try again."
+            )
+        else:
+            detail = (
+                "Claude returned no graphic frames from the PDF. You do not need a separate storyboard file — "
+                "the PDF is enough. Optional: paste the voiceover script for exact numbers. "
+                "In Notes, say how to read the PDF (e.g. ‘timestamp rows marked GFX / FSS are graphics; skip B-roll’)."
+            )
+        raise HTTPException(422, detail)
+    spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
+    spec = _finalize_spec_after_batch(
+        spec,
+        storyboard,
+        p["theme"],
+        look if isinstance(look, dict) else {},
+        p,
+    )
+    plook = look if isinstance(look, dict) else p.get("look")
+    if is_mf_theme_name(p["theme"]) and isinstance(spec.get("look"), str) and isinstance(plook, dict):
+        plook = {**plook, "look_line": spec["look"]}
+    save(
+        pid,
+        who(req),
+        f"PDF storyboard batch (+{out['frames_added']} frames)",
+        script=script,
+        look=plook,
+        storyboard=storyboard,
+        spec=spec,
+    )
+    warn = claude_client.spec_quality_issues(spec, storyboard, theme=p["theme"])
+    return {
+        **load(pid),
+        "pdf_progress": out.get("pdf_progress"),
+        "frames_added": out.get("frames_added"),
+        "spec_warnings": warn,
+    }
+
 
 @app.put("/api/projects/{pid}")
 async def update(pid: int, req: Request):
