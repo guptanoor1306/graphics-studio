@@ -400,17 +400,23 @@ def has_storyboard_pdf(pid: int):
 async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(...)):
     load(pid)
     ct = (file.content_type or "").split(";")[0].strip().lower()
-    if ct not in ("application/pdf", "application/octet-stream", ""):
+    fn = (file.filename or "").lower()
+    if ct not in ("application/pdf", "application/octet-stream", "binary/octet-stream", "") and not fn.endswith(
+        ".pdf"
+    ):
         raise HTTPException(400, "Upload a PDF file")
     raw = await file.read()
     try:
         storyboard_pdf.save_pdf(pid, raw)
     except ValueError as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, str(e)) from e
+    except OSError as e:
+        raise HTTPException(507, str(e)) from e
     p = load(pid)
     look = {**(p.get("look") or {}), "sb_import": "pdf"}
     save(pid, who(req), "upload storyboard PDF", look=look)
-    return {"ok": True, "has_pdf": True}
+    out = load(pid)
+    return {**out, "ok": True, "has_pdf": True}
 
 
 @app.post("/api/projects/{pid}/storyboard-pdf/batch")

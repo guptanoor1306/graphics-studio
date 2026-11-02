@@ -50,7 +50,10 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .prop-pick label.chip input[type=checkbox]{width:16px;height:16px;margin:0;flex-shrink:0;accent-color:var(--beat-green)}
 .prop-pick label.chip:has(input:checked){background:var(--beat-green-bg);border-color:rgba(45,122,82,.45)}
 .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:16px}
-.card-narrow{max-width:min(720px,100%)}
+.script-pdf-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:960px){.script-pdf-row{grid-template-columns:1fr}}
+.pdf-panel-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin:0 0 14px}
+.pdf-save-busy{opacity:.65;pointer-events:none}
 .sb-source-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .sb-segment{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;background:#fff}
 .sb-seg{border:0;border-radius:0;padding:9px 18px;background:transparent;cursor:pointer;font-size:13px;color:var(--mute)}
@@ -659,34 +662,83 @@ async function refreshPdfSbStatus(){
     el.hidden=!on;
   }catch(_){}
 }
-function humanPdfSectionHtml(){
+function parseApiErrorText(m){
+  try{
+    const j=JSON.parse(m);
+    const d=j.detail;
+    if(Array.isArray(d))return d.map(x=>x.msg||String(x)).join('\n');
+    return typeof d==='string'?d:JSON.stringify(d);
+  }catch(_){return typeof m==='string'?m:String(m)}
+}
+function humanPdfPanelInner({title=true}={}){
   const n=studioFrames().length;
   const first=n===0;
   const showAll=n>=5;
-  const notesField=P?.spec?`<div class="field" style="margin-top:14px;max-width:480px"><label>Notes</label><input id="notes" value="${esc(getNotesValue())}"></div>`:'';
+  const notesField=P?.spec?`<div class="field" style="margin-top:14px"><label>Notes</label><input id="notes" value="${esc(getNotesValue())}"></div>`:'';
   const saved=P?.has_storyboard_pdf?'Saved':'';
-  return `<h2 class="section">Human storyboard</h2><div class="card pdf-human-panel">
-  <div class="pdf-human-top">
+  return `${title?'<p class="pdf-panel-title">Human storyboard</p>':''}
+  <div class="pdf-human-top" id="pdfHumanTop">
    <div class="field pdf-file-field"><label>PDF</label><input type="file" id="sbPdfFile" accept="application/pdf,.pdf"></div>
-   <button type="button" class="btn-neutral" onclick="uploadSbPdf()">Save</button>
+   <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">Save</button>
    <span id="pdfSbStatus" class="pdf-saved-tag" ${saved?'':'hidden'}>${saved}</span>
   </div>
   ${notesField}
-  <div class="pdf-human-actions">
-   ${first?`<button type="button" class="p" onclick="genPdfBatch(event,{batchSize:5})">First 5</button>`:''}
-   ${!first?`<button type="button" class="p" onclick="genPdfBatch(event,{batchSize:5})">Next 5</button>`:''}
+  <div class="pdf-human-actions" id="pdfHumanActions">
+   ${first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">First 5</button>`:''}
+   ${!first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">Next 5</button>`:''}
    ${showAll?`<button type="button" class="btn-neutral" onclick="genPdfBatch(event,{finishAll:true})">All remaining</button>`:''}
-  </div></div>`;
+  </div>`;
+}
+function humanPdfSectionHtml(){
+  return `<h2 class="section">Human storyboard</h2><div class="card pdf-human-panel">${humanPdfPanelInner({title:false})}</div>`;
+}
+function scriptBlockHtml(){
+  const m=sbMode();
+  const preActions=m==='script'?`<div class="row" style="margin-bottom:0;margin-top:16px"><button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button></div>`:'';
+  return `<div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
+   <div class="field"><label>Notes</label><input id="notes" value="${esc(getNotesValue())}" placeholder="${m==='pdf'?'GFX rows, timestamps…':''}"></div>
+   ${sbSourceBarHtml()}
+   ${preActions}`;
+}
+function preSpecSectionHtml(){
+  const m=sbMode();
+  if(m==='pdf'){
+    return `<h2 class="section">2 · Script</h2><div class="script-pdf-row">
+     <div class="card">${scriptBlockHtml()}</div>
+     <div class="card pdf-human-panel">${humanPdfPanelInner()}</div>
+    </div>`;
+  }
+  return `<h2 class="section">2 · Script</h2><div class="card">${scriptBlockHtml()}</div>`;
 }
 async function uploadSbPdf(){
   const f=$('#sbPdfFile')?.files?.[0];
   if(!f)return alert('Choose a PDF file first.');
-  const fd=new FormData();fd.append('file',f);
-  const r=await fetch(`/api/projects/${P.id}/storyboard-pdf`,{method:'POST',body:fd});
-  if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
-  P.look={...(P.look||{}),sb_import:'pdf'};
-  P.has_storyboard_pdf=true;
-  await refreshPdfSbStatus();
+  const saveBtn=$('#pdfSaveBtn');
+  const status=$('#pdfSbStatus');
+  const panel=$('#pdfHumanTop');
+  const actions=$('#pdfHumanActions');
+  if(saveBtn)saveBtn.disabled=true;
+  if(panel)panel.classList.add('pdf-save-busy');
+  if(actions)actions.classList.add('pdf-save-busy');
+  if(status){status.hidden=false;status.textContent='Saving…';status.style.color='var(--mute)'}
+  setWorkspaceLoading(true,'Saving PDF…');
+  try{
+    const fd=new FormData();fd.append('file',f,f.name||'storyboard.pdf');
+    const r=await fetch(`/api/projects/${P.id}/storyboard-pdf`,{method:'POST',body:fd});
+    if(!r.ok){const m=parseApiErrorText(await r.text());throw new Error(m)}
+    const data=await r.json();
+    P=data;P.look=normLook(P.look);
+    if(status){status.textContent='Saved';status.style.color=''}
+    await refreshPdfSbStatus();
+  }catch(e){
+    if(status){status.textContent='Save failed';status.hidden=false;status.style.color='#9c4221'}
+    alert(e.message||String(e));
+  }finally{
+    if(saveBtn)saveBtn.disabled=false;
+    if(panel)panel.classList.remove('pdf-save-busy');
+    if(actions)actions.classList.remove('pdf-save-busy');
+    setWorkspaceLoading(false);
+  }
 }
 async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   const btn=ev?.target?.closest?.('button');if(btn)btn.disabled=true;
@@ -770,12 +822,8 @@ function framesStudio(){
 function render(){
   P.look=normLook(P.look);
   const m=sbMode();
-  const preActions=m==='script'?`<div class="row" style="margin-bottom:0;margin-top:16px"><button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button></div>`:'';
-  const preSpec=`<h2 class="section">2 · Script</h2><div class="card card-narrow"><div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
-   <div class="field"><label>Notes</label><input id="notes" value="${esc(getNotesValue())}" placeholder="${m==='pdf'?'How to read the PDF (GFX rows, timestamps…)':'e.g. female anchor → f1_centre_circle plate'}"></div>
-   ${sbSourceBarHtml()}
-   ${preActions}</div>`;
-  const pdfBlock=m==='pdf'?humanPdfSectionHtml():'';
+  const preSpec=preSpecSectionHtml();
+  const pdfBlock=m==='pdf'&&P.spec?humanPdfSectionHtml():'';
   $('#main').innerHTML=`<div class="toolbar"><h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
    ${P.spec?`<button type="button" onclick="qa()" title="Run automatic layout checks on every frame">Check layout</button><button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export All</button>`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>

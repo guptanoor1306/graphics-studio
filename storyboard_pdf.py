@@ -26,8 +26,17 @@ def read_pdf(project_id: int) -> bytes:
 def save_pdf(project_id: int, raw: bytes) -> pathlib.Path:
     if len(raw) > MAX_PDF_BYTES:
         raise ValueError(f"PDF exceeds {MAX_PDF_BYTES // (1024 * 1024)}MB limit")
-    p = pdf_path(project_id)
-    p.write_bytes(raw)
+    if not raw:
+        raise ValueError("Empty file")
+    try:
+        PDF_DIR.mkdir(parents=True, exist_ok=True)
+        p = pdf_path(project_id)
+        p.write_bytes(raw)
+    except OSError as e:
+        raise OSError(
+            f"Could not write PDF to server storage ({e}). "
+            "On Railway, mount a volume at /app/data (or set DATA_DIR) so uploads survive redeploys."
+        ) from e
     return p
 
 
