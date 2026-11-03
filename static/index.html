@@ -21,9 +21,20 @@ aside{border-right:1px solid var(--line);background:var(--bg-sidebar);padding:16
 body.nav-collapsed .nav-toggle{right:8px;left:8px;margin:0 auto;position:relative;top:0}
 .sidebar-inner{overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
 body.nav-collapsed .sidebar-inner .hide-when-collapsed{display:none!important}
+body.nav-collapsed .brand-home.brand-home-compact{display:inline-flex!important}
+body:not(.nav-collapsed) aside .brand-home.brand-home-compact{display:none!important}
+body.nav-collapsed aside .brand-home:not(.brand-home-compact){display:none!important}
 body.nav-collapsed aside{padding:12px 8px;align-items:center}
-.brand{margin:0 36px 0 0;font-size:17px;font-weight:600}
-.brand-sub{font-size:12px;color:var(--mute);margin-top:4px}
+.brand{margin:0;font-size:17px;font-weight:600;display:block}
+.brand-sub{font-size:12px;color:var(--mute);margin-top:4px;display:block}
+.brand-home{display:flex;align-items:center;gap:11px;background:none;border:0;cursor:pointer;padding:0;margin:0 36px 12px 0;text-align:left;font-family:var(--font);color:var(--ink);max-width:100%}
+.brand-home:hover .brand-mark{transform:translateY(-1px);box-shadow:0 6px 16px rgba(201,100,66,.28)}
+.brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(145deg,#d4845f,var(--acc));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;letter-spacing:-.04em;flex-shrink:0;box-shadow:0 2px 8px rgba(201,100,66,.22);transition:transform .15s ease,box-shadow .15s ease}
+.brand-text-wrap{min-width:0;text-align:left}
+body.nav-collapsed .brand-home{margin:0 0 12px;width:100%;justify-content:center}
+body.nav-collapsed .brand-text-wrap{display:none!important}
+.home-brand-slot{margin-bottom:28px}
+.brand-home-compact{margin:0!important}
 .sidebar-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin:4px 0 6px}
 main{overflow:auto;padding:28px 32px 40px;position:relative}
 h1.page-title{font-size:22px;font-weight:600;margin:0}
@@ -64,10 +75,51 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .pdf-human-top .pdf-file-field{flex:1;min-width:min(480px,100%)}
 .pdf-saved-tag{font-size:13px;color:var(--beat-green);font-weight:600;padding:11px 0;white-space:nowrap}
 .pdf-human-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
-.proj{padding:12px 14px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid transparent;margin-bottom:6px}
-.proj:hover,.proj.on{background:var(--acc-soft);border-color:rgba(201,100,66,.35)}
+.proj{padding:12px 14px;border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--line);margin-bottom:8px;background:#fff;transition:background .15s,border-color .15s}
+.proj:hover{background:var(--acc-soft);border-color:rgba(201,100,66,.35)}
+.proj.on{background:var(--acc-soft);border-color:var(--acc);box-shadow:inset 3px 0 0 var(--acc)}
 .proj b{display:block;font-weight:600;font-size:14px}
-.proj small{color:var(--mute);font-size:12px}
+.proj small{display:block;color:var(--mute);font-size:11px;margin-top:4px}
+.nav-back-btn{padding:4px 0;margin:0 0 10px;font-size:13px}
+body.home-shell{display:block;min-height:100vh;height:auto}
+body.home-shell aside{display:none}
+body.home-shell main{padding:0;min-height:100vh;max-width:none}
+body:not(.in-project) .nav-toggle{display:none!important}
+body.in-project .nav-toggle{display:block}
+.home-landing{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:56px 28px 72px;background:radial-gradient(ellipse 90% 55% at 50% -8%,rgba(201,100,66,.14),transparent 58%),linear-gradient(180deg,#faf8f5 0%,var(--bg) 42%)}
+.home-landing-inner{width:100%;max-width:960px}
+.home-eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);text-align:center;margin:0 0 14px}
+.home-title{font-size:clamp(2rem,4.5vw,2.75rem);font-weight:700;letter-spacing:-.03em;text-align:center;margin:0 0 14px;line-height:1.12;color:var(--ink)}
+.home-sub{text-align:center;margin:0 auto 52px;font-size:16px;color:var(--mute);max-width:26rem;line-height:1.55}
+.channel-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+@media (max-width:820px){.channel-grid{grid-template-columns:1fr;max-width:400px;margin:0 auto}}
+.channel-card{padding:0;border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--shadow);cursor:pointer;text-align:left;overflow:hidden;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;display:flex;flex-direction:column;min-height:210px}
+.channel-card:hover{transform:translateY(-3px);box-shadow:0 16px 48px rgba(26,25,23,.09);border-color:rgba(201,100,66,.35)}
+.channel-card-accent{height:5px;flex-shrink:0}
+.channel-card-body{padding:26px 24px 22px;display:flex;flex-direction:column;flex:1}
+.channel-card b{font-size:1.25rem;font-weight:700;letter-spacing:-.02em;display:block}
+.channel-card-desc{font-size:14px;color:var(--mute);margin:10px 0 0;line-height:1.5;flex:1}
+.channel-card-go{margin-top:18px;font-size:13px;font-weight:600;color:var(--acc)}
+.home-channel-page{min-height:100vh;padding:48px 28px 64px;background:radial-gradient(ellipse 90% 50% at 50% -5%,rgba(201,100,66,.1),transparent 55%),linear-gradient(180deg,#faf8f5 0%,var(--bg) 38%)}
+.home-channel-inner{width:100%;max-width:920px;margin:0 auto}
+.channel-list-hero{text-align:left;margin-bottom:8px}
+.channel-list-hero .home-eyebrow{text-align:left;margin-bottom:12px}
+.channel-list-hero .home-title{text-align:left;font-size:clamp(1.75rem,3.5vw,2.25rem);margin-bottom:10px}
+.channel-list-hero .home-sub{text-align:left;margin:0;max-width:36rem}
+.channel-accent-bar{height:4px;width:56px;border-radius:2px;margin-bottom:18px}
+.channel-list-toolbar{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin:32px 0 14px}
+.channel-search{flex:1;min-width:min(100%,220px);max-width:400px;padding:11px 16px;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:#fff;font-size:14px}
+.channel-search:focus{outline:2px solid var(--acc-soft);border-color:var(--acc)}
+.project-table-wrap{border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--shadow);overflow:auto}
+.project-table{width:100%;border-collapse:collapse;font-size:14px}
+.project-table th{text-align:left;padding:13px 20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);background:#faf8f5;border-bottom:1px solid var(--line);white-space:nowrap}
+.project-table td{padding:15px 20px;border-bottom:1px solid var(--line);vertical-align:middle}
+.project-table tbody tr:last-child td{border-bottom:0}
+.project-table tbody tr.project-table-row{cursor:pointer;transition:background .12s ease}
+.project-table tbody tr.project-table-row:hover{background:var(--acc-soft)}
+.project-table .col-name{font-weight:600;color:var(--ink)}
+.project-table .col-mute{color:var(--mute);font-size:13px}
+.project-table-empty{padding:40px 20px;text-align:center;color:var(--mute);font-size:14px}
 .frames-studio{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px 28px;margin-top:8px;box-shadow:var(--shadow)}
 .studio-head{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:18px}
 .frames-studio .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
@@ -245,20 +297,24 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   aside{max-height:36vh}
   .studio-split{grid-template-columns:1fr}
 }
-</style></head><body>
+</style></head><body class="home-shell">
 <aside id="nav">
   <button type="button" class="nav-toggle" id="navToggle" title="Collapse projects panel" aria-label="Toggle projects">‹</button>
   <div class="sidebar-inner">
-    <div class="hide-when-collapsed"><h1 class="brand">Graphics Studio</h1><p class="brand-sub">Storyboard &amp; frames</p></div>
-    <button class="p block hide-when-collapsed plist-switchable" onclick="newProject()">+ New video</button>
-    <div class="hide-when-collapsed"><div class="sidebar-label">Projects</div>
+    <button type="button" class="brand-home hide-when-collapsed plist-switchable" onclick="goHome()" title="All channels">
+     <span class="brand-mark" aria-hidden="true">GS</span>
+     <span class="brand-text-wrap"><span class="brand">Graphics Studio</span><span class="brand-sub">Storyboard &amp; frames</span></span>
+    </button>
+    <button type="button" class="brand-home brand-home-compact" onclick="goHome()" title="All channels" aria-label="Graphics Studio home"><span class="brand-mark">GS</span></button>
+    <div id="navProjectsWrap" class="hide-when-collapsed plist-switchable" hidden>
+    <div class="sidebar-label" id="navListLabel">Projects</div>
     <p class="edit-nav-note muted" style="display:none;font-size:12px;line-height:1.45;margin:6px 0 0">Exit edit mode (<b>← Back to studio</b>) to switch projects.</p>
-    <div id="plist" class="plist-switchable"></div></div>
+    <div id="plist"></div></div>
   </div>
 </aside>
 <main id="main"><p class="muted">Pick a video on the left, or start a new one.</p></main>
 <div id="editModeApp" hidden>
- <header class="edit-mode-top"><button type="button" class="ghost" onclick="exitEditMode()">← Back to studio</button>
+ <header class="edit-mode-top"><button type="button" class="brand-home brand-home-compact" onclick="goHome()" title="All channels" aria-label="Graphics Studio home"><span class="brand-mark">GS</span></button><button type="button" class="ghost" onclick="exitEditMode()">← Back to studio</button>
   <b id="editModeTitle">Edit frames</b><span class="spacer"></span>
   <button type="button" class="btn-neutral" onclick="expFrame()">Export Frame</button>
   <button type="button" class="p" onclick="exp()">Export All</button>
@@ -337,6 +393,28 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 </form></dialog>
 <script>
 let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
+let navChannel=null,allProjects=[],channelListSearch='';
+const CHANNELS=[
+ {id:'varsity',label:'Varsity',desc:'Mutual fund & English explainers — anchor and full-screen kits.',themes:['varsity-mf-graphics','varsity-english'],accent:'#5b55e6'},
+ {id:'zo',label:'Zerodha Online',desc:'Product IP — FSS, OSA, OST, and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
+ {id:'zero1',label:'Zero1',desc:'Vertical reel graphics — 1080×1920 safe-zone layouts.',themes:['zero1-reel-graphics'],accent:'#c96442'},
+];
+function syncShellNav(){
+  const inProj=!!P;
+  document.body.classList.toggle('home-shell',!inProj);
+  document.body.classList.toggle('in-project',inProj);
+  const toggle=$('#navToggle');
+  if(toggle)toggle.hidden=!inProj;
+}
+function fmtProjectDate(ts){
+ if(!ts)return '';
+ try{return new Date(ts*1000).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}catch(_){return ''}
+}
+function channelById(id){return CHANNELS.find(c=>c.id===id)}
+function channelForTheme(theme){const t=theme||'';for(const c of CHANNELS)if(c.themes.includes(t))return c.id;return CHANNELS[0].id}
+function channelThemes(channelId){return CHANNELS.find(c=>c.id===channelId)?.themes||[]}
+function activeChannelId(){return P?.theme?channelForTheme(P.theme):navChannel}
+function channelLabel(channelId){return CHANNELS.find(c=>c.id===channelId)?.label||'Projects'}
 const stageView={s:1,ox:0,oy:0};
 const REEL_LOOK_PRESETS=[
  {id:'A',label:'A · Cream Editorial',line:'Theme A · Cream Editorial · cream #FCF8EE bg, black type, serif headline + Manrope body, orange accent #F85000'},
@@ -820,6 +898,7 @@ function framesStudio(){
      <div class="frame-export-row"><button type="button" class="btn-neutral" onclick="expFrame()">Export Frame</button></div>
      <p class="studio-hint" style="margin-top:12px">${isZoProduct()?'Open <b>Edit mode</b> to edit FSS components (compare, chart, positions, …) per layer.':'Open <b>Edit mode</b> to change layers, apply prompts, or switch anchor / full-screen layout.'}</p></div></div></div>`}
 function render(){
+  syncShellNav();
   P.look=normLook(P.look);
   const m=sbMode();
   const preSpec=preSpecSectionHtml();
@@ -1028,16 +1107,140 @@ async function checkDbBackend(){
  }catch(_){}
 }
 async function list(){
-  const ps=await api('/api/projects?_='+Date.now());
-  const el=$('#plist');
-  if(!el)return;
-  el.innerHTML=ps.length?ps.map(p=>`<div class="proj ${P&&P.id==p.id?'on':''}" data-pid="${p.id}" role="button" tabindex="0"><b>${esc(p.name)}</b><small>${esc(p.theme)}</small></div>`).join(''):'<p class="muted" style="font-size:13px">No projects yet</p>';
+  allProjects=await api('/api/projects?_='+Date.now());
+  renderSidebar();
   checkDbBackend();
 }
+function projectsForChannel(cid){
+  if(!cid)return [];
+  const allowed=new Set(channelThemes(cid));
+  return allProjects.filter(p=>{
+    if(allowed.has(p.theme))return true;
+    return cid==='varsity'&&!CHANNELS.some(c=>c.themes.includes(p.theme));
+  });
+}
+function sortedChannelProjects(cid){
+  return projectsForChannel(cid).sort((a,b)=>(b.updated_at||0)-(a.updated_at||0));
+}
+function filterChannelProjects(list){
+  const q=channelListSearch.trim().toLowerCase();
+  if(!q)return list;
+  return list.filter(p=>{
+    const name=(p.name||'').toLowerCase();
+    const theme=(p.theme||'').toLowerCase();
+    const by=(p.updated_by||'').toLowerCase();
+    return name.includes(q)||theme.includes(q)||by.includes(q);
+  });
+}
+function onChannelSearchInput(v){
+  channelListSearch=v;
+  renderHomeMain();
+  const el=$('#channelSearch');
+  if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}
+}
+function fmtProjectDateTime(ts){
+  if(!ts)return '—';
+  try{
+    return new Date(ts*1000).toLocaleString(undefined,{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }catch(_){return '—'}
+}
+function themeLabel(theme){
+  if(theme==='varsity-mf-graphics')return 'MF kit';
+  if(theme==='varsity-english')return 'English';
+  if(theme==='zo-product-graphics')return 'Product IP';
+  if(theme==='zero1-reel-graphics')return 'Reel';
+  return theme||'—';
+}
+function renderSidebar(){
+  const cid=activeChannelId();
+  const wrap=$('#navProjectsWrap');
+  const inProject=!!P;
+  if(wrap)wrap.hidden=!inProject;
+  const label=$('#navListLabel');if(label)label.textContent=channelLabel(cid);
+  const el=$('#plist');if(!el)return;
+  if(!inProject){el.innerHTML='';return}
+  const allowed=new Set(channelThemes(cid));
+  const ps=sortedChannelProjects(cid);
+  el.innerHTML=ps.length?ps.map(p=>`<div class="proj ${P&&P.id==p.id?'on':''}" data-pid="${p.id}" role="button" tabindex="0"><b>${esc(p.name)}</b>${allowed.size>1?`<small>${esc(themeLabel(p.theme))}</small>`:''}</div>`).join(''):'<p class="muted" style="font-size:13px">No projects yet</p>';
+}
+function renderHomeMain(){
+  if(P){syncShellNav();return}
+  syncShellNav();
+  if(!navChannel){
+    $('#main').innerHTML=`<div class="home-landing"><div class="home-landing-inner">
+     <div class="home-brand-slot" style="display:flex;justify-content:center;margin-bottom:36px">${studioBrandHomeHtml()}</div>
+     <h1 class="home-title">Where are you building?</h1>
+     <p class="home-sub">Pick a channel. Each has its own kit, look rules, and frame types.</p>
+     <div class="channel-grid">${CHANNELS.map(c=>`<article class="channel-card" data-ch="${c.id}" role="button" tabindex="0">
+      <div class="channel-card-accent" style="background:${c.accent}"></div>
+      <div class="channel-card-body"><b>${esc(c.label)}</b><p class="channel-card-desc">${esc(c.desc)}</p><span class="channel-card-go">Open channel →</span></div>
+     </article>`).join('')}</div>
+    </div></div>`;
+    return;
+  }
+  const cid=navChannel;
+  const ch=channelById(cid);
+  const showKit=channelThemes(cid).length>1;
+  const ps=filterChannelProjects(sortedChannelProjects(cid));
+  const rows=ps.length?ps.map(p=>`<tr class="project-table-row" data-pid="${p.id}" tabindex="0">
+   <td class="col-name">${esc(p.name)}</td>
+   ${showKit?`<td class="col-mute">${esc(themeLabel(p.theme))}</td>`:''}
+   <td class="col-mute">${esc(fmtProjectDateTime(p.updated_at))}</td>
+   <td class="col-mute">${esc(p.updated_by||'—')}</td>
+  </tr>`).join(''):'';
+  const tableBody=ps.length?rows:`<tr><td colspan="${showKit?4:3}" class="project-table-empty">${channelListSearch.trim()?'No videos match your search.':'No videos yet — create one below.'}</td></tr>`;
+  $('#main').innerHTML=`<div class="home-channel-page"><div class="home-channel-inner">
+   <div class="home-brand-slot">${studioBrandHomeHtml()}</div>
+   <div class="channel-list-hero">
+    ${ch?`<div class="channel-accent-bar" style="background:${ch.accent}"></div>`:''}
+    <p class="home-eyebrow" style="color:${ch?.accent||'var(--acc)'}">${esc(channelLabel(cid))}</p>
+    <h1 class="home-title">Videos</h1>
+    <p class="home-sub">${esc(ch?.desc||'')}</p>
+   </div>
+   <div class="channel-list-toolbar">
+    <input type="search" id="channelSearch" class="channel-search" placeholder="Search by name or kit…" value="${esc(channelListSearch)}" oninput="onChannelSearchInput(this.value)">
+    <button type="button" class="p" onclick="newProject()">+ New video</button>
+   </div>
+   <div class="project-table-wrap">
+    <table class="project-table"><thead><tr>
+     <th>Name</th>${showKit?'<th>Kit</th>':''}<th>Updated</th><th>Last editor</th>
+    </tr></thead><tbody>${tableBody}</tbody></table>
+   </div>
+  </div></div>`;
+}
+function selectChannel(id){
+  channelListSearch='';
+  navChannel=id;P=null;selectedFrameId=null;frameVer={};
+  renderSidebar();renderHomeMain();
+}
+function goHome(){
+  channelListSearch='';
+  navChannel=null;
+  if(editModeOpen){
+    editModeOpen=false;
+    stopBoundsPoll?.();
+    document.body.classList.remove('edit-mode-on');
+    const em=$('#editModeApp');if(em)em.hidden=true;
+    clearParentCanvasChips?.();
+  }
+  P=null;
+  selectedFrameId=null;
+  frameVer={};
+  renderSidebar();
+  renderHomeMain();
+}
+function studioBrandHomeHtml(){
+  return `<button type="button" class="brand-home" onclick="goHome()" title="All channels">
+   <span class="brand-mark" aria-hidden="true">GS</span>
+   <span class="brand-text-wrap"><span class="brand">Graphics Studio</span><span class="brand-sub">Storyboard &amp; frames</span></span>
+  </button>`;
+}
 function bindProjectList(){
-  $('#plist')?.addEventListener('click',e=>{
+  document.body.addEventListener('click',e=>{
     if(editModeOpen)return;
-    const row=e.target.closest('.proj[data-pid]');
+    const ch=e.target.closest('.channel-card[data-ch]');
+    if(ch){selectChannel(ch.dataset.ch);return}
+    const row=e.target.closest('.project-table-row[data-pid], .proj[data-pid]');
     if(row)open_(+row.dataset.pid);
   });
 }
@@ -1070,14 +1273,20 @@ function setSelectedFrameMode(mode){
 }
 function setEditLoading(on){const el=$('#editCanvasLoader');if(el)el.hidden=!on}
 function newProject(){
-  const themeOpts=themes.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  const cid=activeChannelId();
+  if(!cid){alert('Choose a channel first.');return}
+  const chThemes=channelThemes(cid).filter(t=>themes.includes(t));
+  const pick=chThemes.length?chThemes:[themes[0]];
+  const themeOpts=pick.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  const themeField=pick.length>1?`<div class="field" style="margin:0 0 4px"><label>Kit</label><select id="newProjectTheme">${themeOpts}</select></div>`:'';
   openToolModal({title:'New video',placeholder:'Video name',okLabel:'Create',
-    extraHtml:`<div class="field" style="margin:0 0 4px"><label>Channel</label><select id="newProjectTheme">${themeOpts}</select></div>`,
+    extraHtml:`${themeField}<input type="hidden" id="newProjectThemeSingle" value="${esc(pick[0]||'')}">`,
     onSubmit:async name=>{
     if(!name)throw new Error('Enter a name');
-    const theme=$('#newProjectTheme')?.value||themes[0];
+    const theme=$('#newProjectTheme')?.value||$('#newProjectThemeSingle')?.value||pick[0];
     const look=(isKitTheme(theme)||theme==='zo-product-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
     const p=await api('/api/projects',{method:'POST',body:JSON.stringify({name,theme,look})});
+    navChannel=channelForTheme(theme);
     await open_(p.id);
     await list();
   }});
@@ -1089,7 +1298,9 @@ async function open_(id){
   $('#editModeApp').hidden=true;
   clearParentCanvasChips();
  }
- P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);selectedFrameId=null;await list();render();
+ P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);
+ navChannel=channelForTheme(P.theme);
+ selectedFrameId=null;await list();render();
 }
 function renameProject(){if(!P)return;
   openToolModal({title:'Rename project',value:P.name,okLabel:'Save',onSubmit:async name=>{
@@ -1102,7 +1313,7 @@ function deleteProject(){if(!P)return;
   openToolModal({title:'Delete project',message:'Delete “'+P.name+'”? This cannot be undone.',requireInput:false,okLabel:'Delete',okClass:'p danger',onSubmit:async()=>{
     await api('/api/projects/'+P.id+'/delete',{method:'POST'});
     P=null;selectedFrameId=null;frameVer={};
-    $('#main').innerHTML='<p class="empty">Pick a video on the left, or start a new one.</p>';
+    renderHomeMain();
     list();
   }});
 }
@@ -1942,5 +2153,5 @@ bindProjectList();
 bindFrameEdit();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')list()});
 setInterval(()=>{if(document.visibilityState==='visible')list()},45000);
-(async()=>{themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}await list()})();
+(async()=>{themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}await list();renderHomeMain()})();
 </script></body></html>
