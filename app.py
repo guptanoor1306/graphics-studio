@@ -194,6 +194,15 @@ def _coerce_studio_item(it: dict, theme: str) -> dict:
             out["t"] = "htab"
             out["text"] = out.get("text") or out.get("heading") or ""
             out.pop("heading", None)
+        elif theme == "varsity-english" and t == "formula":
+            terms = out.get("terms") or []
+            bits = []
+            for term in terms:
+                if isinstance(term, dict):
+                    bits.append(str(term.get("label") or term.get("value") or ""))
+            out["t"] = "definition"
+            out["text"] = out.get("definition") or " = ".join(b for b in bits if b) or out.get("text") or "Formula"
+            out.setdefault("style", "capsule")
         elif theme == "varsity-english" and t == "table":
             out["t"] = "glass_table"
         elif theme == "varsity-hindi-graphics" and t in ("glass_table", "calc_table", "points", "person"):

@@ -284,6 +284,11 @@ def _coerce_item(i):
     if t == 'heading':
         it['t'] = 'htab'
         it['text'] = it.get('text') or it.get('heading') or ''
+    elif t == 'formula':
+        terms = it.get('terms') or []
+        bits = [str(x.get('label') or x.get('value') or '') for x in terms if isinstance(x, dict)]
+        it['t'] = 'definition'
+        it['text'] = it.get('definition') or ' = '.join(b for b in bits if b) or 'Formula'
     elif t not in R and t != 'html':
         if t in ('points',):
             it['t'] = 'bullets'
@@ -327,7 +332,8 @@ def frame_html(f, look=None, edit=False, all_frames=None, **_kwargs):
         body.append('<div class="abs" style="inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.05) 35%,rgba(0,0,0,.78) 100%)"></div>')
     if mode == 'takeaways':
         body.append(SWOOSH)
-        body.append(f'<div class="tk-title chk">{rich(f.get("title","Key\nTakeaways"))}</div>')
+        tk_title = f.get("title") or "Key\nTakeaways"
+        body.append(f'<div class="tk-title chk">{rich(tk_title)}</div>')
         a = f.get('active', 'all')
         rows = ''.join(f'<div class="r {"dim" if (a != "all" and n != a) else ""}"><i>{n+1}.</i><div>{rich(t)}</div></div>' for n, t in enumerate(f['items']))
         body.append(f'<div class="tk-list chk" style="top:{f.get("top",200)}px">{rows}</div>')

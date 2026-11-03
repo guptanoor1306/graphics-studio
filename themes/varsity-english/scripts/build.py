@@ -290,6 +290,10 @@ def frame_html(f, look, edit=False, all_frames=None):
     for idx, it in enumerate(f['items']):
         if it.get('t') == 'heading':
             it = {**it, 't': 'htab', 'text': it.get('text') or it.get('heading', '')}
+        if it.get('t') == 'formula':
+            terms = it.get('terms') or []
+            bits = [str(x.get('label') or x.get('value') or '') for x in terms if isinstance(x, dict)]
+            it = {**it, 't': 'definition', 'text': it.get('definition') or ' = '.join(b for b in bits if b) or 'Formula', 'style': it.get('style') or 'capsule'}
         t = it['t']
         if t not in R:
             if t == 'html' or it.get('html'):
