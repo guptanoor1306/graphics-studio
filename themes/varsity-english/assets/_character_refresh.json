@@ -1,0 +1,65 @@
+{
+  "sources_dir": "assets/_char_sources/varsity-english-characters",
+  "exports": [
+    {
+      "psd": "Character 6.psd",
+      "layer": "Character yellow",
+      "dest": "setC/character_friend_yellow.png",
+      "legacy": "character_friend_yellow_legacy.png",
+      "size": [
+        355,
+        841
+      ]
+    },
+    {
+      "psd": "Character 2.psd",
+      "layer": "Character 4",
+      "dest": "setC/character_friend_blue.png",
+      "legacy": "character_friend_blue_legacy.png",
+      "size": [
+        237,
+        644
+      ]
+    },
+    {
+      "psd": "Character 1.psd",
+      "layer": "Character ",
+      "dest": "setC/character_small_on_box.png",
+      "legacy": "character_small_on_box_legacy.png",
+      "size": [
+        299,
+        664
+      ]
+    },
+    {
+      "psd": "Chracter 3.psd",
+      "layer": "Women 1",
+      "dest": "setA/character_rahul_standing.png",
+      "legacy": "character_rahul_standing_legacy.png",
+      "size": [
+        237,
+        798
+      ]
+    },
+    {
+      "psd": "Character 4.psd",
+      "layer": "Character style 3",
+      "dest": "setB/character_mustache_garland.png",
+      "legacy": "character_mustache_garland_legacy.png",
+      "size": [
+        250,
+        688
+      ]
+    },
+    {
+      "psd": "Character 5.psd",
+      "layer": "Character Style 2",
+      "dest": "setA/character_rahul_pointing.png",
+      "legacy": "character_rahul_pointing_legacy.png",
+      "size": [
+        291,
+        708
+      ]
+    }
+  ]
+}

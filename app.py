@@ -187,8 +187,8 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
     return f
 
 
-def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = False):
-    html = builder(theme).frame_html(frame, look, edit=edit)
+def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = False, all_frames=None):
+    html = builder(theme).frame_html(frame, look, edit=edit, all_frames=all_frames)
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
     cw, ch = theme_canvas.canvas_for_theme(theme)
     canvas_meta = f'<meta name="studio-canvas" content="{cw},{ch}">'
@@ -697,6 +697,7 @@ def preview(pid: int, fid: str, edit: int = 0):
             frame_for_render(p, f),
             effective_look(p),
             edit=bool(edit),
+            all_frames=frames,
         )
     except Exception as e:
         raise HTTPException(502, detail=f"Preview render failed: {e}") from e
@@ -782,8 +783,9 @@ def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, 
         raise HTTPException(400, "Project has no spec")
     base = f"{preview_base()}/themes/{p['theme']}/scenes/"
     look = effective_look(p)
+    all_frames = (p.get("spec") or {}).get("frames") or []
     pages: list[tuple[str, str, bool]] = []
-    for f in (p.get("spec") or {}).get("frames") or []:
+    for f in all_frames:
         fid = str(f.get("id") or "")
         if only_ids is not None and fid not in only_ids:
             continue
@@ -791,7 +793,9 @@ def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, 
             continue
         if is_zo_theme_name(p["theme"]) and not mf_studio.is_zo_renderable(f):
             continue
-        html = frame_page(p["theme"], frame_for_render(p, f), look, base_href=base)
+        html = frame_page(
+            p["theme"], frame_for_render(p, f), look, base_href=base, all_frames=all_frames
+        )
         pages.append((fid, html, frame_wants_overlay(p["theme"], f)))
     if only_ids is not None and not pages:
         raise HTTPException(404, "Frame not found or not exportable")

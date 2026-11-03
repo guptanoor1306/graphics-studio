@@ -17,8 +17,17 @@ function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const
 function place(node,x,y,z){node.style.position='absolute';node.style.left=x+'px';node.style.top=y+'px';node.style.zIndex=(z==null?6:z);document.body.appendChild(node);return node}
 
 const V={};
-V.asset=(src,o={})=>{const i=document.createElement('img');i.src=src;if(o.w)i.style.width=o.w+'px';if(o.h)i.style.height=o.h+'px';
-  if(o.flip)i.style.transform='scaleX(-1)';const node=place(i,o.x||0,o.y||0,o.z);
+V.asset=(src,o={})=>{
+  const wrap=document.createElement('div');
+  wrap.style.overflow='visible';
+  const i=document.createElement('img');i.src=src;i.style.objectFit='contain';i.style.maxWidth='none';i.style.display='block';
+  if(o.w&&o.h){i.style.width=o.w+'px';i.style.height=o.h+'px';}else if(o.w){i.style.width=o.w+'px';i.style.height='auto';}
+  else if(o.h){i.style.height=o.h+'px';i.style.width='auto';}
+  if(o.flip)i.style.transform='scaleX(-1)';
+  wrap.appendChild(i);
+  if(o.name){const n=document.createElement('div');n.className=o.nameClass||'name';n.textContent=o.name;
+    n.style.cssText='position:absolute;white-space:nowrap;top:-8px;left:50%;transform:translate(-50%,-100%)';wrap.appendChild(n);}
+  const node=place(wrap,o.x||0,o.y||0,o.z);
   if(o.specIdx!=null){
     node.dataset.specIdx=String(o.specIdx);
     node.classList.add('studio-editable');
@@ -40,9 +49,7 @@ V.person=(o={})=>{
   // dress (wide triangle) + darker side fold
   el('path',{d:'M100 132 L34 308 L166 308 Z',fill:col,...k},g);
   el('path',{d:'M100 132 L124 308 L166 308 Z',fill:'#000',opacity:.13},g);
-  // arms (curled hands like the house characters)
-  el('path',{d:'M78 168 Q46 210 34 246 q-8 6 -2 12',fill:'none',...k},g);
-  el('path',{d:'M122 168 Q156 205 166 236 q8 6 2 12',fill:'none',...k},g);
+  // arms + hands (drawn after dress in a second pass below)
   // head (big, about 1/3 of the figure)
   el('circle',{cx:100,cy:76,r:58,fill:'#fff',...k},g);
   if(o.hair!=='none'){
@@ -56,7 +63,12 @@ V.person=(o={})=>{
   if(o.moustache) el('path',{d:'M78 104 q11 -14 22 -3 q11 -11 22 3 q-11 10 -22 3 q-11 8 -22 -3z',fill:'#444',...k,'stroke-width':2.5},g);
   else el('path',{d:'M88 106 q12 10 24 0',fill:'none',...k,'stroke-width':3.5},g);
   if(o.bindi) el('circle',{cx:100,cy:54,r:4,fill:'#D33'},g);
-  const wrap=document.createElement('div');wrap.appendChild(svg);
+  const ak={...k,'stroke-width':5};
+  el('path',{d:'M78 168 Q46 210 34 246',fill:'none',...ak},g);
+  el('path',{d:'M122 168 Q156 205 166 236',fill:'none',...ak},g);
+  el('circle',{cx:32,cy:258,r:10,fill:'#fff',...k,'stroke-width':3.5},g);
+  el('circle',{cx:168,cy:248,r:10,fill:'#fff',...k,'stroke-width':3.5},g);
+  const wrap=document.createElement('div');wrap.style.overflow='visible';wrap.appendChild(svg);
   if(o.name){const n=document.createElement('div');n.className=o.nameClass||'name';n.textContent=o.name;
     n.style.cssText='position:absolute;white-space:nowrap;top:-10px;left:'+(100*s)+'px;transform:translate(-50%,-100%)';wrap.appendChild(n)}
   wrap.style.width=200*s+'px';wrap.style.height=400*s+'px';

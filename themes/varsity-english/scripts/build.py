@@ -10,6 +10,13 @@ Writes: scenes/<id>.html, <out>/<id>.png, <out>/<id>_overlay.png (anchor frames 
 """
 import json, os, sys, html, asyncio
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(KIT, 'scripts'))
+from character_assets import (
+    normalize_asset_opts,
+    person_display_height,
+    person_kit_available,
+    resolve_asset_src,
+)
 E = html.escape
 
 # ----------------------------------------------------------------- item renderers
@@ -199,6 +206,7 @@ ROLE_H = [(('building', 'bank', 'tower'), 560), (('house',), 360), (('character'
           (('coin',), 100), (('calculator',), 150), (('jar',), 230), (('cash_stack',), 300)]   # rule 5: buildings >> characters
 _bbox_cache = {}
 def visible_box(src):
+    src = resolve_asset_src(src)
     if src not in _bbox_cache:
         from PIL import Image as _I
         im = _I.open(os.path.join(KIT, 'assets', src)).convert('RGBA')
@@ -206,14 +214,15 @@ def visible_box(src):
     return _bbox_cache[src]
 def floor_asset(src, mode, x, h=None, w=None, z=None, floor=None):
     """Return V.asset() options that stand the asset's VISIBLE bottom on the floor line, sized by visible height."""
+    src = resolve_asset_src(src)
     (iw, ih), (bx0, by0, bx1, by1) = visible_box(src)
     if h is None and w is None:
         h = next((hh for keys, hh in ROLE_H if any(k in src.lower() for k in keys)), 300)
     scale = (h / (by1 - by0)) if h else (w / iw)
     y = (floor or FLOOR[mode]) - by1 * scale
-    o = {'x': x, 'y': round(y), 'w': round(iw * scale)}
+    o = {'x': x, 'y': round(y), 'w': round(iw * scale), 'h': round(ih * scale)}
     if z is not None: o['z'] = z
-    return o
+    return normalize_asset_opts(o, src, visible_box)
 
 PLATES = {'right': 'anchor_right_setA_clean', 'left': 'anchor_left_setB'}
 PROPS = {'coins': [('setA/coins_stack.png', 100)], 'tax': [('setC/calculator.png', 130), ('setA/coins_stack.png', 90)],
@@ -241,8 +250,14 @@ def topic_prop_assets(look):
                 out.append((src, h))
     return out
 
-def frame_html(f, look, edit=False):
+def frame_html(f, look, edit=False, all_frames=None):
     mode = f.get('mode', 'anchor'); side = f.get('anchor', look.get('anchor', 'right'))
+    try:
+        from person_plan import PersonVideoPlan, should_relayout_x
+        _person_plan = PersonVideoPlan.from_frames(all_frames if all_frames else [f], side=side)
+    except Exception:
+        _person_plan = None
+        should_relayout_x = lambda it: False  # noqa: E731
     fss = mode == 'fss'; warm = look.get('fss', 'blue') == 'warm'
     plate = f.get('plate') or (('fss_sky_warm' if warm else 'fss_sky_blue') if fss else look.get('plate') or PLATES[side])
     body_cls = ('fss ' + ('warm' if warm else '')) if fss else ''
@@ -290,25 +305,55 @@ def frame_html(f, look, edit=False):
             continue
         if t in ('person', 'asset'):
             if t == 'person':
-                h = it.get('h', 315)
-                x = it.get('x', 110 if (fss or side == 'right') else 1500); y = it.get('y', FLOOR['fss' if fss else 'anchor'] - round(h * 0.985))
-                o = {k: v for k, v in it.items() if k != 't'}; o.update(x=x, y=y, h=h)
-                if not fss: o.setdefault('nameClass', 'name dark')     # rule 6: big dark name pill over the anchor
-                if edit:
-                    o['specIdx'] = idx
-                    o['layerType'] = lt
-                    o['layerLabel'] = ll
-                js.append(f'V.person({json.dumps(o)});')
+                plan = _person_plan.get(f.get('id'), idx, it, f, side=side) if _person_plan else None
+                if plan and not it.get('doodle'):
+                    kit = resolve_asset_src(plan.kit) if os.path.isfile(os.path.join(KIT, 'assets', resolve_asset_src(plan.kit))) else person_kit_available(it)
+                    h = plan.h
+                    x = plan.x if should_relayout_x(it) else it.get('x', plan.x)
+                else:
+                    kit = person_kit_available(it)
+                    h = person_display_height(it)
+                    x = it.get('x', 110 if (fss or side == 'right') else 1500)
+                if kit:
+                    if 'y' in it:
+                        o = {k: v for k, v in it.items() if k not in ('t', 'src', 'color', 'hair', 'hat', 'moustache', 'bindi', 'facing', 'item', 'pose', 'small', 'doodle')}
+                        o = normalize_asset_opts(o, kit, visible_box)
+                    else:
+                        o = floor_asset(kit, 'fss' if fss else 'anchor', x, h, it.get('w'), it.get('z'))
+                    if plan and plan.flip:
+                        o['flip'] = True
+                    elif it.get('facing') == 'left':
+                        o['flip'] = True
+                    if it.get('name'):
+                        o['name'] = it['name']
+                    if not fss:
+                        o.setdefault('nameClass', 'name dark')
+                    if edit:
+                        o['specIdx'] = idx
+                        o['layerType'] = lt
+                        o['layerLabel'] = ll
+                    js.append(f'V.asset("../assets/{kit}",{json.dumps(o)});')
+                else:
+                    y = it.get('y', FLOOR['fss' if fss else 'anchor'] - round(h * 0.985))
+                    o = {k: v for k, v in it.items() if k != 't'}; o.update(x=x, y=y, h=h)
+                    if not fss: o.setdefault('nameClass', 'name dark')
+                    if edit:
+                        o['specIdx'] = idx
+                        o['layerType'] = lt
+                        o['layerLabel'] = ll
+                    js.append(f'V.person({json.dumps(o)});')
             else:
+                src = resolve_asset_src(it['src'])
                 if 'y' in it:      # pinned by hand
                     o = {k: v for k, v in it.items() if k not in ('t', 'src')}
+                    o = normalize_asset_opts(o, src, visible_box)
                 else:              # stand it on the floor, sized by role
                     o = floor_asset(it['src'], 'fss' if fss else 'anchor', it.get('x', 140), it.get('h'), it.get('w'), it.get('z'))
                 if edit:
                     o['specIdx'] = idx
                     o['layerType'] = lt
                     o['layerLabel'] = ll
-                js.append(f'V.asset("../assets/{it["src"]}",{json.dumps(o)});')
+                js.append(f'V.asset("../assets/{src}",{json.dumps(o)});')
             continue
         if t == 'cards' and edit:
             absol.append(cards(it, edit=True, spec_idx=idx, layer_attrs=data_attrs.strip()))
@@ -335,6 +380,7 @@ def frame_html(f, look, edit=False):
     if not title_only and f.get('prop', not any(it['t'] in ('asset', 'person') for it in f['items'])):
         xcur = 1880 if fss else (880 if side == 'right' else 1050)
         for k, (src, h) in enumerate(topic_prop_assets(look)):
+            src = resolve_asset_src(src)
             o = floor_asset(src, 'fss' if fss else 'anchor', 0, h=h, z=6)
             if fss or side == 'right': xcur -= o['w']; o['x'] = xcur; xcur -= 12
             else: o['x'] = xcur; xcur += o['w'] + 12

@@ -15,8 +15,8 @@ Plates are full-frame backgrounds. Everything in setA/ and setB/ is a transparen
 | `setA/building_company_3d.png` | 500×625 | 3D glass office tower (company, employer, broker) |
 | `setA/buildings_growth_pills.png` | 362×574 | small building + "₹50 Lakhs" pill + arrow (value growth step) |
 | `setA/callout_green_speech_bubble.png` | 662×242 | green callout with sample text (reference only, rebuild with .callout) |
-| `setA/character_rahul_pointing.png` | 168×345 | yellow-dress persona, spiky hair + glasses, pointing |
-| `setA/character_rahul_standing.png` | 154×317 | same persona standing, presenting |
+| `setA/character_rahul_pointing.png` | 291×708 | refreshed from `Character 5.psd` (legacy: `character_rahul_pointing_legacy.png`) |
+| `setA/character_rahul_standing.png` | 237×798 | refreshed from `Chracter 3.psd` / Women 1 (legacy: `character_rahul_standing_legacy.png`) |
 | `setA/character_with_moneybag.png` | 224×449 | persona holding a green ₹ money bag (faces right) |
 | `setA/character_with_moneybag_left.png` | 207×415 | money-bag persona mirrored |
 | `setA/coins_stack.png` | 142×98 | two stacks of gold ₹ coins (floor prop) |
@@ -36,7 +36,7 @@ Plates are full-frame backgrounds. Everything in setA/ and setB/ is a transparen
 | `setB/allocation_slider_bar.png` | 1431×194 | allocation slider bar with % pills (Equity/Debt/Gold…) |
 | `setB/bank_building.png` | 602×483 | 3D BANK building |
 | `setB/character_beach_chair_retired.png` | 533×466 | retired man in a beach chair under an umbrella |
-| `setB/character_mustache_garland.png` | 273×612 | man in red dress, hat + moustache, holding a garland |
+| `setB/character_mustache_garland.png` | 250×688 | refreshed from `Character 4.psd` (legacy: `character_mustache_garland_legacy.png`) |
 | `setB/chart_bars_vs_target_panel.png` | 1724×920 | FSS bar chart vs dashed 33× target (example) |
 | `setB/chart_y_axis_box.png` | 102×648 | boxed y-axis with ₹ ticks |
 | `setB/checkbox_tick_blue.png` | 49×45 | blue tick box |
@@ -55,9 +55,9 @@ Plates are full-frame backgrounds. Everything in setA/ and setB/ is a transparen
 | `setC/calculator.png` | 176×173 | 3D-ish calculator (tax/loan maths prop) |
 | `setC/cash_stack_short.png` | 108×295 | short stack of green cash notes (bar-chart unit) |
 | `setC/cash_stack_tall.png` | 108×421 | tall stack of green cash notes |
-| `setC/character_friend_blue.png` | 203×442 | blue-dress doodle friend, curly hair, gesturing left |
-| `setC/character_friend_yellow.png` | 211×435 | yellow-dress doodle friend, curly hair, gesturing right |
-| `setC/character_small_on_box.png` | 129×277 | small yellow doodle standing (pointing) |
+| `setC/character_friend_blue.png` | 237×644 | refreshed from `Character 2.psd` (legacy: `character_friend_blue_legacy.png`) |
+| `setC/character_friend_yellow.png` | 355×841 | refreshed from `Character 6.psd` (legacy: `character_friend_yellow_legacy.png`) |
+| `setC/character_small_on_box.png` | 299×664 | refreshed from `Character 1.psd` (legacy: `character_small_on_box_legacy.png`) |
 | `setC/folder_blue_open.png` | 791×913 | open blue folder with paper (list device) |
 | `setC/glass_folder_numbered_list.png` | 1395×879 | warm glass folder with 4 numbered points (example of .nlist) |
 | `setC/header_tab_amber_example.png` | 1038×119 | header tab with amber bar (example of .htab on warm FSS) |
@@ -73,3 +73,5 @@ Plates are full-frame backgrounds. Everything in setA/ and setB/ is a transparen
 | `setC/speech_table_two_friends.png` | 720×382 | speech-bubble table: Friend 1 vs Friend 2 (Loan/Tenure/Interest) |
 | `setC/table_dark_glass_shell_empty.png` | 795×357 | empty dark-glass table shell with white header |
 | `setC/title_pill_dark_example.png` | 1130×111 | dark title pill example |
+
+Re-export refreshed character PNGs: `python3 themes/varsity-english/scripts/export_character_psds.py` (requires `psd-tools`; PSDs under `assets/_char_sources/`).

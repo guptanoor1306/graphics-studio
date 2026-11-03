@@ -128,4 +128,21 @@ def enrich_spec(spec: dict, storyboard: str = "") -> dict:
                 f.setdefault("items", []).extend(items)
                 break
 
+    _apply_person_plans(spec)
     return spec
+
+
+def _apply_person_plans(spec: dict) -> None:
+    import importlib.util
+    from pathlib import Path
+
+    pp = Path(__file__).resolve().parent / "themes/varsity-english/scripts/person_plan.py"
+    if not pp.is_file():
+        return
+    try:
+        sm = importlib.util.spec_from_file_location("ve_person_plan", pp)
+        mod = importlib.util.module_from_spec(sm)
+        sm.loader.exec_module(mod)
+        mod.apply_person_plans_to_spec(spec, side=(spec.get("look") or {}).get("anchor", "right"))
+    except Exception:
+        pass
