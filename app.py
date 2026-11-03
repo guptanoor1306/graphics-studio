@@ -5,7 +5,7 @@ Run:  copy .env.example to .env, set ANTHROPIC_API_KEY, then uvicorn app:app --h
 A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.md, templates/, assets/, scripts/build.py).
 Add a channel by dropping in another kit folder; nothing else changes.
 """
-import importlib.util, json, os, pathlib, re, time, asyncio
+import importlib.util, inspect, json, os, pathlib, re, time, asyncio
 from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
@@ -188,7 +188,11 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
 
 
 def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = False, all_frames=None):
-    html = builder(theme).frame_html(frame, look, edit=edit, all_frames=all_frames)
+    render = builder(theme).frame_html
+    if "all_frames" in inspect.signature(render).parameters:
+        html = render(frame, look, edit=edit, all_frames=all_frames)
+    else:
+        html = render(frame, look, edit=edit)
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
     cw, ch = theme_canvas.canvas_for_theme(theme)
     canvas_meta = f'<meta name="studio-canvas" content="{cw},{ch}">'
