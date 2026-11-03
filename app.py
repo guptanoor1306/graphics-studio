@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import claude_client, exporter, mf_studio, spec_enrich, storyboard_pdf, theme_canvas
+import claude_client, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -872,15 +872,48 @@ def _dl_name(base: str, suffix: str) -> str:
     return f"{safe}{suffix}"
 
 
+def _storyboard_csv_bytes(p: dict) -> bytes | None:
+    sb = (p.get("storyboard") or "").strip()
+    if not sb:
+        return None
+    spec = p.get("spec") if isinstance(p.get("spec"), dict) else None
+    text = storyboard_csv.storyboard_csv_text(sb, spec, project_name=p.get("name") or "")
+    return text.encode("utf-8")
+
+
+@app.get("/api/projects/{pid}/storyboard-instructions.csv")
+def export_storyboard_csv(pid: int):
+    p = load(pid)
+    raw = _storyboard_csv_bytes(p)
+    if raw is None:
+        raise HTTPException(400, "No storyboard text on this project yet.")
+    text = raw.decode("utf-8")
+    fn = _dl_name(p["name"], "_storyboard.csv")
+    return Response(
+        text.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{fn}"'},
+    )
+
+
 @app.get("/api/projects/{pid}/export")
 async def export(pid: int, png: int = 1, only: str = ""):
     p = load(pid)
     ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
     pages = _export_pages(p, ids)
+    sb_csv = None
+    raw_sb = _storyboard_csv_bytes(p)
+    if raw_sb is not None:
+        sb_csv = raw_sb.decode("utf-8")
     try:
         cw, ch = theme_canvas.canvas_for_theme(p["theme"])
         data = await asyncio.to_thread(
-            exporter.export_zip, pages, THEMES / p["theme"], bool(png), (cw, ch)
+            exporter.export_zip,
+            pages,
+            THEMES / p["theme"],
+            bool(png),
+            (cw, ch),
+            storyboard_csv=sb_csv,
         )
     except ValueError as e:
         raise HTTPException(400, detail=str(e)) from e

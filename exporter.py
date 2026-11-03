@@ -159,7 +159,14 @@ def export_png(pages, viewport=(1920, 1080)) -> bytes:
     return files[key]
 
 
-def export_zip(pages, theme_dir: pathlib.Path, want_png=True, viewport=(1920, 1080)) -> bytes:
+def export_zip(
+    pages,
+    theme_dir: pathlib.Path,
+    want_png=True,
+    viewport=(1920, 1080),
+    *,
+    storyboard_csv: str | None = None,
+) -> bytes:
     """pages: list of (frame_id, full_html, is_fss). Base href in html must point at this server's /themes/."""
     if not pages:
         raise ValueError("No frames to export")
@@ -173,8 +180,14 @@ def export_zip(pages, theme_dir: pathlib.Path, want_png=True, viewport=(1920, 10
                 data = inline_assets(data, theme_dir).encode()
             z.writestr(name, data)
         vw, vh = viewport
-        z.writestr('README.txt', 'html/          one static self-contained page per frame (plate included)\n'
-                                 'html_overlay/  anchor frames without the plate (graphics only)\n'
-                                 'png/           rendered frames (+ _overlay.png with transparency)\n'
-                                 f'Layer coordinates are in px at {vw}x{vh}.\n')
+        readme = (
+            'html/          one static self-contained page per frame (plate included)\n'
+            'html_overlay/  anchor frames without the plate (graphics only)\n'
+            'png/           rendered frames (+ _overlay.png with transparency)\n'
+            f'Layer coordinates are in px at {vw}x{vh}.\n'
+        )
+        if storyboard_csv:
+            z.writestr('storyboard-instructions.csv', storyboard_csv.encode('utf-8'))
+            readme += 'storyboard-instructions.csv  timestamp-ordered storyboard beats (CSV)\n'
+        z.writestr('README.txt', readme)
     return buf.getvalue()
