@@ -207,7 +207,9 @@ dialog#scriptEditDlg #scriptEditArea{flex:1 1 auto;min-height:160px;max-height:m
 .thumb-edit-btn svg{width:20px;height:20px;fill:currentColor}
 #editModeApp{display:none;grid-column:2;grid-row:1;flex-direction:column;height:100vh;overflow:hidden;background:var(--bg);min-width:0}
 body.edit-mode-on #main{display:none}
-body.edit-mode-on #editModeApp{display:flex}
+body.edit-mode-on aside#nav{display:none}
+body.edit-mode-on{grid-template-columns:1fr!important}
+body.edit-mode-on #editModeApp{display:flex;grid-column:1}
 body.edit-mode-on .plist-switchable,body.edit-mode-on aside .p.block{display:none!important}
 body.edit-mode-on .edit-nav-note{display:block!important}
 .canvas-parent-layer-outline{position:absolute;border:2px dashed rgba(36,142,247,.45);pointer-events:none;box-sizing:border-box;border-radius:4px;z-index:1}
