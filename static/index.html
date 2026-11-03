@@ -397,7 +397,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
 let navChannel=null,allProjects=[],channelListSearch='';
 const CHANNELS=[
- {id:'varsity',label:'Varsity',desc:'Mutual fund & English explainers — anchor and full-screen kits.',themes:['varsity-mf-graphics','varsity-english'],accent:'#5b55e6'},
+ {id:'varsity',label:'Varsity',desc:'MF, English, and Hindi TA kits — anchor, side-cam, and chart frames.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics'],accent:'#5b55e6'},
  {id:'zo',label:'Zerodha Online',desc:'Product IP — FSS, OSA, OST, and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
  {id:'zero1',label:'Zero1',desc:'Vertical reel graphics — 1080×1920 safe-zone layouts.',themes:['zero1-reel-graphics'],accent:'#c96442'},
 ];
@@ -558,13 +558,14 @@ function layoutReelPhoneChrome(container,ox,oy,dw,dh){
 }
 function isKitTheme(t){return !!(themeMeta[t]?.kit);}
 function isZoProduct(t){return (t||(P&&P.theme))==='zo-product-graphics'}
+function isHindiTheme(t){return (t||(P&&P.theme))==='varsity-hindi-graphics'}
 function isChannelKit(t){return isKitTheme(t)||isZoProduct(t)}
 const KIT_SKIP_TYPES=new Set(['footage','screen','repeat']);
 const ZO_RENDER_MODES=new Set(['fss','osa','ost','tos']);
 function zoRenderable(f){const m=(f?.mode||'fss').toLowerCase();return ZO_RENDER_MODES.has(m)}
 function studioFrames(){const all=P?.spec?.frames||[];if(!P)return all;if(isKitTheme(P.theme))return all.filter(f=>!KIT_SKIP_TYPES.has(f.type||''));if(isZoProduct())return all.filter(zoRenderable);return all}
-function frameMetaLine(fr){if(!fr)return '';if(isKitTheme(P?.theme))return `${frameLabel(fr.id)} · ${fr.id} · ${fr.type||'frame'}`;if(isZoProduct()){const m=(fr.mode||'fss').toUpperCase();return `${frameLabel(fr.id)} · ${fr.id} · ${m}`}return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||'anchor'}`}
-function normLook(l){l=l||{};if(P&&(isKitTheme(P.theme)||isZoProduct())){if(l.look_line==null)l.look_line='';return l}if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
+function frameMetaLine(fr){if(!fr)return '';if(isKitTheme(P?.theme))return `${frameLabel(fr.id)} · ${fr.id} · ${fr.type||'frame'}`;if(isZoProduct()){const m=(fr.mode||'fss').toUpperCase();return `${frameLabel(fr.id)} · ${fr.id} · ${m}`}if(isHindiTheme())return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||'side'}`;return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||'anchor'}`}
+function normLook(l){l=l||{};if(P&&(isKitTheme(P.theme)||isZoProduct()||isHindiTheme())){if(l.look_line==null)l.look_line='';return l}if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
 const TOPIC_PROPS_TIP='First checked prop = corner dressing on text-only frames only. Every checked prop hints storyboard generation and frame Apply to prefer matching kit assets (broker, bank, chart, etc.).';
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
@@ -678,6 +679,9 @@ function lookForm(l){l=normLook(l);
   if(isZoProduct()){
     return `<div class="field-grid">${themeField}
   <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">FSS + anchor (OSA/OST/TOS) render in spec; upload an optional anchor plate in Edit mode. Screen capture and footage stay storyboard-only.</p></div>`}
+  if(isHindiTheme()){
+    return `<div class="field-grid">${themeField}
+  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Hindi TA kit: side / main / fss / scene frames with Kite charts and props. Footage and screen beats stay storyboard-only.</p></div>`}
   if(isKitTheme(P.theme)){
     return `<div class="field-grid">${themeField}
   <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · purple (#5b55e6) search pills · blue table headers"></div></div>`}
@@ -698,6 +702,7 @@ const getLook=()=>{
   const sb=sbImportFromUi();
   if(isReelChannel())return {look_line,reel_theme:$('#editReelTheme')?.value||$('#lk_reel_theme')?.value||'',...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
   if(isZoProduct())return {...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
+  if(isHindiTheme())return {...sb};
   if(isKitTheme(P.theme))return {look_line:look_line||mainLine,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
   return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
@@ -1149,6 +1154,7 @@ function fmtProjectDateTime(ts){
 function themeLabel(theme){
   if(theme==='varsity-mf-graphics')return 'MF kit';
   if(theme==='varsity-english')return 'English';
+  if(theme==='varsity-hindi-graphics')return 'Hindi TA';
   if(theme==='zo-product-graphics')return 'Product IP';
   if(theme==='zero1-reel-graphics')return 'Reel';
   return theme||'—';

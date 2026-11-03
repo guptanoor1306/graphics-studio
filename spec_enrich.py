@@ -90,8 +90,10 @@ def _maybe_promote_long_list(f: dict) -> None:
             return
 
 
-def enrich_spec(spec: dict, storyboard: str = "") -> dict:
+def enrich_spec(spec: dict, storyboard: str = "", *, theme: str = "") -> dict:
     if not spec:
+        return spec
+    if theme == "varsity-hindi-graphics":
         return spec
     frames = spec.get("frames")
     if frames and isinstance(frames[0], dict) and frames[0].get("type") and "mode" not in frames[0]:

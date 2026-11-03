@@ -113,6 +113,10 @@ def is_zo_theme_name(theme: str) -> bool:
     return theme == "zo-product-graphics"
 
 
+def is_hindi_theme_name(theme: str) -> bool:
+    return theme == "varsity-hindi-graphics"
+
+
 MF_OVERLAY_TYPES = frozenset({"ribbon", "definition", "anchor"})
 
 
@@ -183,7 +187,7 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
     """Return frame JSON for preview/export. Enrich only at storyboard generation — not on render."""
     f = copy.deepcopy(frame)
     if enrich:
-        spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "")
+        spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "", theme=p.get("theme") or "")
     return f
 
 
@@ -342,10 +346,14 @@ async def make_storyboard(pid: int, req: Request):
             spec["look"].setdefault("plate", look["plate"])
         save(pid, who(req), "generated storyboard", script=script, look=look, storyboard=out["storyboard"], spec=spec)
         out["spec"] = spec
+    elif is_hindi_theme_name(p["theme"]):
+        spec = out.get("spec") or {}
+        save(pid, who(req), "generated storyboard", script=script, look=look, storyboard=out["storyboard"], spec=spec)
+        out["spec"] = spec
     else:
         merged = effective_look({**p, "look": look, "spec": out["spec"]})
         out["spec"]["look"] = merged
-        out["spec"] = spec_enrich.enrich_spec(out["spec"], out.get("storyboard") or "")
+        out["spec"] = spec_enrich.enrich_spec(out["spec"], out.get("storyboard") or "", theme=p["theme"])
         save(pid, who(req), "generated storyboard", script=script, look=merged, storyboard=out["storyboard"], spec=out["spec"])
     warn = claude_client.spec_quality_issues(out["spec"], out.get("storyboard") or "", theme=p["theme"])
     return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn}
@@ -389,9 +397,11 @@ def _finalize_spec_after_batch(spec: dict, storyboard: str, theme: str, look: di
         if isinstance(look, dict) and look.get("plate") and isinstance(spec.get("look"), dict):
             spec["look"].setdefault("plate", look["plate"])
         return spec
+    if is_hindi_theme_name(theme):
+        return spec
     merged = effective_look({**p, "look": look, "spec": spec})
     spec["look"] = merged
-    return spec_enrich.enrich_spec(spec, storyboard)
+    return spec_enrich.enrich_spec(spec, storyboard, theme=theme)
 
 
 @app.get("/api/projects/{pid}/storyboard-pdf")
@@ -776,7 +786,8 @@ async def check(pid: int):
                     except Exception:
                         pass
                 await pg.wait_for_timeout(200)
-                warns += [f"{f['id']}: {w}" for w in await pg.evaluate(m.CHECK_JS)]
+                check_js = getattr(m, "CHECK_JS", None) or getattr(m, "QA_JS", "() => []")
+                warns += [f"{f['id']}: {w}" for w in await pg.evaluate(check_js)]
             await b.close()
     except Exception as e:
         raise HTTPException(502, detail=f"Layout check failed: {e}") from e

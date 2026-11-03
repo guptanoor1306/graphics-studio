@@ -47,6 +47,10 @@ def is_zo_product_theme(theme_dir: pathlib.Path) -> bool:
     return theme_dir.name == "zo-product-graphics"
 
 
+def is_hindi_theme(theme_dir: pathlib.Path) -> bool:
+    return theme_dir.name == "varsity-hindi-graphics"
+
+
 def theme_rules(theme_dir: pathlib.Path) -> str:
     """Skill rules + asset index + style guide so specs use kit buildings, people, etc."""
     parts = []
@@ -81,6 +85,15 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
             "references/style_guide.md",
             "references/gift_city_breakdown.md",
             "scenes/gift_city_spec.json",
+            "assets/INDEX.md",
+        )
+    elif is_hindi_theme(theme_dir):
+        rels = (
+            "SKILL.md",
+            "references/spec_format.md",
+            "references/studio_brief.md",
+            "references/storyboard_rules.md",
+            "scenes/example_spec.json",
             "assets/INDEX.md",
         )
     else:
@@ -164,6 +177,33 @@ ZO_SB_TOOL = {
                                 "mode": {"type": "string", "enum": ["fss", "osa", "ost", "tos"]},
                                 "items": {"type": "array", "minItems": 1},
                             },
+                            "additionalProperties": True,
+                        },
+                    },
+                },
+                "required": ["frames"],
+            },
+        },
+        "required": ["storyboard", "spec"],
+    },
+}
+HI_SB_TOOL = {
+    "name": "submit_storyboard",
+    "description": "Return Varsity Hindi TA storyboard and spec.json (frames with mode side|main|fss|blur|scene|takeaways).",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "storyboard": {"type": "string"},
+            "spec": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "frames": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "mode"],
                             "additionalProperties": True,
                         },
                     },
@@ -339,6 +379,15 @@ _REEL_ROLE = (
     "Every FSS/OST/anchor beat needs a renderable frame (type fss, html, ost, or anchor) with complete html."
 )
 
+_HI_ROLE = (
+    "You are the Varsity Hindi Technical Analysis graphics designer in the skill below. You run inside Graphics Studio (web app), not a chat: "
+    "ignore local CLI build, zip delivery, and contact-sheet steps — only return storyboard + spec via submit_storyboard. "
+    "Follow SKILL.md, references/spec_format.md, references/storyboard_rules.md, and scenes/example_spec.json patterns. "
+    "Canvas 1920×1080. Frame modes: side, main, fss, blur, scene, takeaways — NOT English anchor/FSS. "
+    "Footage, screen, and repeat beats are storyboard-only; every graphic beat needs a renderable frame with kit items (kite, diagram, roto, table, …). "
+    "Use props/ and plates/ paths from assets/INDEX.md. Green/red only on candle and bar bodies."
+)
+
 _ZO_ROLE = (
     "You are the Zerodha Online Product IP graphics designer in the skill below. You run inside Graphics Studio (web app), not a chat: "
     "ignore local zip delivery and CLI build steps — only return storyboard + spec via submit_storyboard. "
@@ -356,6 +405,8 @@ def _system(theme_dir):
         role = _REEL_ROLE
     elif is_zo_product_theme(theme_dir):
         role = _ZO_ROLE
+    elif is_hindi_theme(theme_dir):
+        role = _HI_ROLE
     elif is_mf_theme(theme_dir):
         role = _MF_ROLE
     else:
@@ -414,6 +465,21 @@ _ZO_ANCHOR_MODES = frozenset({"osa", "ost", "tos"})
 
 
 def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") -> list[str]:
+    if theme == "varsity-hindi-graphics":
+        issues: list[str] = []
+        for f in (spec or {}).get("frames") or []:
+            if not isinstance(f, dict):
+                continue
+            fid = f.get("id") or "?"
+            mode = f.get("mode")
+            if mode not in {"side", "main", "fss", "blur", "scene", "takeaways"}:
+                issues.append(f'Frame "{fid}": mode must be side|main|fss|blur|scene|takeaways.')
+            if mode == "takeaways":
+                if not f.get("items"):
+                    issues.append(f'Frame "{fid}": takeaways mode needs items[] strings.')
+            elif not (f.get("items") or f.get("extras")):
+                issues.append(f'Frame "{fid}": add items[] (or extras[] for takeaways).')
+        return issues
     if theme == "zo-product-graphics":
         issues: list[str] = []
         frames = (spec or {}).get("frames") or []
@@ -629,6 +695,14 @@ def _call_with_pdf(
 
 
 def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
+    if is_hindi_theme(theme_dir):
+        return (
+            "GRAPHICS STUDIO RULES (Varsity Hindi TA):\n"
+            "- spec.frames: modes side | main | fss | blur | scene | takeaways per spec_format.md.\n"
+            "- Footage/screen/repeat → storyboard only.\n"
+            "- Kite/diagram frames need valid gen/candles data; copy script numbers exactly.\n"
+            "Follow SKILL.md + spec_format.md + studio_brief.md + storyboard_rules.md.\n"
+        )
     if is_zo_product_theme(theme_dir):
         plate_hint = ""
         if isinstance(look, dict) and look.get("plate") and look.get("plate") not in ("default", ""):
@@ -810,6 +884,30 @@ def storyboard_pdf_batch(
 
 
 def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:
+    if is_hindi_theme(theme_dir):
+        msg = (
+            f"Notes: {notes or 'none'}\n\n"
+            "GRAPHICS STUDIO RULES (Varsity Hindi Technical Analysis):\n"
+            "- spec.frames[]: each graphic beat with id (timestamp like 2.49), mode, and items from spec_format.md.\n"
+            "- Modes: side (presenter left), main (centre cam), fss (charts), blur (tables), scene (plates/scene_*), takeaways.\n"
+            "- Footage, screen, repeat → storyboard string only — NOT in spec.frames.\n"
+            "- Use kite/diagram/mini for charts; roto/title/bullets for teaching beats; assets from props/ and plates/.\n"
+            "- Match examples/example_spec.json density; green/red only on candle/bar bodies.\n\n"
+            "Follow SKILL.md + references/spec_format.md + references/storyboard_rules.md + studio_brief.md.\n\n"
+            f"SCRIPT:\n{script}"
+        )
+        out = _call_storyboard(theme_dir, msg, sb_tool=HI_SB_TOOL)
+        for _ in range(2):
+            issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="varsity-hindi-graphics")
+            if not issues:
+                break
+            retry = (
+                "Your previous Varsity Hindi spec was rejected. Fix ALL issues; return storyboard + spec only:\n"
+                + "\n".join(f"- {x}" for x in issues)
+                + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
+            )
+            out = _call_storyboard(theme_dir, retry, sb_tool=HI_SB_TOOL)
+        return out
     if is_zo_product_theme(theme_dir):
         plate_hint = ""
         if isinstance(look, dict) and look.get("plate") and look.get("plate") not in ("default", ""):
