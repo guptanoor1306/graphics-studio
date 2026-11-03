@@ -183,11 +183,52 @@ def builder(theme):
         spec.loader.exec_module(m); _mods[theme] = m
     return _mods[theme]
 
+def _coerce_studio_item(it: dict, theme: str) -> dict:
+    """Map stray kit item types (e.g. Zo heading) so preview does not KeyError."""
+    if not isinstance(it, dict):
+        return it
+    out = dict(it)
+    t = out.get("t")
+    if theme in ("varsity-english", "varsity-hindi-graphics"):
+        if t == "heading":
+            out["t"] = "htab"
+            out["text"] = out.get("text") or out.get("heading") or ""
+            out.pop("heading", None)
+        elif theme == "varsity-english" and t == "table":
+            out["t"] = "glass_table"
+        elif theme == "varsity-hindi-graphics" and t in ("glass_table", "calc_table", "points", "person"):
+            if t == "points":
+                out["t"] = "bullets"
+                out["items"] = out.get("items") or []
+            elif t == "person":
+                out["t"] = "asset"
+                out["src"] = out.get("src") or "props/character_pointing.png"
+            else:
+                out["t"] = "table"
+                out.setdefault("head", out.pop("head", None) or ["", ""])
+                out.setdefault("rows", out.get("rows") or [])
+    for key in ("items", "extras"):
+        if isinstance(out.get(key), list):
+            out[key] = [_coerce_studio_item(x, theme) if isinstance(x, dict) else x for x in out[key]]
+    return out
+
+
+def _coerce_frame_for_studio(frame: dict, theme: str) -> dict:
+    f = copy.deepcopy(frame)
+    if theme in ("varsity-english", "varsity-hindi-graphics"):
+        if isinstance(f.get("items"), list):
+            f["items"] = [_coerce_studio_item(x, theme) for x in f["items"]]
+        if isinstance(f.get("extras"), list):
+            f["extras"] = [_coerce_studio_item(x, theme) for x in f["extras"]]
+    return f
+
+
 def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
     """Return frame JSON for preview/export. Enrich only at storyboard generation — not on render."""
-    f = copy.deepcopy(frame)
+    theme = p.get("theme") or ""
+    f = _coerce_frame_for_studio(frame, theme)
     if enrich:
-        spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "", theme=p.get("theme") or "")
+        spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "", theme=theme)
     return f
 
 

@@ -288,7 +288,15 @@ def frame_html(f, look, edit=False, all_frames=None):
         'result_pill': 'font', 'htab': 'font', 'title': 'font',
     }
     for idx, it in enumerate(f['items']):
+        if it.get('t') == 'heading':
+            it = {**it, 't': 'htab', 'text': it.get('text') or it.get('heading', '')}
         t = it['t']
+        if t not in R:
+            if t == 'html' or it.get('html'):
+                t = 'html'
+            else:
+                it = {'t': 'html', 'html': f'<p style="font-size:22px;color:#666">Unsupported item “{E(t)}” for English kit.</p>'}
+                t = 'html'
         lt, ll = _layer_label(it)
         data_attrs = (
             f' data-spec-idx="{idx}" data-layer-type="{E(lt)}" data-layer-label="{E(ll)}"'

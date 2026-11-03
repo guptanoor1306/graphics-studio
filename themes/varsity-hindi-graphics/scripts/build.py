@@ -142,7 +142,8 @@ def kite(i, fid, frame):
                 bg = 'background:#F7C430;' if it == sel else ''
                 body += f'<div style="padding:2px 18px;font-size:16px;color:#333;{bg}">{it}</div>'
             body += '<div style="border-bottom:1px solid #ddd;margin:6px 0"></div>'
-        out += f'<div class="abs" style="left:{x-d.get('overhang',150)}px;top:{y+150}px;width:300px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:8;color:#111;padding-bottom:10px">{body}</div>'
+        oh = d.get("overhang", 150)
+        out += f'<div class="abs" style="left:{x - oh}px;top:{y + 150}px;width:300px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:8;color:#111;padding-bottom:10px">{body}</div>'
     return out, True
 
 def table_win(i, fid, frame):
@@ -275,9 +276,39 @@ R = dict(kite=kite, table=table_win, htab=htab, title=title_stack, questions=que
          bullets=bullets, callout=callout, panel=panel, diagram=diagram, mini=mini, cards=cards, typo_card=typo_card,
          sentiment=sentiment, roto=roto, label=label, text=label, asset=asset, bubble=bubble, row=row, html=raw)
 
+def _coerce_item(i):
+    if not isinstance(i, dict):
+        return i
+    it = dict(i)
+    t = it.get('t')
+    if t == 'heading':
+        it['t'] = 'htab'
+        it['text'] = it.get('text') or it.get('heading') or ''
+    elif t not in R and t != 'html':
+        if t in ('points',):
+            it['t'] = 'bullets'
+            it.setdefault('items', [])
+        elif t == 'person':
+            it['t'] = 'asset'
+            it.setdefault('src', 'props/character_pointing.png')
+        elif t == 'glass_table':
+            it['t'] = 'table'
+            it.setdefault('head', ['', ''])
+            it.setdefault('rows', [])
+        else:
+            it['t'] = 'html'
+            it['html'] = f'<p style="font-size:22px;color:#666">Unsupported item “{html.escape(str(t))}” for Hindi kit.</p>'
+    for key in ('items',):
+        if isinstance(it.get(key), list):
+            it[key] = [_coerce_item(x) for x in it[key]]
+    return it
+
+
 def render_item(i, fid, frame):
+    i = _coerce_item(i)
     t = i.get('t')
-    if t not in R: raise SystemExit(f'{fid}: unknown item type {t!r}. Types: {", ".join(R)}')
+    if t not in R:
+        raise SystemExit(f'{fid}: unknown item type {t!r}. Types: {", ".join(R)}')
     return R[t](i, fid, frame)
 
 # ============================================================== frames
