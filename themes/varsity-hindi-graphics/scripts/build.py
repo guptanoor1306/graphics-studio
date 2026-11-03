@@ -316,6 +316,25 @@ def render_item(i, fid, frame):
         raise SystemExit(f'{fid}: unknown item type {t!r}. Types: {", ".join(R)}')
     return R[t](i, fid, frame)
 
+
+def _layer_label(it):
+    t = it.get('t') or '?'
+    for k in ('tab', 'text', 'title', 'key', 'ticker', 'caption', 'claim'):
+        if it.get(k):
+            return t, str(it[k])[:32]
+    if it.get('lines') and isinstance(it['lines'], list) and it['lines']:
+        ln = it['lines'][0]
+        if isinstance(ln, dict) and ln.get('text'):
+            return t, str(ln['text'])[:32]
+    return t, ''
+
+
+def _edit_tag(idx, it, edit):
+    if not edit or not isinstance(it, dict):
+        return ''
+    lt, ll = _layer_label(it)
+    return f' class="studio-editable" data-spec-idx="{idx}" data-layer-type="{E(lt)}" data-layer-label="{E(ll)}"'
+
 # ============================================================== frames
 PLATES = {'fss': 'fss_sky.jpg', 'side': 'sidecam.jpg', 'main': 'maincam.jpg', 'blur': 'maincam.jpg', 'takeaways': 'fss_sky.jpg'}
 SWOOSH = ('<svg class="abs" style="left:0;top:0;z-index:1" width="1920" height="1080"><path d="M520 1080 C 560 760 320 520 640 300 C 820 170 980 60 1060 0 L1920 0 L1920 1080 Z" fill="#fff" opacity=".55"/>'
@@ -340,11 +359,20 @@ def frame_html(f, look=None, edit=False, all_frames=None, **_kwargs):
         body.append(f'<img class="abs" src="{A("props/megaphone.png")}" style="left:20px;top:716px;width:360px;z-index:3">')
         if len(f['items']) > 6: WARN.append(f'{fid}: {len(f["items"])} takeaways; the template fits 6')
     flow = []
-    for it in (f.get('extras', []) if mode == 'takeaways' else f.get('items', [])):
+    item_list = f.get('extras', []) if mode == 'takeaways' else f.get('items', [])
+    for idx, it in enumerate(item_list):
+        if not isinstance(it, dict):
+            continue
         h, own = render_item(it, fid, f)
-        if own: body.append(h)
-        elif 'x' in it and 'y' in it: body.append(f'<div class="abs" style="left:{it["x"]}px;top:{it["y"]}px;z-index:{it.get("z",6)}">{h}</div>')
-        else: flow.append(h)
+        tag = _edit_tag(idx, it, edit)
+        if own:
+            body.append(f'<div{tag}>{h}</div>' if tag else h)
+        elif 'x' in it and 'y' in it:
+            body.append(f'<div class="abs"{tag} style="left:{it["x"]}px;top:{it["y"]}px;z-index:{it.get("z",6)}">{h}</div>')
+        elif tag:
+            flow.append(f'<div{tag}>{h}</div>')
+        else:
+            flow.append(h)
     if flow:
         z = f.get('zone') or {'side': [940, 40, 900, 1000], 'main': [120, 120, 1680, 900], 'fss': [160, 60, 1600, 960],
                               'blur': [160, 60, 1600, 960], 'scene': [160, 60, 1600, 960]}.get(mode, [160, 60, 1600, 960])
@@ -355,8 +383,11 @@ def frame_html(f, look=None, edit=False, all_frames=None, **_kwargs):
     if f.get('sparkle', True):
         body.append(f'<img class="chrome" src="{A("props/sparkle.png")}" style="left:1801px;top:{f.get("sparkle_y", 180 if mode=="side" else 398)}px;width:58px;{"filter:invert(1)" if not light else ""}">')
     css = "../templates/vh.css"
+    body_cls = 'studio-edit-mode' if edit else ''
+    if light:
+        body_cls = (body_cls + ' light').strip()
     return (f'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="{css}"></head>'
-            f'<body class="{"light" if light else ""}" data-mode="{mode}">{"".join(body)}</body></html>')
+            f'<body class="{body_cls}" data-mode="{mode}">{"".join(body)}</body></html>')
 
 QA_JS = r"""(mode)=>{const w=[];
  const mag=document.querySelector('img[id^=mag-]');
