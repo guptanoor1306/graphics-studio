@@ -259,11 +259,26 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
     return f
 
 
-def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = False, all_frames=None):
-    render = builder(theme).frame_html
+def frame_page(
+    theme,
+    frame,
+    look,
+    base_href: str | None = None,
+    edit: bool = False,
+    all_frames=None,
+    spec: dict | None = None,
+):
+    mod = builder(theme)
+    render = mod.frame_html
     prev_studio_web = os.environ.get("STUDIO_WEB")
     if is_hindi_theme_name(theme):
         os.environ["STUDIO_WEB"] = "1"
+        cast = (spec or {}).get("cast") if isinstance(spec, dict) else None
+        cattr = getattr(mod, "CAST", None)
+        if isinstance(cattr, dict):
+            cattr.clear()
+            if isinstance(cast, dict):
+                cattr.update(cast)
     try:
         if "all_frames" in inspect.signature(render).parameters:
             html = render(frame, look, edit=edit, all_frames=all_frames)
@@ -848,8 +863,13 @@ def preview(pid: int, fid: str, edit: int = 0):
             effective_look(p),
             edit=bool(edit),
             all_frames=frames,
+            spec=p.get("spec") if isinstance(p.get("spec"), dict) else None,
         )
-    except Exception as e:
+    except (KeyboardInterrupt, SystemError):
+        raise
+    except BaseException as e:
+        # Hindi kit build.py uses raise SystemExit(...) for spec errors; that does not subclass Exception
+        # and would otherwise bypass this handler and kill the worker (Railway 502 on /preview).
         raise HTTPException(502, detail=f"Preview render failed: {e}") from e
 
 
@@ -944,9 +964,17 @@ def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, 
             continue
         if is_zo_theme_name(p["theme"]) and not mf_studio.is_zo_renderable(f):
             continue
-        html = frame_page(
-            p["theme"], frame_for_render(p, f), look, base_href=base, all_frames=all_frames
-        )
+        try:
+            html = frame_page(
+                p["theme"],
+                frame_for_render(p, f),
+                look,
+                base_href=base,
+                all_frames=all_frames,
+                spec=p.get("spec") if isinstance(p.get("spec"), dict) else None,
+            )
+        except BaseException as e:
+            raise HTTPException(502, detail=f"Export HTML failed for frame {fid}: {e}") from e
         pages.append((fid, html, frame_wants_overlay(p["theme"], f)))
     if only_ids is not None and not pages:
         raise HTTPException(404, "Frame not found or not exportable")
