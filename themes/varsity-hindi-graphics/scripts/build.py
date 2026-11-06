@@ -299,6 +299,19 @@ def _place(i, frame, w, h, inner, cls, grounded=True):
 CHAR_PNG = {n: f'chars/Character_{n}.png' for n in range(1, 7)}
 
 
+def _cast_lookup(who: str) -> dict:
+    """Cast keys are usually lower_snake; Claude sometimes varies case — match case-insensitively."""
+    if not isinstance(who, str) or not who.strip():
+        return {}
+    if who in CAST:
+        return dict(CAST[who])
+    low = who.lower()
+    for k, v in CAST.items():
+        if isinstance(k, str) and k.lower() == low and isinstance(v, dict):
+            return dict(v)
+    return {}
+
+
 def _png_pixel_size(path: str) -> tuple[int, int] | None:
     """Width/height from PNG IHDR (stdlib only — avoids PIL import failures in slim runtimes)."""
     try:
@@ -317,9 +330,13 @@ def _png_pixel_size(path: str) -> tuple[int, int] | None:
 def character(i, fid, frame):
     """One of the team's six Varsity characters (assets/chars/Character_1..6.png), used EXACTLY as drawn.
     Only position (x), height (h) and left/right mirroring (facing) may change: never hair, colour, face or pose."""
-    who = i.get('who'); look = dict(CAST.get(who, {})) if who else {}
-    if who and who not in CAST: WARN.append(f'{fid}: character "{who}" is not in the spec cast')
+    who = i.get('who')
+    look = _cast_lookup(who) if who else {}
+    if who and not look:
+        WARN.append(f'{fid}: character "{who}" is not in the spec cast')
     n = i.get('char') or look.get('char')
+    if isinstance(n, str) and n.isdigit():
+        n = int(n)
     png = look.get('png') or (CHAR_PNG.get(int(n)) if n else None)
     if not png:
         raise SystemExit(f'{fid}: character needs "char": 1-6 (in the cast or on the item). Only the team characters may be used')

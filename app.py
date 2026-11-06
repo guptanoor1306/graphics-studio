@@ -259,6 +259,44 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
     return f
 
 
+def _hindi_merged_cast(spec: dict | None, frame: dict | None) -> dict:
+    """Merge spec.cast with inline hints on character items (who + char) when top-level cast is missing or keys mismatch."""
+    out: dict = {}
+    if isinstance(spec, dict):
+        sc = spec.get("cast")
+        if isinstance(sc, dict):
+            out.update(sc)
+
+    def _has_who_key(w: str) -> bool:
+        wl = w.lower()
+        return any(isinstance(k, str) and k.lower() == wl for k in out)
+
+    if isinstance(frame, dict):
+        for it in frame.get("items") or []:
+            if not isinstance(it, dict) or it.get("t") != "character":
+                continue
+            who = it.get("who")
+            if not isinstance(who, str) or not who.strip():
+                continue
+            if _has_who_key(who):
+                continue
+            ch = it.get("char")
+            if ch is None:
+                continue
+            try:
+                ch_n = int(ch)
+            except (TypeError, ValueError):
+                continue
+            if ch_n < 1 or ch_n > 6:
+                continue
+            nm = it.get("name")
+            ent: dict = {"char": ch_n}
+            if isinstance(nm, str) and nm.strip():
+                ent["name"] = nm.strip()
+            out[who.strip()] = ent
+    return out
+
+
 def frame_page(
     theme,
     frame,
@@ -273,12 +311,11 @@ def frame_page(
     prev_studio_web = os.environ.get("STUDIO_WEB")
     if is_hindi_theme_name(theme):
         os.environ["STUDIO_WEB"] = "1"
-        cast = (spec or {}).get("cast") if isinstance(spec, dict) else None
         cattr = getattr(mod, "CAST", None)
         if isinstance(cattr, dict):
             cattr.clear()
-            if isinstance(cast, dict):
-                cattr.update(cast)
+            merged = _hindi_merged_cast(spec if isinstance(spec, dict) else None, frame)
+            cattr.update(merged)
     try:
         if "all_frames" in inspect.signature(render).parameters:
             html = render(frame, look, edit=edit, all_frames=all_frames)
