@@ -143,7 +143,8 @@ def kite(i, fid, frame):
                 bg = 'background:#F7C430;' if it == sel else ''
                 body += f'<div style="padding:2px 18px;font-size:16px;color:#333;{bg}">{it}</div>'
             body += '<div style="border-bottom:1px solid #ddd;margin:6px 0"></div>'
-        out += f'<div class="abs" style="left:{x-d.get('overhang',150)}px;top:{y+150}px;width:300px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:8;color:#111;padding-bottom:10px">{body}</div>'
+        overhang = d.get("overhang", 150)
+        out += f'<div class="abs" style="left:{x-overhang}px;top:{y+150}px;width:300px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:8;color:#111;padding-bottom:10px">{body}</div>'
     return out, True
 
 def table_win(i, fid, frame):
