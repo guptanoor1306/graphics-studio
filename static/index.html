@@ -63,9 +63,35 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-top:16px}
 .script-pdf-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:22px;align-items:start}
 @media (max-width:960px){.script-pdf-row{grid-template-columns:1fr}}
+.setup-panel{margin:0 0 20px;border:0}
+.setup-panel>summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin:28px 0 14px;padding:10px 4px 10px 0;border-bottom:1px solid var(--line);user-select:none}
+.setup-panel>summary::-webkit-details-marker{display:none}
+.setup-panel>summary::before{content:'';display:inline-block;width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:6px solid var(--mute);transform:rotate(90deg);transition:transform .15s ease;margin-right:2px}
+.setup-panel:not([open])>summary::before{transform:rotate(0deg)}
+.setup-panel-hint{font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--mute);flex:1;min-width:120px;text-align:right}
+.setup-panel-body{margin-top:0}
+.setup-workspace{display:flex;flex-direction:column;gap:0}
+.setup-main-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,320px);gap:20px;align-items:start;margin-top:16px}
+@media (max-width:900px){.setup-main-grid{grid-template-columns:1fr}}
+.setup-script-col .field{margin:0}
+.setup-side-col{display:flex;flex-direction:column;gap:14px}
+.audio-card{border:1px dashed var(--line-strong);border-radius:var(--radius-sm);padding:16px 16px 14px;background:linear-gradient(180deg,#faf8f5 0%,#fff 100%)}
+.audio-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.audio-card-icon{width:36px;height:36px;border-radius:10px;background:var(--acc-soft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.audio-card-title{font-size:14px;font-weight:600;margin:0;line-height:1.3}
+.audio-card-sub{font-size:12px;color:var(--mute);margin:4px 0 0;line-height:1.45}
+.audio-card-actions{display:flex;flex-direction:column;gap:10px}
+.audio-card-actions input[type=file]{font-size:13px;padding:8px 10px}
+.audio-card-status{font-size:12px;line-height:1.4;min-height:1.2em}
+.setup-more{margin-top:12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#faf8f5;padding:0;overflow:hidden}
+.setup-more>summary{font-size:13px;color:var(--mute);padding:10px 14px;cursor:pointer;list-style:none}
+.setup-more>summary::-webkit-details-marker{display:none}
+.setup-more .field{padding:0 14px 14px;margin:0}
 .pdf-panel-title{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);margin:0 0 14px}
+.pdf-panel-compact .pdf-human-top{margin-top:0}
+.pdf-panel-compact .pdf-file-field{min-width:0;flex:1 1 180px}
 .pdf-save-busy{opacity:.65;pointer-events:none}
-.sb-source-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.sb-source-bar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin:0;padding:0 0 4px;border:0}
 .sb-segment{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;background:#fff}
 .sb-seg{border:0;border-radius:0;padding:9px 18px;background:transparent;cursor:pointer;font-size:13px;color:var(--mute)}
 .sb-seg.on{background:var(--acc-soft);color:var(--ink);font-weight:600}
@@ -125,6 +151,13 @@ body.in-project .nav-toggle{display:block}
 .frames-studio .eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
 .frames-studio h2.studio-title{margin:6px 0 0;font-size:22px;font-weight:600;color:var(--ink)}
 .studio-split{display:grid;grid-template-columns:minmax(240px,1fr) minmax(320px,1.15fr);gap:22px;align-items:start}
+.studio-split-centered{grid-template-columns:1fr;max-width:920px;margin:0 auto}
+.studio-split-centered .thumb{max-width:100%}
+.transcript-line,.storyboard-line{padding:6px 8px 6px 10px;margin:2px 0;border-radius:4px;border-left:3px solid transparent;font-size:13px;line-height:1.5;color:var(--ink)}
+.transcript-line .ts,.storyboard-line .ts{font-family:var(--mono);font-size:11px;color:var(--mute);margin-right:8px;white-space:nowrap}
+.transcript-line.hl-beat,.storyboard-line.hl-beat{background:var(--beat-green-bg);border-left-color:var(--beat-green);cursor:pointer}
+.transcript-line.hl-beat.on,.storyboard-line.hl-beat.on{background:#dceee2;box-shadow:inset 0 0 0 1px rgba(45,122,82,.35)}
+.left-panel-empty{font-size:13px;color:var(--mute);padding:16px;line-height:1.5}
 .panel-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);margin-bottom:8px}
 .studio-hint{font-size:13px;color:var(--mute);margin:0 0 12px;line-height:1.5}
 .full-script{border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;max-height:min(640px,65vh);overflow:auto;background:#fff;font-size:14px;line-height:1.65}
@@ -394,7 +427,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   </div>
 </form></dialog>
 <script>
-let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null;
+let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null,episodeTranscript=null;
 let navChannel=null,allProjects=[],channelListSearch='';
 const CHANNELS=[
  {id:'varsity',label:'Varsity',desc:'MF, English, and Hindi TA kits — anchor, side-cam, and chart frames.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics'],accent:'#5b55e6'},
@@ -633,6 +666,100 @@ function fullScriptHtml(script,assign){
     return `<div class="script-line${hl}${on}" data-line="${i}"${click}>${tag}${line?esc(line):'&nbsp;'}</div>`;
   }).join('');
 }
+function formatTsSec(sec){
+  if(sec==null||Number.isNaN(sec))return '';
+  const s=Math.max(0,Math.floor(sec));
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+function scriptHasContent(script){
+  return scriptLines(script||'').some(l=>l.trim().length>0);
+}
+function storyboardLineFrameId(line){
+  const m=String(line||'').match(/(?:→|->)\s*([^\s·]+)/);
+  return m?m[1].trim():'';
+}
+function frameIdForTime(t,frames,storyboard){
+  if(t==null)return null;
+  let best=null,bestD=1e9;
+  for(const fr of frames||[]){
+    const ft=frameTimestampSec(fr.id,storyboard);
+    if(ft==null)continue;
+    const d=Math.abs(ft-t);
+    if(d<bestD){bestD=d;best=fr.id}
+  }
+  return bestD<=45?best:null;
+}
+function frameIdForSegment(seg,frames,storyboard){
+  const mid=(Number(seg.start)+Number(seg.end||seg.start))/2;
+  return frameIdForTime(mid,frames,storyboard);
+}
+function leftPanelKind(script){
+  if(scriptHasContent(script))return 'script';
+  if(P?.has_episode_transcript&&episodeTranscript?.segments?.length)return 'transcript';
+  if((P?.storyboard||'').trim())return 'storyboard';
+  return 'none';
+}
+function fullTranscriptHtml(segments){
+  const frames=studioFrames();
+  return segments.map((seg,i)=>{
+    const fid=frameIdForSegment(seg,frames,P.storyboard);
+    const hl=fid?' hl-beat':'';
+    const on=fid&&fid===selectedFrameId?' on':'';
+    const click=fid?` onclick="selectFrame('${esc(fid)}')"`:('');
+    const ts=`${formatTsSec(seg.start)}`;
+    const txt=(seg.text||'').trim()||'…';
+    return `<div class="transcript-line${hl}${on}" data-seg="${i}"${click}><span class="ts">${ts}</span>${esc(txt)}</div>`;
+  }).join('');
+}
+function fullStoryboardBeatsHtml(storyboard){
+  const frames=studioFrames();
+  const lines=(storyboard||'').split('\n').map(l=>l.trim()).filter(l=>l&&!/^(SB\s|Look:|Totals:|#)/i.test(l));
+  return lines.map((line,i)=>{
+    let fid=storyboardLineFrameId(line);
+    if(!fid){const t=parseTimeFromSb(line);fid=frameIdForTime(t,frames,P.storyboard)}
+    const hl=fid?' hl-beat':'';
+    const on=fid&&fid===selectedFrameId?' on':'';
+    const click=fid?` onclick="selectFrame('${esc(fid)}')"`:('');
+    return `<div class="storyboard-line${hl}${on}" data-sb="${i}"${click}>${esc(line)}</div>`;
+  }).join('')||'<p class="left-panel-empty">No storyboard lines yet.</p>';
+}
+function leftPanelHtml(script,assign,kind){
+  if(kind==='script')return fullScriptHtml(script,assign);
+  if(kind==='transcript'){
+    if(!episodeTranscript?.segments?.length)return '<p class="left-panel-empty">Loading transcript…</p>';
+    return fullTranscriptHtml(episodeTranscript.segments);
+  }
+  if(kind==='storyboard')return fullStoryboardBeatsHtml(P.storyboard);
+  return '';
+}
+function leftPanelLabel(kind){
+  if(kind==='script')return 'Voiceover script';
+  if(kind==='transcript')return 'VO transcript (Whisper)';
+  if(kind==='storyboard')return 'Storyboard beats';
+  return '';
+}
+function refreshLeftPanel(){
+  if(!P?.spec)return;
+  const script=getScriptValue();
+  const kind=leftPanelKind(script);
+  const split=$('.studio-split');
+  if(split){
+    split.classList.toggle('studio-split-centered',kind==='none');
+    const wrap=$('#studioLeftCol');
+    if(wrap)wrap.hidden=kind==='none';
+  }
+  const el=$('#fullScript');if(!el)return;
+  if(kind==='script')scriptAssign=assignScriptRanges(script,studioFrames(),P.storyboard);
+  el.innerHTML=leftPanelHtml(script,scriptAssign,kind);
+  const lab=$('#leftPanelLabel');if(lab)lab.textContent=leftPanelLabel(kind);
+}
+async function hydrateEpisodeTranscript(){
+  if(!P?.has_episode_transcript||episodeTranscript?.segments)return;
+  try{
+    episodeTranscript=await api(`/api/projects/${P.id}/episode-transcript`);
+    if(!scriptHasContent(getScriptValue()))refreshLeftPanel();
+  }catch(_){}
+}
 function frameLabel(fid){const i=studioFrames().findIndex(f=>f.id===fid);return 'G'+String(Math.max(i,0)+1).padStart(2,'0')}
 function isReelChannel(t){return (t||(P&&P.theme))==='zero1-reel-graphics'}
 function reelThemePresetFromLine(line){
@@ -709,13 +836,42 @@ const getLook=()=>{
 };
 function sbSourceBarHtml(){
   const m=sbMode();
+  const hint=m==='pdf'
+    ? 'Upload a team PDF, then generate frames in batches.'
+    : 'Paste script, optionally add episode audio for timing, then generate.';
   return `<div class="sb-source-bar">
-   <span class="field-label" style="margin:0">Storyboard</span>
-   <div class="sb-segment" role="tablist">
+   <div class="sb-segment" role="tablist" aria-label="Storyboard source">
     <button type="button" class="sb-seg ${m==='script'?'on':''}" data-sb-mode="script">From script</button>
     <button type="button" class="sb-seg ${m==='pdf'?'on':''}" data-sb-mode="pdf">Human PDF</button>
    </div>
+   <p class="sb-mode-hint">${hint}</p>
   </div>`;
+}
+function lookSummaryLine(l){
+  l=normLook(l||{});
+  if(isReelChannel())return (l.look_line||l.reel_theme||'Reel look').slice(0,80)||'Reel theme';
+  if(isZoProduct())return 'Product IP · anchor plates';
+  if(isHindiTheme())return 'Varsity Hindi TA';
+  if(isKitTheme(P?.theme))return (l.look_line||'Kit look').slice(0,80);
+  const props=(l.props||[]).slice(0,2).join(', ');
+  return `${l.anchor||'right'} anchor · ${l.fss||'blue'} FSS${props?` · ${props}`:''}`;
+}
+function setupPanelOpen(key,defaultOpen){
+  if(!P?.id)return defaultOpen;
+  const v=localStorage.getItem(`gs_panel_${P.id}_${key}`);
+  if(v==='1')return true;
+  if(v==='0')return false;
+  return defaultOpen;
+}
+function bindSetupPanels(){
+  document.querySelectorAll('details.setup-panel[data-panel-key]').forEach(el=>{
+    if(el.dataset.bound)return;
+    el.dataset.bound='1';
+    el.addEventListener('toggle',()=>{
+      if(!P?.id)return;
+      localStorage.setItem(`gs_panel_${P.id}_${el.dataset.panelKey}`,el.open?'1':'0');
+    });
+  });
 }
 async function persistSbMode(mode){
   P.look=P.look||{};
@@ -755,45 +911,125 @@ function parseApiErrorText(m){
     return typeof d==='string'?d:JSON.stringify(d);
   }catch(_){return typeof m==='string'?m:String(m)}
 }
-function humanPdfPanelInner({title=true}={}){
+function humanPdfPanelInner({compact=false}={}){
   const n=studioFrames().length;
   const first=n===0;
   const showAll=n>=5;
-  const notesField=P?.spec?`<div class="field" style="margin-top:14px"><label>Notes</label><input id="notes" value="${esc(getNotesValue())}"></div>`:'';
   const saved=P?.has_storyboard_pdf?'Saved':'';
-  return `${title?'<p class="pdf-panel-title">Human storyboard</p>':''}
-  <div class="pdf-human-top" id="pdfHumanTop">
-   <div class="field pdf-file-field"><label>PDF</label><input type="file" id="sbPdfFile" accept="application/pdf,.pdf"></div>
-   <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">Save</button>
-   <span id="pdfSbStatus" class="pdf-saved-tag" ${saved?'':'hidden'}>${saved}</span>
-  </div>
-  ${notesField}
-  <div class="pdf-human-actions" id="pdfHumanActions">
+  const genBtns=`<div class="pdf-human-actions" id="pdfHumanActions">
    ${first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">First 5</button>`:''}
    ${!first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">Next 5</button>`:''}
    ${showAll?`<button type="button" class="btn-neutral" onclick="genPdfBatch(event,{finishAll:true})">All remaining</button>`:''}
   </div>`;
+  if(compact&&!first){
+    return `<div class="pdf-panel-compact pdf-human-panel">${genBtns}</div>`;
+  }
+  return `<div class="pdf-panel-compact pdf-human-panel">
+  <div class="pdf-human-top" id="pdfHumanTop">
+   <div class="field pdf-file-field"><label>PDF file</label><input type="file" id="sbPdfFile" accept="application/pdf,.pdf"></div>
+   <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">Save PDF</button>
+   <span id="pdfSbStatus" class="pdf-saved-tag" ${saved?'':'hidden'}>${saved}</span>
+  </div>
+  ${genBtns}</div>`;
 }
 function humanPdfSectionHtml(){
-  return `<h2 class="section">Human storyboard</h2><div class="card pdf-human-panel">${humanPdfPanelInner({title:false})}</div>`;
+  const open=setupPanelOpen('pdf',!P?.spec||studioFrames().length===0);
+  const hint=P?.has_storyboard_pdf?`${studioFrames().length} frame(s) from PDF`:'No PDF saved';
+  return `<details class="setup-panel" data-panel-key="pdf" ${open?'open':''}>
+   <summary><span>Human storyboard PDF</span><span class="setup-panel-hint">${esc(hint)}</span></summary>
+   <div class="setup-panel-body card pdf-human-panel">${humanPdfPanelInner({compact:!!P?.spec&&studioFrames().length>0})}</div>
+  </details>`;
 }
-function scriptBlockHtml(){
+function episodeAudioStatusHtml(){
+  if(!P)return '';
+  if(P.has_episode_transcript){
+    const n=P.episode_transcript_segments||'';
+    const name=P.episode_audio_name?` · ${esc(P.episode_audio_name)}`:'';
+    return `<span class="pdf-saved-tag">Transcript ready${n?` (${n} segments)`:''}${name}</span>`;
+  }
+  if(P.has_episode_audio)return `<span class="muted" style="font-size:13px">Audio saved — re-upload to transcribe (needs OPENAI_API_KEY on server).</span>`;
+  return '';
+}
+function episodeAudioFieldHtml(){
+  return `<div class="audio-card">
+   <div class="audio-card-head">
+    <span class="audio-card-icon" aria-hidden="true">♪</span>
+    <div><p class="audio-card-title">Episode audio</p>
+     <p class="audio-card-sub">Optional VO file for Whisper timing (mp3/m4a/wav, up to 250MB). Script stays the source for numbers and spelling.</p></div>
+   </div>
+   <div class="audio-card-actions">
+    <input type="file" id="episodeAudioFile" accept="audio/*,.mp3,.m4a,.wav,.webm">
+    <button type="button" class="btn-neutral block" id="episodeAudioBtn" onclick="uploadEpisodeAudio()">Upload &amp; transcribe</button>
+    <div class="audio-card-status" id="episodeAudioStatus">${episodeAudioStatusHtml()}</div>
+   </div>
+   <details class="setup-more" style="margin-top:12px;border:0;background:transparent">
+    <summary style="padding:6px 0;font-size:12px">Technical notes</summary>
+    <p class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.45">Large WAVs are compressed with ffmpeg before Whisper (<code>brew install ffmpeg</code> locally). Needs <code>OPENAI_API_KEY</code> on the server.</p>
+   </details></div>`;
+}
+function setupNotesFieldHtml(){
   const m=sbMode();
-  const preActions=m==='script'?`<div class="row" style="margin-bottom:0;margin-top:16px"><button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button></div>`:'';
-  return `<div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
-   <div class="field"><label>Notes</label><input id="notes" value="${esc(getNotesValue())}" placeholder="${m==='pdf'?'GFX rows, timestamps…':''}"></div>
-   ${sbSourceBarHtml()}
-   ${preActions}`;
+  const ph=m==='pdf'?'Which PDF rows are graphics vs footage…':'Hints for Claude (density, tone, must-show numbers)…';
+  return `<details class="setup-more">
+   <summary>Notes for Claude (optional)</summary>
+   <div class="field"><input id="notes" value="${esc(getNotesValue())}" placeholder="${esc(ph)}"></div>
+  </details>`;
+}
+async function uploadEpisodeAudio(){
+  const f=$('#episodeAudioFile')?.files?.[0];
+  if(!f)return alert('Choose an audio file first.');
+  const btn=$('#episodeAudioBtn');const st=$('#episodeAudioStatus');
+  if(btn)btn.disabled=true;
+  if(st){st.textContent='Uploading…';st.style.color='var(--mute)'}
+  setWorkspaceLoading(true,'Transcribing episode audio (1–5 min for long episodes)…');
+  try{
+    const fd=new FormData();fd.append('file',f,f.name||'episode.mp3');
+    const r=await fetch(`/api/projects/${P.id}/episode-audio`,{method:'POST',body:fd});
+    if(!r.ok){const m=parseApiErrorText(await r.text());throw new Error(m)}
+    P=await r.json();P.look=normLook(P.look);
+    if(st)st.innerHTML=episodeAudioStatusHtml();
+  }catch(e){
+    if(st){st.textContent='Failed';st.style.color='#9c4221'}
+    alert(e.message||String(e));
+  }finally{
+    if(btn)btn.disabled=false;
+    setWorkspaceLoading(false);
+  }
+}
+function scriptBlockHtml({includeAudio=true,includePdfCol=false}={}){
+  const m=sbMode();
+  const preActions=m==='script'?`<div class="row" style="margin-bottom:0;margin-top:20px"><button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button></div>`:'';
+  const side=`<div class="setup-side-col">${includeAudio?episodeAudioFieldHtml():''}${includePdfCol?humanPdfPanelInner():''}</div>`;
+  return `<div class="setup-workspace">${sbSourceBarHtml()}
+   <div class="setup-main-grid">
+    <div class="setup-script-col">
+     <div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
+     ${setupNotesFieldHtml()}
+    </div>
+    ${side}
+   </div>${preActions}</div>`;
 }
 function preSpecSectionHtml(){
   const m=sbMode();
+  const open=setupPanelOpen('setup',true);
   if(m==='pdf'){
-    return `<h2 class="section">2 · Script</h2><div class="script-pdf-row">
-     <div class="card">${scriptBlockHtml()}</div>
-     <div class="card pdf-human-panel">${humanPdfPanelInner()}</div>
-    </div>`;
+    return `<details class="setup-panel" data-panel-key="setup" ${open?'open':''}>
+     <summary><span>2 · Storyboard setup</span><span class="setup-panel-hint">Human PDF + optional script</span></summary>
+     <div class="setup-panel-body card">${scriptBlockHtml({includeAudio:true,includePdfCol:true})}</div>
+    </details>`;
   }
-  return `<h2 class="section">2 · Script</h2><div class="card">${scriptBlockHtml()}</div>`;
+  return `<details class="setup-panel" data-panel-key="setup" ${open?'open':''}>
+   <summary><span>2 · Storyboard setup</span><span class="setup-panel-hint">Script + optional episode audio</span></summary>
+   <div class="setup-panel-body card">${scriptBlockHtml({includeAudio:true,includePdfCol:false})}</div>
+  </details>`;
+}
+function lookSectionHtml(){
+  const open=setupPanelOpen('look',!P?.spec);
+  const hint=lookSummaryLine(P.look);
+  return `<details class="setup-panel" data-panel-key="look" ${open?'open':''}>
+   <summary><span>1 · Look</span><span class="setup-panel-hint">${esc(hint)}</span></summary>
+   <div class="setup-panel-body card">${lookForm(P.look)}</div>
+  </details>`;
 }
 async function uploadSbPdf(){
   const f=$('#sbPdfFile')?.files?.[0];
@@ -873,11 +1109,16 @@ function framesStudio(){
   const script=getScriptValue();
   scriptAssign=assignScriptRanges(script,frames,P.storyboard);
   if(!selectedFrameId||!frames.find(f=>f.id===selectedFrameId))selectedFrameId=frames[0]?.id;
-  const scriptHtml=fullScriptHtml(script,scriptAssign);
+  const leftKind=leftPanelKind(script);
+  const leftHtml=leftPanelHtml(script,scriptAssign,leftKind);
+  const splitCls='studio-split'+(leftKind==='none'?' studio-split-centered':'');
   const chips=frames.map(fr=>`<button type="button" class="fchip ${fr.id===selectedFrameId?'on':''}" data-fid="${esc(fr.id)}" onclick="selectFrame('${esc(fr.id)}')">${frameLabel(fr.id)}</button>`).join('');
   const fr=frames.find(f=>f.id===selectedFrameId)||frames[0];
   const v=frameVer[fr.id]||0;
   const sb=sbForFrame(fr.id,P.storyboard);
+  const leftCol=leftKind==='none'?'':`<div id="studioLeftCol"><div class="panel-head"><span class="panel-label" id="leftPanelLabel">${leftPanelLabel(leftKind)}</span>
+     <button type="button" class="ghost" onclick="openScriptEdit()">${leftKind==='script'?'Edit script':'Add script'}</button></div>
+     <div class="full-script" id="fullScript">${leftHtml}</div></div>`;
   return `<div class="frames-studio">
    <div class="studio-head"><div><div class="eyebrow">Frames</div><h2 class="studio-title">Generated frames</h2></div>
     <div class="studio-head-actions">
@@ -885,12 +1126,10 @@ function framesStudio(){
      <button type="button" class="btn-neutral" onclick="openEditMode()">Edit mode</button>
      ${P?.look?.sb_import==='pdf'?'':`<button type="button" class="btn-neutral" id="gen" onclick="gen()">Regenerate all</button>`}</div></div>
    <div id="layoutBanner" hidden></div>
-   <div class="studio-split">
-    <div><div class="panel-head"><span class="panel-label">Voiceover script</span>
-     <button type="button" class="ghost" onclick="openScriptEdit()">Edit script</button></div>
-     <div class="full-script" id="fullScript">${scriptHtml}</div>
-     <textarea id="script" hidden>${esc(script)}</textarea>
-     <input type="hidden" id="notes" value="${esc(getNotesValue())}"></div>
+   <div class="${splitCls}">
+    ${leftCol}
+    <textarea id="script" hidden>${esc(script)}</textarea>
+    <input type="hidden" id="notes" value="${esc(getNotesValue())}">
     <div id="framePanel">
      <div class="frame-chips">${chips}</div>
      <div class="frame-meta">${esc(frameMetaLine(fr))}</div>
@@ -914,13 +1153,15 @@ function render(){
    ${P.spec?`<button type="button" onclick="qa()" title="Run automatic layout checks on every frame">Check layout</button><button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export All</button>`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
-  <h2 class="section">1 · Look</h2><div class="card">${lookForm(P.look)}</div>
-  ${P.spec?pdfBlock+framesStudio():preSpec+pdfBlock}<div id="warns"></div>`;
+  ${lookSectionHtml()}
+  ${P.spec?(m==='script'?'':pdfBlock)+framesStudio():preSpec}<div id="warns"></div>`;
   fit();
   updateFrameNavButtons();
   bindLookForm();
   bindSbSource();
+  bindSetupPanels();
   if(m==='pdf')refreshPdfSbStatus();
+  if(P?.spec)hydrateEpisodeTranscript();
 }
 function bindLookForm(){
   const sel=$('#theme');
@@ -939,9 +1180,20 @@ function selectFrame(fid){
   selectedFrameId=fid;
   const fr=P.spec.frames.find(f=>f.id===fid);
   if(!fr)return;
-  document.querySelectorAll('.script-line.hl-beat').forEach(el=>{
-    const line=+el.dataset.line;
-    el.classList.toggle('on',scriptAssign&&scriptAssign.lineToFrame[line]===fid);
+  document.querySelectorAll('.script-line.hl-beat,.transcript-line.hl-beat,.storyboard-line.hl-beat').forEach(el=>{
+    if(el.classList.contains('script-line')){
+      const line=+el.dataset.line;
+      el.classList.toggle('on',scriptAssign&&scriptAssign.lineToFrame[line]===fid);
+    }else if(el.classList.contains('transcript-line')){
+      const seg=episodeTranscript?.segments?.[+el.dataset.seg];
+      el.classList.toggle('on',seg&&frameIdForSegment(seg,studioFrames(),P.storyboard)===fid);
+    }else{
+      const lines=(P.storyboard||'').split('\n').map(l=>l.trim()).filter(l=>l&&!/^(SB\s|Look:|Totals:|#)/i.test(l));
+      const line=lines[+el.dataset.sb];
+      let matchFid=storyboardLineFrameId(line||'');
+      if(!matchFid)matchFid=frameIdForTime(parseTimeFromSb(line||''),studioFrames(),P.storyboard);
+      el.classList.toggle('on',matchFid===fid);
+    }
   });
   document.querySelectorAll('.fchip').forEach(c=>c.classList.toggle('on',c.dataset.fid===fid));
   const meta=$('#framePanel')?.querySelector('.frame-meta');
@@ -1306,6 +1558,7 @@ async function open_(id){
   $('#editModeApp').hidden=true;
   clearParentCanvasChips();
  }
+ episodeTranscript=null;
  P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);
  navChannel=channelForTheme(P.theme);
  selectedFrameId=null;await list();render();

@@ -455,6 +455,51 @@ def _storyboard_line_for_frame(storyboard: str, fid: str) -> str:
     return ""
 
 
+def _format_ts(seconds: float) -> str:
+    s = max(0, int(seconds))
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def episode_transcript_prompt_block(transcript: dict | None) -> str:
+    """Text block for Claude: VO timing from uploaded episode audio."""
+    if not transcript or not isinstance(transcript, dict):
+        return ""
+    segments = transcript.get("segments") or []
+    lines: list[str] = []
+    for seg in segments[:400]:
+        if not isinstance(seg, dict):
+            continue
+        t = (seg.get("text") or "").strip()
+        if not t:
+            continue
+        start = float(seg.get("start") or 0)
+        end = float(seg.get("end") or start)
+        lines.append(f"[{_format_ts(start)}–{_format_ts(end)}] {t}")
+    if not lines:
+        plain = (transcript.get("text") or "").strip()
+        if not plain:
+            return ""
+        body = plain[:12000]
+    else:
+        body = "\n".join(lines)
+    return (
+        "\n\nVO TRANSCRIPT (from uploaded episode audio — use as authoritative timing; "
+        "storyboard ~timestamps and graphic frame ids m.ss / m.ss_b should align to these beats. "
+        "Pasted SCRIPT is for exact numbers and spelling; when wording differs slightly, keep script numbers "
+        "but prefer transcript times):\n"
+        f"{body}\n"
+    )
+
+
+def _inject_transcript(msg: str, transcript: dict | None) -> str:
+    block = episode_transcript_prompt_block(transcript)
+    if not block:
+        return msg
+    if "\nSCRIPT:\n" in msg:
+        return msg.replace("\nSCRIPT:\n", block + "\nSCRIPT:\n", 1)
+    return msg + block
+
+
 _ZO_ITEM_TYPES = frozenset({
     "heading", "compare", "hub2", "hub_fan", "cards", "positions", "chart", "bars", "formula",
     "status", "phone", "week", "exchange", "notepad", "objstat", "calendar", "note",
@@ -802,6 +847,7 @@ def storyboard_pdf_batch(
     finish_all: bool = False,
     existing_spec: dict | None = None,
     existing_storyboard: str = "",
+    episode_transcript: dict | None = None,
 ) -> dict:
     """Read human SB PDF; return next batch of frames (+ storyboard on first batch)."""
     from storyboard_pdf import raster_pages
@@ -850,6 +896,7 @@ def storyboard_pdf_batch(
             f"{batch_line} Return `frames` only (omit storyboard unless fixing a typo). Set pdf_progress.\n"
             f"Optional script:\n\n{script or '(none)'}"
         )
+    msg = _inject_transcript(msg, episode_transcript)
 
     def _call(msg_text: str) -> dict:
         return _call_with_pdf(
@@ -883,9 +930,17 @@ def storyboard_pdf_batch(
     }
 
 
-def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = "") -> dict:
+def storyboard(
+    theme_dir: pathlib.Path,
+    script: str,
+    look: dict,
+    notes: str = "",
+    *,
+    episode_transcript: dict | None = None,
+) -> dict:
     if is_hindi_theme(theme_dir):
-        msg = (
+        msg = _inject_transcript(
+            (
             f"Notes: {notes or 'none'}\n\n"
             "GRAPHICS STUDIO RULES (Varsity Hindi Technical Analysis):\n"
             "- spec.frames[]: each graphic beat with id (timestamp like 2.49), mode, and items from spec_format.md.\n"
@@ -895,16 +950,21 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
             "- Match examples/example_spec.json density; green/red only on candle/bar bodies.\n\n"
             "Follow SKILL.md + references/spec_format.md + references/storyboard_rules.md + studio_brief.md.\n\n"
             f"SCRIPT:\n{script}"
+            ),
+            episode_transcript,
         )
         out = _call_storyboard(theme_dir, msg, sb_tool=HI_SB_TOOL)
         for _ in range(2):
             issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="varsity-hindi-graphics")
             if not issues:
                 break
-            retry = (
+            retry = _inject_transcript(
+                (
                 "Your previous Varsity Hindi spec was rejected. Fix ALL issues; return storyboard + spec only:\n"
                 + "\n".join(f"- {x}" for x in issues)
                 + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
+                ),
+                episode_transcript,
             )
             out = _call_storyboard(theme_dir, retry, sb_tool=HI_SB_TOOL)
         return out
@@ -914,7 +974,8 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
             plate_hint = f"- Project look.plate is {look['plate']!r} — use on anchor frames unless a frame needs another key from anchor_plates.md.\n"
         else:
             plate_hint = "- Set spec.look.plate to m1_wide_centre (or f1_centre_circle for female-anchor concept videos) per anchor_plates.md.\n"
-        msg = (
+        msg = _inject_transcript(
+            (
             f"Notes: {notes or 'none'}\n\n"
             "GRAPHICS STUDIO RULES (Zerodha Online Product IP):\n"
             "- spec.frames: FSS (mode fss) AND anchor (mode osa | ost | tos). Every OSA/OST/TOS storyboard beat → matching spec frame with plate + items.\n"
@@ -927,6 +988,8 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
             "- Kite UI: kite_watchlist, kite_depth, kite_chart, auction — vector mocks; script numbers exactly (Indian grouping).\n\n"
             "Follow SKILL.md + spec_format.md + kit_breakdown.md + anchor_plates.md + studio_brief.md.\n\n"
             f"SCRIPT:\n{script}"
+            ),
+            episode_transcript,
         )
         out = _call_storyboard(theme_dir, msg, sb_tool=ZO_SB_TOOL)
         from mf_studio import compact_zo_spec_for_studio
@@ -941,11 +1004,14 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
             issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="zo-product-graphics")
             if not issues:
                 break
-            retry = (
+            retry = _inject_transcript(
+                (
                 "Your previous zo-product spec was rejected by the studio quality gate. Fix ALL issues; "
                 "return storyboard + spec via submit_storyboard only:\n"
                 + "\n".join(f"- {x}" for x in issues)
                 + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
+                ),
+                episode_transcript,
             )
             out = _call_storyboard(theme_dir, retry, sb_tool=ZO_SB_TOOL)
             spec = compact_zo_spec_for_studio(out.get("spec") or {})
@@ -958,7 +1024,8 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
     if is_mf_theme(theme_dir):
         look_line = (look.get("look_line") or "").strip()
         if is_reel_theme(theme_dir):
-            msg = (
+            msg = _inject_transcript(
+                (
                 f"Spec root look (one line — copy into spec.look): {look_line or 'Theme A · Cream Editorial per SKILL'}\n"
                 f"Notes: {notes or 'none'}\n\n"
                 "GRAPHICS STUDIO RULES (Zero1 reel):\n"
@@ -969,9 +1036,12 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
                 "- Use data-mf-path on major blocks in html for studio layer editing.\n\n"
                 "Follow SKILL.md + references/spec_format.md + Reel_Graphics_Rules.md.\n\n"
                 f"SCRIPT:\n{script}"
+                ),
+                episode_transcript,
             )
         else:
-            msg = (
+            msg = _inject_transcript(
+                (
                 f"Spec root look (one line — copy into spec.look): {look_line or 'anchor right · GIFT City house style per SKILL'}\n"
                 f"Notes: {notes or 'none'}\n\n"
                 "GRAPHICS STUDIO RULES (critical):\n"
@@ -983,18 +1053,23 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
                 "- Pills: purple #5b55e6 gradient, white pill text (house.css); no green pill styling in spec HTML.\n\n"
                 "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n\n"
                 f"SCRIPT:\n{script}"
+                ),
+                episode_transcript,
             )
         out = _call_storyboard(theme_dir, msg, sb_tool=MF_SB_TOOL)
         return out
 
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
-    msg = (
+    msg = _inject_transcript(
+        (
         f"Look (copy into spec.look): {json.dumps(look)}\n"
         f"Topic props — first only as corner dressing; all checked guide OSA kit choices: {json.dumps(props if props else [])}\n"
         f"Notes: {notes or 'none'}\n\n"
         f"{_graphics_mix_rules(look)}"
         f"Follow app_storyboard_overrides.md + studio_brief.md: tag each beat OST/OSA/FSS in storyboard; spec must match tags.\n"
         f"Copy numbers exactly from the script.\n\nSCRIPT:\n{script}"
+        ),
+        episode_transcript,
     )
     out = _call_storyboard(theme_dir, msg)
     out["spec"] = enrich_spec(_merge_user_look(out.get("spec") or {}, look), out.get("storyboard") or "")
@@ -1002,11 +1077,14 @@ def storyboard(theme_dir: pathlib.Path, script: str, look: dict, notes: str = ""
         issues = spec_quality_issues(out["spec"], out.get("storyboard") or "")
         if not issues:
             break
-        retry = (
+        retry = _inject_transcript(
+            (
             "Your previous spec was rejected by the app quality gate. Fix ALL issues and return a complete "
             "storyboard + spec via submit_storyboard only:\n"
             + "\n".join(f"- {x}" for x in issues)
             + f"\n\nLook: {json.dumps(look)}\n\nSCRIPT:\n{script}"
+            ),
+            episode_transcript,
         )
         out = _call_storyboard(theme_dir, retry)
         out["spec"] = enrich_spec(_merge_user_look(out.get("spec") or {}, look), out.get("storyboard") or "")

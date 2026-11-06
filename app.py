@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import claude_client, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import audio_transcribe, claude_client, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -71,6 +71,23 @@ def _apply_storyboard_pdf_meta(d: dict) -> dict:
     return d
 
 
+def _apply_episode_audio_meta(d: dict) -> dict:
+    pid = d["id"]
+    d["has_episode_audio"] = episode_audio.has_audio(pid)
+    d["has_episode_transcript"] = episode_audio.has_transcript(pid)
+    tr = episode_audio.read_transcript(pid) if d["has_episode_transcript"] else None
+    d["episode_transcript_segments"] = len((tr or {}).get("segments") or [])
+    meta = episode_audio.read_meta(pid) or {}
+    d["episode_audio_name"] = meta.get("original_name") or ""
+    return d
+
+
+def _episode_transcript_for_project(pid: int) -> dict | None:
+    if not episode_audio.has_transcript(pid):
+        return None
+    return episode_audio.read_transcript(pid)
+
+
 def load(pid):
     with connect() as c:
         r = c.execute("select * from projects where id=?", (pid,)).fetchone()
@@ -81,7 +98,7 @@ def load(pid):
     d["spec"] = json.loads(d["spec"] or "null")
     if is_mf_theme_name(d.get("theme") or "") and d.get("spec"):
         d["spec"] = mf_studio.compact_mf_spec_for_studio(d["spec"])
-    return _apply_storyboard_pdf_meta(d)
+    return _apply_episode_audio_meta(_apply_storyboard_pdf_meta(d))
 
 
 def effective_look(p: dict) -> dict:
@@ -381,7 +398,15 @@ async def make_storyboard(pid: int, req: Request):
     b = await req.json(); p = load(pid)
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
     try:
-        out = await asyncio.to_thread(claude_client.storyboard, THEMES / p["theme"], script, look, b.get("notes", ""))
+        transcript = _episode_transcript_for_project(pid)
+        out = await asyncio.to_thread(
+            claude_client.storyboard,
+            THEMES / p["theme"],
+            script,
+            look,
+            b.get("notes", ""),
+            episode_transcript=transcript,
+        )
     except Exception as e:
         _raise_claude_gateway(e)
     if is_mf_theme_name(p["theme"]):
@@ -454,6 +479,47 @@ def _finalize_spec_after_batch(spec: dict, storyboard: str, theme: str, look: di
     return spec_enrich.enrich_spec(spec, storyboard, theme=theme)
 
 
+@app.get("/api/projects/{pid}/episode-transcript")
+def get_episode_transcript(pid: int):
+    load(pid)
+    tr = episode_audio.read_transcript(pid)
+    if not tr:
+        raise HTTPException(404, "No episode transcript for this project")
+    return tr
+
+
+@app.get("/api/projects/{pid}/episode-audio")
+def episode_audio_status(pid: int):
+    load(pid)
+    tr = episode_audio.read_transcript(pid)
+    return {
+        "has_audio": episode_audio.has_audio(pid),
+        "has_transcript": episode_audio.has_transcript(pid),
+        "segment_count": len((tr or {}).get("segments") or []),
+        "original_name": (episode_audio.read_meta(pid) or {}).get("original_name") or "",
+    }
+
+
+@app.post("/api/projects/{pid}/episode-audio")
+async def upload_episode_audio(pid: int, req: Request, file: UploadFile = File(...)):
+    load(pid)
+    raw = await file.read()
+    fn = (file.filename or "episode.mp3").lower()
+    try:
+        path = await asyncio.to_thread(episode_audio.save_audio, pid, raw, fn)
+        episode_audio.delete_transcript(pid)
+        transcript = await asyncio.to_thread(audio_transcribe.transcribe_file, path)
+        await asyncio.to_thread(episode_audio.save_transcript, pid, transcript)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    except OSError as e:
+        raise HTTPException(507, str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(502, str(e)) from e
+    save(pid, who(req), "upload episode audio")
+    return {**load(pid), "ok": True}
+
+
 @app.get("/api/projects/{pid}/storyboard-pdf")
 def has_storyboard_pdf(pid: int):
     load(pid)
@@ -499,6 +565,7 @@ async def storyboard_pdf_batch_route(pid: int, req: Request):
     finish_all = bool(b.get("finish_all"))
     batch_size = min(10, max(1, int(b.get("batch_size", 5))))
     script = b.get("script", p.get("script") or "")
+    transcript = _episode_transcript_for_project(pid)
     try:
         out = await asyncio.to_thread(
             claude_client.storyboard_pdf_batch,
@@ -511,6 +578,7 @@ async def storyboard_pdf_batch_route(pid: int, req: Request):
             finish_all=finish_all,
             existing_spec=p.get("spec") or {},
             existing_storyboard=p.get("storyboard") or "",
+            episode_transcript=transcript,
         )
     except Exception as e:
         _raise_claude_gateway(e)
