@@ -549,7 +549,8 @@ def frame_html(f, look=None, edit=False, all_frames=None):
         body.append('<div class="abs" style="inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.05) 35%,rgba(0,0,0,.78) 100%)"></div>')
     if mode == 'takeaways':
         body.append(SWOOSH)
-        body.append(f'<div class="tk-title chk">{rich(f.get("title","Key\nTakeaways"))}</div>')
+        _tk_title_default = "Key\nTakeaways"  # default outside f-string — Py3.12+ forbids \\ in f-string expr parts
+        body.append(f'<div class="tk-title chk">{rich(f.get("title", _tk_title_default))}</div>')
         a = f.get('active', 'all')
         rows = ''.join(f'<div class="r {"dim" if (a != "all" and n != a) else ""}"><i>{n+1}.</i><div>{rich(t)}</div></div>' for n, t in enumerate(f['items']))
         body.append(f'<div class="tk-list chk" style="top:{f.get("top",200)}px">{rows}</div>')
