@@ -8,7 +8,7 @@ Writes <out>/<id>.png for every frame, <out>/_sheet_N.jpg (6 frames per contact 
 and prints WARN lines (impossible OHLC, labels contradicting data, Hinglish on screen, text clipped
 or off-frame, content over the presenter). Spec format: references/spec_format.md.
 """
-import json, os, sys, re, html, asyncio
+import json, os, sys, re, html, asyncio, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import chart, props, scenes
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -297,6 +297,23 @@ def _place(i, frame, w, h, inner, cls, grounded=True):
     return f'<div class="abs {cls}{" grounded" if grounded else ""}"{data} style="left:{x}px;top:{y}px;width:{w}px;height:{h}px;z-index:{i.get("z",6)}">{inner}</div>'
 
 CHAR_PNG = {n: f'chars/Character_{n}.png' for n in range(1, 7)}
+
+
+def _png_pixel_size(path: str) -> tuple[int, int] | None:
+    """Width/height from PNG IHDR (stdlib only — avoids PIL import failures in slim runtimes)."""
+    try:
+        with open(path, "rb") as f:
+            if f.read(8) != b"\x89PNG\r\n\x1a\n":
+                return None
+            ln = struct.unpack(">I", f.read(4))[0]
+            if f.read(4) != b"IHDR" or ln != 13:
+                return None
+            w, h = struct.unpack(">II", f.read(8))
+            return int(w), int(h)
+    except OSError:
+        return None
+
+
 def character(i, fid, frame):
     """One of the team's six Varsity characters (assets/chars/Character_1..6.png), used EXACTLY as drawn.
     Only position (x), height (h) and left/right mirroring (facing) may change: never hair, colour, face or pose."""
@@ -309,9 +326,21 @@ def character(i, fid, frame):
     for k in ('color', 'hair', 'extras', 'pose'):
         if k in look or (k in i and k != 'pose'):
             WARN.append(f'{fid}: "{k}" is ignored: team characters are used as drawn (only x, h, facing change)')
-    from PIL import Image
-    im = Image.open(os.path.join(KIT, 'assets', png))
-    h = round(i.get('h', 420) * im.height / 700); w = round(im.width * h / im.height)
+    ap = os.path.join(KIT, "assets", png)
+    wh = _png_pixel_size(ap)
+    if wh:
+        iw, ih = wh
+    else:
+        try:
+            from PIL import Image
+
+            im = Image.open(ap)
+            iw, ih = im.width, im.height
+        except Exception:
+            WARN.append(f'{fid}: could not read character PNG dimensions ({png}); using 700×700 fallback')
+            iw, ih = 700, 700
+    h = round(i.get('h', 420) * ih / 700)
+    w = round(iw * h / ih)
     native = look.get('faces', 'left'); want = i.get('facing', native)
     fl = 'transform:scaleX(-1);' if want != native else ''
     art = f'<img src="{A(png)}" style="width:{w}px;height:{h}px;{fl}">'
