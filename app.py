@@ -5,7 +5,7 @@ Run:  copy .env.example to .env, set ANTHROPIC_API_KEY, then uvicorn app:app --h
 A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.md, templates/, assets/, scripts/build.py).
 Add a channel by dropping in another kit folder; nothing else changes.
 """
-import importlib.util, inspect, json, os, pathlib, re, time, asyncio
+import importlib.util, inspect, json, os, pathlib, re, threading, time, asyncio
 from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
@@ -30,6 +30,7 @@ from frame_edit_util import (
 from claude_client import _storyboard_line_for_frame
 from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
+_HINDI_CAST_LOCK = threading.Lock()
 def preview_base() -> str:
     """Loopback URL for Playwright inside this container (Render sets PORT, not 8000)."""
     port = os.environ.get("PORT", "8000")
@@ -297,6 +298,14 @@ def _hindi_merged_cast(spec: dict | None, frame: dict | None) -> dict:
     return out
 
 
+def _invoke_frame_html(render, frame, look, edit, all_frames):
+    if "all_frames" in inspect.signature(render).parameters:
+        return render(frame, look, edit=edit, all_frames=all_frames)
+    if len(inspect.signature(render).parameters) >= 2:
+        return render(frame, look, edit=edit)
+    return render(frame)
+
+
 def frame_page(
     theme,
     frame,
@@ -311,18 +320,21 @@ def frame_page(
     prev_studio_web = os.environ.get("STUDIO_WEB")
     if is_hindi_theme_name(theme):
         os.environ["STUDIO_WEB"] = "1"
-        cattr = getattr(mod, "CAST", None)
-        if isinstance(cattr, dict):
-            cattr.clear()
-            merged = _hindi_merged_cast(spec if isinstance(spec, dict) else None, frame)
-            cattr.update(merged)
     try:
-        if "all_frames" in inspect.signature(render).parameters:
-            html = render(frame, look, edit=edit, all_frames=all_frames)
-        elif len(inspect.signature(render).parameters) >= 2:
-            html = render(frame, look, edit=edit)
+        cattr = getattr(mod, "CAST", None)
+        # Hindi build uses module-global CAST; concurrent /preview iframes would clear each other without a lock.
+        if is_hindi_theme_name(theme) and isinstance(cattr, dict):
+            with _HINDI_CAST_LOCK:
+                prev_cast = dict(cattr)
+                try:
+                    cattr.clear()
+                    cattr.update(_hindi_merged_cast(spec if isinstance(spec, dict) else None, frame))
+                    html = _invoke_frame_html(render, frame, look, edit, all_frames)
+                finally:
+                    cattr.clear()
+                    cattr.update(prev_cast)
         else:
-            html = render(frame)
+            html = _invoke_frame_html(render, frame, look, edit, all_frames)
     finally:
         if prev_studio_web is None:
             os.environ.pop("STUDIO_WEB", None)
