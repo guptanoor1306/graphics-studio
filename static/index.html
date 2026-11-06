@@ -436,7 +436,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null,episodeTranscript=null;
 let navChannel=null,allProjects=[],channelListSearch='';
 const CHANNELS=[
- {id:'varsity',label:'Varsity',desc:'MF, English, and Hindi TA kits — anchor, side-cam, and chart frames.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics'],accent:'#5b55e6'},
+ {id:'varsity',label:'Varsity',desc:'MF, English, and Hindi Charts kits — anchor, side-cam, and chart frames.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics'],accent:'#5b55e6'},
  {id:'zo',label:'Zerodha Online',desc:'Product IP — FSS, OSA, OST, and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
  {id:'zero1',label:'Zero1',desc:'Vertical reel graphics — 1080×1920 safe-zone layouts.',themes:['zero1-reel-graphics'],accent:'#c96442'},
 ];
@@ -803,7 +803,7 @@ function populateEditLookBlock(){
  if(line)line.value=l.look_line||'';
 }
 function lookForm(l){l=normLook(l);
-  const themeField=`<div class="field"><label>Channel</label><select id="theme">${themes.map(t=>`<option ${P.theme==t?'selected':''}>${t}</option>`).join('')}</select></div>`;
+  const themeField=`<div class="field"><label>Channel</label><select id="theme">${themes.map(t=>`<option value="${esc(t)}" ${P.theme==t?'selected':''}>${esc(themeLabel(t))}</option>`).join('')}</select></div>`;
   if(isReelChannel()){
     const preset=reelThemePresetFromLine(l.look_line);
     return `<div class="field-grid">${themeField}
@@ -814,7 +814,7 @@ function lookForm(l){l=normLook(l);
   <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">FSS + anchor (OSA/OST/TOS) render in spec; upload an optional anchor plate in Edit mode. Screen capture and footage stay storyboard-only.</p></div>`}
   if(isHindiTheme()){
     return `<div class="field-grid">${themeField}
-  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Hindi TA kit: side / main / fss / scene frames with Kite charts and props. Footage and screen beats stay storyboard-only.</p></div>`}
+  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Varsity Hindi Charts: side / main / fss / scene frames with Kite charts, characters, and props. Footage and screen beats stay storyboard-only.</p></div>`}
   if(isKitTheme(P.theme)){
     return `<div class="field-grid">${themeField}
   <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · purple (#5b55e6) search pills · blue table headers"></div></div>`}
@@ -844,7 +844,7 @@ function lookSummaryLine(l){
   l=normLook(l||{});
   if(isReelChannel())return (l.look_line||l.reel_theme||'Reel look').slice(0,80)||'Reel theme';
   if(isZoProduct())return 'Product IP · anchor plates';
-  if(isHindiTheme())return 'Varsity Hindi TA';
+  if(isHindiTheme())return 'Varsity Hindi Charts';
   if(isKitTheme(P?.theme))return (l.look_line||'Kit look').slice(0,80);
   const props=(l.props||[]).slice(0,2).join(', ');
   return `${l.anchor||'right'} anchor · ${l.fss||'blue'} FSS${props?` · ${props}`:''}`;
@@ -874,13 +874,48 @@ async function persistSbMode(mode){
   P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look,script:getScriptValue()})});
   P.look=normLook(P.look);
 }
+function storyboardPdfName(){
+  return String(P?.look?.storyboard_pdf_name||P?.storyboard_pdf_name||'').trim();
+}
+function hasPdfOnServer(){return !!P?.has_storyboard_pdf}
+function pdfWorkflowActive(){return P?.look?.sb_import==='pdf'||hasPdfOnServer()}
+function pdfStatusText(){
+  const name=storyboardPdfName();
+  if(hasPdfOnServer())return name||'PDF saved';
+  if(P?.look?.sb_import==='pdf')return name?`${name} · re-upload if batch fails`:'PDF workflow · re-upload file';
+  return '';
+}
+function pdfSummaryHint(){
+  const n=studioFrames().length;
+  const name=storyboardPdfName();
+  if(hasPdfOnServer())return name?`${name} · ${n} frame(s)`:(n?`${n} frame(s) from PDF`:'PDF saved');
+  if(P?.look?.sb_import==='pdf'&&n)return name?`${name} · ${n} frame(s)`:`${n} frame(s) · PDF workflow`;
+  if(P?.look?.sb_import==='pdf')return name||'PDF workflow';
+  return 'No PDF saved';
+}
+function pdfSavedStatusHtml(){
+  const t=pdfStatusText();
+  if(!t&&!pdfWorkflowActive())return '';
+  return `<span id="pdfSbStatus" class="pdf-saved-tag">${esc(t||'PDF workflow')}</span>`;
+}
 async function refreshPdfSbStatus(){
-  const el=$('#pdfSbStatus');if(!el||!P?.id)return;
+  if(!P?.id)return;
   try{
     const r=await api(`/api/projects/${P.id}/storyboard-pdf`);
-    const on=!!(r.has_pdf||P?.has_storyboard_pdf);
-    el.textContent=on?'Saved':'';
-    el.hidden=!on;
+    P.has_storyboard_pdf=!!r.has_pdf;
+    if(r.filename){
+      P.look=P.look||{};
+      P.look.storyboard_pdf_name=r.filename;
+    }
+    if(r.sb_import==='pdf'){
+      P.look=P.look||{};
+      P.look.sb_import='pdf';
+    }
+    const el=$('#pdfSbStatus');
+    const hint=document.querySelector('details[data-panel-key="pdf"] .setup-panel-hint');
+    const t=pdfStatusText();
+    if(el){el.textContent=t;el.hidden=!t}
+    if(hint)hint.textContent=pdfSummaryHint();
   }catch(_){}
 }
 function parseApiErrorText(m){
@@ -895,26 +930,26 @@ function humanPdfPanelInner({compact=false}={}){
   const n=studioFrames().length;
   const first=n===0;
   const showAll=n>=5;
-  const saved=P?.has_storyboard_pdf?'Saved':'';
   const genBtns=`<div class="pdf-human-actions" id="pdfHumanActions">
    ${first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">First 5</button>`:''}
    ${!first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">Next 5</button>`:''}
    ${showAll?`<button type="button" class="btn-neutral" onclick="genPdfBatch(event,{finishAll:true})">All remaining</button>`:''}
   </div>`;
   if(compact&&!first){
-    return `<div class="pdf-panel-compact pdf-human-panel">${genBtns}</div>`;
+    return `<div class="pdf-panel-compact pdf-human-panel">${pdfSavedStatusHtml()}${genBtns}</div>`;
   }
+  const statusTag=pdfSavedStatusHtml();
   return `<div class="pdf-panel-compact pdf-human-panel">
   <div class="pdf-human-top" id="pdfHumanTop">
    <div class="field pdf-file-field"><label>PDF file</label><input type="file" id="sbPdfFile" accept="application/pdf,.pdf"></div>
    <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">Save PDF</button>
-   <span id="pdfSbStatus" class="pdf-saved-tag" ${saved?'':'hidden'}>${saved}</span>
+   ${statusTag}
   </div>
   ${genBtns}</div>`;
 }
 function humanPdfSectionHtml(){
   const open=setupPanelOpen('pdf',!P?.spec||studioFrames().length===0);
-  const hint=P?.has_storyboard_pdf?`${studioFrames().length} frame(s) from PDF`:'No PDF saved';
+  const hint=pdfSummaryHint();
   return `<details class="setup-panel" data-panel-key="pdf" ${open?'open':''}>
    <summary><span>Human storyboard PDF</span><span class="setup-panel-hint">${esc(hint)}</span></summary>
    <div class="setup-panel-body card pdf-human-panel">${humanPdfPanelInner({compact:!!P?.spec&&studioFrames().length>0})}</div>
@@ -994,7 +1029,7 @@ async function uploadEpisodeAudio(){
 }
 function preSpecSectionHtml(){
   const open=setupPanelOpen('setup',true);
-  const hint=P?.has_storyboard_pdf?'PDF saved':(P?.has_episode_transcript?'Audio transcribed':(scriptHasContent(P?.script||'')?'Script ready':'Nothing added yet'));
+  const hint=hasPdfOnServer()||P?.look?.sb_import==='pdf'?pdfSummaryHint():(P?.has_episode_transcript?'Audio transcribed':(scriptHasContent(P?.script||'')?'Script ready':'Nothing added yet'));
   return `<details class="setup-panel" data-panel-key="setup" ${open?'open':''}>
    <summary><span>2 · Storyboard setup</span><span class="setup-panel-hint">${esc(hint)}</span></summary>
    <div class="setup-panel-body card">${storyboardSetupBodyHtml()}</div>
@@ -1378,7 +1413,7 @@ function fmtProjectDateTime(ts){
 function themeLabel(theme){
   if(theme==='varsity-mf-graphics')return 'MF kit';
   if(theme==='varsity-english')return 'English';
-  if(theme==='varsity-hindi-graphics')return 'Hindi TA';
+  if(theme==='varsity-hindi-graphics')return 'Varsity Hindi Charts';
   if(theme==='zo-product-graphics')return 'Product IP';
   if(theme==='zero1-reel-graphics')return 'Reel';
   return theme||'—';
@@ -1509,7 +1544,7 @@ function newProject(){
   if(!cid){alert('Choose a channel first.');return}
   const chThemes=channelThemes(cid).filter(t=>themes.includes(t));
   const pick=chThemes.length?chThemes:[themes[0]];
-  const themeOpts=pick.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join('');
+  const themeOpts=pick.map(t=>`<option value="${esc(t)}">${esc(themeLabel(t))}</option>`).join('');
   const themeField=pick.length>1?`<div class="field" style="margin:0 0 4px"><label>Kit</label><select id="newProjectTheme">${themeOpts}</select></div>`:'';
   openToolModal({title:'New video',placeholder:'Video name',okLabel:'Create',
     extraHtml:`${themeField}<input type="hidden" id="newProjectThemeSingle" value="${esc(pick[0]||'')}">`,

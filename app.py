@@ -68,6 +68,7 @@ def _apply_storyboard_pdf_meta(d: dict) -> dict:
     if has and look.get("sb_import") != "script":
         look = {**look, "sb_import": "pdf"}
     d["look"] = look
+    d["storyboard_pdf_name"] = (look.get("storyboard_pdf_name") or "").strip()
     return d
 
 
@@ -260,10 +261,21 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
 
 def frame_page(theme, frame, look, base_href: str | None = None, edit: bool = False, all_frames=None):
     render = builder(theme).frame_html
-    if "all_frames" in inspect.signature(render).parameters:
-        html = render(frame, look, edit=edit, all_frames=all_frames)
-    else:
-        html = render(frame, look, edit=edit)
+    prev_studio_web = os.environ.get("STUDIO_WEB")
+    if is_hindi_theme_name(theme):
+        os.environ["STUDIO_WEB"] = "1"
+    try:
+        if "all_frames" in inspect.signature(render).parameters:
+            html = render(frame, look, edit=edit, all_frames=all_frames)
+        elif len(inspect.signature(render).parameters) >= 2:
+            html = render(frame, look, edit=edit)
+        else:
+            html = render(frame)
+    finally:
+        if prev_studio_web is None:
+            os.environ.pop("STUDIO_WEB", None)
+        else:
+            os.environ["STUDIO_WEB"] = prev_studio_web
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
     cw, ch = theme_canvas.canvas_for_theme(theme)
     canvas_meta = f'<meta name="studio-canvas" content="{cw},{ch}">'
@@ -522,8 +534,13 @@ async def upload_episode_audio(pid: int, req: Request, file: UploadFile = File(.
 
 @app.get("/api/projects/{pid}/storyboard-pdf")
 def has_storyboard_pdf(pid: int):
-    load(pid)
-    return {"has_pdf": storyboard_pdf.pdf_path(pid).is_file()}
+    p = load(pid)
+    look = p.get("look") or {}
+    return {
+        "has_pdf": storyboard_pdf.pdf_path(pid).is_file(),
+        "filename": (look.get("storyboard_pdf_name") or p.get("storyboard_pdf_name") or "").strip(),
+        "sb_import": look.get("sb_import") or "",
+    }
 
 
 @app.post("/api/projects/{pid}/storyboard-pdf")
@@ -543,7 +560,8 @@ async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(
     except OSError as e:
         raise HTTPException(507, str(e)) from e
     p = load(pid)
-    look = {**(p.get("look") or {}), "sb_import": "pdf"}
+    orig = (file.filename or "storyboard.pdf").strip() or "storyboard.pdf"
+    look = {**(p.get("look") or {}), "sb_import": "pdf", "storyboard_pdf_name": orig}
     save(pid, who(req), "upload storyboard PDF", look=look)
     out = load(pid)
     return {**out, "ok": True, "has_pdf": True}

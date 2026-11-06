@@ -1368,6 +1368,746 @@
     }
    ],
    "section": "Support"
+  },
+  {
+   "id": "0.37",
+   "section": "Underlying vs Derivative (v4 storyboard example)",
+   "name": "Tea-Coffee-Protein-Shake",
+   "mode": "side",
+   "items": [
+    {
+     "t": "row",
+     "gap": 30,
+     "items": [
+      {
+       "t": "panel",
+       "w": 250,
+       "gap": 18,
+       "items": [
+        {
+         "t": "prop",
+         "name": "tea_glass",
+         "w": 110,
+         "inline": true
+        },
+        {
+         "t": "label",
+         "text": "Tea",
+         "size": 34,
+         "weight": 700
+        }
+       ]
+      },
+      {
+       "t": "panel",
+       "w": 250,
+       "gap": 18,
+       "items": [
+        {
+         "t": "prop",
+         "name": "mug",
+         "w": 110,
+         "inline": true
+        },
+        {
+         "t": "label",
+         "text": "Coffee",
+         "size": 34,
+         "weight": 700
+        }
+       ]
+      },
+      {
+       "t": "panel",
+       "w": 250,
+       "gap": 18,
+       "items": [
+        {
+         "t": "prop",
+         "name": "shaker",
+         "w": 110,
+         "inline": true
+        },
+        {
+         "t": "label",
+         "text": "Protein Shake",
+         "size": 34,
+         "weight": 700
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3.34",
+   "section": "Forward Contract (v4 storyboard example)",
+   "name": "Cultivation-cost",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "backdrop",
+     "name": "wheat_field"
+    },
+    {
+     "t": "htab",
+     "text": "Rajesh, a Farmer"
+    },
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 640,
+     "facing": "right",
+     "h": 560,
+     "name": false
+    },
+    {
+     "t": "tag",
+     "cx": 1330,
+     "y": 360,
+     "label": "Cultivation cost",
+     "value": "₹20/kg",
+     "big": true
+    },
+    {
+     "t": "pointer",
+     "from": [
+      1330,
+      486
+     ],
+     "to": [
+      1270,
+      760
+     ],
+     "bend": -40
+    }
+   ],
+   "sb": "Continue the above animation and show fasal cost with arrow on fasal. Cultivation cost: ₹20/kg"
+  },
+  {
+   "id": "3.56_b",
+   "section": "Forward Contract (v4 storyboard example)",
+   "name": "Rajesh-thinking-20",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "backdrop",
+     "name": "wheat_field"
+    },
+    {
+     "t": "htab",
+     "text": "Rajesh, a Farmer"
+    },
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 640,
+     "facing": "right",
+     "h": 560,
+     "name": false
+    },
+    {
+     "t": "thought",
+     "x": 760,
+     "y": 150,
+     "w": 560,
+     "flip": true,
+     "z": 9,
+     "prop": {
+      "name": "wheat_sack",
+      "price": "₹20/kg ▼",
+      "w": 280
+     }
+    }
+   ],
+   "sb": "FSS: Show a character thinking using bubble or cloud. Show a wheat flour bag with the price tag clearly visible. Animate the price changing from ₹25/kg to ₹20/kg."
+  },
+  {
+   "id": "4.07_b",
+   "section": "Forward Contract (v4 storyboard example)",
+   "name": "Mill-owner-thinking-30",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "backdrop",
+     "name": "wheat_field",
+     "clip": [
+      0,
+      958
+     ]
+    },
+    {
+     "t": "backdrop",
+     "name": "flour_mill",
+     "clip": [
+      962,
+      1920
+     ]
+    },
+    {
+     "t": "htab",
+     "text": "Rajesh (Farmer)",
+     "small": true,
+     "cx": 480,
+     "y": 40
+    },
+    {
+     "t": "htab",
+     "text": "Flour Mill Owner",
+     "small": true,
+     "cx": 1440,
+     "y": 40
+    },
+    {
+     "t": "html",
+     "html": "<div style='width:6px;height:1080px;background:#141414'></div>",
+     "x": 957,
+     "y": 0,
+     "z": 9
+    },
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 300,
+     "facing": "right",
+     "h": 500,
+     "name": false
+    },
+    {
+     "t": "thought",
+     "x": 400,
+     "y": 150,
+     "w": 420,
+     "flip": true,
+     "z": 9,
+     "prop": {
+      "name": "wheat_sack",
+      "price": "₹20/kg ▼",
+      "w": 210
+     }
+    },
+    {
+     "t": "character",
+     "who": "mill",
+     "cx": 1150,
+     "facing": "right",
+     "h": 500,
+     "name": false
+    },
+    {
+     "t": "thought",
+     "x": 1260,
+     "y": 130,
+     "w": 420,
+     "flip": true,
+     "z": 9,
+     "prop": {
+      "name": "wheat_sack",
+      "price": "₹30/kg ▲",
+      "w": 210
+     }
+    }
+   ],
+   "split": true,
+   "sparkle": false
+  },
+  {
+   "id": "4.15",
+   "section": "Forward Contract (v4 storyboard example)",
+   "name": "Two-fears",
+   "mode": "main",
+   "items": [
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 190,
+     "facing": "right",
+     "h": 440,
+     "name": false
+    },
+    {
+     "t": "thought",
+     "x": 190,
+     "y": 250,
+     "w": 400,
+     "flip": true,
+     "z": 9,
+     "prop": {
+      "name": "wheat_sack",
+      "price": "₹20/kg ▼",
+      "w": 230
+     }
+    },
+    {
+     "t": "character",
+     "who": "mill",
+     "cx": 1730,
+     "facing": "left",
+     "h": 440,
+     "name": false
+    },
+    {
+     "t": "thought",
+     "x": 1340,
+     "y": 250,
+     "w": 400,
+     "flip": false,
+     "z": 9,
+     "prop": {
+      "name": "wheat_sack",
+      "price": "₹30/kg ▲",
+      "w": 230
+     }
+    }
+   ]
+  },
+  {
+   "id": "5.29",
+   "section": "Forward Contract (v4 storyboard example)",
+   "name": "Cost-vs-contract",
+   "mode": "main",
+   "items": [
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 230,
+     "facing": "left",
+     "h": 440,
+     "name": false
+    },
+    {
+     "t": "tag",
+     "cx": 230,
+     "y": 420,
+     "label": "Cultivation cost",
+     "value": "₹20/kg"
+    },
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 1560,
+     "facing": "right",
+     "h": 440,
+     "name": false
+    },
+    {
+     "t": "character",
+     "who": "mill",
+     "cx": 1790,
+     "facing": "left",
+     "h": 440,
+     "name": false
+    },
+    {
+     "t": "prop",
+     "name": "handshake",
+     "cx": 1680,
+     "y": 760,
+     "w": 110,
+     "float": true,
+     "z": 9
+    },
+    {
+     "t": "tag",
+     "cx": 1680,
+     "y": 420,
+     "label": "Contract price",
+     "value": "₹25/kg"
+    }
+   ],
+   "sb": "OSA. Left side: Rajesh. Show: Cultivation cost: ₹20/kg. Right side: show both shaking hands and show Contract price: ₹25/kg"
+  },
+  {
+   "id": "5.38",
+   "section": "Three Scenarios (v4 storyboard example)",
+   "name": "Three-scenarios",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "htab",
+     "text": "Market Price of Wheat After 3 Months"
+    },
+    {
+     "t": "tag",
+     "cx": 960,
+     "y": 200,
+     "label": "Contract price",
+     "value": "₹25/kg"
+    },
+    {
+     "t": "html",
+     "html": "<div style='width:4px;height:620px;background:#141414;opacity:.25'></div>",
+     "x": 643,
+     "y": 360,
+     "z": 3
+    },
+    {
+     "t": "html",
+     "html": "<div style='width:4px;height:620px;background:#141414;opacity:.25'></div>",
+     "x": 1273,
+     "y": 360,
+     "z": 3
+    },
+    {
+     "t": "label",
+     "text": "Scenario 1",
+     "size": 40,
+     "weight": 700,
+     "cx": 330,
+     "y": 400
+    },
+    {
+     "t": "prop",
+     "name": "arrow",
+     "dir": "up",
+     "w": 130,
+     "cx": 330,
+     "y": 500,
+     "float": true
+    },
+    {
+     "t": "label",
+     "text": "Price rises",
+     "size": 40,
+     "weight": 600,
+     "cx": 330,
+     "y": 760
+    },
+    {
+     "t": "label",
+     "text": "Scenario 2",
+     "size": 40,
+     "weight": 700,
+     "cx": 960,
+     "y": 400
+    },
+    {
+     "t": "prop",
+     "name": "arrow",
+     "dir": "same",
+     "w": 130,
+     "cx": 960,
+     "y": 500,
+     "float": true
+    },
+    {
+     "t": "label",
+     "text": "Price stays the same",
+     "size": 40,
+     "weight": 600,
+     "cx": 960,
+     "y": 760
+    },
+    {
+     "t": "label",
+     "text": "Scenario 3",
+     "size": 40,
+     "weight": 700,
+     "cx": 1590,
+     "y": 400
+    },
+    {
+     "t": "prop",
+     "name": "arrow",
+     "dir": "down",
+     "w": 130,
+     "cx": 1590,
+     "y": 500,
+     "float": true
+    },
+    {
+     "t": "label",
+     "text": "Price falls",
+     "size": 40,
+     "weight": 600,
+     "cx": 1590,
+     "y": 760
+    }
+   ]
+  },
+  {
+   "id": "5.46",
+   "section": "Three Scenarios (v4 storyboard example)",
+   "name": "Scenario 1: Price Rises",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "htab",
+     "text": "Scenario 1: Price Rises"
+    },
+    {
+     "t": "prop",
+     "name": "scale",
+     "w": 700,
+     "left": "₹30/kg",
+     "right": "₹25/kg",
+     "tilt": 8,
+     "left_caption": "Market price",
+     "right_caption": "Contract price",
+     "cx": 960,
+     "y": 200,
+     "float": true
+    },
+    {
+     "t": "tag",
+     "cx": 960,
+     "y": 640,
+     "label": "Missed opportunity (not a loss)",
+     "value": "₹5/kg"
+    },
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 270,
+     "facing": "right",
+     "h": 460,
+     "name": "Rajesh: Seller"
+    },
+    {
+     "t": "prop",
+     "name": "wheat_sack",
+     "x": 430,
+     "w": 150
+    },
+    {
+     "t": "character",
+     "who": "mill",
+     "cx": 1650,
+     "facing": "left",
+     "h": 460,
+     "name": "Mill Owner: Buyer"
+    },
+    {
+     "t": "prop",
+     "name": "money_bag",
+     "x": 1400,
+     "w": 120
+    }
+   ]
+  },
+  {
+   "id": "6.54",
+   "section": "Three Scenarios (v4 storyboard example)",
+   "name": "Prices-locked",
+   "mode": "main",
+   "items": [
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 230,
+     "facing": "right",
+     "h": 440,
+     "name": false
+    },
+    {
+     "t": "tag",
+     "cx": 230,
+     "y": 420,
+     "label": "Rajesh's selling price",
+     "value": "₹25/kg",
+     "icon": "lock"
+    },
+    {
+     "t": "character",
+     "who": "mill",
+     "cx": 1690,
+     "facing": "left",
+     "h": 440,
+     "name": false
+    },
+    {
+     "t": "tag",
+     "cx": 1690,
+     "y": 420,
+     "label": "Mill owner's buying price",
+     "value": "₹25/kg",
+     "icon": "lock"
+    }
+   ],
+   "sb": "Show both characters as per hand gesture as per vo. Left side: Selling price: ₹25/kg locked. Right side: Buying price: ₹25/kg locked"
+  },
+  {
+   "id": "7.28",
+   "section": "Hedging (v4 storyboard example)",
+   "name": "Rajesh-protected",
+   "mode": "side",
+   "items": [
+    {
+     "t": "htab",
+     "text": "Rajesh (Seller)",
+     "cx": 1390,
+     "y": 70
+    },
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 1070,
+     "facing": "right",
+     "h": 520,
+     "name": false
+    },
+    {
+     "t": "label",
+     "text": "Market price",
+     "size": 30,
+     "weight": 600,
+     "cx": 1540,
+     "y": 250
+    },
+    {
+     "t": "row",
+     "gap": 14,
+     "cx": 1540,
+     "y": 300,
+     "items": [
+      {
+       "t": "tag",
+       "value": "₹25/kg"
+      },
+      {
+       "t": "label",
+       "text": "▼",
+       "size": 46,
+       "weight": 800
+      },
+      {
+       "t": "tag",
+       "value": "₹20/kg"
+      }
+     ]
+    },
+    {
+     "t": "label",
+     "text": "Forward contract",
+     "size": 30,
+     "weight": 600,
+     "cx": 1540,
+     "y": 440
+    },
+    {
+     "t": "tag",
+     "cx": 1540,
+     "y": 490,
+     "value": "₹25/kg",
+     "icon": "lock",
+     "big": true
+    },
+    {
+     "t": "tag",
+     "cx": 1540,
+     "y": 660,
+     "label": "Result",
+     "value": "Protected from\nfalling prices",
+     "icon": "check"
+    }
+   ]
+  },
+  {
+   "id": "10.26",
+   "section": "Exchange (v4 storyboard example)",
+   "name": "Marketplace",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "backdrop",
+     "name": "grain_market",
+     "banner": "Grain Market"
+    },
+    {
+     "t": "prop",
+     "name": "wheat_sack",
+     "x": 20,
+     "w": 300,
+     "price": "₹24/kg",
+     "z": 7
+    },
+    {
+     "t": "character",
+     "who": "rajesh",
+     "cx": 420,
+     "facing": "right",
+     "h": 420,
+     "name": "Seller"
+    },
+    {
+     "t": "prop",
+     "name": "wheat_sack",
+     "x": 540,
+     "w": 300,
+     "price": "₹26/kg",
+     "z": 7
+    },
+    {
+     "t": "character",
+     "who": "seller1",
+     "cx": 880,
+     "facing": "right",
+     "h": 420,
+     "name": "Seller"
+    },
+    {
+     "t": "character",
+     "who": "mill",
+     "cx": 1250,
+     "facing": "left",
+     "h": 420,
+     "name": "Buyer"
+    },
+    {
+     "t": "character",
+     "who": "buyer1",
+     "cx": 1500,
+     "facing": "left",
+     "h": 420,
+     "name": "Buyer"
+    },
+    {
+     "t": "prop",
+     "name": "wheat_sack",
+     "x": 1600,
+     "w": 300,
+     "price": "₹25/kg",
+     "z": 7
+    }
+   ],
+   "header_y": 36
   }
- ]
+ ],
+ "cast": {
+  "rajesh": {
+   "name": "Rajesh",
+   "png": "chars/Character_1.png",
+   "faces": "left"
+  },
+  "mill": {
+   "name": "Mill Owner",
+   "png": "chars/Character_5.png",
+   "faces": "left"
+  },
+  "varsity": {
+   "png": "chars/Character_6.png",
+   "faces": "left"
+  },
+  "buyer1": {
+   "name": "Buyer",
+   "png": "chars/Character_3.png",
+   "faces": "left"
+  },
+  "buyer2": {
+   "name": "Buyer",
+   "png": "chars/Character_6.png",
+   "faces": "left"
+  },
+  "seller1": {
+   "name": "Seller",
+   "png": "chars/Character_2.png",
+   "faces": "left"
+  },
+  "seller2": {
+   "name": "Seller",
+   "png": "chars/Character_4.png",
+   "faces": "left"
+  }
+ }
 }

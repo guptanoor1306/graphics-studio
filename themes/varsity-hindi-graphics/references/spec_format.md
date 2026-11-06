@@ -1,7 +1,8 @@
 # spec.json format (everything needed to build frames)
 
 ```json
-{"frames": [ {"id": "2.49", "mode": "side", "items": [ {...}, {...} ]} ]}
+{"cast": {"rajesh": {"name": "Rajesh", "char": 1}, "mill": {"name": "Mill Owner", "char": 5}},
+ "frames": [ {"id": "2.49", "mode": "side", "items": [ {...}, {...} ]} ]}
 ```
 - `id` = output filename = storyboard timestamp: `0.43`, `3.49_b` (a second state), `9.10`.
 - `section` = the storyboard section the frame belongs to ("Intro", "Marubozu", "Things to Remember"). The delivery zip groups PNG/ and HTML/ by section, in storyboard order. Optional `name` overrides the file-name slug (default: the frame's header tab or title).
@@ -54,8 +55,30 @@ Put the pattern index at the **trough** (bullish) or **peak** (bearish) of `path
 | `asset` | `src` (props/…png), `w`, `flip`, `opacity` |
 | `html` | `html` (escape hatch, e.g. a mock e-commerce card) |
 
-### Props (assets/props/)
-`magnifier`, `megaphone`, `character_magnifier` (yellow stick figure holding a magnifier), `character_pointing`, `character_desk_back` (seated at a desk, seen from behind), `thought_bubble`, `bull_3d`, `bear_3d`, `cash_note_1`, `cash_note_2`, `umbrella`, `pillar_3d`, `tile_floor`, `paper_doodle`, `kite_chevron`, `varsity_eye`, `sparkle`.
+### People and props (v2)
+| t | fields |
+|---|---|
+| `character` | `who` (a key of the spec's `cast`) or `char` 1–6; `facing` left/right (mirrors the artwork); `h` (height px for an average character, default 420; taller artwork scales with it); `x` (left edge). No `y`: feet snap to the floor. `name` overrides the cast name (`false` hides the pill). `float`:true to place freely with `y`. Hair, colour, face and pose can't be changed |
+| `prop` | `name`: wheat_field, wheat_sack (`label`, `price`), flour_mill (`label`), market_stall (`label`, `price`, `goods`), building/bank (`label`), house, factory, scale (`left`, `right`, `tilt` deg, `left_caption`, `right_caption`), lock (`label`, `open`), money_bag, coins (`n`), calendar (`big`, `small`), document (`title`), phone (`text`), milk_can (`label`), cup (`label`), handshake, arrow (`dir` up/down, `label`). `w` = width px; `x`; no `y` = stands on the floor; `float`:true + `y` to hang it |
+
+`cast` (top level): `{"key": {"name": "Rajesh", "char": 1}}`; `char` = 1–6, the team's Varsity characters (`assets/chars/`, sheet in `references/characters.jpg`).
+Frame options added: `split` (true for a two-half split screen: allows one small header tab per half), `floor` (false to switch off the automatic floor; true to force it), `floor_y`, `header_y`, `header_in_flow` (keep an FSS header in the stacking zone instead of pinned top-centre).
+`table`: without `x` it flows in the zone at content width (max 880 on side cam, 1560 elsewhere); `w` is a maximum. `cards`: `size` overrides the font size.
+
+### Scenes, bubbles, cards, arrows (v4)
+| t | fields |
+|---|---|
+| `backdrop` | `name`: wheat_field (`horizon`), flour_mill / atta_chakki, grain_market / mandi (`banner` text or none). **First item of the frame.** `clip` [x0, x1] keeps one part for a split screen; `front`:false drops the foreground wheat. Sets the ground line (no tiled floor) |
+| `tag` | Clean callout card: `label` (small grey), `value` (bold), `icon` lock / check / arrow_up / arrow_down, `big`. Place with `cx` + `y` (centred) or in a flow. The old `callout` renders as a tag |
+| `thought` | Thought bubble: `prop` {`name`, `w`, …prop fields} **or** `text`; `w`, `flip` (mirror so the trail points left), `x`, `y` |
+| `pointer` | Dashed arrow: `from` [x, y] (label centre), `to` [x, y] (arrow tip), `text` (optional label pill), `bend` |
+
+Any pinned item may use `cx` (centre x) instead of `x`; characters and props too. `prop` with `inline`:true renders inside a flow (e.g. icons inside a `panel`).
+New props: `tea_glass`, `mug`, `shaker` (`label`); `arrow` `dir` up / down / same.
+Frame field `sb`: the storyboard line for this beat (used by the build's storyboard checks; not shown on screen).
+
+### Fixed PNG props (assets/props/)
+`magnifier`, `megaphone`, `character_magnifier` (legacy; use the `character` item for people) (yellow stick figure holding a magnifier), `character_pointing`, `character_desk_back` (seated at a desk, seen from behind), `thought_bubble`, `bull_3d`, `bear_3d`, `cash_note_1`, `cash_note_2`, `umbrella`, `pillar_3d`, `tile_floor`, `paper_doodle`, `kite_chevron`, `varsity_eye`, `sparkle`.
 Plates (assets/plates/): `sidecam`, `maincam`, `fss_sky`, `scene_desk_night`, `scene_phone_store`.
 
 Working examples of every item: `examples/example_spec.json` (28 frames rebuilt from Ep1–5).

@@ -21,6 +21,11 @@ English terms already in the script (OHLC, Bullish, Stoploss, Doji) stay as they
 | Trading rule (entry, stoploss, confirmation) | **Graphic** (state of the previous chart) | same `kite` + `leaders` / `trade` |
 | Timeframe / interval talk | **Graphic** | `kite` + `dropdown` with the interval selected, or `side_card` for "1 Month Candle" |
 | Analogy (phone shopping, umbrella, pillars) | **Graphic** | `scene` with the character, or a prop in a panel (`umbrella`, `pillar` cards) |
+| SB says top cam / on the board / footage | **No graphic** | the presenter explains on camera; list it as Top cam |
+| SB says highlight the part from a link / article | **Screen capture** | no built frame |
+| A setting (field, shop, mill, market) | **Graphic** | `backdrop` + characters standing in it |
+| A story with people (farmer, buyer, seller, family) | **Graphic** | `fss` with `character` items (team characters 1–6, as drawn) + `prop` items for the setting, on the floor; one centred header; names in pills |
+| Scenarios (price rises / same / falls) | **Graphic** | one intro frame + one frame per scenario with the same layout (same team characters, same prop, e.g. `scale` tilting); only the numbers and tilt change |
 | Comparison of two approaches (FA vs TA) | **Graphic** | `blur` + `table`, magnifier on the row being read |
 | A list of points (3–6) | **Graphic** | `side` + `bullets` (current bright, rest faded) or `cards` |
 | Exercise ("pause the video and plot…") | **Graphic** | `side` + `htab` Exercise + `typo_card`. No candles: the viewer draws them |

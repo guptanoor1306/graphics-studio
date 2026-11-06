@@ -10,26 +10,27 @@ or off-frame, content over the presenter). Spec format: references/spec_format.m
 """
 import json, os, sys, re, html, asyncio
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import chart
+import chart, props, scenes
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 E = html.escape
-CANVAS_W, CANVAS_H = 1920, 1080
 WARN = []
 
 
-def _asset_href(rel: str, *, studio: bool) -> str:
-    rel = str(rel).replace("\\", "/").lstrip("/")
-    if studio:
-        return "../assets/" + rel
-    return "file://" + os.path.join(KIT, "assets", rel)
+def _studio_web() -> bool:
+    return os.environ.get("STUDIO_WEB") == "1"
 
 
-def _set_asset_mode(studio: bool):
-    global A
-    A = lambda p, _s=studio: _asset_href(p, studio=_s)
+def A(p):
+    p = str(p).replace("\\", "/")
+    if _studio_web():
+        return "../assets/" + p
+    return "file://" + os.path.join(KIT, "assets", p)
 
 
-_set_asset_mode(studio=False)
+def _css_href() -> str:
+    if _studio_web():
+        return "../templates/vh.css"
+    return "file://" + os.path.join(KIT, "templates", "vh.css")
 
 # Every colour used in the Ep1-5 finals (measured). Anything else is off-theme.
 PALETTE = {'#FFFFFF', '#000000', '#111111', '#141414', '#1B1B1B', '#222222', '#333333', '#6E6E6E', '#D8D8D8',
@@ -64,7 +65,7 @@ def strings(o):
     if isinstance(o, str): yield o
     elif isinstance(o, dict):
         for k, v in o.items():
-            if k in ('src', 'plate', 'type', 't', 'id', 'mode', 'section', 'name', 'kind', 'pos', 'style', 'at', 'align', 'color', 'x_axis', 'gen', 'html'): continue
+            if k in ('src', 'plate', 'type', 't', 'id', 'mode', 'section', 'name', 'kind', 'pos', 'style', 'at', 'align', 'color', 'x_axis', 'gen', 'html', 'sb', 'icon', 'dir', 'who', 'facing', 'clip'): continue
             yield from strings(v)
     elif isinstance(o, list):
         for v in o: yield from strings(v)
@@ -111,7 +112,7 @@ def kite(i, fid, frame):
     lights = ''.join(f'<i style="left:{30+36*j}px;background:{col}"></i>' for j, col in enumerate(('#EF2A41', '#FEBE09', '#01D73D')))
     out = f'<div class="win" style="left:{x}px;top:{y}px;width:{w}px;height:{h}px;z-index:4"><div class="bar">{lights}</div><svg width="{w}" height="{h-62}">{svg}</svg></div>'
     if i.get('tab'):
-        out += f'<div class="abs chk" style="left:{x}px;width:{w}px;top:{y-86}px;text-align:center;z-index:7"><span class="htab">{E(i["tab"])}</span></div>'
+        out += f'<div class="abs chk wintab" style="left:{x}px;width:{w}px;top:{y-86}px;text-align:center;z-index:7"><span class="htab">{E(i["tab"])}</span></div>'
     if sc:
         k = c['candles'][sc['i']]; cx = x + w + 30
         bull = k['c'] >= k['o']; col = chart.GREEN if bull else chart.CORAL
@@ -142,19 +143,24 @@ def kite(i, fid, frame):
                 bg = 'background:#F7C430;' if it == sel else ''
                 body += f'<div style="padding:2px 18px;font-size:16px;color:#333;{bg}">{it}</div>'
             body += '<div style="border-bottom:1px solid #ddd;margin:6px 0"></div>'
-        oh = d.get("overhang", 150)
-        out += f'<div class="abs" style="left:{x - oh}px;top:{y + 150}px;width:300px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:8;color:#111;padding-bottom:10px">{body}</div>'
+        out += f'<div class="abs" style="left:{x-d.get('overhang',150)}px;top:{y+150}px;width:300px;background:#fff;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:8;color:#111;padding-bottom:10px">{body}</div>'
     return out, True
 
 def table_win(i, fid, frame):
-    x, y, w = i.get('x', 200), i.get('y', 40), i.get('w', 1520)
-    head = ''.join(f'<th>{rich(h)}</th>' for h in i['head']); hl = i.get('hl')
+    """White table window. Without "x" it flows in the frame zone, sized to its content and centred under the header tab
+    (no empty right-hand space). With "x"/"y" it is pinned; "w" is then a maximum, not a forced width."""
+    hl = i.get('hl'); pinned = 'x' in i
+    head = ''.join(f'<th>{rich(h)}</th>' for h in i['head'])
     rows = ''.join(f'<tr class="{"dim" if (hl is not None and i.get("dim_others") and n != hl) else ""}">' + ''.join(f'<td>{rich(c)}</td>' for c in r) + '</tr>' for n, r in enumerate(i['rows']))
     lights = ''.join(f'<i style="left:{30+36*j}px;background:{col}"></i>' for j, col in enumerate(('#EF2A41', '#FEBE09', '#01D73D')))
-    out = f'<div class="win glassbar chk" style="left:{x}px;top:{y}px;width:{w}px;z-index:4"><div class="bar">{lights}</div><table class="tt">{"<thead><tr>"+head+"</tr></thead>"}<tbody>{rows}</tbody></table></div>'
-    if i.get('tab'): out += f'<div class="abs" style="left:{x}px;width:{w}px;top:{y-86}px;text-align:center;z-index:7"><span class="htab">{E(i["tab"])}</span></div>'
-    if hl is not None: out += f'<img id="mag-{fid}" class="abs" data-row="{hl}" src="{A("props/magnifier.png")}" style="width:300px;z-index:9;left:{x-60}px;top:0">'
-    return out, True
+    maxw = i.get('w') or (880 if frame['mode'] == 'side' else 1560)
+    pos = f'position:absolute;left:{i["x"]}px;top:{i.get("y",40)}px;' if pinned else 'position:relative;'
+    tab = (f'<div style="text-align:center;margin-bottom:24px"><span class="htab">{E(i["tab"])}</span></div>' if i.get('tab') else '')
+    win = (f'<div class="win glassbar chk tblwin" style="{pos}width:max-content;max-width:{maxw}px;min-width:{i.get("min_w",520)}px;z-index:4">'
+           f'<div class="bar">{lights}</div><table class="tt">{"<thead><tr>"+head+"</tr></thead>"}<tbody>{rows}</tbody></table></div>')
+    out = f'<div style="display:flex;flex-direction:column;align-items:center">{tab}{win}</div>' if not pinned else (tab and f'<div class="abs" style="left:{i["x"]}px;top:{i.get("y",40)-86}px;z-index:7">{tab}</div>') + win
+    if hl is not None: out += f'<img id="mag-{fid}" class="abs" data-row="{hl}" src="{A("props/magnifier.png")}" style="width:300px;z-index:9;left:0;top:0">'
+    return out, pinned
 
 def htab(i, fid, frame): return f'<div class="chk" style="text-align:center"><span class="htab {"sm" if i.get("small") else ""}">{E(i["text"])}</span></div>', False
 
@@ -198,7 +204,8 @@ def bullets(i, fid, frame):
     return f'<div class="chk" style="width:{i.get("w",860)}px">{t}<ul class="blist">{lis}</ul></div>', False
 
 def callout(i, fid, frame):
-    return f'<div class="cpill chk"><b>{rich(i["claim"])}</b><div><small>{E(i.get("label",""))}</small><span>{E(i.get("value",""))}</span></div></div>', False
+    """Legacy name: renders as the clean `tag` (grey label over bold value). claim → label; value → value."""
+    return tag({'label': i.get('claim') or i.get('label'), 'value': i.get('value') or i.get('label'), 'icon': i.get('icon')}, fid, frame)
 
 def panel(i, fid, frame):
     inner = ''.join(render_item(x, fid, frame)[0] for x in i['items'])
@@ -225,11 +232,14 @@ def mini(i, fid, frame):
     return f'<div><svg width="{w}" height="{h}" overflow="visible">{svg}</svg>{cap}</div>', False
 
 def cards(i, fid, frame):
-    a = i.get('active'); pil = i.get('pillars')
-    s = f'<div style="display:flex;gap:{i.get("gap",40)}px;align-items:flex-start">'
-    for n, t in enumerate(i['items']):
-        on = (a == 'all' or a == n)
-        col = f'<div class="lcard {"on" if on and a is not None else ""} chk">{rich(t)}</div>'
+    """Equal-size cards: same height, same width (= widest card), never narrower than the longest word."""
+    a = i.get('active'); pil = i.get('pillars'); n = len(i['items'])
+    fs = i.get('size') or (34 if n <= 3 else 30 if n == 4 else 27)
+    s = (f'<div class="cardrow" style="display:grid;grid-template-columns:repeat({n},minmax(min-content,1fr));gap:{i.get("gap",24)}px;'
+         f'max-width:{i.get("w", 900 if frame["mode"]=="side" else 1600)}px;align-items:stretch">')
+    for k, t in enumerate(i['items']):
+        on = (a == 'all' or a == k)
+        col = f'<div class="lcard {"on" if on and a is not None else ""} chk" style="font-size:{fs}px">{rich(t)}</div>'
         if pil: col = f'<div style="display:flex;flex-direction:column;align-items:center">{col}<img src="{A("props/pillar_3d.png")}" style="width:122px;margin-top:-4px"></div>'
         s += col
     return s + '</div>', False
@@ -272,77 +282,218 @@ def row(i, fid, frame):
 
 def raw(i, fid, frame): return i['html'], False
 
-R = dict(kite=kite, table=table_win, htab=htab, title=title_stack, questions=questions, big=big, definition=definition,
+
+# ============================================================== characters, props, floor
+CAST = {}
+FLOOR_Y = {'fss': 905, 'scene': 905, 'side': 975, 'main': 1015, 'blur': 1015, 'takeaways': 905}
+def floor_y(frame): return frame.get('floor_y') or FLOOR_Y.get(frame['mode'], 905)
+
+def _place(i, frame, w, h, inner, cls, grounded=True):
+    x = i['cx'] - w // 2 if 'cx' in i else i.get('x', 960 - w // 2)
+    fy = floor_y(frame)
+    y = i['y'] if 'y' in i else fy - h
+    if grounded: frame.setdefault('_grounded', []).append((x, w))
+    data = f' data-floor="{fy}"' if grounded else ''
+    return f'<div class="abs {cls}{" grounded" if grounded else ""}"{data} style="left:{x}px;top:{y}px;width:{w}px;height:{h}px;z-index:{i.get("z",6)}">{inner}</div>'
+
+CHAR_PNG = {n: f'chars/Character_{n}.png' for n in range(1, 7)}
+def character(i, fid, frame):
+    """One of the team's six Varsity characters (assets/chars/Character_1..6.png), used EXACTLY as drawn.
+    Only position (x), height (h) and left/right mirroring (facing) may change: never hair, colour, face or pose."""
+    who = i.get('who'); look = dict(CAST.get(who, {})) if who else {}
+    if who and who not in CAST: WARN.append(f'{fid}: character "{who}" is not in the spec cast')
+    n = i.get('char') or look.get('char')
+    png = look.get('png') or (CHAR_PNG.get(int(n)) if n else None)
+    if not png:
+        raise SystemExit(f'{fid}: character needs "char": 1-6 (in the cast or on the item). Only the team characters may be used')
+    for k in ('color', 'hair', 'extras', 'pose'):
+        if k in look or (k in i and k != 'pose'):
+            WARN.append(f'{fid}: "{k}" is ignored: team characters are used as drawn (only x, h, facing change)')
+    from PIL import Image
+    im = Image.open(os.path.join(KIT, 'assets', png))
+    h = round(i.get('h', 420) * im.height / 700); w = round(im.width * h / im.height)
+    native = look.get('faces', 'left'); want = i.get('facing', native)
+    fl = 'transform:scaleX(-1);' if want != native else ''
+    art = f'<img src="{A(png)}" style="width:{w}px;height:{h}px;{fl}">'
+    frame.setdefault('_looks', []).append((who or '?', (png,)))
+    name = i.get('name', look.get('name'))
+    pill = ''
+    if name:
+        below = floor_y(frame) + 76 < 1072 and 'y' not in i
+        pill = f'<div class="npill" style="{"top:%dpx" % (h+14) if below else "top:-70px"}">{E(name)}</div>'
+    return _place(i, frame, w, h, f'<div class="chk" style="width:{w}px;height:{h}px">{art}</div>' + pill, 'char', grounded=not i.get('float')), True
+
+def prop_item(i, fid, frame):
+    name = i.get('name') or i.get('prop')
+    opts = {k: v for k, v in i.items() if k not in ('t', 'name', 'prop', 'x', 'y', 'z', 'float', 'w', 'cx', 'inline')}
+    try: svg, w, h = props.prop(name, w=i.get('w'), **opts)
+    except KeyError: raise SystemExit(f'{fid}: unknown prop {name!r}. Props: {", ".join(props.PROPS)}')
+    except TypeError as e: raise SystemExit(f'{fid}: prop {name}: {e}')
+    if i.get('inline'): return f'<div class="chk">{svg}</div>', False
+    grounded = not (i.get('float') or (name in props.FLOATING and 'y' in i))
+    return _place(i, frame, w, h, f'<div class="chk" style="width:{w}px;height:{h}px">{svg}</div>', 'prop', grounded=grounded), True
+
+def floor_html(frame):
+    """Tiled floor band. FSS/scene: full width. Side cam: the dark half. Main cam: a strip under each grounded group."""
+    mode = frame['mode']; fy = floor_y(frame); top = fy - 46
+    src = A('props/tile_floor.png')
+    def band(x0, x1):
+        soft = '' if (x0 <= 0 and x1 >= 1920) else ' soft'
+        return (f'<div class="floor{soft}" style="left:{x0}px;top:{top}px;width:{x1-x0}px;height:{1080-top}px;'
+                f'background-image:url({src});background-size:2080px 330px;background-position:{-x0-80}px 0"></div>')
+    if mode in ('fss', 'scene', 'takeaways'): return band(0, 1920)
+    if mode == 'side': return band(880, 1920)
+    spans = sorted((max(0, x - 70), min(1920, x + w + 70)) for x, w in frame.get('_grounded', []))
+    merged = []
+    for a, b in spans:
+        if merged and a <= merged[-1][1]: merged[-1][1] = max(merged[-1][1], b)
+        else: merged.append([a, b])
+    return ''.join(band(a, b) for a, b in merged)
+
+def backdrop(i, fid, frame):
+    """Full-frame scene (wheat_field, flour_mill/atta_chakki, grain_market/mandi). Put it FIRST in items.
+    clip [x0, x1] keeps one part (split screens). Characters stand on the scene's own ground; no tiled floor."""
+    o = {k: v for k, v in i.items() if k not in ('t', 'name', 'clip', 'z', 'front')}
+    try: back, front, fy = scenes.backdrop(i['name'], **o)
+    except KeyError: raise SystemExit(f'{fid}: unknown backdrop {i["name"]!r}. Backdrops: {", ".join(scenes.SCENES)}')
+    x0, x1 = i.get('clip', [0, 1920])
+    frame['floor'] = False; frame.setdefault('floor_y', fy)
+    clip = f'clip-path:inset(0 {1920-x1}px 0 {x0}px);'
+    out = f'<svg class="abs" style="left:0;top:0;z-index:{i.get("z",2)};{clip}" width="1920" height="1080" overflow="hidden">{back}</svg>'
+    if front and i.get('front', True):
+        out += f'<svg class="abs" style="left:0;top:0;z-index:8;{clip};pointer-events:none" width="1920" height="1080">{front}</svg>'
+    return out, True
+
+def tag(i, fid, frame):
+    """Clean callout: small grey label over a bold value, both left-aligned and vertically centred, optional icon
+    (lock, check, arrow_up, arrow_down). Replaces the old two-part `callout` pill whose text sizes did not line up."""
+    ic = i.get('icon'); icon = ''
+    if ic == 'lock':
+        icon = props.lock(w=44)[0]
+    elif ic == 'check':
+        icon = '<svg width="44" height="44"><circle cx="22" cy="22" r="19" fill="#FFBE30" stroke="#141414" stroke-width="3"/><path d="M12 22 L19 29 L32 15" fill="none" stroke="#141414" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    elif ic in ('arrow_up', 'arrow_down'):
+        icon = props.arrow(w=34, dir='up' if ic == 'arrow_up' else 'down')[0]
+    lab = f'<small>{rich(i["label"])}</small>' if i.get('label') else ''
+    val = f'<b>{rich(i["value"])}</b>' if i.get('value') else ''
+    big = ' big' if i.get('big') else ''
+    return f'<div class="tag2{big} chk">{icon}<div>{lab}{val}</div></div>', False
+
+def thought(i, fid, frame):
+    """Thought bubble whose contents are what the storyboard puts in it: a prop (e.g. a wheat sack with a price tag) or text.
+    flip mirrors the bubble so its trail points to a character on the other side."""
+    w = i.get('w', 460); fl = 'transform:scaleX(-1);' if i.get('flip') else ''
+    if i.get('prop'):
+        po = dict(i['prop']); nm = po.pop('name'); pw = po.pop('w', round(w * .44))
+        svg, pw, ph = props.prop(nm, w=pw, **po)
+        inner = f'<div class="abs" style="left:{w*.47 - pw/2:.0f}px;top:{w*.29 - ph/2:.0f}px">{svg}</div>'
+    else:
+        inner = f'<div class="bubble-t chk" style="left:8%;top:22%;width:72%">{rich(i.get("text",""))}</div>'
+    return f'<div style="position:relative;width:{w}px;height:{w*296/461:.0f}px"><img src="{A("props/thought_bubble.png")}" style="width:{w}px;{fl}">{inner}</div>', False
+
+def pointer(i, fid, frame):
+    """Label + arrow pointing at something (e.g. "Underlying" → the wheat sack). from [x,y] (label centre) → to [x,y] (arrow tip)."""
+    (x0, y0), (x1, y1) = i['from'], i['to']
+    import math
+    a = math.atan2(y1 - y0, x1 - x0); hx, hy = x1 - 22 * math.cos(a), y1 - 22 * math.sin(a)
+    l, r_ = (hx - 14 * math.sin(a), hy + 14 * math.cos(a)), (hx + 14 * math.sin(a), hy - 14 * math.cos(a))
+    sy = y0 + (40 if i.get('text') else 0)
+    mx, my = (x0 + x1) / 2 + i.get('bend', 60), (sy + y1) / 2
+    col = '#fff' if frame['mode'] in ('main', 'side', 'blur') else '#141414'
+    svg = (f'<svg class="abs" style="left:0;top:0;z-index:{i.get("z",7)}" width="1920" height="1080"><path d="M{x0} {sy} Q{mx} {my} {hx:.0f} {hy:.0f}" fill="none" stroke="{col}" stroke-width="5" stroke-dasharray="14 10" stroke-linecap="round"/>'
+           f'<path d="M{x1} {y1} L{l[0]:.0f} {l[1]:.0f} L{r_[0]:.0f} {r_[1]:.0f} Z" fill="{col}"/></svg>')
+    lab = (f'<div class="abs" style="left:{x0}px;top:{y0}px;transform:translate(-50%,-50%);z-index:{i.get("z",7)}"><span class="npill chk" style="position:static;transform:none;display:inline-block">{E(i["text"])}</span></div>' if i.get('text') else '')
+    return svg + lab, True
+
+R = dict(backdrop=backdrop, tag=tag, thought=thought, pointer=pointer, character=character, prop=prop_item, kite=kite, table=table_win, htab=htab, title=title_stack, questions=questions, big=big, definition=definition,
          bullets=bullets, callout=callout, panel=panel, diagram=diagram, mini=mini, cards=cards, typo_card=typo_card,
          sentiment=sentiment, roto=roto, label=label, text=label, asset=asset, bubble=bubble, row=row, html=raw)
 
-def _coerce_item(i):
-    if not isinstance(i, dict):
-        return i
-    it = dict(i)
-    t = it.get('t')
-    if t == 'heading':
-        it['t'] = 'htab'
-        it['text'] = it.get('text') or it.get('heading') or ''
-    elif t == 'formula':
-        terms = it.get('terms') or []
-        bits = [str(x.get('label') or x.get('value') or '') for x in terms if isinstance(x, dict)]
-        it['t'] = 'definition'
-        it['text'] = it.get('definition') or ' = '.join(b for b in bits if b) or 'Formula'
-    elif t not in R and t != 'html':
-        if t in ('points',):
-            it['t'] = 'bullets'
-            it.setdefault('items', [])
-        elif t == 'person':
-            it['t'] = 'asset'
-            it.setdefault('src', 'props/character_pointing.png')
-        elif t == 'glass_table':
-            it['t'] = 'table'
-            it.setdefault('head', ['', ''])
-            it.setdefault('rows', [])
-        else:
-            it['t'] = 'html'
-            it['html'] = f'<p style="font-size:22px;color:#666">Unsupported item “{html.escape(str(t))}” for Hindi kit.</p>'
-    for key in ('items',):
-        if isinstance(it.get(key), list):
-            it[key] = [_coerce_item(x) for x in it[key]]
-    return it
-
-
 def render_item(i, fid, frame):
-    i = _coerce_item(i)
     t = i.get('t')
-    if t not in R:
-        raise SystemExit(f'{fid}: unknown item type {t!r}. Types: {", ".join(R)}')
+    if t not in R: raise SystemExit(f'{fid}: unknown item type {t!r}. Types: {", ".join(R)}')
     return R[t](i, fid, frame)
-
-
-def _layer_label(it):
-    t = it.get('t') or '?'
-    for k in ('tab', 'text', 'title', 'key', 'ticker', 'caption', 'claim'):
-        if it.get(k):
-            return t, str(it[k])[:32]
-    if it.get('lines') and isinstance(it['lines'], list) and it['lines']:
-        ln = it['lines'][0]
-        if isinstance(ln, dict) and ln.get('text'):
-            return t, str(ln['text'])[:32]
-    return t, ''
-
-
-def _edit_tag(idx, it, edit):
-    if not edit or not isinstance(it, dict):
-        return ''
-    lt, ll = _layer_label(it)
-    return f' class="studio-editable" data-spec-idx="{idx}" data-layer-type="{E(lt)}" data-layer-label="{E(ll)}"'
 
 # ============================================================== frames
 PLATES = {'fss': 'fss_sky.jpg', 'side': 'sidecam.jpg', 'main': 'maincam.jpg', 'blur': 'maincam.jpg', 'takeaways': 'fss_sky.jpg'}
 SWOOSH = ('<svg class="abs" style="left:0;top:0;z-index:1" width="1920" height="1080"><path d="M520 1080 C 560 760 320 520 640 300 C 820 170 980 60 1060 0 L1920 0 L1920 1080 Z" fill="#fff" opacity=".55"/>'
           '<path d="M520 1080 C 560 760 320 520 640 300 C 820 170 980 60 1060 0" fill="none" stroke="#fff" stroke-width="4"/></svg>')
 
-def frame_html(f, look=None, edit=False, all_frames=None, **_kwargs):
-    _set_asset_mode(studio=True)
+_INLINE = {'htab': 'text', 'label': 'text', 'text': 'text', 'tag': 'text', 'callout': 'text', 'definition': 'text', 'big': 'text'}
+_RESIZE = {
+    'table': 'w', 'cards': 'w', 'definition': 'w', 'bullets': 'w', 'big': 'font', 'label': 'font', 'htab': 'font',
+    'title': 'font', 'questions': 'w', 'typo_card': 'w', 'panel': 'w', 'sentiment': 'w', 'asset': 'wh',
+    'character': 'wh', 'prop': 'wh', 'mini': 'wh', 'diagram': 'w', 'kite': 'wh', 'thought': 'w', 'bubble': 'w',
+}
+
+
+def _layer_label(it):
+    t = it.get('t') or '?'
+    if t in ('character', 'prop'):
+        return t, (it.get('name') or it.get('who') or it.get('prop') or t)[:32]
+    if t == 'asset':
+        return t, (it.get('src') or '')[-28:]
+    if t == 'tag':
+        return t, str(it.get('value') or it.get('label') or '')[:32]
+    if t == 'title':
+        return t, str(it.get('key') or it.get('lead') or '')[:32]
+    if t == 'cards':
+        n = len(it.get('items') or [])
+        return t, f'{n} cards'
+    for k in ('text', 'key', 'value', 'label', 'tab'):
+        if it.get(k):
+            return t, str(it[k])[:32]
+    return t, ''
+
+
+def _edit_attrs(idx, it, edit):
+    if not edit:
+        return '', 'abs z'
+    lt, ll = _layer_label(it)
+    attrs = f' data-spec-idx="{idx}" data-layer-type="{E(lt)}" data-layer-label="{E(ll)}"'
+    t = it.get('t')
+    if t in _INLINE:
+        attrs += f' data-inline-field="{_INLINE[t]}"'
+    if t in _RESIZE:
+        attrs += f' data-resize="{_RESIZE[t]}"'
+    return attrs, 'abs z studio-editable'
+
+
+def _inject_edit(html, idx, it, edit):
+    if not edit:
+        return html
+    attrs, _ = _edit_attrs(idx, it, edit)
+
+    def _add_cls(m):
+        cls = m.group(1)
+        if 'studio-editable' not in cls:
+            cls = (cls + ' studio-editable').strip()
+        return f'class="{cls}"{attrs}'
+
+    out, n = re.subn(r'class="([^"]*)"', _add_cls, html, count=1)
+    if n:
+        return out
+    return f'<div class="studio-editable"{attrs}>{html}</div>'
+
+
+def _wrap_flow(html, idx, it, edit):
+    if not edit:
+        return html
+    attrs, _ = _edit_attrs(idx, it, edit)
+    return f'<div class="studio-editable"{attrs}>{html}</div>'
+
+
+def _wrap_abs(html, idx, it, edit, style):
+    if not edit:
+        return f'<div class="abs" style="{style}">{html}</div>'
+    attrs, cls = _edit_attrs(idx, it, edit)
+    return f'<div class="{cls}"{attrs} style="{style}">{html}</div>'
+
+
+def frame_html(f, look=None, edit=False, all_frames=None):
+    _ = look, all_frames  # Graphics Studio passes these; CLI build ignores them
     fid = f['id']; mode = f.get('mode', 'fss'); f['mode'] = mode
+    f.pop('_grounded', None); f.pop('_looks', None); f.pop('_htab_top', None)
     plate = f.get('plate') or PLATES.get(mode)
     if plate and '.' not in plate: plate += '.jpg'
     light = mode in ('fss', 'takeaways', 'scene')
@@ -351,30 +502,51 @@ def frame_html(f, look=None, edit=False, all_frames=None, **_kwargs):
         body.append('<div class="abs" style="inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.05) 35%,rgba(0,0,0,.78) 100%)"></div>')
     if mode == 'takeaways':
         body.append(SWOOSH)
-        tk_title = f.get("title") or "Key\nTakeaways"
-        body.append(f'<div class="tk-title chk">{rich(tk_title)}</div>')
+        body.append(f'<div class="tk-title chk">{rich(f.get("title","Key\nTakeaways"))}</div>')
         a = f.get('active', 'all')
         rows = ''.join(f'<div class="r {"dim" if (a != "all" and n != a) else ""}"><i>{n+1}.</i><div>{rich(t)}</div></div>' for n, t in enumerate(f['items']))
         body.append(f'<div class="tk-list chk" style="top:{f.get("top",200)}px">{rows}</div>')
         body.append(f'<img class="abs" src="{A("props/megaphone.png")}" style="left:20px;top:716px;width:360px;z-index:3">')
         if len(f['items']) > 6: WARN.append(f'{fid}: {len(f["items"])} takeaways; the template fits 6')
     flow = []
-    item_list = f.get('extras', []) if mode == 'takeaways' else f.get('items', [])
-    for idx, it in enumerate(item_list):
+    if mode in ('fss', 'scene') and not f.get('header_in_flow'):
+        for hi, it in enumerate(f.get('items', [])):
+            if isinstance(it, dict) and it.get('t') == 'htab' and 'x' not in it and 'cx' not in it:
+                it = dict(it); f['_htab_top'] = True
+                ht = htab(it, fid, f)[0]
+                sty = f'left:0;width:1920px;top:{f.get("header_y",36)}px;text-align:center;z-index:7'
+                body.append(_wrap_abs(ht, hi, it, edit, sty) if edit else f'<div class="abs" style="{sty}">{ht}</div>')
+                break
+    items_src = f.get('extras', []) if mode == 'takeaways' else f.get('items', [])
+    for idx, it in enumerate(items_src):
         if not isinstance(it, dict):
             continue
+        if f.get('_htab_top') and it.get('t') == 'htab' and 'x' not in it and 'cx' not in it:
+            continue
         h, own = render_item(it, fid, f)
-        tag = _edit_tag(idx, it, edit)
         if own:
-            body.append(f'<div{tag}>{h}</div>' if tag else h)
+            body.append(_inject_edit(h, idx, it, edit))
+        elif 'cx' in it and 'y' in it:
+            sty = f'left:{it["cx"]}px;top:{it["y"]}px;transform:translateX(-50%);z-index:{it.get("z",6)}'
+            body.append(_wrap_abs(h, idx, it, edit, sty))
         elif 'x' in it and 'y' in it:
-            body.append(f'<div class="abs"{tag} style="left:{it["x"]}px;top:{it["y"]}px;z-index:{it.get("z",6)}">{h}</div>')
-        elif tag:
-            flow.append(f'<div{tag}>{h}</div>')
+            sty = f'left:{it["x"]}px;top:{it["y"]}px;z-index:{it.get("z",6)}'
+            body.append(_wrap_abs(h, idx, it, edit, sty))
         else:
-            flow.append(h)
+            flow.append(_wrap_flow(h, idx, it, edit))
+    if f.get('_grounded') and f.get('floor', True):
+        body.insert(1, floor_html(f))
+    elif f.get('floor') is True:
+        body.insert(1, floor_html(f))
+    looks = f.get('_looks', [])
+    for a_ in range(len(looks)):
+        for b_ in range(a_ + 1, len(looks)):
+            if looks[a_][1] == looks[b_][1] and looks[a_][0] != looks[b_][0]:
+                WARN.append(f'{fid}: {looks[a_][0]} and {looks[b_][0]} look identical (same colour, hair, extras); give each person a different team character (1-6)')
+    ntabs = sum(1 for it in f.get('items', []) if isinstance(it, dict) and (it.get('t') == 'htab' or it.get('tab')))
+    if ntabs > (2 if f.get('split') else 1): WARN.append(f'{fid}: {ntabs} header tabs in one frame; use one header, and name pills for people')
     if flow:
-        z = f.get('zone') or {'side': [940, 40, 900, 1000], 'main': [120, 120, 1680, 900], 'fss': [160, 60, 1600, 960],
+        z = f.get('zone') or ([160, 190, 1600, 700] if f.get('_htab_top') else None) or {'side': [940, 40, 900, 1000], 'main': [120, 120, 1680, 900], 'fss': [160, 60, 1600, 960],
                               'blur': [160, 60, 1600, 960], 'scene': [160, 60, 1600, 960]}.get(mode, [160, 60, 1600, 960])
         just = f.get('justify', 'center')
         body.append(f'<div class="zone" id="zone" style="left:{z[0]}px;top:{z[1]}px;width:{z[2]}px;height:{z[3]}px;gap:{f.get("gap",36)}px;justify-content:{just};align-items:{f.get("align","center")}">{"".join(flow)}</div>')
@@ -382,12 +554,14 @@ def frame_html(f, look=None, edit=False, all_frames=None, **_kwargs):
     body.append(f'<img class="chrome" src="{A("props/varsity_eye.png")}" style="left:58px;top:61px;width:146px">')
     if f.get('sparkle', True):
         body.append(f'<img class="chrome" src="{A("props/sparkle.png")}" style="left:1801px;top:{f.get("sparkle_y", 180 if mode=="side" else 398)}px;width:58px;{"filter:invert(1)" if not light else ""}">')
-    css = "../templates/vh.css"
-    body_cls = 'studio-edit-mode' if edit else ''
-    if light:
-        body_cls = (body_cls + ' light').strip()
-    return (f'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="{css}"></head>'
-            f'<body class="{body_cls}" data-mode="{mode}">{"".join(body)}</body></html>')
+    css = _css_href()
+    body_cls = "light" if light else ""
+    if edit:
+        body_cls = (body_cls + " studio-edit-mode").strip()
+    return (
+        f'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="{css}"></head>'
+        f'<body class="{body_cls}" data-mode="{mode}">{"".join(body)}</body></html>'
+    )
 
 QA_JS = r"""(mode)=>{const w=[];
  const mag=document.querySelector('img[id^=mag-]');
@@ -396,14 +570,32 @@ QA_JS = r"""(mode)=>{const w=[];
  document.querySelectorAll('.chk').forEach(e=>{const b=e.getBoundingClientRect();
    if(e.scrollWidth>e.clientWidth+3) w.push('text clipped: '+e.innerText.slice(0,50));
    if(b.left<-2||b.top<-2||b.right>1922||b.bottom>1082) w.push('off-frame: '+e.innerText.slice(0,50));
-   if(mode==='side'&&b.left<900&&b.width>0) w.push('covers the presenter (x<900): '+e.innerText.slice(0,50));});
+   if(mode==='side'&&b.left<900&&!e.closest('.char')&&!e.closest('.prop')&&b.width>0) w.push('covers the presenter (x<900): '+e.innerText.slice(0,50));});
+ if(mag){const r=+mag.dataset.row;const tw=document.querySelector('.tblwin');if(tw){mag.style.left=(tw.getBoundingClientRect().left-80)+'px';}}
+ document.querySelectorAll('.htab').forEach(e=>{const b=e.getBoundingClientRect();
+   if(b.left<240&&b.top<130) w.push('header tab overlaps the Varsity logo (top-left); centre it at the top');
+   if((mode==='fss'||mode==='scene')&&Math.abs((b.left+b.right)/2-960)>60&&!e.closest('.tblwin')&&!e.closest('.char')&&!e.closest('.wintab')) w.push('FSS header tab is not centred: '+e.innerText);});
+ document.querySelectorAll('.lcard').forEach(e=>{const b=e.getBoundingClientRect();const r=document.createRange();r.selectNodeContents(e);const t=r.getBoundingClientRect();
+   if(t.left-b.left<14||b.right-t.right<14) w.push('card text touches its box edge: '+e.innerText.slice(0,30));});
+ document.querySelectorAll('table.tt').forEach(t=>{const tr=t.rows[0];if(!tr)return;let slack=0;
+   [...tr.cells].forEach((c,k)=>{let need=0;[...t.rows].forEach(rw=>{const cc=rw.cells[k];if(!cc)return;const rg=document.createRange();rg.selectNodeContents(cc);need=Math.max(need,rg.getBoundingClientRect().width);});slack+=c.getBoundingClientRect().width-need-60;});
+   if(slack>t.getBoundingClientRect().width*0.3) w.push('table has '+Math.round(slack)+'px of empty column space; drop the fixed "w" so it fits its content');});
+ document.querySelectorAll('.grounded').forEach(e=>{const b=e.getBoundingClientRect();const fy=+e.dataset.floor;
+   if(Math.abs(b.bottom-fy)>8) w.push('not standing on the floor (bottom '+Math.round(b.bottom)+' vs floor '+fy+'): remove its "y" or set "float": true');});
+ const tg=[...document.querySelectorAll('.tag2')].map(e=>e.getBoundingClientRect());
+ for(let a=0;a<tg.length;a++)for(let b=a+1;b<tg.length;b++){const d=Math.abs(tg[a].top-tg[b].top);
+   if(d>3&&d<60&&Math.abs((tg[a].left+tg[a].right)/2-(tg[b].left+tg[b].right)/2)>300) w.push('cards side by side are not level ('+Math.round(d)+'px apart); put them at the same y');}
+ const ch=[...document.querySelectorAll('.char')].map(e=>e.getBoundingClientRect());
+ if(mode==='main') tg.forEach(t=>{const c=(t.left+t.right)/2;const near=ch.filter(r=>r.bottom>t.bottom&&Math.abs(r.top-t.bottom)<260&&Math.abs((r.left+r.right)/2-c)<350);
+   let best=1e9;if(near.length){const g=(Math.min(...near.map(r=>r.left))+Math.max(...near.map(r=>r.right)))/2;best=Math.min(Math.abs(g-c),...near.map(r=>Math.abs((r.left+r.right)/2-c)));}
+   if(best<1e9&&best>70) w.push('card is not centred over its character ('+Math.round(best)+'px off); use "cx" = the character\'s cx');});
+ const heads=[...document.querySelectorAll('.htab')].map(e=>e.innerText.toLowerCase());
+ document.querySelectorAll('.npill').forEach(p=>{const n=p.innerText.toLowerCase().split(/[:(]/)[0].trim();
+   if(n&&heads.some(h=>h.includes(n))) w.push('name "'+p.innerText+'" is shown twice (header and pill); keep one');});
  const z=document.getElementById('zone'); if(z&&z.scrollHeight>z.clientHeight+4) w.push('content taller than its zone; split the frame or shrink items');
  return w;}"""
 
-CHECK_JS = "() => (" + QA_JS + ")(document.body.dataset.mode || 'fss')"
-
 async def render(frames, out):
-    _set_asset_mode(studio=False)
     from playwright.async_api import async_playwright
     async with async_playwright() as p:
         exe = os.environ.get('CHROMIUM_PATH')
@@ -413,7 +605,7 @@ async def render(frames, out):
         for f in frames:
             hp = os.path.join(out, '_html', f['id'] + '.html'); open(hp, 'w').write(frame_html(f))
             await pg.goto('file://' + os.path.abspath(hp)); await pg.evaluate('document.fonts.ready'); await pg.wait_for_timeout(150)
-            for m in await pg.evaluate(QA_JS, f.get('mode', 'fss')): WARN.append(f'{f["id"]}: {m}')
+            for m in await pg.evaluate(QA_JS, f.get('mode', 'fss') + ('-split' if f.get('split') else '')): WARN.append(f'{f["id"]}: {m}')
             await pg.screenshot(path=os.path.join(out, f['id'] + '.png')); print('rendered', f['id'])
         await b.close()
 
@@ -497,6 +689,7 @@ def main():
     if '--out' in a: out = a[a.index('--out') + 1]
     if '--only' in a: only = set(a[a.index('--only') + 1].split(','))
     SPEC_PATH = a[0]; spec = json.load(open(a[0])); frames = spec['frames']
+    CAST.update(spec.get('cast', {}))
     ids = [f['id'] for f in frames]
     if len(ids) != len(set(ids)): WARN.append('duplicate frame ids: ' + ', '.join(sorted({i for i in ids if ids.count(i) > 1})))
     todo = [f for f in frames if not only or f['id'] in only]
@@ -509,6 +702,16 @@ def main():
             for s in ss:
                 bad = [w for w in re.findall(r"[A-Za-z]+", s) if w.lower() in HINGLISH]
                 if bad: WARN.append(f'{f["id"]}: Hindi/Hinglish word on screen ({", ".join(bad)}): "{s[:60]}". All on-screen text must be English')
+    for f in frames:
+        if not f.get('sb'): continue
+        sbn = set(re.sub(r'[,\s]', '', n) for n in re.findall(r'\d[\d,.]*', f['sb']))
+        for s_ in strings({k: v for k, v in f.items() if k not in ('id', 'mode', 'plate', 'sb', 'section', 'name')}):
+            for n in re.findall(r'\d[\d,.]*', s_):
+                n2 = re.sub(r'[,\s]', '', n).rstrip('.')
+                if n2 and n2 not in sbn and not re.fullmatch(r'[1-9]', n2):
+                    WARN.append(f'{f["id"]}: "{n}" is on screen but not in this beat\'s storyboard line; show only what the SB asks')
+        if re.search(r'\b(top ?cam|on the board|screen capture|screen-capture)\b', f['sb'], re.I) and f.get('mode') != 'scene':
+            WARN.append(f'{f["id"]}: the storyboard line says top cam / board / screen capture: that beat needs no graphic')
     asyncio.run(render(todo, out))
     if sheet: sheets(frames if not only else todo, out)
     if '--package' in a:

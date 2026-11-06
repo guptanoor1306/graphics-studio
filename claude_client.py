@@ -189,7 +189,7 @@ ZO_SB_TOOL = {
 }
 HI_SB_TOOL = {
     "name": "submit_storyboard",
-    "description": "Return Varsity Hindi TA storyboard and spec.json (frames with mode side|main|fss|blur|scene|takeaways).",
+    "description": "Return Varsity Hindi Charts storyboard and spec.json (frames with mode side|main|fss|blur|scene|takeaways).",
     "input_schema": {
         "type": "object",
         "properties": {
@@ -380,7 +380,7 @@ _REEL_ROLE = (
 )
 
 _HI_ROLE = (
-    "You are the Varsity Hindi Technical Analysis graphics designer in the skill below. You run inside Graphics Studio (web app), not a chat: "
+    "You are the Varsity Hindi Charts graphics designer (Technical Analysis IP) in the skill below. You run inside Graphics Studio (web app), not a chat: "
     "ignore local CLI build, zip delivery, and contact-sheet steps — only return storyboard + spec via submit_storyboard. "
     "Follow SKILL.md, references/spec_format.md, references/storyboard_rules.md, and scenes/example_spec.json patterns. "
     "Canvas 1920×1080. Frame modes: side, main, fss, blur, scene, takeaways — NOT English anchor/FSS. "
@@ -742,7 +742,7 @@ def _call_with_pdf(
 def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
     if is_hindi_theme(theme_dir):
         return (
-            "GRAPHICS STUDIO RULES (Varsity Hindi TA):\n"
+            "GRAPHICS STUDIO RULES (Varsity Hindi Charts):\n"
             "- spec.frames: modes side | main | fss | blur | scene | takeaways per spec_format.md.\n"
             "- Footage/screen/repeat → storyboard only.\n"
             "- Kite/diagram frames need valid gen/candles data; copy script numbers exactly.\n"
@@ -942,7 +942,7 @@ def storyboard(
         msg = _inject_transcript(
             (
             f"Notes: {notes or 'none'}\n\n"
-            "GRAPHICS STUDIO RULES (Varsity Hindi Technical Analysis):\n"
+            "GRAPHICS STUDIO RULES (Varsity Hindi Charts):\n"
             "- spec.frames[]: each graphic beat with id (timestamp like 2.49), mode, and items from spec_format.md.\n"
             "- Modes: side (presenter left), main (centre cam), fss (charts), blur (tables), scene (plates/scene_*), takeaways.\n"
             "- Footage, screen, repeat → storyboard string only — NOT in spec.frames.\n"
