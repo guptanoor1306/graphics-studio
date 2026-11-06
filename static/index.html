@@ -52,7 +52,7 @@ button.danger:hover:not(:disabled){background:#fdf0eb;border-color:#d4a89a}
 button.block{width:100%}
 button:disabled{opacity:.55;cursor:not-allowed}
 input,select,textarea{font:inherit;font-family:var(--font);font-size:15px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:11px 14px;background:#fff;width:100%}
-textarea#script{min-height:200px;font-size:14px;line-height:1.65}
+textarea#script{min-height:108px;max-height:min(220px,32vh);resize:vertical;overflow-y:auto;font-size:14px;line-height:1.55}
 textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .field{display:flex;flex-direction:column;gap:6px}
 .field-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:18px 20px}
@@ -71,18 +71,26 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .setup-panel-hint{font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--mute);flex:1;min-width:120px;text-align:right}
 .setup-panel-body{margin-top:0}
 .setup-workspace{display:flex;flex-direction:column;gap:0}
-.setup-main-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,320px);gap:20px;align-items:start;margin-top:16px}
-@media (max-width:900px){.setup-main-grid{grid-template-columns:1fr}}
-.setup-script-col .field{margin:0}
-.setup-side-col{display:flex;flex-direction:column;gap:14px}
-.audio-card{border:1px dashed var(--line-strong);border-radius:var(--radius-sm);padding:16px 16px 14px;background:linear-gradient(180deg,#faf8f5 0%,#fff 100%)}
-.audio-card-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
-.audio-card-icon{width:36px;height:36px;border-radius:10px;background:var(--acc-soft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.audio-card-title{font-size:14px;font-weight:600;margin:0;line-height:1.3}
-.audio-card-sub{font-size:12px;color:var(--mute);margin:4px 0 0;line-height:1.45}
-.audio-card-actions{display:flex;flex-direction:column;gap:10px}
-.audio-card-actions input[type=file]{font-size:13px;padding:8px 10px}
-.audio-card-status{font-size:12px;line-height:1.4;min-height:1.2em}
+.setup-storyboard-grid{align-items:stretch}
+.setup-col{display:flex;flex-direction:column;min-width:0}
+.setup-col-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.setup-col-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--ink)}
+.setup-col-hint{font-size:12px;color:var(--mute);margin:0 0 12px;line-height:1.45}
+.optional-tag{font-size:10px;font-weight:500;color:var(--mute);background:#f3f2f0;border-radius:999px;padding:2px 7px;text-transform:none;letter-spacing:0}
+.optional-or{font-size:10px;font-weight:600;color:var(--line-strong);text-align:center;margin:0 0 10px;text-transform:uppercase;letter-spacing:.12em}
+.setup-actions{margin-top:18px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.setup-actions-hint{font-size:12px;margin:0;line-height:1.4;flex:1;min-width:200px}
+.setup-col-pdf .pdf-human-panel{margin-top:0}
+.setup-col-pdf .pdf-human-actions{margin-top:10px}
+.setup-panel-body.card{padding:18px 20px}
+.audio-card{border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;background:#faf8f5}
+.audio-card-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.audio-card-icon{width:32px;height:32px;border-radius:8px;background:var(--acc-soft);color:var(--acc);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.audio-card-title{font-size:13px;font-weight:600;margin:0;line-height:1.3}
+.audio-card-sub{font-size:11px;color:var(--mute);margin:2px 0 0;line-height:1.35}
+.audio-card-actions{display:flex;flex-direction:column;gap:8px}
+.audio-card-actions input[type=file]{font-size:12px;padding:7px 10px}
+.audio-card-status{font-size:11px;line-height:1.35;color:var(--mute);min-height:1em}
 .setup-more{margin-top:12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#faf8f5;padding:0;overflow:hidden}
 .setup-more>summary{font-size:13px;color:var(--mute);padding:10px 14px;cursor:pointer;list-style:none}
 .setup-more>summary::-webkit-details-marker{display:none}
@@ -406,8 +414,6 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   <b>Edit script</b>
   <p class="modal-msg">Changes apply when you regenerate storyboard + frames.</p>
   <textarea id="scriptEditArea"></textarea>
-  <label class="field" style="margin-bottom:12px"><span style="font-size:13px;font-weight:500">Notes for Claude</span>
-  <input id="scriptEditNotes"></label>
   <div class="modal-actions">
     <button type="button" class="ghost" onclick="scriptEditDlg.close()">Cancel</button>
     <button type="submit" class="p">Save</button>
@@ -834,19 +840,6 @@ const getLook=()=>{
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
   return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
 };
-function sbSourceBarHtml(){
-  const m=sbMode();
-  const hint=m==='pdf'
-    ? 'Upload a team PDF, then generate frames in batches.'
-    : 'Paste script, optionally add episode audio for timing, then generate.';
-  return `<div class="sb-source-bar">
-   <div class="sb-segment" role="tablist" aria-label="Storyboard source">
-    <button type="button" class="sb-seg ${m==='script'?'on':''}" data-sb-mode="script">From script</button>
-    <button type="button" class="sb-seg ${m==='pdf'?'on':''}" data-sb-mode="pdf">Human PDF</button>
-   </div>
-   <p class="sb-mode-hint">${hint}</p>
-  </div>`;
-}
 function lookSummaryLine(l){
   l=normLook(l||{});
   if(isReelChannel())return (l.look_line||l.reel_theme||'Reel look').slice(0,80)||'Reel theme';
@@ -880,19 +873,6 @@ async function persistSbMode(mode){
   if(mode==='pdf')look.sb_import='pdf';else look.sb_import='script';
   P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look,script:getScriptValue()})});
   P.look=normLook(P.look);
-}
-async function setSbMode(mode){
-  if(!P?.id)return;
-  if(mode===sbMode())return;
-  await persistSbMode(mode);
-  render();
-}
-function bindSbSource(){
-  document.querySelectorAll('[data-sb-mode]').forEach(btn=>{
-    if(btn.dataset.bound)return;
-    btn.dataset.bound='1';
-    btn.addEventListener('click',()=>setSbMode(btn.dataset.sbMode));
-  });
 }
 async function refreshPdfSbStatus(){
   const el=$('#pdfSbStatus');if(!el||!P?.id)return;
@@ -955,25 +935,41 @@ function episodeAudioFieldHtml(){
    <div class="audio-card-head">
     <span class="audio-card-icon" aria-hidden="true">♪</span>
     <div><p class="audio-card-title">Episode audio</p>
-     <p class="audio-card-sub">Optional VO file for Whisper timing (mp3/m4a/wav, up to 250MB). Script stays the source for numbers and spelling.</p></div>
+     <p class="audio-card-sub">Whisper timing · mp3, m4a, wav</p></div>
    </div>
    <div class="audio-card-actions">
     <input type="file" id="episodeAudioFile" accept="audio/*,.mp3,.m4a,.wav,.webm">
     <button type="button" class="btn-neutral block" id="episodeAudioBtn" onclick="uploadEpisodeAudio()">Upload &amp; transcribe</button>
     <div class="audio-card-status" id="episodeAudioStatus">${episodeAudioStatusHtml()}</div>
-   </div>
-   <details class="setup-more" style="margin-top:12px;border:0;background:transparent">
-    <summary style="padding:6px 0;font-size:12px">Technical notes</summary>
-    <p class="muted" style="font-size:12px;margin:0 0 8px;line-height:1.45">Large WAVs are compressed with ffmpeg before Whisper (<code>brew install ffmpeg</code> locally). Needs <code>OPENAI_API_KEY</code> on the server.</p>
-   </details></div>`;
+   </div></div>`;
 }
-function setupNotesFieldHtml(){
-  const m=sbMode();
-  const ph=m==='pdf'?'Which PDF rows are graphics vs footage…':'Hints for Claude (density, tone, must-show numbers)…';
-  return `<details class="setup-more">
-   <summary>Notes for Claude (optional)</summary>
-   <div class="field"><input id="notes" value="${esc(getNotesValue())}" placeholder="${esc(ph)}"></div>
-  </details>`;
+function voSourceColumnHtml(){
+  return `<div class="setup-col setup-col-vo">
+   <div class="setup-col-head"><span class="setup-col-title">Script or audio</span><span class="optional-tag">optional</span></div>
+   <p class="setup-col-hint">Script for copy and numbers; audio for beat timing. Use either or both.</p>
+   <div class="field"><label>Script</label>
+    <textarea id="script" placeholder="Paste voiceover…">${esc(P.script||'')}</textarea></div>
+   <div class="optional-or">or</div>
+   ${episodeAudioFieldHtml()}
+  </div>`;
+}
+function pdfStoryboardColumnHtml(){
+  return `<div class="setup-col setup-col-pdf">
+   <div class="setup-col-head"><span class="setup-col-title">Human storyboard</span><span class="optional-tag">optional</span></div>
+   <p class="setup-col-hint">Save PDF, then generate frames in batches.</p>
+   ${humanPdfPanelInner()}
+  </div>`;
+}
+function storyboardSetupBodyHtml(){
+  return `<input type="hidden" id="notes" value="">
+   <div class="script-pdf-row setup-storyboard-grid">
+    ${voSourceColumnHtml()}
+    ${pdfStoryboardColumnHtml()}
+   </div>
+   <div class="setup-actions">
+    <button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button>
+    <p class="setup-actions-hint muted">From script (+ transcript if uploaded). PDF-only: use <b>First 5</b> on the right.</p>
+   </div>`;
 }
 async function uploadEpisodeAudio(){
   const f=$('#episodeAudioFile')?.files?.[0];
@@ -996,31 +992,12 @@ async function uploadEpisodeAudio(){
     setWorkspaceLoading(false);
   }
 }
-function scriptBlockHtml({includeAudio=true,includePdfCol=false}={}){
-  const m=sbMode();
-  const preActions=m==='script'?`<div class="row" style="margin-bottom:0;margin-top:20px"><button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button></div>`:'';
-  const side=`<div class="setup-side-col">${includeAudio?episodeAudioFieldHtml():''}${includePdfCol?humanPdfPanelInner():''}</div>`;
-  return `<div class="setup-workspace">${sbSourceBarHtml()}
-   <div class="setup-main-grid">
-    <div class="setup-script-col">
-     <div class="field"><label>Script</label><textarea id="script">${esc(P.script||'')}</textarea></div>
-     ${setupNotesFieldHtml()}
-    </div>
-    ${side}
-   </div>${preActions}</div>`;
-}
 function preSpecSectionHtml(){
-  const m=sbMode();
   const open=setupPanelOpen('setup',true);
-  if(m==='pdf'){
-    return `<details class="setup-panel" data-panel-key="setup" ${open?'open':''}>
-     <summary><span>2 · Storyboard setup</span><span class="setup-panel-hint">Human PDF + optional script</span></summary>
-     <div class="setup-panel-body card">${scriptBlockHtml({includeAudio:true,includePdfCol:true})}</div>
-    </details>`;
-  }
+  const hint=P?.has_storyboard_pdf?'PDF saved':(P?.has_episode_transcript?'Audio transcribed':(scriptHasContent(P?.script||'')?'Script ready':'Nothing added yet'));
   return `<details class="setup-panel" data-panel-key="setup" ${open?'open':''}>
-   <summary><span>2 · Storyboard setup</span><span class="setup-panel-hint">Script + optional episode audio</span></summary>
-   <div class="setup-panel-body card">${scriptBlockHtml({includeAudio:true,includePdfCol:false})}</div>
+   <summary><span>2 · Storyboard setup</span><span class="setup-panel-hint">${esc(hint)}</span></summary>
+   <div class="setup-panel-body card">${storyboardSetupBodyHtml()}</div>
   </details>`;
 }
 function lookSectionHtml(){
@@ -1069,7 +1046,7 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   const loadMsg=finishAll?'Claude is reading the PDF and building all remaining frames… (several min)':'Claude is reading the PDF and building the next batch… (1–2 min)';
   setWorkspaceLoading(true,loadMsg);
   try{
-    const body={script:getScriptValue(),look:getLook(),notes:getNotesValue(),batch_size:batchSize,finish_all:finishAll};
+    const body={script:getScriptValue(),look:{...getLook(),sb_import:'pdf'},notes:getNotesValue(),batch_size:batchSize,finish_all:finishAll};
     const r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(body)});
     P=r;P.look=normLook(P.look);
     const added=r.frames_added??0;
@@ -1089,17 +1066,13 @@ function getScriptValue(){
 function getNotesValue(){return $('#notes')?.value??''}
 function openScriptEdit(){
   $('#scriptEditArea').value=P.script||'';
-  $('#scriptEditNotes').value=getNotesValue();
   scriptEditDlg.showModal();
 }
 function saveScriptEdit(e){
   e.preventDefault();
   P.script=$('#scriptEditArea').value;
-  const notes=$('#scriptEditNotes').value;
   let h=$('#script');if(!h){h=document.createElement('textarea');h.id='script';h.hidden=true;document.body.appendChild(h)}
   h.value=P.script;
-  let n=$('#notes');if(!n){n=document.createElement('input');n.id='notes';n.type='hidden';document.body.appendChild(n)}
-  n.value=notes;
   scriptEditDlg.close();
   render();
   return false;
@@ -1150,15 +1123,14 @@ function render(){
   const preSpec=preSpecSectionHtml();
   const pdfBlock=m==='pdf'&&P.spec?humanPdfSectionHtml():'';
   $('#main').innerHTML=`<div class="toolbar"><h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
-   ${P.spec?`<button type="button" onclick="qa()" title="Run automatic layout checks on every frame">Check layout</button><button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export All</button>`:''}
+   ${P.spec?`<button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export All</button>`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
   ${lookSectionHtml()}
-  ${P.spec?(m==='script'?'':pdfBlock)+framesStudio():preSpec}<div id="warns"></div>`;
+  ${P.spec?((P.has_storyboard_pdf||m==='pdf')?pdfBlock:'')+framesStudio():preSpec}<div id="warns"></div>`;
   fit();
   updateFrameNavButtons();
   bindLookForm();
-  bindSbSource();
   bindSetupPanels();
   if(m==='pdf')refreshPdfSbStatus();
   if(P?.spec)hydrateEpisodeTranscript();
@@ -1578,14 +1550,16 @@ function deleteProject(){if(!P)return;
     list();
   }});
 }
-async function gen(){if(sbMode()==='pdf'&&!confirm('This replaces all frames with a fresh AI storyboard from script. Continue?'))return;
+async function gen(){
+ if(!scriptHasContent(getScriptValue())&&!P?.has_episode_transcript&&!confirm('No script or audio transcript yet. Generate anyway?'))return;
  const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding… (1–2 min)');
  try{
   const themeSel=$('#theme');
   if(themeSel&&themeSel.value&&themeSel.value!==P.theme){
    P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({theme:themeSel.value,note:'theme'})});
   }
-  P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look:getLook(),notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
+  const look={...getLook(),sb_import:'script'};
+  P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look,notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.spec_warnings?.length){alert('Spec quality notes (preview may look text-heavy until fixed):\n\n'+P.spec_warnings.join('\n'))}}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
 async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null,refFile=null,clearLayerRef=false}={}){
  const {ref,rep,flat,lb}=refControls();
  const upload=refFile||ref?.files?.[0];
