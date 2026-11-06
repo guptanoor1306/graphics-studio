@@ -21,9 +21,14 @@ def canvas_for_theme(theme: str) -> tuple[int, int]:
     if not p.is_file():
         _cache[theme] = default
         return default
-    spec = importlib.util.spec_from_file_location(f"build_meta_{theme}", p)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
+    try:
+        spec = importlib.util.spec_from_file_location(f"build_meta_{theme}", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    except Exception:
+        # One bad kit must not 500 /api/theme-meta (breaks boot + every load).
+        _cache[theme] = default
+        return default
     w = getattr(mod, "CANVAS_W", None)
     h = getattr(mod, "CANVAS_H", None)
     if w is None or h is None:

@@ -436,9 +436,9 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null,episodeTranscript=null;
 let navChannel=null,allProjects=[],channelListSearch='';
 const CHANNELS=[
- {id:'varsity',label:'Varsity',desc:'MF, English, and Hindi Charts kits — anchor, side-cam, and chart frames.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics'],accent:'#5b55e6'},
- {id:'zo',label:'Zerodha Online',desc:'Product IP — FSS, OSA, OST, and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
- {id:'zero1',label:'Zero1',desc:'Vertical reel graphics — 1080×1920 safe-zone layouts.',themes:['zero1-reel-graphics'],accent:'#c96442'},
+ {id:'varsity',label:'Varsity',desc:'Varsity English, Varsity Hindi – Charts, and Varsity Mutual Fund.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics'],accent:'#5b55e6'},
+ {id:'zo',label:'ZO',desc:'ZO Product — FSS, OSA, OST, and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
+ {id:'zero1',label:'Zero1',desc:'Reels — vertical 1080×1920 safe-zone layouts.',themes:['zero1-reel-graphics'],accent:'#c96442'},
 ];
 function syncShellNav(){
   const inProj=!!P;
@@ -454,6 +454,14 @@ function fmtProjectDate(ts){
 function channelById(id){return CHANNELS.find(c=>c.id===id)}
 function channelForTheme(theme){const t=theme||'';for(const c of CHANNELS)if(c.themes.includes(t))return c.id;return CHANNELS[0].id}
 function channelThemes(channelId){return CHANNELS.find(c=>c.id===channelId)?.themes||[]}
+/** Kits allowed in UI for the current project / channel (intersect with server theme list). */
+function channelKitOptions(theme){
+  const t=theme||(P&&P.theme)||'';
+  const cid=channelForTheme(t);
+  const allowed=channelThemes(cid).filter(x=>themes.includes(x));
+  if(allowed.length)return allowed;
+  return t&&themes.includes(t)?[t]:[];
+}
 function activeChannelId(){return P?.theme?channelForTheme(P.theme):navChannel}
 function channelLabel(channelId){return CHANNELS.find(c=>c.id===channelId)?.label||'Projects'}
 const stageView={s:1,ox:0,oy:0};
@@ -803,7 +811,10 @@ function populateEditLookBlock(){
  if(line)line.value=l.look_line||'';
 }
 function lookForm(l){l=normLook(l);
-  const themeField=`<div class="field"><label>Channel</label><select id="theme">${themes.map(t=>`<option value="${esc(t)}" ${P.theme==t?'selected':''}>${esc(themeLabel(t))}</option>`).join('')}</select></div>`;
+  const kitOpts=channelKitOptions(P.theme);
+  const themeField=kitOpts.length>1
+    ?`<div class="field"><label>Kit</label><select id="theme">${kitOpts.map(t=>`<option value="${esc(t)}" ${P.theme==t?'selected':''}>${esc(themeLabel(t))}</option>`).join('')}</select></div>`
+    :`<div class="field"><label>Kit</label><div style="font-size:15px;font-weight:600;padding:10px 0">${esc(themeLabel(P.theme))}</div><input type="hidden" id="theme" value="${esc(P.theme)}"></div>`;
   if(isReelChannel()){
     const preset=reelThemePresetFromLine(l.look_line);
     return `<div class="field-grid">${themeField}
@@ -811,10 +822,10 @@ function lookForm(l){l=normLook(l);
   <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="Theme letter, fonts, accent colours…"></div></div>`}
   if(isZoProduct()){
     return `<div class="field-grid">${themeField}
-  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">FSS + anchor (OSA/OST/TOS) render in spec; upload an optional anchor plate in Edit mode. Screen capture and footage stay storyboard-only.</p></div>`}
+  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">ZO Product: FSS + anchor (OSA/OST/TOS) render in spec; upload an optional anchor plate in Edit mode. Screen capture and footage stay storyboard-only.</p></div>`}
   if(isHindiTheme()){
     return `<div class="field-grid">${themeField}
-  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Varsity Hindi Charts: side / main / fss / scene frames with Kite charts, characters, and props. Footage and screen beats stay storyboard-only.</p></div>`}
+  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Varsity Hindi – Charts: side / main / fss / scene frames with Kite charts, characters, and props. Footage and screen beats stay storyboard-only.</p></div>`}
   if(isKitTheme(P.theme)){
     return `<div class="field-grid">${themeField}
   <div class="field" style="grid-column:1/-1"><label>Look (one line)</label><input id="lk_look_line" value="${esc(l.look_line||'')}" placeholder="e.g. anchor right · purple (#5b55e6) search pills · blue table headers"></div></div>`}
@@ -842,9 +853,9 @@ const getLook=()=>{
 };
 function lookSummaryLine(l){
   l=normLook(l||{});
-  if(isReelChannel())return (l.look_line||l.reel_theme||'Reel look').slice(0,80)||'Reel theme';
-  if(isZoProduct())return 'Product IP · anchor plates';
-  if(isHindiTheme())return 'Varsity Hindi Charts';
+  if(isReelChannel())return (l.look_line||l.reel_theme||'Reels look').slice(0,80)||'Reels';
+  if(isZoProduct())return 'ZO Product · anchor plates';
+  if(isHindiTheme())return 'Varsity Hindi – Charts';
   if(isKitTheme(P?.theme))return (l.look_line||'Kit look').slice(0,80);
   const props=(l.props||[]).slice(0,2).join(', ');
   return `${l.anchor||'right'} anchor · ${l.fss||'blue'} FSS${props?` · ${props}`:''}`;
@@ -1172,7 +1183,7 @@ function render(){
 }
 function bindLookForm(){
   const sel=$('#theme');
-  if(!sel||sel.dataset.bound)return;
+  if(!sel||sel.tagName!=='SELECT'||sel.dataset.bound)return;
   sel.dataset.bound='1';
   sel.addEventListener('change',()=>onThemeSelect());
 }
@@ -1411,11 +1422,11 @@ function fmtProjectDateTime(ts){
   }catch(_){return '—'}
 }
 function themeLabel(theme){
-  if(theme==='varsity-mf-graphics')return 'MF kit';
-  if(theme==='varsity-english')return 'English';
-  if(theme==='varsity-hindi-graphics')return 'Varsity Hindi Charts';
-  if(theme==='zo-product-graphics')return 'Product IP';
-  if(theme==='zero1-reel-graphics')return 'Reel';
+  if(theme==='varsity-mf-graphics')return 'Varsity Mutual Fund';
+  if(theme==='varsity-english')return 'Varsity English';
+  if(theme==='varsity-hindi-graphics')return 'Varsity Hindi - Charts';
+  if(theme==='zo-product-graphics')return 'ZO Product';
+  if(theme==='zero1-reel-graphics')return 'Reels';
   return theme||'—';
 }
 function renderSidebar(){
@@ -1465,7 +1476,7 @@ function renderHomeMain(){
     <p class="home-sub">${esc(ch?.desc||'')}</p>
    </div>
    <div class="channel-list-toolbar">
-    <input type="search" id="channelSearch" class="channel-search" placeholder="Search by name or kit…" value="${esc(channelListSearch)}" oninput="onChannelSearchInput(this.value)">
+    <input type="search" id="channelSearch" class="channel-search" placeholder="Search by name or IP kit…" value="${esc(channelListSearch)}" oninput="onChannelSearchInput(this.value)">
     <button type="button" class="p" onclick="newProject()">+ New video</button>
    </div>
    <div class="project-table-wrap">
