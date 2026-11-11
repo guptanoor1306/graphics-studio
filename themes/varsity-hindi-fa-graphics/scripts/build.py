@@ -54,10 +54,25 @@ def font_css():
     out = []
     for w in (400, 500, 600, 700, 800):
         for st in ("normal", "italic"):
-            f = KIT / "fonts" / f"inter-latin-{w}-{st}.woff2"
+            fname = f"inter-latin-{w}-{st}.woff2"
+            if _studio_web():
+                out.append(
+                    f"@font-face{{font-family:Inter;font-weight:{w};font-style:{st};"
+                    f"src:url(../fonts/{fname}) format('woff2');}}"
+                )
+                continue
+            f = KIT / "fonts" / fname
             out.append("@font-face{font-family:Inter;font-weight:%d;font-style:%s;src:url(data:font/woff2;base64,%s) format('woff2');}"
                        % (w, st, base64.b64encode(f.read_bytes()).decode()))
     return "\n".join(out)
+
+
+def _svg_fit(svg: str, *, block: bool = True) -> str:
+    if block:
+        sty = "width:100%;height:auto;display:block"
+    else:
+        sty = "width:100%;height:100%"
+    return svg.replace("<svg ", f'<svg style="{sty}" ', 1)
 
 CSS = (KIT / "templates" / "fa.css").read_text()
 
@@ -561,7 +576,7 @@ def el_char(e, fid):
     tr = "transform:scaleX(-1);" if flip else ""
     z = f"z-index:{e['z']};" if e.get("z") is not None else ""
     out = [f'<div class="el charwrap" data-src="char:{cid}" style="left:{left:.0f}px;top:{top:.0f}px;width:{W_:.0f}px;height:{H_:.0f}px;{tr}{z}">'
-           + svg.replace("<svg ", '<svg style="width:100%;height:100%" ', 1) + "</div>"]
+           + _svg_fit(svg, block=False) + "</div>"]
     def to_frame(pt):
         lx, ly = pt
         x = e["cx"] + (lx - info["w"] / 2) * s * (-1 if flip else 1)
@@ -611,14 +626,15 @@ def el_prop(e, fid):
     if e.get("flip"): tr.append("scaleX(-1)")
     if e.get("tilt"): tr.append(f"rotate({e['tilt']}deg)")
     z = f"z-index:{e['z']};" if e.get("z") is not None else ""
+    inner = _svg_fit(svg)
     return (f'<div class="el prop" data-src="prop:{k}" style="left:{e["cx"]}px;top:{e["by"]}px;width:{e.get("w", 260)}px;'
-            f'transform:{" ".join(tr)};{z}">{svg.replace("<svg ", "<svg style=\'width:100%;height:auto;display:block\' ", 1)}</div>')
+            f'transform:{" ".join(tr)};{z}">{inner}</div>')
 
 def _content_html(e):
     parts = []
     if e.get("prop"):
         p = e["prop"]; args = {a: v for a, v in p.items() if a not in ("kind", "w")}
-        parts.append(f'<div style="width:{p.get("w",120)}px">{scenes.PROPS[p["kind"]](**args).replace("<svg ", "<svg style=\'width:100%;height:auto;display:block\' ",1)}</div>')
+        parts.append(f'<div style="width:{p.get("w",120)}px">{_svg_fit(scenes.PROPS[p["kind"]](**args))}</div>')
     if e.get("img"):
         parts.append(f'<img src="{asset(e["img"])}" style="height:{e.get("img_h",90)}px">')
     if e.get("logo"):
