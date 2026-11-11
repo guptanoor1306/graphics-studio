@@ -89,6 +89,10 @@ def pos(e, extra=None):
     if extra: st.update(extra)
     return style(st)
 
+
+def pos_font(e, px, **more):
+    return pos(e, {"font-size": f"{px}px", **more})
+
 # ---------------------------------------------------------------- svg helpers
 def arrow_svg(x1, y1, x2, y2, bend=0.25, dashed=False, color="#1d1d1d", width=3, head=True):
     mx, my = (x1 + x2) / 2, (y1 + y2) / 2
@@ -124,24 +128,26 @@ def el_header(e, fid):
     t = e["text"]
     size = e.get("size")
     if s == "bar":          # coral bar + ExtraBold Italic (Ep 2 section headers)
-        return f'<div class="el hdr-bar" style="{pos(e, {"font-size": f"{size or 60}px"})}">{md(t)}</div>'
+        return f'<div class="el hdr-bar" style="{pos_font(e, size or 60)}">{md(t)}</div>'
     if s == "giant":        # huge ExtraBold word, props may overlap it (Ep 5 concept scenes)
-        return f'<div class="el hdr-giant" style="{pos(e, {"font-size": f"{size or 140}px"})}">{md(t)}</div>'
+        return f'<div class="el hdr-giant" style="{pos_font(e, size or 140)}">{md(t)}</div>'
     if s == "plain":        # Bold black heading (Ep 8)
-        return f'<div class="el hdr-plain" style="{pos(e, {"font-size": f"{size or 72}px"})}">{md(t)}</div>'
+        return f'<div class="el hdr-plain" style="{pos_font(e, size or 72)}">{md(t)}</div>'
     if s == "stack":        # coral bar + 2 lines: "Financial Ratios" / "Profitability Ratios"
-        return (f'<div class="el hdr-stack" style="{pos(e, {"font-size": f"{size or 50}px"})}">'
+        st = pos_font(e, size or 50)
+        return (f'<div class="el hdr-stack" style="{st}">'
                 f'<div class="l1">{md(t)}</div><div class="l2">{md(e.get("sub", ""))}</div></div>')
     if s == "title":        # title stack: small lead / big ExtraBold Italic key / small tail (Ep 2 0.18)
-        return (f'<div class="el hdr-title" style="{pos(e, {"font-size": f"{size or 64}px"})}">'
+        st = pos_font(e, size or 64)
+        return (f'<div class="el hdr-title" style="{st}">'
                 f'<div class="lead">{md(e.get("lead", ""))}</div><div class="key">{md(t)}</div>'
                 f'<div class="tail">{md(e.get("tail", ""))}</div></div>')
     if s == "box":          # white rounded box (Ep 9)
-        return f'<div class="el hdr-box" style="{pos(e, {"font-size": f"{size or 56}px"})}">{md(t)}</div>'
+        return f'<div class="el hdr-box" style="{pos_font(e, size or 56)}">{md(t)}</div>'
     if s == "label":        # light-blue label block (Ep 9)
-        return f'<div class="el hdr-label" style="{pos(e, {"font-size": f"{size or 40}px"})}">{md(t)}</div>'
+        return f'<div class="el hdr-label" style="{pos_font(e, size or 40)}">{md(t)}</div>'
     if s == "glass":        # big glass title card (Ep 8 2.16 / 6.20)
-        return f'<div class="el glass hdr-glass" style="{pos(e, {"font-size": f"{size or 84}px"})}">{md(t)}</div>'
+        return f'<div class="el glass hdr-glass" style="{pos_font(e, size or 84)}">{md(t)}</div>'
     warn(fid, f"unknown header style {s}")
     return ""
 
@@ -505,7 +511,9 @@ def el_takeaways(e, fid):
 def el_shape(e, fid):
     """plain rounded block (e.g. the big blue capsule behind the investor, Ep 2 1.34)"""
     col = C.get(e.get("color", "blue"), e.get("color"))
-    return f'<div class="el" style="{pos(e, {"background": col, "border-radius": f"{e.get("radius", 999)}px", "opacity": e.get("opacity", 1)})}"></div>'
+    radius = e.get("radius", 999)
+    shape_st = {"background": col, "border-radius": f"{radius}px", "opacity": e.get("opacity", 1)}
+    return f'<div class="el" style="{pos(e, shape_st)}"></div>'
 
 def el_arrow(e, fid, svg):
     p, _ = arrow_svg(*e["from"], *e["to"], bend=e.get("bend", 0.25), dashed=e.get("dashed", False),
