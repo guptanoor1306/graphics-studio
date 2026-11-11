@@ -1,0 +1,1147 @@
+{
+ "episode": "Example",
+ "title": "Component tour (recreates frames from Ep 2, 5, 8, 9)",
+ "frames": [
+  {
+   "id": "0.03",
+   "name": "Module-Page",
+   "mode": "fss",
+   "floor": false,
+   "deco_coins": [
+    [
+     150,
+     210,
+     54
+    ],
+    [
+     1700,
+     140,
+     40
+    ]
+   ],
+   "els": [
+    {
+     "type": "module",
+     "module": "Module 3",
+     "current": 2,
+     "chapters": [
+      "Introduction to Fundamental Analysis",
+      "Mindset of an Investor",
+      "How to read the annual report of a company",
+      "Understanding the P&L statement"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "0.18",
+   "name": "Market-Participants",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "img",
+     "src": "props/lamp_yellow",
+     "cx": 1240,
+     "by": 520,
+     "h": 590,
+     "z": 2
+    },
+    {
+     "type": "header",
+     "style": "title",
+     "lead": "What kind of",
+     "text": "Market Participant",
+     "tail": "Are You?",
+     "x": 120,
+     "y": 110,
+     "size": 66
+    },
+    {
+     "type": "img",
+     "src": "chars/trader_seated",
+     "cx": 640,
+     "by": 1040,
+     "h": 560
+    },
+    {
+     "type": "img",
+     "src": "chars/investor_seated",
+     "cx": 960,
+     "by": 1040,
+     "h": 520
+    },
+    {
+     "type": "img",
+     "src": "chars/speculator_seated",
+     "cx": 1280,
+     "by": 1040,
+     "h": 540
+    },
+    {
+     "type": "pill",
+     "text": "Trader",
+     "x": 330,
+     "y": 360,
+     "arrow_to": [
+      560,
+      450
+     ],
+     "arrow_from": [
+      420,
+      440
+     ]
+    },
+    {
+     "type": "pill",
+     "text": "Investor",
+     "x": 1000,
+     "y": 300,
+     "arrow_to": [
+      960,
+      400
+     ],
+     "arrow_from": [
+      1060,
+      380
+     ],
+     "bend": -0.4
+    },
+    {
+     "type": "pill",
+     "text": "Speculator",
+     "x": 1480,
+     "y": 330,
+     "arrow_to": [
+      1390,
+      430
+     ],
+     "arrow_from": [
+      1530,
+      410
+     ],
+     "bend": -0.3
+    }
+   ]
+  },
+  {
+   "id": "0.25",
+   "name": "Trader-Mindset",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Trader Mindset",
+     "x": 70,
+     "y": 70
+    },
+    {
+     "type": "line",
+     "x": 400,
+     "y": 230,
+     "w": 1120,
+     "h": 560,
+     "glass": true,
+     "stand": "phone",
+     "trend": "up",
+     "seed": 7,
+     "ymin": 80,
+     "ymax": 120,
+     "levels": [
+      {
+       "v": 115,
+       "label": "₹115"
+      },
+      {
+       "v": 100,
+       "label": "₹100",
+       "note": "Mean (Average price)"
+      },
+      {
+       "v": 85,
+       "label": "₹85"
+      }
+     ],
+     "marks": [
+      {
+       "i": 14,
+       "label": "",
+       "drop": false
+      },
+      {
+       "i": -1,
+       "label": "",
+       "drop": false
+      }
+     ],
+     "axis_label": "Time"
+    }
+   ]
+  },
+  {
+   "id": "0.25_b",
+   "name": "Trader-Framework",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Trader Mindset",
+     "x": 70,
+     "y": 70
+    },
+    {
+     "type": "bigword",
+     "text": "Framework",
+     "x": 960,
+     "y": 300,
+     "align": "center",
+     "size": 270,
+     "z": 4
+    },
+    {
+     "type": "img",
+     "src": "chars/trader_seated",
+     "cx": 960,
+     "by": 1030,
+     "h": 720,
+     "z": 8
+    },
+    {
+     "type": "img",
+     "src": "props/paper_scroll",
+     "cx": 330,
+     "by": 1000,
+     "h": 160
+    }
+   ]
+  },
+  {
+   "id": "1.10",
+   "name": "Speculator",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "title",
+     "lead": "What kind of",
+     "text": "Market Participant",
+     "tail": "Are You?",
+     "x": 960,
+     "y": 90,
+     "align": "center",
+     "size": 60
+    },
+    {
+     "type": "img",
+     "src": "chars/speculator_seated",
+     "cx": 960,
+     "by": 1050,
+     "h": 600
+    },
+    {
+     "type": "pill",
+     "text": "Stock Tips",
+     "x": 420,
+     "y": 470,
+     "italic": false,
+     "bold": true,
+     "size": 28
+    },
+    {
+     "type": "pill",
+     "text": "News Report",
+     "x": 520,
+     "y": 600,
+     "italic": false,
+     "bold": true,
+     "size": 28
+    },
+    {
+     "type": "pill",
+     "text": "Fake Goodwill",
+     "x": 380,
+     "y": 730,
+     "italic": false,
+     "bold": true,
+     "size": 28
+    },
+    {
+     "type": "pill",
+     "text": "Gut Feel",
+     "x": 1320,
+     "y": 490,
+     "italic": false,
+     "bold": true,
+     "size": 28
+    },
+    {
+     "type": "pill",
+     "text": "Nice Logo",
+     "x": 1360,
+     "y": 700,
+     "italic": false,
+     "bold": true,
+     "size": 28
+    },
+    {
+     "type": "pill",
+     "text": "Speculator",
+     "x": 1150,
+     "y": 580,
+     "arrow_to": [
+      1110,
+      680
+     ],
+     "arrow_from": [
+      1180,
+      650
+     ],
+     "bend": -0.3
+    }
+   ]
+  },
+  {
+   "id": "2.06_b",
+   "name": "Investor-Mindset-Returns",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Investor Mindset",
+     "x": 960,
+     "y": 110,
+     "align": "center"
+    },
+    {
+     "type": "char",
+     "who": "c4",
+     "pose": "explain",
+     "expr": "smile",
+     "cx": 430,
+     "by": 900,
+     "h": 470,
+     "label": false
+    },
+    {
+     "type": "bar",
+     "x": 560,
+     "y": 330,
+     "w": 1000,
+     "h": 480,
+     "glass": false,
+     "stand": "phone",
+     "ymax": 32,
+     "bars": [
+      {
+       "label": "Year 1",
+       "value": 0
+      },
+      {
+       "label": "Year 2",
+       "value": -12,
+       "color": "coral",
+       "tag": "-12%"
+      },
+      {
+       "label": "Year 3",
+       "value": 4,
+       "tag": "4%"
+      },
+      {
+       "label": "Year 4",
+       "value": 7,
+       "tag": "7%"
+      },
+      {
+       "label": "Year 5",
+       "value": 15,
+       "tag": "15%"
+      },
+      {
+       "label": "Year 6",
+       "value": 18,
+       "tag": "18%"
+      },
+      {
+       "label": "Year 7",
+       "value": 22,
+       "tag": "22%"
+      },
+      {
+       "label": "Year 8",
+       "value": 28,
+       "tag": "28%"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2.48",
+   "name": "FD-vs-Equity",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "split",
+     "x": 960
+    },
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Fixed Deposit",
+     "x": 150,
+     "y": 140,
+     "size": 44
+    },
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Equity Investment",
+     "x": 1100,
+     "y": 140,
+     "size": 44
+    },
+    {
+     "type": "line",
+     "x": 90,
+     "y": 300,
+     "w": 800,
+     "h": 420,
+     "trend": "smooth",
+     "n": 11,
+     "ymin": 90,
+     "ymax": 185,
+     "points": [
+      100,
+      106,
+      112.4,
+      119.1,
+      126.2,
+      133.8,
+      141.9,
+      150.4,
+      159.4,
+      168.9,
+      179.1
+     ],
+     "marks": [
+      {
+       "i": 0,
+       "label": "₹100"
+      },
+      {
+       "i": 1,
+       "label": "₹106"
+      },
+      {
+       "i": 3,
+       "label": "₹119"
+      },
+      {
+       "i": 10,
+       "label": "₹179"
+      }
+     ],
+     "xlabels": [
+      {
+       "i": 1,
+       "label": "1 yr"
+      },
+      {
+       "i": 3,
+       "label": "3 yr"
+      },
+      {
+       "i": 10,
+       "label": "10 yr"
+      }
+     ]
+    },
+    {
+     "type": "line",
+     "x": 1030,
+     "y": 300,
+     "w": 800,
+     "h": 420,
+     "trend": "lumpy",
+     "n": 60,
+     "seed": 11,
+     "marks": [
+      {
+       "i": 0,
+       "label": "₹100"
+      },
+      {
+       "i": -1,
+       "label": "₹?"
+      }
+     ],
+     "xlabels": [
+      {
+       "i": 0,
+       "label": "1 yr"
+      },
+      {
+       "i": 30,
+       "label": "5 yr"
+      },
+      {
+       "i": -1,
+       "label": "10 yr"
+      }
+     ]
+    },
+    {
+     "type": "text",
+     "text": "₹100 Invested  ↗ Smooth growth 6% p.a",
+     "x": 490,
+     "y": 800,
+     "align": "center",
+     "size": 26,
+     "weight": 600
+    },
+    {
+     "type": "text",
+     "text": "₹100 Invested  ∿ Lumpy journey, uncertain",
+     "x": 1430,
+     "y": 800,
+     "align": "center",
+     "size": 26,
+     "weight": 600
+    }
+   ]
+  },
+  {
+   "id": "0.38",
+   "name": "Assets",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "giant",
+     "text": "Assets",
+     "x": 140,
+     "y": 110,
+     "size": 150
+    },
+    {
+     "type": "img",
+     "src": "buildings/office_glass",
+     "cx": 440,
+     "by": 960,
+     "h": 720
+    },
+    {
+     "type": "branch",
+     "from": [
+      830,
+      560
+     ],
+     "badge_x": 1180,
+     "joint_x": 1000,
+     "items": [
+      {
+       "y": 400,
+       "icon": "props/icon_building",
+       "text": "Property"
+      },
+      {
+       "y": 590,
+       "icon": "props/icon_conveyor",
+       "text": "Plant & Machinery"
+      },
+      {
+       "y": 780,
+       "icon": "props/cash_bundle",
+       "text": "Investments"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1.52",
+   "name": "Inventory",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "giant",
+     "text": "Inventory",
+     "x": 960,
+     "y": 120,
+     "align": "center",
+     "size": 120
+    },
+    {
+     "type": "img",
+     "src": "props/factory_machine",
+     "cx": 960,
+     "by": 940,
+     "w": 1660
+    },
+    {
+     "type": "img",
+     "src": "props/milk_can",
+     "cx": 326,
+     "by": 826,
+     "h": 170,
+     "z": 11
+    },
+    {
+     "type": "img",
+     "src": "props/sugar_sack",
+     "cx": 557,
+     "by": 834,
+     "h": 160,
+     "z": 11
+    },
+    {
+     "type": "img",
+     "src": "props/carton_box",
+     "cx": 1342,
+     "by": 828,
+     "h": 140,
+     "z": 11
+    },
+    {
+     "type": "img",
+     "src": "props/carton_box",
+     "cx": 1568,
+     "by": 828,
+     "h": 140,
+     "z": 11
+    },
+    {
+     "type": "text",
+     "text": "Biscuits",
+     "x": 1342,
+     "y": 760,
+     "align": "center",
+     "size": 22,
+     "weight": 700,
+     "z": 12
+    },
+    {
+     "type": "text",
+     "text": "Biscuits",
+     "x": 1568,
+     "y": 760,
+     "align": "center",
+     "size": 22,
+     "weight": 700,
+     "z": 12
+    },
+    {
+     "type": "pill",
+     "text": "Raw Materials",
+     "x": 300,
+     "y": 470,
+     "italic": false,
+     "bold": true,
+     "size": 28,
+     "arrow_to": [
+      420,
+      620
+     ],
+     "arrow_from": [
+      420,
+      540
+     ],
+     "bend": 0.3
+    }
+   ]
+  },
+  {
+   "id": "2.06",
+   "name": "Customers-Pay-Company",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "giant",
+     "text": "Company",
+     "x": 300,
+     "y": 150,
+     "size": 90
+    },
+    {
+     "type": "img",
+     "src": "buildings/office_glass",
+     "cx": 590,
+     "by": 1020,
+     "h": 760
+    },
+    {
+     "type": "char",
+     "who": "c1",
+     "pose": "point_left",
+     "expr": "smile",
+     "cx": 1360,
+     "by": 930,
+     "h": 300,
+     "label": false
+    },
+    {
+     "type": "char",
+     "who": "c2",
+     "pose": "hold",
+     "expr": "happy",
+     "cx": 1490,
+     "by": 930,
+     "h": 300,
+     "label": false
+    },
+    {
+     "type": "char",
+     "who": "c3",
+     "pose": "explain",
+     "expr": "talk",
+     "cx": 1610,
+     "by": 930,
+     "h": 300,
+     "label": false
+    },
+    {
+     "type": "pill",
+     "text": "Customers",
+     "x": 1400,
+     "y": 400
+    },
+    {
+     "type": "coinflow",
+     "from": [
+      1330,
+      690
+     ],
+     "to": [
+      1000,
+      520
+     ],
+     "coins": 2,
+     "bend": -0.25
+    }
+   ]
+  },
+  {
+   "id": "0.41",
+   "name": "Profitability-Ratios-List",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "header",
+     "style": "stack",
+     "text": "Financial Ratios",
+     "sub": "Profitability Ratios",
+     "x": 410,
+     "y": 230
+    },
+    {
+     "type": "pills",
+     "items": [
+      "Operating Margin",
+      "Profit After Tax Margin",
+      "Return on Equity"
+     ],
+     "x": 400,
+     "y": 470,
+     "gap": 160,
+     "size": 34,
+     "active": 0
+    }
+   ]
+  },
+  {
+   "id": "3.38",
+   "name": "ROE-Formula",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "card",
+     "kind": "formula",
+     "x": 160,
+     "y": 330,
+     "w": 820,
+     "term": "ROE",
+     "hl": "blue",
+     "num": "Net Profit after Tax",
+     "den": "Shareholders’ Equity",
+     "size": 40
+    }
+   ]
+  },
+  {
+   "id": "3.25",
+   "name": "ROE-Definition",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "card",
+     "kind": "quote",
+     "x": 120,
+     "y": 360,
+     "w": 860,
+     "text": "Measures how efficiently a company generates profit from each unit of shareholders’ investment.",
+     "size": 32
+    }
+   ]
+  },
+  {
+   "id": "7.42",
+   "name": "Price-to-Sales-Calc",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "card",
+     "kind": "calc",
+     "x": 120,
+     "y": 330,
+     "w": 860,
+     "size": 34,
+     "lines": [
+      {
+       "label": "Sales per share",
+       "value": "₹1,007"
+      },
+      {
+       "label": "Share price",
+       "value": "₹3,780"
+      },
+      {
+       "label": "Price to Sales",
+       "num": "3,780",
+       "den": "1,007",
+       "result": "3.75"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "9.37",
+   "name": "Assets-vs-Liabilities-Pies",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "box",
+     "text": "Assets",
+     "x": 560,
+     "y": 130,
+     "align": "center",
+     "size": 54
+    },
+    {
+     "type": "header",
+     "style": "box",
+     "text": "Liabilities",
+     "x": 1360,
+     "y": 130,
+     "align": "center",
+     "size": 54
+    },
+    {
+     "type": "pie",
+     "cx": 560,
+     "cy": 520,
+     "r": 230,
+     "slices": [
+      {
+       "label": "Building",
+       "value": 1,
+       "color": "yellow"
+      },
+      {
+       "label": "Plants",
+       "value": 1,
+       "color": "blue"
+      },
+      {
+       "label": "Machinery",
+       "value": 1,
+       "color": "orange"
+      }
+     ]
+    },
+    {
+     "type": "pie",
+     "cx": 1360,
+     "cy": 520,
+     "r": 230,
+     "slices": [
+      {
+       "label": "Loan",
+       "value": 1,
+       "color": "pale_blue"
+      },
+      {
+       "label": "Debentures",
+       "value": 1,
+       "color": "pale_orange"
+      },
+      {
+       "label": "Payables",
+       "value": 1,
+       "color": "pale_yellow"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3.58",
+   "name": "Profit-ROE-Debt",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "char",
+     "who": "c2",
+     "pose": "point_right",
+     "expr": "smile",
+     "cx": 220,
+     "by": 1000,
+     "h": 460,
+     "label": false
+    },
+    {
+     "type": "bar",
+     "x": 380,
+     "y": 170,
+     "w": 1160,
+     "h": 700,
+     "ymax": 100,
+     "bars": [
+      {
+       "label": "Profit",
+       "value": 55,
+       "color": "green"
+      },
+      {
+       "label": "ROE",
+       "value": 60,
+       "color": "blue"
+      },
+      {
+       "label": "Debt",
+       "value": 80,
+       "color": "coral"
+      }
+     ]
+    },
+    {
+     "type": "img",
+     "src": "props/magnifier",
+     "cx": 1330,
+     "by": 1080,
+     "h": 560
+    }
+   ]
+  },
+  {
+   "id": "12.37",
+   "name": "Price-EPS-PE",
+   "mode": "fss",
+   "floor": false,
+   "els": [
+    {
+     "type": "linecards",
+     "x": 100,
+     "y": 270,
+     "w": 540,
+     "gap": 50,
+     "cards": [
+      {
+       "title": "Share Price",
+       "trend": "up"
+      },
+      {
+       "title": "EPS",
+       "trend": "flat"
+      },
+      {
+       "title": "P/E",
+       "trend": "up",
+       "seed": 9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "0.29",
+   "name": "Three-Methods",
+   "mode": "fss",
+   "floor": false,
+   "els": [
+    {
+     "type": "img",
+     "src": "props/lamp_blue",
+     "cx": 960,
+     "by": 560,
+     "h": 590,
+     "z": 2
+    },
+    {
+     "type": "cardset",
+     "style": "folder",
+     "items": [
+      {
+       "label": "Intrinsic\nValuation"
+      },
+      {
+       "label": "Relative\nValuation"
+      },
+      {
+       "label": "Option-Based\nValuation"
+      }
+     ],
+     "active": 1,
+     "y": 330,
+     "cw": 330,
+     "ch": 280,
+     "gap": 70
+    }
+   ]
+  },
+  {
+   "id": "1.57",
+   "name": "Watchlist-Buy-Sell",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "phone",
+     "x": 680,
+     "y": 130,
+     "w": 400,
+     "title": "COMPANY A",
+     "rows": [
+      {
+       "ex": "NSE",
+       "name": "COMPANY B"
+      },
+      {
+       "ex": "BSE",
+       "name": "COMPANY C"
+      },
+      {
+       "ex": "NSE",
+       "name": "COMPANY D"
+      }
+     ],
+     "card": {
+      "name": "COMPANY A",
+      "price": "114.47 +0.00%"
+     }
+    },
+    {
+     "type": "char",
+     "who": "c3",
+     "pose": "point_left",
+     "expr": "smile",
+     "cx": 1300,
+     "by": 1000,
+     "h": 560,
+     "label": false
+    },
+    {
+     "type": "img",
+     "src": "props/magnifier",
+     "cx": 1060,
+     "by": 760,
+     "h": 380,
+     "flip": true
+    }
+   ]
+  },
+  {
+   "id": "1.42",
+   "name": "Company-A-to-D",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "plain",
+     "text": "Relative __Valuation__",
+     "x": 960,
+     "y": 90,
+     "align": "center"
+    },
+    {
+     "type": "cardset",
+     "style": "glass",
+     "items": [
+      {
+       "label": "Company A",
+       "img": "buildings/tower_xyz"
+      },
+      {
+       "label": "Company B",
+       "img": "buildings/office_glass"
+      },
+      {
+       "label": "Company C",
+       "img": "buildings/pharma"
+      },
+      {
+       "label": "Company D",
+       "img": "buildings/showroom_bajaj"
+      }
+     ],
+     "y": 260,
+     "cw": 380,
+     "ch": 560,
+     "gap": 40
+    }
+   ]
+  },
+  {
+   "id": "chart7",
+   "name": "Bajaj-Auto-Price",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "window",
+     "x": 380,
+     "y": 170,
+     "w": 1160,
+     "h": 700,
+     "ticker": "Bajaj Auto",
+     "trend": "lumpy",
+     "n": 120,
+     "seed": 5,
+     "ymin": 8750,
+     "ymax": 10750,
+     "yticks": [
+      8750,
+      9250,
+      9750,
+      10250,
+      10750
+     ]
+    }
+   ]
+  },
+  {
+   "id": "14.17",
+   "name": "Key-Takeaways",
+   "mode": "takeaways",
+   "floor": false,
+   "els": [
+    {
+     "type": "takeaways",
+     "items": [
+      "Financial ratios help evaluate a company, but a single ratio alone gives limited insight.",
+      "Compare ratios over recent years or with industry peers.",
+      "Ratios fall into Profitability, Leverage and Valuation ratios.",
+      "EBITDA is operating revenue minus operating expenses.",
+      "PAT Margin reflects the overall profitability of the company.",
+      "ROE shows the return shareholders earn on their investment.",
+      "A high ROE with high debt may not be a positive sign."
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,541 @@
+{
+ "episode": "Ep09",
+ "title": "How to Value a Company",
+ "frames": [
+  {
+   "id": "0.01",
+   "name": "Module-Page",
+   "mode": "fss",
+   "floor": false,
+   "deco_coins": [
+    [
+     150,
+     230,
+     54
+    ]
+   ],
+   "els": [
+    {
+     "type": "module",
+     "module": "Module 4",
+     "start": 7,
+     "current": 3,
+     "chapters": [
+      "Financial Ratio Analysis",
+      "Ratio Analysis in Practice",
+      "How to Value a Company",
+      "Next Steps"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "0.29",
+   "name": "Three-Valuation-Methods",
+   "mode": "fss",
+   "floor": false,
+   "els": [
+    {
+     "type": "img",
+     "src": "props/lamp_blue",
+     "cx": 555,
+     "by": 560,
+     "h": 590,
+     "z": 2
+    },
+    {
+     "type": "cardset",
+     "style": "folder",
+     "items": [
+      {
+       "label": "Intrinsic\nValuation"
+      },
+      {
+       "label": "Relative\nValuation"
+      },
+      {
+       "label": "Option-Based\nValuation"
+      }
+     ],
+     "active": 0,
+     "y": 330,
+     "cw": 330,
+     "ch": 280,
+     "gap": 70,
+     "blur_rest": 6
+    }
+   ]
+  },
+  {
+   "id": "0.39",
+   "name": "Intrinsic-Valuation-DCF",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "header",
+     "style": "plain",
+     "text": "Intrinsic __Valuation__",
+     "x": 130,
+     "y": 200,
+     "size": 70
+    },
+    {
+     "type": "card",
+     "kind": "bullets",
+     "x": 130,
+     "y": 360,
+     "w": 820,
+     "title": "Discounted Cash Flow (DCF) Model",
+     "title_hl": "blue",
+     "marker": "dot",
+     "items": [
+      "Free Cash Flow",
+      "Growth rate of Cash Flow",
+      "Risk"
+     ],
+     "size": 34
+    }
+   ]
+  },
+  {
+   "id": "1.04",
+   "name": "Cheap-or-Expensive",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "giant",
+     "text": "Intrinsic Value",
+     "x": 960,
+     "y": 110,
+     "align": "center",
+     "size": 110
+    },
+    {
+     "type": "scale",
+     "cx": 960,
+     "by": 1000,
+     "w": 1150,
+     "left": "Stock Price",
+     "right": "Intrinsic Value"
+    },
+    {
+     "type": "pill",
+     "text": "Cheap",
+     "x": 420,
+     "y": 470,
+     "bold": true,
+     "italic": false
+    },
+    {
+     "type": "pill",
+     "text": "Expensive",
+     "x": 1330,
+     "y": 470,
+     "bold": true,
+     "italic": false,
+     "faded": true
+    }
+   ]
+  },
+  {
+   "id": "1.23",
+   "name": "Relative-Valuation-Definition",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "header",
+     "style": "plain",
+     "text": "Relative __Valuation__",
+     "x": 130,
+     "y": 250,
+     "size": 70
+    },
+    {
+     "type": "card",
+     "kind": "quote",
+     "x": 130,
+     "y": 400,
+     "w": 820,
+     "text": "Used when there is no positive free cash flow.",
+     "size": 36
+    }
+   ]
+  },
+  {
+   "id": "1.42",
+   "name": "Company-A-to-D",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "plain",
+     "text": "Relative __Valuation__",
+     "x": 960,
+     "y": 80,
+     "align": "center"
+    },
+    {
+     "type": "cardset",
+     "style": "glass",
+     "items": [
+      {
+       "label": "Company A",
+       "img": "buildings/tower_xyz"
+      },
+      {
+       "label": "Company B",
+       "img": "buildings/office_glass"
+      },
+      {
+       "label": "Company C",
+       "img": "buildings/pharma"
+      },
+      {
+       "label": "Company D",
+       "img": "buildings/bank"
+      }
+     ],
+     "y": 240,
+     "cw": 380,
+     "ch": 520,
+     "gap": 40
+    }
+   ]
+  },
+  {
+   "id": "1.42_b",
+   "name": "Comparison-Metrics",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "plain",
+     "text": "Relative __Valuation__",
+     "x": 960,
+     "y": 80,
+     "align": "center"
+    },
+    {
+     "type": "cardset",
+     "style": "glass",
+     "items": [
+      {
+       "label": "Company A",
+       "img": "buildings/tower_xyz"
+      },
+      {
+       "label": "Company B",
+       "img": "buildings/office_glass"
+      },
+      {
+       "label": "Company C",
+       "img": "buildings/pharma"
+      },
+      {
+       "label": "Company D",
+       "img": "buildings/bank"
+      }
+     ],
+     "y": 240,
+     "cw": 380,
+     "ch": 520,
+     "gap": 40,
+     "active": 0,
+     "arc": false,
+     "blur_rest": 2
+    },
+    {
+     "type": "pill",
+     "text": "Cash Flow",
+     "x": 290,
+     "y": 820,
+     "italic": false,
+     "bold": true,
+     "tilt": -4
+    },
+    {
+     "type": "pill",
+     "text": "Price to Sales",
+     "x": 690,
+     "y": 860,
+     "italic": false,
+     "bold": true,
+     "tilt": 3
+    },
+    {
+     "type": "pill",
+     "text": "Price to Book",
+     "x": 1110,
+     "y": 820,
+     "italic": false,
+     "bold": true,
+     "tilt": -3
+    },
+    {
+     "type": "pill",
+     "text": "Debt to Equity",
+     "x": 1480,
+     "y": 860,
+     "italic": false,
+     "bold": true,
+     "tilt": 4
+    }
+   ]
+  },
+  {
+   "id": "1.57",
+   "name": "Buy-or-Sell",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "phone",
+     "x": 700,
+     "y": 120,
+     "w": 400,
+     "title": "COMPANY A",
+     "rows": [
+      {
+       "ex": "NSE",
+       "name": "COMPANY B"
+      },
+      {
+       "ex": "BSE",
+       "name": "COMPANY C"
+      },
+      {
+       "ex": "NSE",
+       "name": "COMPANY D"
+      }
+     ],
+     "card": {
+      "name": "COMPANY A",
+      "price": "114.47 +0.00%"
+     }
+    },
+    {
+     "type": "char",
+     "who": "c3",
+     "pose": "point_left",
+     "expr": "smile",
+     "cx": 1320,
+     "by": 1000,
+     "h": 540,
+     "label": false
+    },
+    {
+     "type": "img",
+     "src": "props/magnifier",
+     "cx": 1080,
+     "by": 740,
+     "h": 360,
+     "flip": true
+    }
+   ]
+  },
+  {
+   "id": "2.26",
+   "name": "Pharma-Patent",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "box",
+     "text": "Option-Based Valuation",
+     "x": 960,
+     "y": 90,
+     "align": "center",
+     "size": 54
+    },
+    {
+     "type": "img",
+     "src": "buildings/pharma",
+     "cx": 420,
+     "by": 1000,
+     "h": 470
+    },
+    {
+     "type": "img",
+     "src": "buildings/government",
+     "cx": 1500,
+     "by": 1000,
+     "h": 520
+    },
+    {
+     "type": "pill",
+     "text": "Pharma Company",
+     "x": 180,
+     "y": 380,
+     "italic": false,
+     "bold": true,
+     "tilt": 6,
+     "size": 28
+    },
+    {
+     "type": "pill",
+     "text": "Regulatory Body",
+     "x": 1500,
+     "y": 330,
+     "italic": false,
+     "bold": true,
+     "tilt": -8,
+     "size": 28
+    },
+    {
+     "type": "img",
+     "src": "props/patent_approved",
+     "cx": 960,
+     "by": 600,
+     "h": 300
+    },
+    {
+     "type": "arrow",
+     "from": [
+      700,
+      560
+     ],
+     "to": [
+      1260,
+      470
+     ],
+     "bend": -0.12,
+     "dashed": true
+    }
+   ]
+  },
+  {
+   "id": "2.40",
+   "name": "Price-After-Approval",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Pharma Company",
+     "x": 120,
+     "y": 110,
+     "size": 52
+    },
+    {
+     "type": "window",
+     "x": 380,
+     "y": 230,
+     "w": 1160,
+     "h": 620,
+     "ticker": "XYZ Pharma",
+     "points": [
+      100,
+      101,
+      99,
+      102,
+      100,
+      103,
+      101,
+      102,
+      100,
+      101,
+      103,
+      102,
+      118,
+      126,
+      131,
+      129,
+      136,
+      142,
+      140,
+      148
+     ],
+     "ymin": 90,
+     "ymax": 155,
+     "yticks": [
+      90,
+      110,
+      130,
+      150
+     ],
+     "marks": [
+      {
+       "i": 11,
+       "label": "Patent approved",
+       "dy": 70,
+       "dx": 20,
+       "anchor": "start"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2.53",
+   "name": "Difficulty-Scale",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "header",
+     "style": "stack",
+     "text": "Valuation Methods",
+     "sub": "Difficulty",
+     "x": 130,
+     "y": 200
+    },
+    {
+     "type": "bar",
+     "x": 110,
+     "y": 350,
+     "w": 860,
+     "h": 470,
+     "ymax": 100,
+     "bars": [
+      {
+       "label": "Intrinsic",
+       "value": 45,
+       "color": "blue"
+      },
+      {
+       "label": "Relative",
+       "value": 30,
+       "color": "blue"
+      },
+      {
+       "label": "Option-Based",
+       "value": 90,
+       "color": "orange"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "3.02",
+   "name": "Start-With-Two",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "header",
+     "style": "stack",
+     "text": "Start With",
+     "sub": "These Two",
+     "x": 130,
+     "y": 250
+    },
+    {
+     "type": "pills",
+     "items": [
+      "Intrinsic Valuation",
+      "Relative Valuation",
+      "Option-Based Valuation"
+     ],
+     "x": 130,
+     "y": 450,
+     "gap": 120,
+     "size": 36,
+     "active": [
+      0,
+      1
+     ],
+     "fade_rest": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,187 @@
+{
+ "_note": "Base PNGs are the team's six Varsity characters with only the arms removed. Coordinates are local to each base PNG. a = left shoulder, b = right shoulder (viewer's left/right). order: which arm draws behind the body.",
+ "stroke": 4,
+ "c1": {
+  "name": "Character 1",
+  "look": "yellow, curly hair, glasses-eyes",
+  "a": [
+   118,
+   205
+  ],
+  "b": [
+   143,
+   234
+  ],
+  "behind": [
+   "a"
+  ],
+  "L": 190,
+  "mouth": {
+   "c": [
+    105,
+    145
+   ],
+   "rx": 25,
+   "ry": 22
+  },
+  "head": {
+   "c": [
+    107,
+    133
+   ],
+   "r": 82
+  }
+ },
+ "c2": {
+  "name": "Character 2",
+  "look": "blue, short curly hair, sceptical",
+  "a": [
+   113,
+   137
+  ],
+  "b": [
+   147,
+   174
+  ],
+  "behind": [
+   "a"
+  ],
+  "L": 200,
+  "mouth": {
+   "c": [
+    125,
+    134
+   ],
+   "rx": 26,
+   "ry": 13
+  },
+  "head": {
+   "c": [
+    141,
+    104
+   ],
+   "r": 80
+  }
+ },
+ "c3": {
+  "name": "Character 3",
+  "look": "coral, woman, bindi",
+  "a": [
+   81,
+   267
+  ],
+  "b": [
+   131,
+   272
+  ],
+  "behind": [],
+  "L": 205,
+  "mouth": {
+   "c": [
+    123,
+    193
+   ],
+   "rx": 34,
+   "ry": 12
+  },
+  "head": {
+   "c": [
+    118,
+    131
+   ],
+   "r": 105
+  }
+ },
+ "c4": {
+  "name": "Character 4",
+  "look": "yellow, spiky hair, glasses",
+  "a": [
+   120,
+   182
+  ],
+  "b": [
+   146,
+   199
+  ],
+  "behind": [
+   "a",
+   "b"
+  ],
+  "L": 200,
+  "mouth": {
+   "c": [
+    100,
+    171
+   ],
+   "rx": 22,
+   "ry": 17
+  },
+  "head": {
+   "c": [
+    108,
+    124
+   ],
+   "r": 95
+  }
+ },
+ "c5": {
+  "name": "Character 5",
+  "look": "blue, round, hat, moustache",
+  "a": [
+   112,
+   223
+  ],
+  "b": [
+   188,
+   231
+  ],
+  "behind": [],
+  "L": 200,
+  "mouth": {
+   "c": [
+    154,
+    179
+   ],
+   "rx": 22,
+   "ry": 10
+  },
+  "head": {
+   "c": [
+    166,
+    119
+   ],
+   "r": 78
+  }
+ },
+ "c6": {
+  "name": "Character 6",
+  "look": "yellow, quiff (Varsity explainer)",
+  "a": [
+   153,
+   277
+  ],
+  "b": [
+   172,
+   275
+  ],
+  "behind": [
+   "a"
+  ],
+  "L": 220,
+  "mouth": {
+   "c": [
+    128,
+    193
+   ],
+   "rx": 34,
+   "ry": 30
+  },
+  "head": {
+   "c": [
+    153,
+    180
+   ],
+   "r": 78
+  }
+ }
+}

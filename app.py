@@ -21,6 +21,7 @@ from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
     finalize_reference_edit,
+    merge_els_edit,
     merge_item_edit,
     mf_path_item_index,
     normalize_cards_items,
@@ -132,8 +133,15 @@ def is_zo_theme_name(theme: str) -> bool:
     return theme == "zo-product-graphics"
 
 
+HINDI_THEME_NAMES = frozenset({"varsity-hindi-graphics", "varsity-hindi-fa-graphics"})
+
+
 def is_hindi_theme_name(theme: str) -> bool:
-    return theme == "varsity-hindi-graphics"
+    return theme in HINDI_THEME_NAMES
+
+
+def is_hindi_fa_theme_name(theme: str) -> bool:
+    return theme == "varsity-hindi-fa-graphics"
 
 
 MF_OVERLAY_TYPES = frozenset({"ribbon", "definition", "anchor"})
@@ -272,29 +280,36 @@ def _hindi_merged_cast(spec: dict | None, frame: dict | None) -> dict:
         wl = w.lower()
         return any(isinstance(k, str) and k.lower() == wl for k in out)
 
+    def _ingest_char(who, ch, nm):
+        if not isinstance(who, str) or not who.strip():
+            return
+        if _has_who_key(who):
+            return
+        if ch is None:
+            return
+        if isinstance(ch, str) and ch.startswith("c") and ch[1:].isdigit():
+            ch_n = ch
+        else:
+            try:
+                ch_n = int(ch)
+            except (TypeError, ValueError):
+                ch_n = ch
+        ent: dict = {"char": ch_n}
+        if isinstance(nm, str) and nm.strip():
+            ent["name"] = nm.strip()
+        out[who.strip()] = ent
+
     if isinstance(frame, dict):
         for it in frame.get("items") or []:
             if not isinstance(it, dict) or it.get("t") != "character":
                 continue
-            who = it.get("who")
-            if not isinstance(who, str) or not who.strip():
+            _ingest_char(it.get("who"), it.get("char"), it.get("name"))
+        for e in frame.get("els") or []:
+            if not isinstance(e, dict) or e.get("type") != "char":
                 continue
-            if _has_who_key(who):
-                continue
-            ch = it.get("char")
-            if ch is None:
-                continue
-            try:
-                ch_n = int(ch)
-            except (TypeError, ValueError):
-                continue
-            if ch_n < 1 or ch_n > 6:
-                continue
-            nm = it.get("name")
-            ent: dict = {"char": ch_n}
-            if isinstance(nm, str) and nm.strip():
-                ent["name"] = nm.strip()
-            out[who.strip()] = ent
+            who = e.get("who")
+            ch = who if isinstance(who, str) and len(who) == 2 and who[0] == "c" and who[1].isdigit() else None
+            _ingest_char(who, ch, e.get("label") or e.get("name"))
     return out
 
 
@@ -839,9 +854,14 @@ async def edit(pid: int, fid: str, req: Request):
         )
         mf_item_ix = mf_path_item_index(mf_path) if mf_path else None
         if item_index is not None and not is_mf_theme_name(p["theme"]):
-            new = merge_item_edit(before, new, item_index)
+            if is_hindi_fa_theme_name(p["theme"]):
+                new = merge_els_edit(before, new, item_index)
+            else:
+                new = merge_item_edit(before, new, item_index)
             if smart_ref and ref_src:
                 new = strip_upload_assets(new, ref_src)
+        elif mf_item_ix is not None and is_hindi_fa_theme_name(p["theme"]):
+            new = merge_els_edit(before, new, mf_item_ix)
         elif mf_item_ix is not None and is_mf_theme_name(p["theme"]):
             new = merge_item_edit(before, new, mf_item_ix)
             if smart_ref and ref_src:

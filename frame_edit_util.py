@@ -160,10 +160,32 @@ def normalize_cards_items(frame: dict) -> dict:
 def mf_path_item_index(mf_path: str | None) -> int | None:
     if not mf_path:
         return None
-    m = re.fullmatch(r"items\.(\d+)", mf_path.strip())
+    path = mf_path.strip()
+    m = re.fullmatch(r"items\.(\d+)", path) or re.fullmatch(r"els\.(\d+)", path)
     if not m:
         return None
     return int(m.group(1))
+
+
+def merge_els_edit(before: dict, after: dict, item_index: int) -> dict:
+    """Single-layer edit: swap one els[] slot (Varsity Hindi Elements)."""
+    bi = [e for e in before.get("els") or [] if isinstance(e, dict)]
+    ai = [e for e in after.get("els") or [] if isinstance(e, dict)]
+    if item_index < 0 or item_index >= len(bi):
+        return after
+    replacement = None
+    if item_index < len(ai) and ai[item_index] != bi[item_index]:
+        replacement = ai[item_index]
+    if replacement is None:
+        for j, it in enumerate(ai):
+            if j >= len(bi) or it != bi[j]:
+                replacement = it
+                break
+    if replacement is None:
+        return {**after, "els": bi}
+    merged = list(bi)
+    merged[item_index] = replacement
+    return {**after, "els": merged}
 
 
 def merge_item_edit(before: dict, after: dict, item_index: int) -> dict:

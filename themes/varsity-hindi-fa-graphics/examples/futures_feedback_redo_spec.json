@@ -1,0 +1,639 @@
+{
+ "episode": "Futures Ep01",
+ "title": "Why were futures needed (feedback redo)",
+ "series": "futures",
+ "cast": {
+  "rajesh": {
+   "char": "c1",
+   "name": "Rajesh · Farmer"
+  },
+  "mill": {
+   "char": "c5",
+   "name": "Mill Owner"
+  },
+  "buyer1": {
+   "char": "c3",
+   "name": "Buyer"
+  },
+  "buyer2": {
+   "char": "c4",
+   "name": "Buyer"
+  },
+  "seller1": {
+   "char": "c2",
+   "name": "Seller"
+  },
+  "seller2": {
+   "char": "c6",
+   "name": "Seller"
+  }
+ },
+ "frames": [
+  {
+   "id": "0.37",
+   "name": "FnO-Segment",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "osa",
+     "header": "F&O · Derivatives Segment",
+     "kind": "list",
+     "items": [
+      {
+       "text": "**Futures**: buy or sell later at a price fixed today",
+       "icon": "prop:document"
+      },
+      {
+       "text": "**Options**: the right, not the obligation, to buy or sell",
+       "icon": "prop:handshake"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1.05",
+   "name": "Rajesh-Farmer",
+   "backdrop": "farm",
+   "els": [
+    {
+     "type": "char",
+     "who": "rajesh",
+     "pose": "explain",
+     "expr": "smile",
+     "cx": 430,
+     "by": 1010,
+     "h": 470
+    },
+    {
+     "type": "bubble",
+     "kind": "thought",
+     "x": 640,
+     "y": 170,
+     "w": 560,
+     "h": 330,
+     "tail": [
+      520,
+      520
+     ],
+     "prop": {
+      "kind": "sack",
+      "label": "Wheat",
+      "w": 140
+     },
+     "items": [
+      "**5,000 kg** wheat",
+      "Harvest in **3 months**",
+      "Cost **₹20/kg**"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1.40",
+   "name": "Flour-Mill",
+   "backdrop": "market",
+   "seed": 5,
+   "els": [
+    {
+     "type": "prop",
+     "kind": "shop",
+     "sign": "Flour Mill",
+     "inside": "mill",
+     "cx": 620,
+     "by": 1000,
+     "w": 720
+    },
+    {
+     "type": "char",
+     "who": "mill",
+     "pose": "think",
+     "expr": "worried",
+     "cx": 1260,
+     "by": 1010,
+     "h": 460
+    },
+    {
+     "type": "bubble",
+     "kind": "thought",
+     "x": 1260,
+     "y": 120,
+     "w": 600,
+     "h": 320,
+     "tail": [
+      1290,
+      520
+     ],
+     "prop": {
+      "kind": "price_tag",
+      "text": "₹30/kg",
+      "strike": "₹25/kg",
+      "w": 200
+     },
+     "items": [
+      "Needs **5,000 kg**",
+      "What if price rises?"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2.10",
+   "name": "Fears-Split",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "split",
+     "x": 960
+    },
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Rajesh",
+     "x": 120,
+     "y": 120,
+     "size": 46
+    },
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Mill Owner",
+     "x": 1060,
+     "y": 120,
+     "size": 46
+    },
+    {
+     "type": "char",
+     "who": "rajesh",
+     "pose": "worried",
+     "expr": "worried",
+     "cx": 330,
+     "by": 1000,
+     "h": 440,
+     "label": false
+    },
+    {
+     "type": "bubble",
+     "kind": "thought",
+     "x": 470,
+     "y": 250,
+     "w": 400,
+     "h": 250,
+     "tail": [
+      400,
+      560
+     ],
+     "prop": {
+      "kind": "arrow",
+      "direction": "down",
+      "color": "coral",
+      "w": 50
+     },
+     "items": [
+      "Price may **fall**",
+      "₹25 → ₹20/kg"
+     ]
+    },
+    {
+     "type": "char",
+     "who": "mill",
+     "pose": "shrug",
+     "expr": "surprised",
+     "cx": 1290,
+     "by": 1000,
+     "h": 440,
+     "label": false
+    },
+    {
+     "type": "bubble",
+     "kind": "thought",
+     "x": 1440,
+     "y": 250,
+     "w": 400,
+     "h": 250,
+     "tail": [
+      1360,
+      560
+     ],
+     "prop": {
+      "kind": "arrow",
+      "direction": "up",
+      "color": "green",
+      "w": 50
+     },
+     "items": [
+      "Price may **rise**",
+      "₹25 → ₹30/kg"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2.46",
+   "name": "Deal-Fixed-Today",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "plain",
+     "text": "Deal Fixed __Today__",
+     "x": 960,
+     "y": 90,
+     "align": "center"
+    },
+    {
+     "type": "char",
+     "who": "rajesh",
+     "pose": "give",
+     "expr": "happy",
+     "cx": 800,
+     "by": 1010,
+     "h": 440,
+     "flip": true
+    },
+    {
+     "type": "char",
+     "who": "mill",
+     "pose": "give",
+     "expr": "smile",
+     "cx": 1110,
+     "by": 1010,
+     "h": 440
+    },
+    {
+     "type": "prop",
+     "kind": "document",
+     "title": "Contract",
+     "stamp": "AGREED",
+     "cx": 1560,
+     "by": 820,
+     "w": 230,
+     "tilt": 6
+    },
+    {
+     "type": "prop",
+     "kind": "sack",
+     "label": "Wheat",
+     "price": "₹25/kg",
+     "cx": 300,
+     "by": 1000,
+     "w": 230
+    }
+   ]
+  },
+  {
+   "id": "3.19",
+   "name": "Harvest-Timeline",
+   "backdrop": "farm",
+   "seed": 3,
+   "els": [
+    {
+     "type": "prop",
+     "kind": "timeline",
+     "left": "Today",
+     "right": "Harvest · 3 Months",
+     "pos": 0.0,
+     "cx": 1100,
+     "by": 300,
+     "w": 1000
+    },
+    {
+     "type": "char",
+     "who": "rajesh",
+     "pose": "point_right",
+     "expr": "talk",
+     "cx": 380,
+     "by": 1010,
+     "h": 470
+    },
+    {
+     "type": "prop",
+     "kind": "calendar",
+     "month": "December",
+     "mark": 15,
+     "cx": 1500,
+     "by": 640,
+     "w": 260,
+     "tilt": 4
+    }
+   ]
+  },
+  {
+   "id": "4.15",
+   "name": "Mandi-Prices",
+   "backdrop": "market",
+   "els": [
+    {
+     "type": "header",
+     "style": "box",
+     "text": "Mandi: every seller, a different price",
+     "x": 960,
+     "y": 70,
+     "align": "center",
+     "size": 44
+    },
+    {
+     "type": "prop",
+     "kind": "stall",
+     "awning": "#EF5143",
+     "price": "₹24/kg",
+     "cx": 420,
+     "by": 900,
+     "w": 420
+    },
+    {
+     "type": "prop",
+     "kind": "stall",
+     "awning": "#2F7CF6",
+     "price": "₹25/kg",
+     "cx": 960,
+     "by": 900,
+     "w": 420
+    },
+    {
+     "type": "prop",
+     "kind": "stall",
+     "awning": "#F6C21C",
+     "price": "₹26/kg",
+     "cx": 1500,
+     "by": 900,
+     "w": 420
+    },
+    {
+     "type": "char",
+     "who": "seller1",
+     "pose": "explain",
+     "expr": "talk",
+     "cx": 600,
+     "by": 1060,
+     "h": 300,
+     "label": "Seller",
+     "label_dy": -50
+    },
+    {
+     "type": "char",
+     "who": "seller2",
+     "pose": "point_left",
+     "expr": "smile",
+     "cx": 1140,
+     "by": 1060,
+     "h": 300,
+     "label": "Seller",
+     "label_dy": -50
+    },
+    {
+     "type": "char",
+     "who": "buyer1",
+     "pose": "think",
+     "expr": "worried",
+     "cx": 250,
+     "by": 1070,
+     "h": 300,
+     "label": "Buyer",
+     "label_dy": -50,
+     "flip": true
+    },
+    {
+     "type": "char",
+     "who": "buyer2",
+     "pose": "shrug",
+     "expr": "surprised",
+     "cx": 1720,
+     "by": 1070,
+     "h": 300,
+     "label": "Buyer",
+     "label_dy": -50
+    }
+   ]
+  },
+  {
+   "id": "5.29",
+   "name": "Scenario-1-Price-Rises",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "bar",
+     "text": "Scenario 1: Market price rises to ₹30/kg",
+     "x": 120,
+     "y": 110,
+     "size": 46
+    },
+    {
+     "type": "scale",
+     "cx": 960,
+     "by": 960,
+     "w": 900,
+     "left": "Market ₹30",
+     "right": "Contract ₹25"
+    },
+    {
+     "type": "char",
+     "who": "rajesh",
+     "pose": "point_right",
+     "expr": "worried",
+     "cx": 290,
+     "by": 1010,
+     "h": 420
+    },
+    {
+     "type": "prop",
+     "kind": "sack",
+     "label": "Wheat",
+     "cx": 470,
+     "by": 1000,
+     "w": 150
+    },
+    {
+     "type": "char",
+     "who": "mill",
+     "pose": "happy",
+     "expr": "happy",
+     "cx": 1640,
+     "by": 1010,
+     "h": 420
+    },
+    {
+     "type": "prop",
+     "kind": "money",
+     "amount": "Saves ₹5/kg",
+     "cx": 1430,
+     "by": 1000,
+     "w": 200
+    },
+    {
+     "type": "pill",
+     "text": "₹5/kg missed opportunity",
+     "x": 960,
+     "y": 250,
+     "align": "center",
+     "italic": false,
+     "bold": true
+    }
+   ]
+  },
+  {
+   "id": "6.54",
+   "name": "Exchange-Buyers-Sellers",
+   "mode": "fss",
+   "els": [
+    {
+     "type": "header",
+     "style": "plain",
+     "text": "__Exchange__",
+     "x": 960,
+     "y": 80,
+     "align": "center"
+    },
+    {
+     "type": "img",
+     "src": "buildings/office_glass",
+     "cx": 960,
+     "by": 960,
+     "h": 560,
+     "as": "Exchange"
+    },
+    {
+     "type": "logo",
+     "name": "nse",
+     "x": 960,
+     "y": 300,
+     "h": 64,
+     "align": "center"
+    },
+    {
+     "type": "char",
+     "who": "buyer1",
+     "pose": "point_right",
+     "expr": "smile",
+     "cx": 260,
+     "by": 1000,
+     "h": 320,
+     "label": false
+    },
+    {
+     "type": "char",
+     "who": "buyer2",
+     "pose": "hold",
+     "expr": "neutral",
+     "cx": 420,
+     "by": 1000,
+     "h": 320,
+     "label": false
+    },
+    {
+     "type": "pill",
+     "text": "Buyers",
+     "x": 340,
+     "y": 560,
+     "align": "center"
+    },
+    {
+     "type": "char",
+     "who": "seller1",
+     "pose": "point_left",
+     "expr": "talk",
+     "cx": 1500,
+     "by": 1000,
+     "h": 320,
+     "label": false
+    },
+    {
+     "type": "char",
+     "who": "seller2",
+     "pose": "explain",
+     "expr": "smile",
+     "cx": 1660,
+     "by": 1000,
+     "h": 320,
+     "label": false
+    },
+    {
+     "type": "pill",
+     "text": "Sellers",
+     "x": 1580,
+     "y": 560,
+     "align": "center"
+    },
+    {
+     "type": "arrow",
+     "from": [
+      520,
+      820
+     ],
+     "to": [
+      690,
+      820
+     ],
+     "bend": 0
+    },
+    {
+     "type": "arrow",
+     "from": [
+      1400,
+      820
+     ],
+     "to": [
+      1230,
+      820
+     ],
+     "bend": 0
+    }
+   ]
+  },
+  {
+   "id": "7.28",
+   "name": "Standardised-Contracts",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "osa",
+     "header": "Standardised contracts on an exchange",
+     "kind": "list",
+     "active": 1,
+     "items": [
+      "Underlying asset",
+      "Contract size",
+      "Expiry date",
+      "Settlement rules"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "8.02",
+   "name": "Hedging-Definition",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "osa",
+     "header": "Hedging",
+     "kind": "quote",
+     "text": "A way to reduce the risk of price changes by giving up the chance to gain from favourable price moves."
+    }
+   ]
+  },
+  {
+   "id": "8.20",
+   "name": "Clearing-Corporation",
+   "mode": "osa",
+   "els": [
+    {
+     "type": "osa",
+     "header": "Clearing corporation",
+     "kind": "tags",
+     "items": [
+      {
+       "label": "Role",
+       "value": "Counterparty to both sides"
+      },
+      {
+       "label": "Removes",
+       "value": "Default risk"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

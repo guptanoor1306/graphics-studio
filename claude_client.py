@@ -47,8 +47,16 @@ def is_zo_product_theme(theme_dir: pathlib.Path) -> bool:
     return theme_dir.name == "zo-product-graphics"
 
 
-def is_hindi_theme(theme_dir: pathlib.Path) -> bool:
+def is_hindi_charts_theme(theme_dir: pathlib.Path) -> bool:
     return theme_dir.name == "varsity-hindi-graphics"
+
+
+def is_hindi_fa_theme(theme_dir: pathlib.Path) -> bool:
+    return theme_dir.name == "varsity-hindi-fa-graphics"
+
+
+def is_hindi_theme(theme_dir: pathlib.Path) -> bool:
+    return is_hindi_charts_theme(theme_dir) or is_hindi_fa_theme(theme_dir)
 
 
 def theme_rules(theme_dir: pathlib.Path) -> str:
@@ -87,7 +95,15 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
             "scenes/gift_city_spec.json",
             "assets/INDEX.md",
         )
-    elif is_hindi_theme(theme_dir):
+    elif is_hindi_fa_theme(theme_dir):
+        rels = (
+            "SKILL.md",
+            "references/spec_format.md",
+            "references/storyboard_rules.md",
+            "references/assets.md",
+            "examples/example_spec.json",
+        )
+    elif is_hindi_charts_theme(theme_dir):
         rels = (
             "SKILL.md",
             "references/spec_format.md",
@@ -177,6 +193,34 @@ ZO_SB_TOOL = {
                                 "mode": {"type": "string", "enum": ["fss", "osa", "ost", "tos"]},
                                 "items": {"type": "array", "minItems": 1},
                             },
+                            "additionalProperties": True,
+                        },
+                    },
+                },
+                "required": ["frames"],
+            },
+        },
+        "required": ["storyboard", "spec"],
+    },
+}
+HI_FA_SB_TOOL = {
+    "name": "submit_storyboard",
+    "description": "Return Varsity Hindi Elements storyboard and spec.json (frames with mode fss|osa|osa_center|blur|takeaways and els[]).",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "storyboard": {"type": "string"},
+            "spec": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "cast": {"type": "object"},
+                    "frames": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "mode", "els"],
                             "additionalProperties": True,
                         },
                     },
@@ -379,6 +423,15 @@ _REEL_ROLE = (
     "Every FSS/OST/anchor beat needs a renderable frame (type fss, html, ost, or anchor) with complete html."
 )
 
+_HI_FA_ROLE = (
+    "You are the Varsity Hindi Elements graphics designer (Fundamental Analysis, Futures, and story-driven FA IP) in the skill below. "
+    "You run inside Graphics Studio (web app), not a chat: ignore local CLI build, zip delivery, and contact-sheet steps — only return storyboard + spec via submit_storyboard. "
+    "Follow SKILL.md, references/spec_format.md, references/storyboard_rules.md, and examples/example_spec.json patterns. "
+    "Canvas 1920×1080. Frame modes: fss, osa, osa_center, blur, takeaways — each frame uses els[] with type (char, card, header, prop, osa, …), not Charts items[]. "
+    "Footage, screen, and repeat beats are storyboard-only; every graphic beat needs a renderable frame. "
+    "On-screen text is English; cast uses six team characters (c1–c6). Company logos via logo elements."
+)
+
 _HI_ROLE = (
     "You are the Varsity Hindi Charts graphics designer (Technical Analysis IP) in the skill below. You run inside Graphics Studio (web app), not a chat: "
     "ignore local CLI build, zip delivery, and contact-sheet steps — only return storyboard + spec via submit_storyboard. "
@@ -405,7 +458,9 @@ def _system(theme_dir):
         role = _REEL_ROLE
     elif is_zo_product_theme(theme_dir):
         role = _ZO_ROLE
-    elif is_hindi_theme(theme_dir):
+    elif is_hindi_fa_theme(theme_dir):
+        role = _HI_FA_ROLE
+    elif is_hindi_charts_theme(theme_dir):
         role = _HI_ROLE
     elif is_mf_theme(theme_dir):
         role = _MF_ROLE
@@ -510,6 +565,19 @@ _ZO_ANCHOR_MODES = frozenset({"osa", "ost", "tos"})
 
 
 def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") -> list[str]:
+    if theme == "varsity-hindi-fa-graphics":
+        issues: list[str] = []
+        _fa_modes = {"fss", "osa", "osa_center", "blur", "takeaways"}
+        for f in (spec or {}).get("frames") or []:
+            if not isinstance(f, dict):
+                continue
+            fid = f.get("id") or "?"
+            mode = f.get("mode")
+            if mode not in _fa_modes:
+                issues.append(f'Frame "{fid}": mode must be fss|osa|osa_center|blur|takeaways.')
+            if not (f.get("els") or []):
+                issues.append(f'Frame "{fid}": add els[] (see spec_format.md).')
+        return issues
     if theme == "varsity-hindi-graphics":
         issues: list[str] = []
         for f in (spec or {}).get("frames") or []:
@@ -740,7 +808,15 @@ def _call_with_pdf(
 
 
 def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
-    if is_hindi_theme(theme_dir):
+    if is_hindi_fa_theme(theme_dir):
+        return (
+            "GRAPHICS STUDIO RULES (Varsity Hindi Elements):\n"
+            "- spec.frames: modes fss | osa | osa_center | blur | takeaways; each frame uses els[] per spec_format.md.\n"
+            "- Footage/screen/repeat → storyboard only.\n"
+            "- Set spec.cast for named people; char elements use who + pose + expr.\n"
+            "Follow SKILL.md + spec_format.md + storyboard_rules.md.\n"
+        )
+    if is_hindi_charts_theme(theme_dir):
         return (
             "GRAPHICS STUDIO RULES (Varsity Hindi Charts):\n"
             "- spec.frames: modes side | main | fss | blur | scene | takeaways per spec_format.md.\n"
@@ -938,7 +1014,37 @@ def storyboard(
     *,
     episode_transcript: dict | None = None,
 ) -> dict:
-    if is_hindi_theme(theme_dir):
+    if is_hindi_fa_theme(theme_dir):
+        msg = _inject_transcript(
+            (
+            f"Notes: {notes or 'none'}\n\n"
+            "GRAPHICS STUDIO RULES (Varsity Hindi Elements):\n"
+            "- spec.frames[]: each graphic beat with id (timestamp like 0.21), mode, and els[] from spec_format.md.\n"
+            "- Modes: fss (full set), osa / osa_center (presenter), blur, takeaways.\n"
+            "- Footage, screen, repeat → storyboard string only — NOT in spec.frames.\n"
+            "- Characters via type char; buildings/props from assets/; logos via type logo.\n"
+            "- Match examples/example_spec.json density; on-screen copy in English.\n\n"
+            "Follow SKILL.md + references/spec_format.md + references/storyboard_rules.md.\n\n"
+            f"SCRIPT:\n{script}"
+            ),
+            episode_transcript,
+        )
+        out = _call_storyboard(theme_dir, msg, sb_tool=HI_FA_SB_TOOL)
+        for _ in range(2):
+            issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="varsity-hindi-fa-graphics")
+            if not issues:
+                break
+            retry = _inject_transcript(
+                (
+                "Your previous Varsity Hindi Elements spec was rejected. Fix ALL issues; return storyboard + spec only:\n"
+                + "\n".join(f"- {x}" for x in issues)
+                + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
+                ),
+                episode_transcript,
+            )
+            out = _call_storyboard(theme_dir, retry, sb_tool=HI_FA_SB_TOOL)
+        return out
+    if is_hindi_charts_theme(theme_dir):
         msg = _inject_transcript(
             (
             f"Notes: {notes or 'none'}\n\n"
