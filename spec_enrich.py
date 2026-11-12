@@ -1,7 +1,13 @@
 """Deterministic kit visuals when Claude returns text-only OST frames (common for broker/RMS scripts)."""
 from __future__ import annotations
 
+import os
 import re
+
+# Keyword presets bolt the same building + person onto any frame that mentions "margin", "bank", "tax"…,
+# which made frames look templated. Off by default now that the critique loop sends real renders back
+# to Claude; set STUDIO_ENRICH_PRESETS=1 to restore the old behaviour.
+_PRESETS_ON = os.environ.get("STUDIO_ENRICH_PRESETS", "0") == "1"
 
 _SCENE_TYPES = frozenset({"asset", "person"})
 _CONTENT_TYPES = frozenset({"htab", "points", "text", "glass_table", "calc_table", "popup"})
@@ -124,6 +130,8 @@ def enrich_spec(spec: dict, storyboard: str = "", *, theme: str = "") -> dict:
         if line and not re.search(r"\b(OSA|FSS)\b", line, re.I):
             if types <= {"title"} or "title" in types:
                 continue
+        if not _PRESETS_ON:
+            continue
         blob = _frame_text(f) + " " + line
         for pat, items in _OSA_PRESETS:
             if pat.search(blob):

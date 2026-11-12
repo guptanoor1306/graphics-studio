@@ -35,6 +35,8 @@ def resolve_model(name: str | None = None) -> str:
 MODEL = resolve_model()
 # Anthropic rejects high max_tokens on non-streaming calls; studio uses stream only server-side.
 _MAX_TOKENS_NONSTREAM = 16384
+# Storyboard + every frame's JSON (+ thinking) in one response; streamed, so a high cap is fine.
+SB_MAX_TOKENS = int(os.environ.get("STUDIO_SB_MAX_TOKENS", "48000"))
 
 
 def is_mf_theme(theme_dir: pathlib.Path) -> bool:
@@ -485,25 +487,71 @@ def _tool_input(response, tool_name: str) -> dict:
     raise RuntimeError(f"Claude did not call {tool_name} (stop_reason={response.stop_reason}). Try again.")
 
 
-def _messages_create(**kwargs):
+def _thinking_kwargs() -> dict:
+    """Adaptive thinking for the heavy calls (storyboard, critique fixes).
+
+    STUDIO_THINKING=off disables it; STUDIO_EFFORT=low|medium|high|xhigh|max sets output_config.effort.
+    Thinking needs tool_choice auto, so models that still force a tool get none.
+    """
+    if os.environ.get("STUDIO_THINKING", "adaptive").strip().lower() in ("off", "0", "false", "none"):
+        return {}
+    if _tool_choice("x")["type"] != "auto":
+        return {}
+    kw: dict = {"thinking": {"type": "adaptive"}}
+    effort = os.environ.get("STUDIO_EFFORT", "").strip().lower()
+    if effort:
+        kw["output_config"] = {"effort": effort}
+    return kw
+
+
+def _messages_create(*, think: bool = False, **kwargs):
+    """One Messages call. think=True adds adaptive thinking; large budgets stream (SDK requires it)."""
     client = _client()
-    max_tokens = int(kwargs.get("max_tokens") or _MAX_TOKENS_NONSTREAM)
-    use_stream = max_tokens > _MAX_TOKENS_NONSTREAM
-    create_kwargs = {**kwargs, "model": MODEL, "max_tokens": max_tokens}
+    extra = _thinking_kwargs() if think else {}
 
-    def _via_stream():
-        with client.messages.stream(**create_kwargs) as stream:
-            return stream.get_final_message()
+    def _go(kw: dict):
+        kw = {**kw, "max_tokens": int(kw.get("max_tokens") or _MAX_TOKENS_NONSTREAM)}
 
-    if use_stream:
-        return _via_stream()
-    try:
-        return client.messages.create(**create_kwargs)
-    except Exception as exc:
-        err = str(exc).lower()
-        if "stream" in err and ("required" in err or "streaming" in err):
+        def _via_stream():
+            with client.messages.stream(model=MODEL, **kw) as s:
+                return s.get_final_message()
+
+        if kw["max_tokens"] > _MAX_TOKENS_NONSTREAM:
             return _via_stream()
+        try:
+            return client.messages.create(model=MODEL, **kw)
+        except Exception as exc:
+            err = str(exc).lower()
+            if "stream" in err and ("required" in err or "streaming" in err):
+                return _via_stream()
+            raise
+
+    if not extra:
+        return _go(kwargs)
+    try:
+        return _go({**kwargs, **extra})
+    except Exception as e:  # older model / SDK without thinking or effort: run plain
+        msg = str(e).lower()
+        if any(k in msg for k in ("thinking", "output_config", "effort", "unexpected keyword")):
+            return _go(kwargs)
         raise
+
+
+def _style_image_blocks(theme_dir: pathlib.Path) -> list[dict]:
+    """The kit's style_at_a_glance image (what the chat skill looks at first), cached with the prompt."""
+    import base64
+
+    p = theme_dir / "references" / "style_at_a_glance.jpg"
+    if not p.is_file() or os.environ.get("STUDIO_STYLE_IMAGE", "1") == "0":
+        return []
+    return [
+        {
+            "type": "image",
+            "source": {"type": "base64", "media_type": "image/jpeg", "data": base64.standard_b64encode(p.read_bytes()).decode()},
+            "cache_control": {"type": "ephemeral"},
+        },
+        {"type": "text", "text": "Above: references/style_at_a_glance.jpg — the house style every frame must match."},
+    ]
 
 
 _VISUAL_TYPES = frozenset({
@@ -749,8 +797,8 @@ def _call_storyboard(
     tool = tool_schema["name"]
     if _tool_choice(tool)["type"] == "auto":
         msg += f"\n\nRespond only by calling the {tool} tool with the full storyboard and spec."
+    content: list[dict] = _style_image_blocks(theme_dir)
     if ref_images:
-        content: list[dict] = []
         for media, raw in ref_images:
             content.append(
                 {
@@ -762,15 +810,173 @@ def _call_storyboard(
                     },
                 }
             )
-        content.append({"type": "text", "text": msg})
-        user_content: str | list = content
-    else:
-        user_content = msg
+    content.append({"type": "text", "text": msg})
+    user_content: str | list = content if len(content) > 1 else msg
     r = _messages_create(
-        max_tokens=16384, system=_system(theme_dir),
+        think=True,
+        max_tokens=SB_MAX_TOKENS, system=_system(theme_dir),
         tools=[tool_schema], tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": user_content}])
     return _tool_input(r, tool)
+
+
+FIX_TOOL = {
+    "name": "submit_frame_fixes",
+    "description": (
+        "Return ONLY the frames you changed or added, each as the complete frame JSON. "
+        "Frames you leave out are kept exactly as they are. Empty fixes = everything is fine."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "fixes": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "frame id (new id = add a frame)"},
+                        "why": {"type": "string", "description": "one line: what was wrong and what you changed"},
+                        "frame": {"type": "object", "description": "the whole frame JSON in spec_format.md"},
+                    },
+                    "required": ["id", "frame"],
+                },
+            },
+            "remove_ids": {"type": "array", "items": {"type": "string"}, "description": "frames to drop (rare)"},
+        },
+        "required": ["fixes"],
+    },
+}
+
+
+def _frame_id_key(fid: str):
+    """Sort timestamp ids like 0.47, 1.12, 11.05_a in time order; anything else after."""
+    m = re.match(r"^(\d+)\.(\d+)(.*)$", str(fid))
+    return (0, int(m.group(1)), int(m.group(2)), m.group(3)) if m else (1, 0, 0, str(fid))
+
+
+def merge_fixes(spec: dict, result: dict) -> tuple[dict, list[str]]:
+    """Apply submit_frame_fixes output to spec by frame id. Returns (spec, changed_ids)."""
+    frames = list((spec or {}).get("frames") or [])
+    by_id = {str(f.get("id")): i for i, f in enumerate(frames) if isinstance(f, dict)}
+    changed: list[str] = []
+    added = False
+    for fx in (result or {}).get("fixes") or []:
+        if not isinstance(fx, dict) or not isinstance(fx.get("frame"), dict):
+            continue
+        fid = str(fx.get("id") or fx["frame"].get("id") or "").strip()
+        if not fid:
+            continue
+        fr = {**fx["frame"], "id": fid}
+        if fid in by_id:
+            frames[by_id[fid]] = fr
+        else:
+            by_id[fid] = len(frames)
+            frames.append(fr)
+            added = True
+        changed.append(fid)
+    drop = {str(x) for x in (result or {}).get("remove_ids") or []}
+    if drop:
+        frames = [f for f in frames if str(f.get("id")) not in drop]
+    if added:
+        frames.sort(key=lambda f: _frame_id_key(f.get("id")))
+    return {**(spec or {}), "frames": frames}, changed
+
+
+def fix_frames(
+    theme_dir: pathlib.Path,
+    spec: dict,
+    storyboard: str,
+    *,
+    issues: list[str] | None = None,
+    warns: dict[str, list[str]] | None = None,
+    sheets: list[bytes] | None = None,
+    closeups: list[tuple[str, bytes]] | None = None,
+    focus_ids: list[str] | None = None,
+    script: str = "",
+    round_no: int = 1,
+) -> dict:
+    """Frame-level repair call. Sends rendered contact sheets + WARN lines (or text quality issues)
+    and gets back only the frames that need to change — the chat skill's build → look → fix step."""
+    import base64
+
+    frames = (spec or {}).get("frames") or []
+    focus = set(focus_ids or [])
+    shown = [f for f in frames if not focus or str(f.get("id")) in focus]
+    look = spec.get("look") if isinstance(spec, dict) else None
+    content: list[dict] = list(_style_image_blocks(theme_dir))
+    for i, jpg in enumerate(sheets or []):
+        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                     "data": base64.standard_b64encode(jpg).decode()}})
+        content.append({"type": "text", "text": f"Contact sheet {i + 1} (frame id under each tile)."})
+    for fid, jpg in closeups or []:
+        content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                     "data": base64.standard_b64encode(jpg).decode()}})
+        content.append({"type": "text", "text": f"Close-up of frame {fid}."})
+
+    parts = [f"Critique round {round_no}. You wrote the spec below; the app built it with the kit's renderer."]
+    if sheets:
+        parts.append(
+            "Look at the rendered frames as the editor would and compare them with the style image and SKILL.md. "
+            "Fix: anything the WARN lines flag; graphics over the anchor's face; clipped, overflowing or tiny text; "
+            "objects floating off the floor or off-frame; crowded frames (more than one idea or 3 illustrations); "
+            "empty-looking frames; wrong or repeated layouts; numbers that differ from the script; anything off-style. "
+            "Do not change frames that already look right."
+        )
+    if warns:
+        parts.append("Kit layout check (WARN lines):\n" + "\n".join(
+            f"- {fid}: {w}" for fid, ws in warns.items() for w in ws))
+    if issues:
+        parts.append("App quality gate:\n" + "\n".join(f"- {x}" for x in issues))
+    parts.append(f"Look: {json.dumps(look, ensure_ascii=False)}")
+    if storyboard:
+        parts.append("Storyboard:\n" + storyboard[:12000])
+    if script and not sheets:
+        parts.append("Script (for exact numbers):\n" + script[:20000])
+    parts.append(("Frames shown" if focus else "Spec frames") + " (JSON):\n"
+                 + json.dumps(shown, ensure_ascii=False, separators=(",", ":")))
+    parts.append(
+        "Return via submit_frame_fixes ONLY the frames that change (complete JSON, same id). "
+        "Add a frame with a new timestamp id only if a beat is missing. Keep script numbers exact."
+    )
+    msg = "\n\n".join(parts)
+    if _tool_choice(FIX_TOOL["name"])["type"] == "auto":
+        msg += f"\n\nRespond only by calling the {FIX_TOOL['name']} tool."
+    content.append({"type": "text", "text": msg})
+    r = _messages_create(
+        think=True,
+        max_tokens=int(os.environ.get("STUDIO_FIX_MAX_TOKENS", "32000")),
+        system=_system(theme_dir),
+        tools=[FIX_TOOL],
+        tool_choice=_tool_choice(FIX_TOOL["name"]),
+        messages=[{"role": "user", "content": content}],
+    )
+    return _tool_input(r, FIX_TOOL["name"])
+
+
+def patch_until_clean(
+    theme_dir: pathlib.Path,
+    out: dict,
+    theme: str,
+    script: str,
+    finalize=None,
+    rounds: int = 2,
+) -> dict:
+    """Quality-gate loop that edits only the failing frames instead of regenerating the whole video."""
+    for n in range(rounds):
+        issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme=theme)
+        if not issues:
+            break
+        ids = sorted({m.group(1) for x in issues for m in [re.match(r'Frame "([^"]+)"', x)] if m})
+        global_issue = any(not x.startswith("Frame ") for x in issues)
+        res = fix_frames(
+            theme_dir, out["spec"], out.get("storyboard") or "",
+            issues=issues, focus_ids=None if global_issue else ids, script=script, round_no=n + 1,
+        )
+        spec, changed = merge_fixes(out["spec"], res)
+        if not changed and not res.get("remove_ids"):
+            break
+        out["spec"] = finalize(spec) if finalize else spec
+    return out
 
 
 def _call_with_pdf(
@@ -1168,19 +1374,7 @@ def storyboard(
             episode_transcript,
         )
         out = _call_storyboard(theme_dir, msg, sb_tool=HI_FA_SB_TOOL)
-        for _ in range(2):
-            issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="varsity-hindi-fa-graphics")
-            if not issues:
-                break
-            retry = _inject_transcript(
-                (
-                "Your previous Varsity Hindi Elements spec was rejected. Fix ALL issues; return storyboard + spec only:\n"
-                + "\n".join(f"- {x}" for x in issues)
-                + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
-                ),
-                episode_transcript,
-            )
-            out = _call_storyboard(theme_dir, retry, sb_tool=HI_FA_SB_TOOL)
+        out = patch_until_clean(theme_dir, out, "varsity-hindi-fa-graphics", script)
         return out
     if is_hindi_charts_theme(theme_dir):
         msg = _inject_transcript(
@@ -1198,19 +1392,7 @@ def storyboard(
             episode_transcript,
         )
         out = _call_storyboard(theme_dir, msg, sb_tool=HI_SB_TOOL)
-        for _ in range(2):
-            issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="varsity-hindi-graphics")
-            if not issues:
-                break
-            retry = _inject_transcript(
-                (
-                "Your previous Varsity Hindi spec was rejected. Fix ALL issues; return storyboard + spec only:\n"
-                + "\n".join(f"- {x}" for x in issues)
-                + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
-                ),
-                episode_transcript,
-            )
-            out = _call_storyboard(theme_dir, retry, sb_tool=HI_SB_TOOL)
+        out = patch_until_clean(theme_dir, out, "varsity-hindi-graphics", script)
         return out
     if is_zo_product_theme(theme_dir):
         plate_hint = ""
@@ -1244,26 +1426,12 @@ def storyboard(
             if isinstance(lk, dict):
                 lk.setdefault("plate", look["plate"])
         out["spec"] = spec
-        for _ in range(2):
-            issues = spec_quality_issues(out["spec"], out.get("storyboard") or "", theme="zo-product-graphics")
-            if not issues:
-                break
-            retry = _inject_transcript(
-                (
-                "Your previous zo-product spec was rejected by the studio quality gate. Fix ALL issues; "
-                "return storyboard + spec via submit_storyboard only:\n"
-                + "\n".join(f"- {x}" for x in issues)
-                + f"\n\nNotes: {notes or 'none'}\n\nSCRIPT:\n{script}"
-                ),
-                episode_transcript,
-            )
-            out = _call_storyboard(theme_dir, retry, sb_tool=ZO_SB_TOOL)
-            spec = compact_zo_spec_for_studio(out.get("spec") or {})
-            if isinstance(look, dict) and look.get("plate"):
-                lk = spec.setdefault("look", {})
-                if isinstance(lk, dict):
-                    lk.setdefault("plate", look["plate"])
-            out["spec"] = spec
+        def _zo_fin(sp):
+            sp = compact_zo_spec_for_studio(sp)
+            if isinstance(look, dict) and look.get("plate") and isinstance(sp.get("look"), dict):
+                sp["look"].setdefault("plate", look["plate"])
+            return sp
+        out = patch_until_clean(theme_dir, out, "zo-product-graphics", script, finalize=_zo_fin)
         return out
     if is_mf_theme(theme_dir):
         look_line = (look.get("look_line") or "").strip()
@@ -1317,21 +1485,10 @@ def storyboard(
     )
     out = _call_storyboard(theme_dir, msg)
     out["spec"] = enrich_spec(_merge_user_look(out.get("spec") or {}, look), out.get("storyboard") or "")
-    for _ in range(2):
-        issues = spec_quality_issues(out["spec"], out.get("storyboard") or "")
-        if not issues:
-            break
-        retry = _inject_transcript(
-            (
-            "Your previous spec was rejected by the app quality gate. Fix ALL issues and return a complete "
-            "storyboard + spec via submit_storyboard only:\n"
-            + "\n".join(f"- {x}" for x in issues)
-            + f"\n\nLook: {json.dumps(look)}\n\nSCRIPT:\n{script}"
-            ),
-            episode_transcript,
-        )
-        out = _call_storyboard(theme_dir, retry)
-        out["spec"] = enrich_spec(_merge_user_look(out.get("spec") or {}, look), out.get("storyboard") or "")
+    out = patch_until_clean(
+        theme_dir, out, "varsity-english", script,
+        finalize=lambda sp: enrich_spec(_merge_user_look(sp, look), out.get("storyboard") or ""),
+    )
     return out
 
 

@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import audio_transcribe, claude_client, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import audio_transcribe, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -531,29 +531,86 @@ async def make_storyboard(pid: int, req: Request):
         )
     except Exception as e:
         _raise_claude_gateway(e)
-    if is_mf_theme_name(p["theme"]):
-        spec = mf_studio.compact_mf_spec_for_studio(out["spec"])
+    theme = p["theme"]
+    sb = out.get("storyboard") or ""
+    plook = look
+    if is_mf_theme_name(theme) and not is_zo_theme_name(theme):
+        finalize = mf_studio.compact_mf_spec_for_studio
+        spec = finalize(out["spec"])
         plook = {**look}
         if isinstance(spec.get("look"), str):
             plook["look_line"] = spec["look"]
-        save(pid, who(req), "generated storyboard", script=script, look=plook, storyboard=out["storyboard"], spec=spec)
-    elif is_zo_theme_name(p["theme"]):
-        spec = mf_studio.compact_zo_spec_for_studio(out["spec"])
-        if isinstance(look, dict) and look.get("plate") and isinstance(spec.get("look"), dict):
-            spec["look"].setdefault("plate", look["plate"])
-        save(pid, who(req), "generated storyboard", script=script, look=look, storyboard=out["storyboard"], spec=spec)
-        out["spec"] = spec
-    elif is_hindi_theme_name(p["theme"]):
+    elif is_zo_theme_name(theme):
+        def finalize(sp):
+            sp = mf_studio.compact_zo_spec_for_studio(sp)
+            if isinstance(look, dict) and look.get("plate") and isinstance(sp.get("look"), dict):
+                sp["look"].setdefault("plate", look["plate"])
+            return sp
+        spec = finalize(out["spec"])
+    elif is_hindi_theme_name(theme):
+        finalize = None
         spec = out.get("spec") or {}
-        save(pid, who(req), "generated storyboard", script=script, look=look, storyboard=out["storyboard"], spec=spec)
-        out["spec"] = spec
     else:
-        merged = effective_look({**p, "look": look, "spec": out["spec"]})
-        out["spec"]["look"] = merged
-        out["spec"] = spec_enrich.enrich_spec(out["spec"], out.get("storyboard") or "", theme=p["theme"])
-        save(pid, who(req), "generated storyboard", script=script, look=merged, storyboard=out["storyboard"], spec=out["spec"])
-    warn = claude_client.spec_quality_issues(out["spec"], out.get("storyboard") or "", theme=p["theme"])
-    return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn}
+        plook = effective_look({**p, "look": look, "spec": out["spec"]})
+
+        def finalize(sp):
+            sp["look"] = plook
+            return spec_enrich.enrich_spec(sp, sb, theme=theme)
+        spec = finalize(out["spec"])
+    # Render → look → fix (the skill's build/WARN/contact-sheet step) before anyone sees the frames.
+    critique_report: dict = {}
+    try:
+        spec, critique_report = await asyncio.to_thread(
+            _critique_spec, {**p, "look": plook}, spec, sb, script, finalize
+        )
+    except Exception as e:  # never lose a generated spec to a critique failure
+        critique_report = {"error": str(e)}
+    note = "generated storyboard"
+    if critique_report.get("changed"):
+        note += f" (auto-fixed {len(critique_report['changed'])} frame(s) after render review)"
+    save(pid, who(req), note, script=script, look=plook, storyboard=sb, spec=spec)
+    warn = claude_client.spec_quality_issues(spec, sb, theme=theme)
+    warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
+    return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn, "critique": critique_report}
+
+
+def _critique_spec(p_like: dict, spec: dict, storyboard: str, script: str, finalize) -> tuple[dict, dict]:
+    """Render every frame offline with the kit renderer, then let Claude fix what it sees (critique.py)."""
+    theme = p_like["theme"]
+    m = builder(theme)
+    base = (THEMES / theme / "scenes").as_uri() + "/"
+
+    def render_html(f: dict, sp: dict) -> str:
+        pp = {**p_like, "spec": sp}
+        return frame_page(
+            theme, frame_for_render(pp, f), effective_look(pp),
+            base_href=base, all_frames=sp.get("frames") or [], spec=sp,
+        )
+
+    def renderable(f: dict) -> bool:
+        if is_zo_theme_name(theme):
+            return mf_studio.is_zo_renderable(f)
+        if is_mf_theme_name(theme):
+            return mf_studio.is_mf_renderable(f)
+        return True
+
+    check_js = getattr(m, "CHECK_JS", None) or getattr(m, "QA_JS", None) or "() => []"
+    check_arg = None
+    if theme == "varsity-hindi-graphics":  # QA_JS(mode) in that kit
+        check_arg = lambda f: (f.get("mode") or "fss") + ("-split" if f.get("split") else "")
+    return critique.run(
+        theme_dir=THEMES / theme,
+        spec=spec,
+        storyboard=storyboard,
+        render_html=render_html,
+        renderable=renderable,
+        check_js=check_js,
+        check_arg=check_arg,
+        canvas=theme_canvas.canvas_for_theme(theme),
+        finalize=finalize,
+        script=script,
+        log=print,
+    )
 
 
 def _merge_pdf_batch_spec(
