@@ -1094,8 +1094,8 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   const btn=ev?.target?.closest?.('button');if(btn)btn.disabled=true;
   const st=await api(`/api/projects/${P.id}/storyboard-pdf`).catch(()=>({has_pdf:false}));
   if(!st.has_pdf){alert('Save a PDF to this project first.');if(btn)btn.disabled=false;return}
-  if(finishAll&&!confirm('Generate all remaining frames from the PDF in one go? This can take several minutes.')){if(btn)btn.disabled=false;return}
-  const loadMsg=finishAll?'Claude is reading the PDF and building all remaining frames… (several min)':'Claude is reading the PDF and building the next batch… (1–2 min)';
+  if(finishAll&&!confirm('Generate all remaining frames from the PDF (several batches, may take a few minutes)?')){if(btn)btn.disabled=false;return}
+  const loadMsg=finishAll?'Claude is processing all remaining PDF batches… (may take several minutes)':'Claude is reading the PDF and building the next batch… (1–2 min)';
   setWorkspaceLoading(true,loadMsg);
   try{
     const body={script:getScriptValue(),look:{...getLook(),sb_import:'pdf'},notes:getNotesValue(),batch_size:batchSize,finish_all:finishAll};

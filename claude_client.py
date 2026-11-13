@@ -33,6 +33,8 @@ def resolve_model(name: str | None = None) -> str:
 
 
 MODEL = resolve_model()
+# Anthropic rejects high max_tokens on non-streaming calls; studio uses stream only server-side.
+_MAX_TOKENS_NONSTREAM = 16384
 
 
 def is_mf_theme(theme_dir: pathlib.Path) -> bool:
@@ -484,7 +486,24 @@ def _tool_input(response, tool_name: str) -> dict:
 
 
 def _messages_create(**kwargs):
-    return _client().messages.create(model=MODEL, **kwargs)
+    client = _client()
+    max_tokens = int(kwargs.get("max_tokens") or _MAX_TOKENS_NONSTREAM)
+    use_stream = max_tokens > _MAX_TOKENS_NONSTREAM
+    create_kwargs = {**kwargs, "model": MODEL, "max_tokens": max_tokens}
+
+    def _via_stream():
+        with client.messages.stream(**create_kwargs) as stream:
+            return stream.get_final_message()
+
+    if use_stream:
+        return _via_stream()
+    try:
+        return client.messages.create(**create_kwargs)
+    except Exception as exc:
+        err = str(exc).lower()
+        if "stream" in err and ("required" in err or "streaming" in err):
+            return _via_stream()
+        raise
 
 
 _VISUAL_TYPES = frozenset({
@@ -926,6 +945,101 @@ def storyboard_pdf_batch(
     episode_transcript: dict | None = None,
 ) -> dict:
     """Read human SB PDF; return next batch of frames (+ storyboard on first batch)."""
+    if finish_all:
+        return _storyboard_pdf_finish_all(
+            theme_dir,
+            pdf_bytes,
+            script,
+            look,
+            notes,
+            batch_size=batch_size,
+            existing_spec=existing_spec,
+            existing_storyboard=existing_storyboard,
+            episode_transcript=episode_transcript,
+        )
+    return _storyboard_pdf_batch_once(
+        theme_dir,
+        pdf_bytes,
+        script,
+        look,
+        notes,
+        batch_size=batch_size,
+        existing_spec=existing_spec,
+        existing_storyboard=existing_storyboard,
+        episode_transcript=episode_transcript,
+    )
+
+
+def _storyboard_pdf_finish_all(
+    theme_dir: pathlib.Path,
+    pdf_bytes: bytes,
+    script: str,
+    look: dict,
+    notes: str,
+    *,
+    batch_size: int,
+    existing_spec: dict | None,
+    existing_storyboard: str,
+    episode_transcript: dict | None,
+) -> dict:
+    """Run repeated PDF batches (each non-streaming-safe) until no new frames."""
+    working_spec = dict(existing_spec or {})
+    storyboard = (existing_storyboard or "").strip()
+    accumulated: list[dict] = []
+    last_progress = ""
+    raw_total = 0
+    spec_meta: dict = {}
+    for _ in range(40):
+        out = _storyboard_pdf_batch_once(
+            theme_dir,
+            pdf_bytes,
+            script,
+            look,
+            notes,
+            batch_size=batch_size,
+            existing_spec=working_spec,
+            existing_storyboard=storyboard,
+            episode_transcript=episode_transcript,
+        )
+        raw_total += out.get("raw_frame_count", 0)
+        added = int(out.get("frames_added") or 0)
+        if out.get("storyboard") and not storyboard:
+            storyboard = out.get("storyboard") or ""
+        meta = out.get("spec_meta")
+        if isinstance(meta, dict) and meta and not spec_meta:
+            spec_meta = meta
+        if not added:
+            break
+        new_frames = list(out.get("frames") or [])
+        accumulated.extend(new_frames)
+        working_spec = {
+            **working_spec,
+            "frames": list(working_spec.get("frames") or []) + new_frames,
+        }
+        last_progress = out.get("pdf_progress") or last_progress
+    return {
+        "storyboard": storyboard,
+        "frames": accumulated,
+        "spec_meta": spec_meta,
+        "pdf_progress": last_progress,
+        "frames_added": len(accumulated),
+        "raw_frame_count": raw_total,
+    }
+
+
+def _storyboard_pdf_batch_once(
+    theme_dir: pathlib.Path,
+    pdf_bytes: bytes,
+    script: str,
+    look: dict,
+    notes: str,
+    *,
+    batch_size: int = 5,
+    existing_spec: dict | None = None,
+    existing_storyboard: str = "",
+    episode_transcript: dict | None = None,
+) -> dict:
+    """Single Claude call for the next PDF graphics batch."""
     from storyboard_pdf import raster_pages
 
     existing_spec = existing_spec or {}
@@ -934,17 +1048,12 @@ def storyboard_pdf_batch(
     first_batch = not done_ids
     batch_size = max(1, min(10, int(batch_size)))
     page_images = raster_pages(pdf_bytes)
-    max_tokens = 64000 if finish_all else 16384
+    max_tokens = _MAX_TOKENS_NONSTREAM
     rules = _pdf_batch_rules(theme_dir, look)
     if first_batch:
         batch_line = (
             f"BATCH: Generate exactly up to {batch_size} renderable graphic frames from the START of the PDF "
             "(in story/time order)."
-        )
-    elif finish_all:
-        batch_line = (
-            "BATCH: Generate ALL remaining renderable graphic frames from the PDF after the last generated id — "
-            "every graphic beat not yet built. Return them in one submit_graphic_batch call."
         )
     else:
         batch_line = (
@@ -986,7 +1095,7 @@ def storyboard_pdf_batch(
     out = _call(msg)
     out = _normalize_pdf_batch_out(out)
     frames = _ensure_frame_ids(out.get("frames") or [], set(done_ids))
-    if not frames and (first_batch or finish_all):
+    if not frames and first_batch:
         retry = (
             msg
             + "\n\nRETRY: Your last response had no usable frames. Call submit_graphic_batch with a non-empty "
