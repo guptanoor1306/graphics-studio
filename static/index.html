@@ -114,6 +114,15 @@ textarea#dlgJson{font-family:var(--mono);font-size:13px;min-height:380px}
 .proj.on{background:var(--acc-soft);border-color:var(--acc);box-shadow:inset 3px 0 0 var(--acc)}
 .proj b{display:block;font-weight:600;font-size:14px}
 .proj small{display:block;color:var(--mute);font-size:11px;margin-top:4px}
+.nav-ip-filter{width:100%;margin:0 0 10px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--line);font-size:12px;background:#fff}
+.nav-ip-group{margin-bottom:10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:#fff;overflow:hidden}
+.nav-ip-group[open] .nav-ip-summary{border-bottom:1px solid var(--line)}
+.nav-ip-summary{list-style:none;cursor:pointer;padding:10px 12px;font-size:12px;font-weight:600;color:var(--ink);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.nav-ip-summary::-webkit-details-marker{display:none}
+.nav-ip-count{font-weight:500;color:var(--mute);font-size:11px}
+.nav-ip-projects{padding:8px 8px 10px}
+.nav-ip-projects .proj{margin-bottom:6px}
+.nav-ip-projects .proj:last-child{margin-bottom:0}
 .nav-back-btn{padding:4px 0;margin:0 0 10px;font-size:13px}
 body.home-shell{display:block;min-height:100vh;height:auto}
 body.home-shell aside{display:none}
@@ -446,13 +455,15 @@ function loadChannelKitFilter(cid){
 }
 function setChannelKitFilter(theme){
   channelListKitFilter=theme||'';
-  if(navChannel){
+  const cid=activeChannelId()||navChannel;
+  if(cid){
     try{
-      if(channelListKitFilter)localStorage.setItem(kitFilterStorageKey(navChannel),channelListKitFilter);
-      else localStorage.removeItem(kitFilterStorageKey(navChannel));
+      if(channelListKitFilter)localStorage.setItem(kitFilterStorageKey(cid),channelListKitFilter);
+      else localStorage.removeItem(kitFilterStorageKey(cid));
     }catch(_){}
   }
-  renderHomeMain();
+  if(P)renderSidebar();
+  else renderHomeMain();
 }
 const CHANNELS=[
  {id:'varsity',label:'Varsity',desc:'Varsity English, Varsity Hindi – Charts & Elements, and Varsity Mutual Fund.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics','varsity-hindi-fa-graphics'],accent:'#5b55e6'},
@@ -1505,6 +1516,32 @@ function themeLabel(theme){
   if(theme==='zero1-reel-graphics')return 'Reels';
   return theme||'—';
 }
+function sidebarProjectRow(p,showKit){
+  return `<div class="proj ${P&&P.id==p.id?'on':''}" data-pid="${p.id}" role="button" tabindex="0"><b>${esc(p.name)}</b>${showKit?`<small>${esc(themeLabel(p.theme))}</small>`:''}</div>`;
+}
+function sidebarProjectsHtml(cid,ps){
+  const kits=channelThemes(cid).filter(t=>themes.includes(t));
+  if(!ps.length)return '<p class="muted" style="font-size:13px">No projects yet</p>';
+  if(kits.length<=1)return ps.map(p=>sidebarProjectRow(p,false)).join('');
+  const byTheme=new Map();
+  for(const p of ps){
+    const t=p.theme||'';
+    if(!byTheme.has(t))byTheme.set(t,[]);
+    byTheme.get(t).push(p);
+  }
+  const order=[...kits.filter(t=>byTheme.has(t)),...[...byTheme.keys()].filter(t=>!kits.includes(t))];
+  const current=P?.theme;
+  const singleKit=!!channelListKitFilter;
+  return order.map(theme=>{
+    const items=byTheme.get(theme);
+    if(!items?.length)return '';
+    const open=singleKit||theme===current;
+    return `<details class="nav-ip-group" ${open?'open':''}>
+      <summary class="nav-ip-summary"><span>${esc(themeLabel(theme))}</span><span class="nav-ip-count">${items.length}</span></summary>
+      <div class="nav-ip-projects">${items.map(p=>sidebarProjectRow(p,!singleKit)).join('')}</div>
+    </details>`;
+  }).join('');
+}
 function renderSidebar(){
   const cid=activeChannelId();
   const wrap=$('#navProjectsWrap');
@@ -1513,9 +1550,14 @@ function renderSidebar(){
   const label=$('#navListLabel');if(label)label.textContent=channelLabel(cid);
   const el=$('#plist');if(!el)return;
   if(!inProject){el.innerHTML='';return}
-  const allowed=new Set(channelThemes(cid));
-  const ps=sortedChannelProjects(cid);
-  el.innerHTML=ps.length?ps.map(p=>`<div class="proj ${P&&P.id==p.id?'on':''}" data-pid="${p.id}" role="button" tabindex="0"><b>${esc(p.name)}</b>${allowed.size>1?`<small>${esc(themeLabel(p.theme))}</small>`:''}</div>`).join(''):'<p class="muted" style="font-size:13px">No projects yet</p>';
+  const kits=channelThemes(cid).filter(t=>themes.includes(t));
+  let ps=sortedChannelProjects(cid);
+  if(channelListKitFilter&&kits.includes(channelListKitFilter))ps=ps.filter(p=>p.theme===channelListKitFilter);
+  const filterSel=kits.length>1?`<select id="navIpFilter" class="nav-ip-filter" aria-label="Filter by IP" onchange="setChannelKitFilter(this.value)">
+   <option value="" ${!channelListKitFilter?'selected':''}>All IPs (grouped)</option>
+   ${kits.map(t=>`<option value="${esc(t)}" ${channelListKitFilter===t?'selected':''}>${esc(themeLabel(t))}</option>`).join('')}
+  </select>`:'';
+  el.innerHTML=filterSel+sidebarProjectsHtml(cid,ps);
 }
 function renderHomeMain(){
   if(P){syncShellNav();return}
@@ -1665,6 +1707,7 @@ async function open_(id){
  episodeTranscript=null;
  P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);
  navChannel=channelForTheme(P.theme);
+ channelListKitFilter=loadChannelKitFilter(navChannel);
  selectedFrameId=null;await list();render();
  refreshPdfSbStatus();
 }
