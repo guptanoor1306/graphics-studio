@@ -152,6 +152,12 @@ def _ref_paths(theme: str, limit: int = 5) -> list[pathlib.Path]:
     d = THEMES / theme / "assets"
     if not d.is_dir():
         return []
+    curated = THEMES / theme / "references" / "asset_refs.txt"  # a kit can pick varied, representative art
+    if curated.is_file():
+        picked = [d / ln.strip() for ln in curated.read_text().splitlines()
+                  if ln.strip() and not ln.startswith("#") and (d / ln.strip()).is_file()]
+        if picked:
+            return picked[:limit]
     skip = ("bg", "anchor", "decor", "ui", "fonts", GEN_DIR, "plates", "uploads")
     cands = [p for p in d.rglob("*.png")
              if not any(part in skip for part in p.relative_to(d).parts[:-1])

@@ -1,12 +1,18 @@
 {
- "look": {"plate": "m1_wide_centre"},
+ "look": {
+  "plate": "m1_wide_centre"
+ },
  "frames": [
   {
    "id": "anchor-sample",
    "mode": "ost",
    "plate": "m1_wide_centre",
    "items": [
-    {"t": "lower", "lead": "Example only — do not copy into new videos", "text": "One **lower third** per frame"}
+    {
+     "t": "lower",
+     "lead": "Example only — do not copy into new videos",
+     "text": "One **lower third** per frame"
+    }
    ]
   },
   {
@@ -753,6 +759,258 @@
       95,
       128
      ]
+    }
+   ]
+  },
+  {
+   "id": "v2_s02",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "{o:Exit load} reduces over time"
+    },
+    {
+     "t": "slab_table",
+     "w": 1200,
+     "head": [
+      "Exit period",
+      "Exit load"
+     ],
+     "rows": [
+      [
+       "Within 1 year",
+       "3%"
+      ],
+      [
+       "More than 1 year and up to 2 years",
+       "2%"
+      ],
+      [
+       "More than 2 years and up to 3 years",
+       "1%"
+      ],
+      [
+       "After 3 years",
+       "Nil"
+      ]
+     ],
+     "hl": 2
+    }
+   ]
+  },
+  {
+   "id": "v2_s09",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "acronym",
+     "kicker": "MTF stands for",
+     "words": [
+      "Margin",
+      "Trading",
+      "Facility"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2_s10",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "qtitle",
+     "n": 1,
+     "lines": [
+      "Do I ++understand++",
+      "the risk?"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2_s11",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Buy shares worth ++₹1,00,000++",
+     "align": "left"
+    },
+    {
+     "t": "split_bar",
+     "stock": "XYZ Ltd",
+     "tag": "MTF",
+     "interest": "Interest on ₹70,000",
+     "parts": [
+      {
+       "label": "You pay",
+       "value": "₹30,000",
+       "pct": 30,
+       "color": "yellow",
+       "icon": "svg:wallet"
+      },
+      {
+       "label": "Zerodha funds",
+       "value": "₹70,000",
+       "pct": 70,
+       "color": "blue",
+       "icon": "svg:bank"
+      }
+     ],
+     "total": "Total ₹1,00,000"
+    }
+   ]
+  },
+  {
+   "id": "v2_s12",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "What it ++costs++ over 30 days",
+     "align": "left"
+    },
+    {
+     "t": "cost_compare",
+     "rows": [
+      {
+       "name": "Pay in full",
+       "tag": "Lower",
+       "sub": "₹20 per order",
+       "parts": [
+        {
+         "v": 0,
+         "color": "blue"
+        },
+        {
+         "v": 40,
+         "color": "yellow"
+        }
+       ],
+       "total": "₹40"
+      },
+      {
+       "name": "Use MTF",
+       "sub": "0.04% a day + ₹20",
+       "parts": [
+        {
+         "v": 840,
+         "color": "blue"
+        },
+        {
+         "v": 40,
+         "color": "yellow"
+        }
+       ],
+       "total": "₹880"
+      }
+     ],
+     "legend": [
+      {
+       "label": "Interest",
+       "color": "blue"
+      },
+      {
+       "label": "Brokerage",
+       "color": "yellow"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2_s15",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Charges at {o:Zerodha}"
+    },
+    {
+     "t": "catgrid",
+     "items": [
+      {
+       "icon": "svg:doc",
+       "label": "DP charges"
+      },
+      {
+       "icon": "svg:calendar",
+       "label": "AMC"
+      },
+      {
+       "icon": "svg:growth",
+       "label": "Brokerage"
+      },
+      {
+       "icon": "svg:moneybag",
+       "label": "MTF interest"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2_s16",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Documents you ++need++"
+    },
+    {
+     "t": "checklist",
+     "img": "svg:doc",
+     "items": [
+      "Minor's birth certificate",
+      "Guardian's PAN and Aadhaar",
+      "Bank account in the minor's name",
+      "Guardian's signature"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2_s19",
+   "mode": "fss",
+   "items": [
+    {
+     "t": "heading",
+     "text": "Five things to ++remember++"
+    },
+    {
+     "t": "recap",
+     "items": [
+      "MTF lets you pay part of the value",
+      "Zerodha funds the rest",
+      "Interest runs every day",
+      "Gains and ++losses++ get bigger",
+      "Decide your exit first"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "v2_a02",
+   "mode": "osa",
+   "plate": "m2_left",
+   "items": [
+    {
+     "t": "ybox",
+     "lead": "Kite's Option Chain is now available",
+     "text": "NSE Commodity|derivatives"
+    }
+   ]
+  },
+  {
+   "id": "v2_a04",
+   "mode": "osa",
+   "plate": "m2_centre",
+   "items": [
+    {
+     "t": "caption",
+     "text": "Interest runs every day",
+     "follow": "for as long as the position is open"
     }
    ]
   }

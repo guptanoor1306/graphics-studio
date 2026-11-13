@@ -2606,14 +2606,15 @@ async function waitExportJob(pid,jobId,onTick){
 async function exp(){
  if(!P?.spec)return;
  const n=(P.spec?.frames||[]).length;
- if(!confirm(`Export all ${n||''} frames? (about 1–3 minutes on the server)`))return;
- const wantPng=n>12
+ const bulletinFmt=isZoProduct()&&confirm(`Export all ${n||''} frames in the layered Bulletin format?\n\nOK = Bulletin (html + png + layers JSON + spec.json, the team's layered format)\nCancel = the usual export`);
+ if(!bulletinFmt&&!confirm(`Export all ${n||''} frames? (about 1–3 minutes on the server)`))return;
+ const wantPng=bulletinFmt?true:n>12
   ?confirm(`Include PNG renders in the zip?\n\nOK = full zip with PNGs (large download, can fail on slow links).\nCancel = HTML + layer pages only (recommended for ${n}+ frames).`)
   :true;
  const png=wantPng?1:0;
  setWorkspaceLoading(true,'Starting export…');
  try{
-  const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=${png}`,{method:'POST',body:'{}'});
+  const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=${png}${bulletinFmt?'&fmt=bulletin':''}`,{method:'POST',body:'{}'});
   let pollHost=null;
   await waitExportJob(P.id,jobId,(st,n)=>{
    if(pollHost&&st.host&&st.host!==pollHost)console.warn('[export] poll hit a different server host — job may 404; use one Railway replica or retry.');
@@ -2627,7 +2628,7 @@ async function exp(){
     :`Rendering export${hint}… ${n?Math.round(n*2/60)+' min':''}`;
    setWorkspaceLoading(true,load);
   });
-  const zipName=(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip';
+  const zipName=(P.name||'frames').replace(/\s+/g,'_')+(bulletinFmt?'_layers.zip':'_frames.zip');
   try{sessionStorage.setItem('gs_export_job',JSON.stringify({pid:P.id,jobId,zipName,ts:Date.now()}))}catch(_){}
   await downloadExportJobFile(P.id,jobId,zipName);
   try{sessionStorage.removeItem('gs_export_job')}catch(_){}

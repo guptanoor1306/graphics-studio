@@ -84,6 +84,7 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
             "references/studio_brief.md",
             "references/kit_breakdown.md",
             "references/anchor_plates.md",
+            "references/psd_breakdown.md",
             "references/deep/video_breakdowns.md",
             "assets/plates/plates.json",
             "scenes/example_spec.json",

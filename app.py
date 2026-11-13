@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import asset_gen, audio_transcribe, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import asset_gen, audio_transcribe, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -1334,9 +1334,42 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
     return data, fn
 
 
-def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path) -> str:
+def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "") -> str:
+    if fmt == "bulletin":
+        return _export_bulletin(p, only, dest)
     _, fn = _export_zip_payload(p, png, only, dest)
     return fn
+
+
+def _export_bulletin(p: dict, only: str, dest: pathlib.Path) -> str:
+    """Layered Bulletin format (html/png/layers JSON + LAYERS.txt + README + spec.json) for the ZO team."""
+    if not p.get("spec"):
+        raise HTTPException(400, "Project has no spec")
+    ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
+    theme = p["theme"]
+    base = (THEMES / theme / "scenes").as_uri() + "/"
+    look = effective_look(p)
+    spec = p.get("spec") if isinstance(p.get("spec"), dict) else {}
+    frames = spec.get("frames") or []
+    sb = p.get("storyboard") or ""
+    pages, meta = [], {}
+    for f in frames:
+        fid = str(f.get("id") or "")
+        if ids is not None and fid not in ids:
+            continue
+        if is_zo_theme_name(theme) and not mf_studio.is_zo_renderable(f):
+            continue
+        if is_mf_theme_name(theme) and not is_zo_theme_name(theme) and not mf_studio.is_mf_renderable(f):
+            continue
+        html = frame_page(theme, frame_for_render(p, f), look, base_href=base, all_frames=frames, spec=spec)
+        pages.append((fid, html, f.get("mode", "fss")))
+        meta[fid] = {"vo": _storyboard_line_for_frame(sb, fid)}
+    skipped = [{"id": "", "beat": ln.strip(), "reason": "screen capture"} for ln in sb.splitlines()
+               if re.search(r"screen ?capture", ln, re.I)]
+    cw, ch = theme_canvas.canvas_for_theme(theme)
+    bulletin.export_bulletin(pages, THEMES / theme, p.get("name") or "Video", meta,
+                             viewport=(cw, ch), skipped=skipped, zip_path=dest)
+    return _dl_name(p["name"], "_layers.zip")
 
 
 def _export_job_prune() -> None:
@@ -1355,7 +1388,7 @@ def _export_job_prune() -> None:
 
 
 @app.post("/api/projects/{pid}/export/jobs")
-def export_start_job(pid: int, png: int = 1, only: str = ""):
+def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = ""):
     """Start export in a background thread; poll status then download (avoids long HTTP/2 streams)."""
     p = load(pid)
     _export_job_prune()
@@ -1383,7 +1416,7 @@ def export_start_job(pid: int, png: int = 1, only: str = ""):
                 st = _EXPORT_JOBS.get(job_id)
                 if st:
                     st["status"] = "running"
-            outfile = _export_build_zip(p, png, only, dest)
+            outfile = _export_build_zip(p, png, only, dest, fmt)
             with _EXPORT_JOB_LOCK:
                 st = _EXPORT_JOBS.get(job_id)
                 if not st:

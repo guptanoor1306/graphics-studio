@@ -60,6 +60,7 @@ Every visual element carries `data-layer="<component>:<text>"` (e.g. `htab:Tax C
 | `claude_client.py` | the two Claude calls (forced JSON via tool schema; rules in a cached system block) |
 | `exporter.py` | static layer-ready HTML + PNG zip |
 | `critique.py` | render → layout check → contact sheets → Claude fixes failing frames (runs after Generate) |
+| `bulletin.py` | layered Bulletin export (ZO team format): html/png/layers JSON + LAYERS.txt + README + spec.json, with a pixel check against the kit render |
 | `asset_gen.py` | turns `TODO:<asset>` placeholders into images: shared library → Gemini (kit style refs, cut-out PNG) → Claude SVG fallback; stored in the DB and restored to `themes/<kit>/assets/gen/` on startup |
 | `static/index.html` | the whole UI (vanilla JS, no build step) |
 | `themes/varsity-english/` | the Varsity skill kit (rules, CSS, components, assets, renderer) |
