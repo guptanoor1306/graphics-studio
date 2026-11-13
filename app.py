@@ -674,7 +674,7 @@ async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(
     look = {**(p.get("look") or {}), "sb_import": "pdf", "storyboard_pdf_name": orig}
     save(pid, who(req), "upload storyboard PDF", look=look)
     out = load(pid)
-    return {**out, "ok": True, "has_pdf": True}
+    return {**out, "ok": True, "has_pdf": _storyboard_pdf_on_disk(pid)}
 
 
 @app.post("/api/projects/{pid}/storyboard-pdf/batch")

@@ -898,17 +898,27 @@ function hasPdfOnServer(){return !!P?.has_storyboard_pdf}
 function pdfWorkflowActive(){return P?.look?.sb_import==='pdf'||hasPdfOnServer()}
 function pdfStatusText(){
   const name=storyboardPdfName();
-  if(hasPdfOnServer())return name||'PDF saved';
-  if(P?.look?.sb_import==='pdf')return name?`${name} · re-upload if batch fails`:'PDF workflow · re-upload file';
+  if(hasPdfOnServer())return name||'PDF on server';
+  if(P?.look?.sb_import==='pdf'&&name)return `${name} · not on server — Save PDF again`;
+  if(P?.look?.sb_import==='pdf')return 'No PDF on server — upload and Save';
   return '';
 }
 function pdfSummaryHint(){
   const n=studioFrames().length;
   const name=storyboardPdfName();
-  if(hasPdfOnServer())return name?`${name} · ${n} frame(s)`:(n?`${n} frame(s) from PDF`:'PDF saved');
-  if(P?.look?.sb_import==='pdf'&&n)return name?`${name} · ${n} frame(s)`:`${n} frame(s) · PDF workflow`;
-  if(P?.look?.sb_import==='pdf')return name||'PDF workflow';
-  return 'No PDF saved';
+  if(hasPdfOnServer())return name?`${name} · ${n} frame(s)`:(n?`${n} frame(s) from PDF`:'PDF on server');
+  if(P?.look?.sb_import==='pdf'&&name)return `${name} · re-upload required`;
+  if(P?.look?.sb_import==='pdf')return n?`${n} frame(s) · upload PDF to continue`:'Upload PDF to generate';
+  return 'Optional human storyboard PDF';
+}
+function pdfStaleNoticeHtml(){
+  if(hasPdfOnServer())return '';
+  const name=storyboardPdfName();
+  if(name||(P?.look?.sb_import==='pdf'))
+    return `<p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.45">The project remembers ${name?`“${esc(name)}”`:'a PDF name'}, but the <b>file is not on the server</b> (typical after deploy). Choose the PDF below and click <b>Save PDF</b>, then use Next 5.</p>`;
+  if(P?.spec&&studioFrames().length)
+    return `<p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.45">Add a human storyboard PDF below, then generate more frames with <b>First 5</b> / <b>Next 5</b> (keeps existing frames).</p>`;
+  return '';
 }
 function pdfSavedStatusHtml(){
   const t=pdfStatusText();
@@ -952,11 +962,17 @@ function humanPdfPanelInner({compact=false}={}){
    ${!first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">Next 5</button>`:''}
    ${showAll?`<button type="button" class="btn-neutral" onclick="genPdfBatch(event,{finishAll:true})">All remaining</button>`:''}
   </div>`;
-  if(compact&&!first){
-    return `<div class="pdf-panel-compact pdf-human-panel">${pdfSavedStatusHtml()}${genBtns}</div>`;
-  }
   const statusTag=pdfSavedStatusHtml();
+  const uploadRow=`<div class="pdf-human-top" id="pdfHumanTop">
+   <div class="field pdf-file-field"><label>${hasPdfOnServer()?'Replace PDF':'PDF file'}</label><input type="file" id="sbPdfFile" accept="application/pdf,.pdf"></div>
+   <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">Save PDF</button>
+   ${statusTag}
+  </div>`;
+  if(compact){
+    return `<div class="pdf-panel-compact pdf-human-panel">${pdfStaleNoticeHtml()}${uploadRow}${genBtns}</div>`;
+  }
   return `<div class="pdf-panel-compact pdf-human-panel">
+  ${pdfStaleNoticeHtml()}
   <div class="pdf-human-top" id="pdfHumanTop">
    <div class="field pdf-file-field"><label>PDF file</label><input type="file" id="sbPdfFile" accept="application/pdf,.pdf"></div>
    <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">Save PDF</button>
@@ -1078,8 +1094,11 @@ async function uploadSbPdf(){
     if(!r.ok){const m=parseApiErrorText(await r.text());throw new Error(m)}
     const data=await r.json();
     P=data;P.look=normLook(P.look);
-    if(status){status.textContent='Saved';status.style.color=''}
+    P.has_storyboard_pdf=!!(data.has_storyboard_pdf||data.has_pdf);
+    if(!P.has_storyboard_pdf)throw new Error('PDF did not persist on the server. On Railway, mount /app/data or try Save PDF again.');
+    if(status){status.textContent='On server';status.style.color=''}
     await refreshPdfSbStatus();
+    render();
   }catch(e){
     if(status){status.textContent='Save failed';status.hidden=false;status.style.color='#9c4221'}
     alert(e.message||String(e));
@@ -1093,7 +1112,10 @@ async function uploadSbPdf(){
 async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   const btn=ev?.target?.closest?.('button');if(btn)btn.disabled=true;
   const st=await api(`/api/projects/${P.id}/storyboard-pdf`).catch(()=>({has_pdf:false}));
-  if(!st.has_pdf){alert('Save a PDF to this project first.');if(btn)btn.disabled=false;return}
+  if(!st.has_pdf){
+    alert('PDF is not on the server.\n\nOpen “Human storyboard PDF”, choose your file, click Save PDF, then try again.\n\n(Script projects: this is normal after deploy — the filename in settings is not the file itself.)');
+    if(btn)btn.disabled=false;return;
+  }
   if(finishAll&&!confirm('Generate all remaining frames from the PDF (several batches, may take a few minutes)?')){if(btn)btn.disabled=false;return}
   setWorkspaceLoading(true,finishAll?'Starting PDF batches…':'Claude is reading the PDF and building the next batch… (1–2 min)');
   try{
@@ -1185,13 +1207,13 @@ function render(){
   P.look=normLook(P.look);
   const m=sbMode();
   const preSpec=preSpecSectionHtml();
-  const pdfBlock=m==='pdf'&&P.spec?humanPdfSectionHtml():'';
+  const pdfBlock=P.spec?humanPdfSectionHtml():'';
   $('#main').innerHTML=`<div class="toolbar"><h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
    ${P.spec?`<button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export All</button>`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
   ${lookSectionHtml()}
-  ${P.spec?((P.has_storyboard_pdf||m==='pdf')?pdfBlock:'')+framesStudio():preSpec}<div id="warns"></div>`;
+  ${P.spec?pdfBlock+framesStudio():preSpec}<div id="warns"></div>`;
   fit();
   updateFrameNavButtons();
   bindLookForm();
@@ -1599,6 +1621,7 @@ async function open_(id){
  P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);
  navChannel=channelForTheme(P.theme);
  selectedFrameId=null;await list();render();
+ refreshPdfSbStatus();
 }
 function renameProject(){if(!P)return;
   openToolModal({title:'Rename project',value:P.name,okLabel:'Save',onSubmit:async name=>{
