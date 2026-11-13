@@ -2414,14 +2414,47 @@ async function qa(){
 }
 async function downloadExportResponse(r, fallbackName){
  if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
- let blob;
- try{blob=await r.blob()}catch(_){
-  throw new Error('Download was cut off (network or proxy timeout). Try again after deploy, or export one frame at a time.');
- }
  const disp=r.headers.get('Content-Disposition')||'';
  const m=/filename="([^"]+)"/.exec(disp);
+ const name=m?m[1]:fallbackName;
+ if(r.body&&typeof r.body.getReader==='function'){
+  const reader=r.body.getReader();
+  const parts=[];
+  try{
+   while(true){
+    const {done,value}=await reader.read();
+    if(done)break;
+    parts.push(value);
+   }
+  }catch(_){
+   throw new Error('Download was cut off (network reset). Wait a moment and try Export again — the zip may still be on the server for ~1 hour.');
+  }
+  const blob=new Blob(parts,{type:r.headers.get('Content-Type')||'application/zip'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=name;a.click();URL.revokeObjectURL(a.href);
+  return;
+ }
+ let blob;
+ try{blob=await r.blob()}catch(_){
+  throw new Error('Download was cut off (network reset). Wait a moment and try Export again.');
+ }
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
- a.download=m?m[1]:fallbackName;a.click();URL.revokeObjectURL(a.href);
+ a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+async function downloadExportJobFile(pid,jobId,fallbackName,tries=4){
+ let last;
+ for(let i=0;i<tries;i++){
+  try{
+   setWorkspaceLoading(true,i?`Downloading zip (attempt ${i+1}/${tries})…`:'Preparing download…');
+   const r=await fetch(`/api/projects/${pid}/export/jobs/${jobId}/file`,{cache:'no-store'});
+   await downloadExportResponse(r,fallbackName);
+   return;
+  }catch(e){
+   last=e;
+   if(i+1<tries)await sleep(1500*(i+1));
+  }
+ }
+ throw last;
 }
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function waitExportJob(pid,jobId,onTick){
@@ -2436,23 +2469,39 @@ async function waitExportJob(pid,jobId,onTick){
 }
 async function exp(){
  if(!P?.spec)return;
- if(!confirm('Export all frames can take 1–3 minutes. Continue?'))return;
+ const n=(P.spec?.frames||[]).length;
+ if(!confirm(`Export all ${n||''} frames? (about 1–3 minutes on the server)`))return;
+ const wantPng=n>12
+  ?confirm(`Include PNG renders in the zip?\n\nOK = full zip with PNGs (large download, can fail on slow links).\nCancel = HTML + layer pages only (recommended for ${n}+ frames).`)
+  :true;
+ const png=wantPng?1:0;
  setWorkspaceLoading(true,'Starting export…');
  try{
-  const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=1`,{method:'POST',body:'{}'});
+  const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=${png}`,{method:'POST',body:'{}'});
   let pollHost=null;
   await waitExportJob(P.id,jobId,(st,n)=>{
    if(pollHost&&st.host&&st.host!==pollHost)console.warn('[export] poll hit a different server host — job may 404; use one Railway replica or retry.');
    pollHost=st.host||pollHost;
    const hint=st.frames?` (${st.frames} frames)`:'';
+   const mb=st.bytes?` · ~${Math.max(1,Math.round(st.bytes/1e6))}MB`:'';
    const load=st.status==='queued'
     ?`Export queued${hint}…${st.exports_running?` (${st.exports_running} ahead)`:''}`
+    :st.status==='done'
+    ?`Download starting${mb}…`
     :`Rendering export${hint}… ${n?Math.round(n*2/60)+' min':''}`;
    setWorkspaceLoading(true,load);
   });
-  const r=await fetch(`/api/projects/${P.id}/export/jobs/${jobId}/file`,{cache:'no-store'});
-  await downloadExportResponse(r,(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip');
- }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
+  const zipName=(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip';
+  try{sessionStorage.setItem('gs_export_job',JSON.stringify({pid:P.id,jobId,zipName,ts:Date.now()}))}catch(_){}
+  await downloadExportJobFile(P.id,jobId,zipName);
+  try{sessionStorage.removeItem('gs_export_job')}catch(_){}
+ }catch(e){
+  const msg=e.message||String(e);
+  const hint=/cut off|reset/i.test(msg)
+   ?'\n\nTip: run Export again and choose Cancel on the PNG prompt (HTML-only zip). Or export one frame at a time.'
+   :'';
+  alert(msg+hint);
+ }finally{setWorkspaceLoading(false)}
 }
 async function expFrame(fid){
  if(!P?.spec)return;

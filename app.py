@@ -9,7 +9,7 @@ import importlib.util, inspect, json, os, pathlib, re, tempfile, threading, time
 from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
-from fastapi.responses import HTMLResponse, Response, FileResponse
+from fastapi.responses import HTMLResponse, Response, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = pathlib.Path(__file__).parent
@@ -1226,6 +1226,7 @@ def export_start_job(pid: int, png: int = 1, only: str = ""):
                 st["status"] = "done"
                 st["path"] = str(dest)
                 st["filename"] = outfile
+                st["bytes"] = dest.stat().st_size if dest.is_file() else None
                 st["t"] = time.time()
         except BaseException as e:
             try:
@@ -1258,10 +1259,20 @@ def export_job_status(pid: int, job_id: str):
         "status": job["status"],
         "error": job.get("error"),
         "frames": job.get("frames"),
+        "bytes": job.get("bytes"),
         "host": socket.gethostname(),
         "exports_queued": eq,
         "exports_running": er,
     }
+
+
+def _stream_file(path: pathlib.Path, chunk: int = 1024 * 1024):
+    with path.open("rb") as fh:
+        while True:
+            data = fh.read(chunk)
+            if not data:
+                break
+            yield data
 
 
 @app.get("/api/projects/{pid}/export/jobs/{job_id}/file")
@@ -1275,11 +1286,16 @@ def export_job_file(pid: int, job_id: str):
     path = pathlib.Path(job["path"])
     if not path.is_file():
         raise HTTPException(410, "Export file expired; start a new export")
-    return FileResponse(
-        path,
+    fn = job.get("filename") or "export.zip"
+    size = path.stat().st_size
+    headers = {
+        "Content-Disposition": f'attachment; filename="{fn}"',
+        "Content-Length": str(size),
+    }
+    return StreamingResponse(
+        _stream_file(path),
         media_type="application/zip",
-        filename=job.get("filename") or "export.zip",
-        headers={"Content-Disposition": f'attachment; filename="{job.get("filename") or "export.zip"}"'},
+        headers=headers,
     )
 
 
