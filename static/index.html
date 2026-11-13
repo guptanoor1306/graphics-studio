@@ -144,6 +144,10 @@ body.in-project .nav-toggle{display:block}
 .channel-list-toolbar{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin:32px 0 14px}
 .channel-search{flex:1;min-width:min(100%,220px);max-width:400px;padding:11px 16px;border-radius:var(--radius-sm);border:1px solid var(--line-strong);background:#fff;font-size:14px}
 .channel-search:focus{outline:2px solid var(--acc-soft);border-color:var(--acc)}
+.channel-kit-filters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px;align-items:center}
+.kit-filter-chip{padding:8px 14px;border-radius:999px;border:1px solid var(--line-strong);background:#fff;font-size:13px;cursor:pointer;color:var(--ink)}
+.kit-filter-chip.on{background:var(--acc-soft);border-color:var(--acc);color:var(--acc);font-weight:600}
+.kit-filter-chip:hover{border-color:var(--acc)}
 .project-table-wrap{border:1px solid var(--line);border-radius:16px;background:var(--card);box-shadow:var(--shadow);overflow:auto}
 .project-table{width:100%;border-collapse:collapse;font-size:14px}
 .project-table th{text-align:left;padding:13px 20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);background:#faf8f5;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -434,7 +438,22 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
 </form></dialog>
 <script>
 let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null,episodeTranscript=null;
-let navChannel=null,allProjects=[],channelListSearch='';
+let navChannel=null,allProjects=[],channelListSearch='',channelListKitFilter='';
+function kitFilterStorageKey(cid){return `gs_kit_filter_${cid}`}
+function loadChannelKitFilter(cid){
+  if(!cid)return '';
+  try{return localStorage.getItem(kitFilterStorageKey(cid))||''}catch(_){return ''}
+}
+function setChannelKitFilter(theme){
+  channelListKitFilter=theme||'';
+  if(navChannel){
+    try{
+      if(channelListKitFilter)localStorage.setItem(kitFilterStorageKey(navChannel),channelListKitFilter);
+      else localStorage.removeItem(kitFilterStorageKey(navChannel));
+    }catch(_){}
+  }
+  renderHomeMain();
+}
 const CHANNELS=[
  {id:'varsity',label:'Varsity',desc:'Varsity English, Varsity Hindi – Charts & Elements, and Varsity Mutual Fund.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics','varsity-hindi-fa-graphics'],accent:'#5b55e6'},
  {id:'zo',label:'ZO',desc:'ZO Product — FSS, OSA, OST, and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
@@ -1453,13 +1472,16 @@ function sortedChannelProjects(cid){
   return projectsForChannel(cid).sort((a,b)=>(b.updated_at||0)-(a.updated_at||0));
 }
 function filterChannelProjects(list){
+  let out=list;
+  if(channelListKitFilter)out=out.filter(p=>p.theme===channelListKitFilter);
   const q=channelListSearch.trim().toLowerCase();
-  if(!q)return list;
-  return list.filter(p=>{
+  if(!q)return out;
+  return out.filter(p=>{
     const name=(p.name||'').toLowerCase();
     const theme=(p.theme||'').toLowerCase();
+    const kit=themeLabel(p.theme).toLowerCase();
     const by=(p.updated_by||'').toLowerCase();
-    return name.includes(q)||theme.includes(q)||by.includes(q);
+    return name.includes(q)||theme.includes(q)||kit.includes(q)||by.includes(q);
   });
 }
 function onChannelSearchInput(v){
@@ -1513,14 +1535,22 @@ function renderHomeMain(){
   const cid=navChannel;
   const ch=channelById(cid);
   const showKit=channelThemes(cid).length>1;
+  const kits=channelThemes(cid).filter(t=>themes.includes(t));
+  const validKit=channelListKitFilter&&kits.includes(channelListKitFilter);
+  if(channelListKitFilter&&!validKit)channelListKitFilter='';
   const ps=filterChannelProjects(sortedChannelProjects(cid));
+  const kitFilters=showKit&&kits.length?`<div class="channel-kit-filters" role="toolbar" aria-label="Filter by IP">
+   <button type="button" class="kit-filter-chip ${!channelListKitFilter?'on':''}" onclick="setChannelKitFilter('')">All IPs</button>
+   ${kits.map(t=>`<button type="button" class="kit-filter-chip ${channelListKitFilter===t?'on':''}" onclick='setChannelKitFilter(${JSON.stringify(t)})'>${esc(themeLabel(t))}</button>`).join('')}
+  </div>`:'';
   const rows=ps.length?ps.map(p=>`<tr class="project-table-row" data-pid="${p.id}" tabindex="0">
    <td class="col-name">${esc(p.name)}</td>
    ${showKit?`<td class="col-mute">${esc(themeLabel(p.theme))}</td>`:''}
    <td class="col-mute">${esc(fmtProjectDateTime(p.updated_at))}</td>
    <td class="col-mute">${esc(p.updated_by||'—')}</td>
   </tr>`).join(''):'';
-  const tableBody=ps.length?rows:`<tr><td colspan="${showKit?4:3}" class="project-table-empty">${channelListSearch.trim()?'No videos match your search.':'No videos yet — create one below.'}</td></tr>`;
+  const noMatch=channelListSearch.trim()||channelListKitFilter;
+  const tableBody=ps.length?rows:`<tr><td colspan="${showKit?4:3}" class="project-table-empty">${noMatch?'No videos match this filter.':'No videos yet — create one below.'}</td></tr>`;
   $('#main').innerHTML=`<div class="home-channel-page"><div class="home-channel-inner">
    <div class="home-brand-slot">${studioBrandHomeHtml()}</div>
    <div class="channel-list-hero">
@@ -1530,18 +1560,20 @@ function renderHomeMain(){
     <p class="home-sub">${esc(ch?.desc||'')}</p>
    </div>
    <div class="channel-list-toolbar">
-    <input type="search" id="channelSearch" class="channel-search" placeholder="Search by name or IP kit…" value="${esc(channelListSearch)}" oninput="onChannelSearchInput(this.value)">
+    <input type="search" id="channelSearch" class="channel-search" placeholder="Search by name or IP…" value="${esc(channelListSearch)}" oninput="onChannelSearchInput(this.value)">
     <button type="button" class="p" onclick="newProject()">+ New video</button>
    </div>
+   ${kitFilters}
    <div class="project-table-wrap">
     <table class="project-table"><thead><tr>
-     <th>Name</th>${showKit?'<th>Kit</th>':''}<th>Updated</th><th>Last editor</th>
+     <th>Name</th>${showKit?`<th>${cid==='varsity'?'IP':'Kit'}</th>`:''}<th>Updated</th><th>Last editor</th>
     </tr></thead><tbody>${tableBody}</tbody></table>
    </div>
   </div></div>`;
 }
 function selectChannel(id){
   channelListSearch='';
+  channelListKitFilter=loadChannelKitFilter(id);
   navChannel=id;P=null;selectedFrameId=null;frameVer={};
   renderSidebar();renderHomeMain();
 }
