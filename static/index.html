@@ -2402,18 +2402,37 @@ async function qa(){
 }
 async function downloadExportResponse(r, fallbackName){
  if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
- const blob=await r.blob();
+ let blob;
+ try{blob=await r.blob()}catch(_){
+  throw new Error('Download was cut off (network or proxy timeout). Try again after deploy, or export one frame at a time.');
+ }
  const disp=r.headers.get('Content-Disposition')||'';
  const m=/filename="([^"]+)"/.exec(disp);
  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
  a.download=m?m[1]:fallbackName;a.click();URL.revokeObjectURL(a.href);
 }
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function waitExportJob(pid,jobId,onTick){
+ for(let n=0;n<900;n++){
+  const st=await api(`/api/projects/${pid}/export/jobs/${jobId}`);
+  if(st.status==='error')throw new Error(st.error||'Export failed');
+  if(st.status==='done')return;
+  onTick?.(st,n);
+  await sleep(2000);
+ }
+ throw new Error('Export timed out on the server (still running?). Try again in a minute.');
+}
 async function exp(){
  if(!P?.spec)return;
  if(!confirm('Export all frames can take 1–3 minutes. Continue?'))return;
- setWorkspaceLoading(true,'Building export zip…');
+ setWorkspaceLoading(true,'Starting export…');
  try{
-  const r=await fetch(`/api/projects/${P.id}/export?png=1`,{cache:'no-store'});
+  const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=1`,{method:'POST',body:'{}'});
+  await waitExportJob(P.id,jobId,(st,n)=>{
+   const hint=st.frames?` (${st.frames} frames)`:'';
+   setWorkspaceLoading(true,`Rendering export${hint}… ${n?Math.round(n*2/60)+' min':''}`);
+  });
+  const r=await fetch(`/api/projects/${P.id}/export/jobs/${jobId}/file`,{cache:'no-store'});
   await downloadExportResponse(r,(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip');
  }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
 }

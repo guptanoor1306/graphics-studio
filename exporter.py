@@ -37,9 +37,19 @@ FLATTEN_JS = r"""(overlay) => {
 }"""
 
 
+_DATA_URI_CACHE: dict[str, str] = {}
+_EXPORT_PARALLEL = max(1, int(os.environ.get("EXPORT_PARALLEL", "4")))
+
+
 def _data_uri(path: pathlib.Path) -> str:
+    key = str(path.resolve())
+    cached = _DATA_URI_CACHE.get(key)
+    if cached is not None:
+        return cached
     mime = mimetypes.guess_type(str(path))[0] or ('font/ttf' if path.suffix == '.ttf' else 'application/octet-stream')
-    return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
+    uri = f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
+    _DATA_URI_CACHE[key] = uri
+    return uri
 
 
 def _theme_css(base_dir: pathlib.Path) -> tuple[pathlib.Path, str]:
@@ -105,7 +115,7 @@ async def _load_frame(pg, html: str) -> None:
         except Exception:
             pass
     await pg.evaluate("document.fonts.ready")
-    await pg.wait_for_timeout(120)
+    await pg.wait_for_timeout(50)
     await pg.evaluate(
         """() => {
       if (window.OPTS) window.OPTS.tagLayers = true;
@@ -119,31 +129,117 @@ def _layer_registry_js() -> str:
     return p.read_text()
 
 
+def _page_row(row) -> tuple[str, str, bool, str | None]:
+    if len(row) >= 4:
+        return row[0], row[1], row[2], row[3]
+    return row[0], row[1], row[2], None
+
+
+async def _capture_page(
+    b,
+    registry_js: str,
+    vw: int,
+    vh: int,
+    html: str,
+    *,
+    flatten_overlay: bool,
+    want_png: bool,
+    png_key: str | None,
+    html_key: str,
+    overlay_png: bool = False,
+) -> dict[str, bytes | str]:
+    pg = await b.new_page(viewport={"width": vw, "height": vh})
+    out: dict[str, bytes | str] = {}
+    try:
+        await _load_frame(pg, html)
+        await pg.evaluate(registry_js)
+        if want_png and png_key:
+            if overlay_png:
+                await pg.evaluate(
+                    "() => { document.body.classList.add('overlay');"
+                    "document.querySelectorAll('.plate').forEach(e => e.remove()); }"
+                )
+            out[png_key] = await pg.screenshot(
+                omit_background=True if overlay_png else False
+            )
+        out[html_key] = await pg.evaluate(FLATTEN_JS, flatten_overlay)
+    finally:
+        await pg.close()
+    return out
+
+
+async def _render_one(
+    b,
+    registry_js: str,
+    want_png: bool,
+    vw: int,
+    vh: int,
+    fid: str,
+    html: str,
+    skip_overlay: bool,
+    html_overlay: str | None,
+) -> dict[str, bytes | str]:
+    full = _capture_page(
+        b,
+        registry_js,
+        vw,
+        vh,
+        html,
+        flatten_overlay=False,
+        want_png=want_png,
+        png_key=f"png/{fid}.png" if want_png else None,
+        html_key=f"html/{fid}.html",
+    )
+    if skip_overlay:
+        return await full
+    ov_html = html_overlay if html_overlay is not None else html
+    ov = _capture_page(
+        b,
+        registry_js,
+        vw,
+        vh,
+        ov_html,
+        flatten_overlay=True,
+        want_png=want_png,
+        png_key=f"png/{fid}_overlay.png" if want_png else None,
+        html_key=f"html_overlay/{fid}.html",
+        overlay_png=want_png,
+    )
+    full_r, ov_r = await asyncio.gather(full, ov)
+    full_r.update(ov_r)
+    return full_r
+
+
 async def _render(pages, want_png, viewport=(1920, 1080)):
     from playwright.async_api import async_playwright
+
     registry_js = _layer_registry_js()
     vw, vh = viewport
-    out = {}
+    rows = [_page_row(r) for r in pages]
+    sem = asyncio.Semaphore(_EXPORT_PARALLEL)
+
+    async def work(row):
+        fid, html, skip_overlay, html_overlay = row
+        async with sem:
+            return await _render_one(
+                b,
+                registry_js,
+                want_png,
+                vw,
+                vh,
+                fid,
+                html,
+                skip_overlay,
+                html_overlay,
+            )
+
     async with async_playwright() as p:
         b = await launch_chromium(p)
-        pg = await b.new_page(viewport={"width": vw, "height": vh})
-        for fid, html, fss in pages:
-            await _load_frame(pg, html)
-            await pg.evaluate(registry_js)
-            if want_png:
-                out[f"png/{fid}.png"] = await pg.screenshot()
-            out[f"html/{fid}.html"] = await pg.evaluate(FLATTEN_JS, False)
-            if not fss:
-                await _load_frame(pg, html)
-                await pg.evaluate(registry_js)
-                out[f"html_overlay/{fid}.html"] = await pg.evaluate(FLATTEN_JS, True)
-                if want_png:
-                    await pg.evaluate(
-                        "document.body.classList.add('overlay');"
-                        "document.querySelectorAll('.plate').forEach(e=>e.remove())"
-                    )
-                    out[f"png/{fid}_overlay.png"] = await pg.screenshot(omit_background=True)
+        parts = await asyncio.gather(*(work(r) for r in rows))
         await b.close()
+    out: dict[str, bytes | str] = {}
+    for part in parts:
+        out.update(part)
     return out
 
 
@@ -166,15 +262,16 @@ def export_zip(
     viewport=(1920, 1080),
     *,
     storyboard_csv: str | None = None,
+    zip_path: pathlib.Path | None = None,
 ) -> bytes:
-    """pages: list of (frame_id, full_html, is_fss). Base href in html must point at this server's /themes/."""
+    """pages: list of (frame_id, full_html, skip_overlay, html_overlay|None). Base href in html must point at this server's /themes/."""
     if not pages:
         raise ValueError("No frames to export")
     files = asyncio.run(_render(pages, want_png, viewport))
     if not files:
         raise ValueError("Export produced no files")
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+    buf: io.BytesIO | None = None if zip_path else io.BytesIO()
+    with zipfile.ZipFile(zip_path or buf, "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in files.items():
             if name.endswith('.html'):
                 data = inline_assets(data, theme_dir).encode()
@@ -189,5 +286,8 @@ def export_zip(
         if storyboard_csv:
             z.writestr('storyboard-instructions.csv', storyboard_csv.encode('utf-8'))
             readme += 'storyboard-instructions.csv  timestamp-ordered storyboard beats (CSV)\n'
-        z.writestr('README.txt', readme)
+        z.writestr("README.txt", readme)
+    if zip_path is not None:
+        return b""
+    assert buf is not None
     return buf.getvalue()

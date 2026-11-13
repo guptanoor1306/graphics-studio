@@ -5,7 +5,7 @@ Run:  copy .env.example to .env, set ANTHROPIC_API_KEY, then uvicorn app:app --h
 A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.md, templates/, assets/, scripts/build.py).
 Add a channel by dropping in another kit folder; nothing else changes.
 """
-import importlib.util, inspect, json, os, pathlib, re, threading, time, asyncio
+import importlib.util, inspect, json, os, pathlib, re, tempfile, threading, time, uuid, asyncio
 from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
@@ -32,6 +32,10 @@ from claude_client import _storyboard_line_for_frame
 from db_store import SQLITE_PATH, backend, connect, insert_project
 THEMES = ROOT / "themes"
 _HINDI_CAST_LOCK = threading.Lock()
+_EXPORT_JOB_DIR = pathlib.Path(tempfile.gettempdir()) / "graphics_studio_exports"
+_EXPORT_JOB_DIR.mkdir(parents=True, exist_ok=True)
+_EXPORT_JOBS: dict[str, dict] = {}
+_EXPORT_JOB_LOCK = threading.Lock()
 def preview_base() -> str:
     """Loopback URL for Playwright inside this container (Render sets PORT, not 8000)."""
     port = os.environ.get("PORT", "8000")
@@ -313,11 +317,22 @@ def _hindi_merged_cast(spec: dict | None, frame: dict | None) -> dict:
     return out
 
 
-def _invoke_frame_html(render, frame, look, edit, all_frames):
-    if "all_frames" in inspect.signature(render).parameters:
-        return render(frame, look, edit=edit, all_frames=all_frames)
-    if len(inspect.signature(render).parameters) >= 2:
-        return render(frame, look, edit=edit)
+def _invoke_frame_html(render, frame, look, edit, all_frames, *, overlay: bool = False):
+    sig = inspect.signature(render)
+    params = sig.parameters
+    kwargs: dict = {}
+    if "edit" in params:
+        kwargs["edit"] = edit
+    if "overlay" in params:
+        kwargs["overlay"] = overlay
+    if "all_frames" in params and all_frames is not None:
+        kwargs["all_frames"] = all_frames
+    if "look" in params:
+        if kwargs:
+            return render(frame, look, **kwargs)
+        return render(frame, look)
+    if kwargs:
+        return render(frame, **kwargs)
     return render(frame)
 
 
@@ -329,6 +344,7 @@ def frame_page(
     edit: bool = False,
     all_frames=None,
     spec: dict | None = None,
+    overlay: bool = False,
 ):
     mod = builder(theme)
     render = mod.frame_html
@@ -344,12 +360,14 @@ def frame_page(
                 try:
                     cattr.clear()
                     cattr.update(_hindi_merged_cast(spec if isinstance(spec, dict) else None, frame))
-                    html = _invoke_frame_html(render, frame, look, edit, all_frames)
+                    html = _invoke_frame_html(
+                        render, frame, look, edit, all_frames, overlay=overlay
+                    )
                 finally:
                     cattr.clear()
                     cattr.update(prev_cast)
         else:
-            html = _invoke_frame_html(render, frame, look, edit, all_frames)
+            html = _invoke_frame_html(render, frame, look, edit, all_frames, overlay=overlay)
     finally:
         if prev_studio_web is None:
             os.environ.pop("STUDIO_WEB", None)
@@ -1018,13 +1036,13 @@ async def check(pid: int):
         raise HTTPException(502, detail=f"Layout check failed: {e}") from e
     return warns
 
-def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, str, bool]]:
+def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, str, bool, str | None]]:
     if not p.get("spec"):
         raise HTTPException(400, "Project has no spec")
     base = f"{preview_base()}/themes/{p['theme']}/scenes/"
     look = effective_look(p)
     all_frames = (p.get("spec") or {}).get("frames") or []
-    pages: list[tuple[str, str, bool]] = []
+    pages: list[tuple[str, str, bool, str | None]] = []
     for f in all_frames:
         fid = str(f.get("id") or "")
         if only_ids is not None and fid not in only_ids:
@@ -1044,7 +1062,22 @@ def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, 
             )
         except BaseException as e:
             raise HTTPException(502, detail=f"Export HTML failed for frame {fid}: {e}") from e
-        pages.append((fid, html, frame_wants_overlay(p["theme"], f)))
+        full_only = frame_wants_overlay(p["theme"], f)
+        html_overlay = None
+        if not full_only:
+            try:
+                html_overlay = frame_page(
+                    p["theme"],
+                    frame_for_render(p, f),
+                    look,
+                    base_href=base,
+                    all_frames=all_frames,
+                    spec=p.get("spec") if isinstance(p.get("spec"), dict) else None,
+                    overlay=True,
+                )
+            except BaseException:
+                html_overlay = None
+        pages.append((fid, html, full_only, html_overlay))
     if only_ids is not None and not pages:
         raise HTTPException(404, "Frame not found or not exportable")
     return pages
@@ -1079,35 +1112,159 @@ def export_storyboard_csv(pid: int):
     )
 
 
-@app.get("/api/projects/{pid}/export")
-async def export(pid: int, png: int = 1, only: str = ""):
-    p = load(pid)
+def _export_zip_filename(p: dict, ids: set[str] | None) -> str:
+    if ids and len(ids) == 1:
+        fid = next(iter(ids))
+        return _dl_name(f"{p['name']}_{fid}", "_export.zip")
+    return _dl_name(p["name"], "_frames.zip")
+
+
+def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None = None) -> tuple[bytes, str]:
     ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
     pages = _export_pages(p, ids)
     sb_csv = None
     raw_sb = _storyboard_csv_bytes(p)
     if raw_sb is not None:
         sb_csv = raw_sb.decode("utf-8")
-    try:
-        cw, ch = theme_canvas.canvas_for_theme(p["theme"])
-        data = await asyncio.to_thread(
-            exporter.export_zip,
+    cw, ch = theme_canvas.canvas_for_theme(p["theme"])
+    fn = _export_zip_filename(p, ids)
+    if dest is not None:
+        exporter.export_zip(
             pages,
             THEMES / p["theme"],
             bool(png),
             (cw, ch),
             storyboard_csv=sb_csv,
+            zip_path=dest,
         )
+        return b"", fn
+    data = exporter.export_zip(
+        pages,
+        THEMES / p["theme"],
+        bool(png),
+        (cw, ch),
+        storyboard_csv=sb_csv,
+    )
+    return data, fn
+
+
+def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path) -> str:
+    _, fn = _export_zip_payload(p, png, only, dest)
+    return fn
+
+
+def _export_job_prune() -> None:
+    now = time.time()
+    with _EXPORT_JOB_LOCK:
+        for jid, job in list(_EXPORT_JOBS.items()):
+            if now - job.get("t", now) < 7200:
+                continue
+            path = job.get("path")
+            if path:
+                try:
+                    pathlib.Path(path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            _EXPORT_JOBS.pop(jid, None)
+
+
+@app.post("/api/projects/{pid}/export/jobs")
+def export_start_job(pid: int, png: int = 1, only: str = ""):
+    """Start export in a background thread; poll status then download (avoids long HTTP/2 streams)."""
+    p = load(pid)
+    _export_job_prune()
+    job_id = uuid.uuid4().hex[:16]
+    dest = _EXPORT_JOB_DIR / f"{job_id}.zip"
+    fn = _export_zip_filename(
+        p,
+        {x.strip() for x in only.split(",") if x.strip()} if only else None,
+    )
+    with _EXPORT_JOB_LOCK:
+        _EXPORT_JOBS[job_id] = {
+            "pid": pid,
+            "status": "running",
+            "path": None,
+            "filename": fn,
+            "error": None,
+            "t": time.time(),
+            "frames": len((p.get("spec") or {}).get("frames") or []),
+        }
+
+    def work() -> None:
+        try:
+            outfile = _export_build_zip(p, png, only, dest)
+            with _EXPORT_JOB_LOCK:
+                st = _EXPORT_JOBS.get(job_id)
+                if not st:
+                    return
+                st["status"] = "done"
+                st["path"] = str(dest)
+                st["filename"] = outfile
+                st["t"] = time.time()
+        except BaseException as e:
+            try:
+                dest.unlink(missing_ok=True)
+            except OSError:
+                pass
+            with _EXPORT_JOB_LOCK:
+                st = _EXPORT_JOBS.get(job_id)
+                if st:
+                    st["status"] = "error"
+                    st["error"] = str(e)
+                    st["t"] = time.time()
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"job_id": job_id}
+
+
+@app.get("/api/projects/{pid}/export/jobs/{job_id}")
+def export_job_status(pid: int, job_id: str):
+    with _EXPORT_JOB_LOCK:
+        job = _EXPORT_JOBS.get(job_id)
+    if not job or job.get("pid") != pid:
+        raise HTTPException(404, "Export job not found")
+    return {
+        "status": job["status"],
+        "error": job.get("error"),
+        "frames": job.get("frames"),
+    }
+
+
+@app.get("/api/projects/{pid}/export/jobs/{job_id}/file")
+def export_job_file(pid: int, job_id: str):
+    with _EXPORT_JOB_LOCK:
+        job = _EXPORT_JOBS.get(job_id)
+    if not job or job.get("pid") != pid:
+        raise HTTPException(404, "Export job not found")
+    if job.get("status") != "done" or not job.get("path"):
+        raise HTTPException(409, "Export not ready yet")
+    path = pathlib.Path(job["path"])
+    if not path.is_file():
+        raise HTTPException(410, "Export file expired; start a new export")
+    return FileResponse(
+        path,
+        media_type="application/zip",
+        filename=job.get("filename") or "export.zip",
+        headers={"Content-Disposition": f'attachment; filename="{job.get("filename") or "export.zip"}"'},
+    )
+
+
+@app.get("/api/projects/{pid}/export")
+async def export(pid: int, png: int = 1, only: str = ""):
+    p = load(pid)
+    try:
+        data, fn = await asyncio.to_thread(_export_zip_payload, p, png, only, None)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(502, detail=f"Export failed: {e}") from e
-    if ids and len(ids) == 1:
-        fid = next(iter(ids))
-        fn = _dl_name(f"{p['name']}_{fid}", "_export.zip")
-    else:
-        fn = _dl_name(p["name"], "_frames.zip")
-    return Response(data, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{fn}"'})
+    return Response(
+        data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fn}"'},
+    )
 
 
 @app.get("/api/projects/{pid}/frames/{fid}/export.png")
