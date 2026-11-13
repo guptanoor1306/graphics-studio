@@ -513,7 +513,9 @@ const $=s=>document.querySelector(s);
 const api=async(u,o={})=>{
   const r=await fetch(u,{cache:'no-store',headers:{'content-type':'application/json'},...o});
   if(!r.ok){let m=await r.text();try{const j=JSON.parse(m);m=j.detail||m}catch(_){}throw new Error(typeof m==='string'?m:JSON.stringify(m))}
-  return r.json();
+  const j=await r.json();
+  if(j&&j.__stream_error)throw new Error(j.__stream_error);
+  return j;
 };
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function initNav(){

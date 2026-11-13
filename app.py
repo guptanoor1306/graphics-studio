@@ -517,7 +517,32 @@ def delete_project_post(pid: int):
 
 @app.post("/api/projects/{pid}/storyboard")
 async def make_storyboard(pid: int, req: Request):
-    b = await req.json(); p = load(pid)
+    """Generate runs 3–6 min (thinking + render review). Railway closes a request after 5 min with no
+    bytes sent, so stream a space every 15 s and send the JSON at the end (leading spaces are valid JSON).
+    Errors after streaming starts come back as {"__stream_error": "..."}; the UI's api() raises on it."""
+    b = await req.json()
+    load(pid)  # 404 before streaming starts
+    user = who(req)
+    task = asyncio.create_task(_make_storyboard(pid, b, user))
+
+    async def body():
+        while True:
+            done, _ = await asyncio.wait({task}, timeout=15)
+            if done:
+                break
+            yield b" "
+        try:
+            yield json.dumps(task.result(), default=str).encode()
+        except HTTPException as e:
+            yield json.dumps({"__stream_error": str(e.detail), "status": e.status_code}).encode()
+        except Exception as e:
+            yield json.dumps({"__stream_error": f"{type(e).__name__}: {e}", "status": 500}).encode()
+
+    return StreamingResponse(body(), media_type="application/json")
+
+
+async def _make_storyboard(pid: int, b: dict, user: str):
+    p = load(pid)
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
     try:
         transcript = _episode_transcript_for_project(pid)
@@ -568,7 +593,7 @@ async def make_storyboard(pid: int, req: Request):
     note = "generated storyboard"
     if critique_report.get("changed"):
         note += f" (auto-fixed {len(critique_report['changed'])} frame(s) after render review)"
-    save(pid, who(req), note, script=script, look=plook, storyboard=sb, spec=spec)
+    save(pid, user, note, script=script, look=plook, storyboard=sb, spec=spec)
     warn = claude_client.spec_quality_issues(spec, sb, theme=theme)
     warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
     return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn, "critique": critique_report}
