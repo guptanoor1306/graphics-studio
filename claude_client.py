@@ -953,6 +953,42 @@ def fix_frames(
     return _tool_input(r, FIX_TOOL["name"])
 
 
+SVG_TOOL = {
+    "name": "submit_svg",
+    "description": "Return one standalone SVG illustration.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"svg": {"type": "string", "description": "complete <svg …>…</svg> markup"}},
+        "required": ["svg"],
+    },
+}
+
+
+def draw_asset_svg(theme_dir: pathlib.Path, description: str) -> str:
+    """Fallback art when no image model is available: one flat SVG object in the kit's line style."""
+    content: list[dict] = list(_style_image_blocks(theme_dir))
+    msg = (
+        f"Draw this object as a standalone SVG for a video graphic: {description}\n\n"
+        "Rules: viewBox=\"0 0 800 800\", transparent background, the object centred and filling ~85% of the box. "
+        "Match the house style in the image and SKILL.md: thick dark outline (#1d1d1f, stroke-width 10–14, round joins), "
+        "flat fills from the kit palette, one lighter highlight shape and one darker shade shape per face for depth, "
+        "a subtle three-quarter view. No text unless the description needs a label; no gradients over 2 stops; "
+        "no filters, scripts, external images or fonts. Make it look like a designed illustration, not clip-art."
+    )
+    if _tool_choice(SVG_TOOL["name"])["type"] == "auto":
+        msg += f"\n\nRespond only by calling the {SVG_TOOL['name']} tool."
+    content.append({"type": "text", "text": msg})
+    r = _messages_create(
+        think=True,
+        max_tokens=20000,
+        system=_system(theme_dir),
+        tools=[SVG_TOOL],
+        tool_choice=_tool_choice(SVG_TOOL["name"]),
+        messages=[{"role": "user", "content": content}],
+    )
+    return _tool_input(r, SVG_TOOL["name"])["svg"]
+
+
 def patch_until_clean(
     theme_dir: pathlib.Path,
     out: dict,

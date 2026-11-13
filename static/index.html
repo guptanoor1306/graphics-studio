@@ -1183,6 +1183,7 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
     const drop=last?.frames_dropped||0;
     if(drop)msg+=`\n\nClaude returned ${added+drop} new frames; server kept ${added} (batch size ${batchSize}).`;
     if(last?.pdf_progress)msg+=`\n\nProgress: ${last.pdf_progress}`;
+    msg+=assetsNote(last);
     if(P.spec_warnings?.length)msg+='\n\nQuality notes:\n'+P.spec_warnings.join('\n');
     if(finishAll&&totalAdded===0){
       msg=last?.pdf_progress||'No more graphic frames to add from this PDF.';
@@ -1226,6 +1227,7 @@ function framesStudio(){
   return `<div class="frames-studio">
    <div class="studio-head"><div><div class="eyebrow">Frames</div><h2 class="studio-title">Generated frames</h2></div>
     <div class="studio-head-actions">
+     ${specTodoCount()?`<button type="button" class="btn-neutral" id="fillAssetsBtn" onclick="fillAssets()" title="Make images for the ASSET NEEDED boxes (Gemini if a key is set, otherwise Claude draws them)">Fill ${specTodoCount()} missing asset${specTodoCount()>1?'s':''}</button>`:''}
      <button type="button" class="btn-neutral" onclick="openAllPreview()">Preview all</button>
      <button type="button" class="btn-neutral" onclick="openEditMode()">Edit mode</button>
      ${P?.look?.sb_import==='pdf'?'':`<button type="button" class="btn-neutral" id="gen" onclick="gen()">Regenerate all</button>`}</div></div>
@@ -1728,6 +1730,21 @@ function deleteProject(){if(!P)return;
     list();
   }});
 }
+function specTodoCount(){
+ const seen=new Set();const walk=o=>{if(!o)return;if(typeof o==='string'){const m=o.match(/^\s*TODO:\s*(.+)$/s);if(m)seen.add(m[1].trim());}else if(Array.isArray(o))o.forEach(walk);else if(typeof o==='object')Object.values(o).forEach(walk);};
+ walk(P?.spec?.frames);return seen.size;
+}
+function assetsNote(r){
+ const a=r?.assets||{};const f=Object.entries(a.filled||{}).filter(([,v])=>v.source!=='library');const bad=Object.keys(a.failed||{});
+ let m='';if(f.length)m+='\n\nGenerated '+f.length+' asset(s): '+f.map(([d,v])=>d+(v.source==='claude-svg'?' (Claude SVG)':'')).join(', ');
+ if(bad.length)m+='\n\nCould not generate: '+bad.join(', ');return m;
+}
+async function fillAssets(){
+ const b=$('#fillAssetsBtn');if(b)b.disabled=true;setWorkspaceLoading(true,'Making images for the missing assets… (about 1 min)');
+ try{P=await api(`/api/projects/${P.id}/assets/fill`,{method:'POST',body:'{}'});P.look=normLook(P.look);frameVer={};render();
+  const n=Object.keys(P.assets?.filled||{}).length;alert((n?`Filled ${n} asset(s).`:'Nothing was generated.')+assetsNote(P).replace(/^\n\nGenerated[^\n]*/,'')+(P.todo_left?`\n\n${P.todo_left} still missing.`:''))}
+ catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}
+}
 async function gen(){
  if(!scriptHasContent(getScriptValue())&&!P?.has_episode_transcript&&!confirm('No script or audio transcript yet. Generate anyway?'))return;
  const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding, then reviewing the rendered frames… (3–6 min)');
@@ -1737,7 +1754,7 @@ async function gen(){
    P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({theme:themeSel.value,note:'theme'})});
   }
   const look={...getLook(),sb_import:'script'};
-  P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look,notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();const cr=P.critique||{};const fixed=Object.entries(cr.changed||{});let note=fixed.length?('Render review fixed '+fixed.length+' frame(s):\n'+fixed.map(([k,v])=>'• '+k+(v?' — '+v:'')).join('\n')):'';if(P.spec_warnings?.length)note+=(note?'\n\n':'')+'Still to check:\n'+P.spec_warnings.join('\n');if(note)alert(note)}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
+  P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look,notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();const cr=P.critique||{};const fixed=Object.entries(cr.changed||{});let note=fixed.length?('Render review fixed '+fixed.length+' frame(s):\n'+fixed.map(([k,v])=>'• '+k+(v?' — '+v:'')).join('\n')):'';note+=assetsNote(P);if(P.spec_warnings?.length)note+=(note?'\n\n':'')+'Still to check:\n'+P.spec_warnings.join('\n');if(note)alert(note)}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
 async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null,refFile=null,clearLayerRef=false}={}){
  const {ref,rep,flat,lb}=refControls();
  const upload=refFile||ref?.files?.[0];

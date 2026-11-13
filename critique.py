@@ -206,6 +206,7 @@ def run(
     finalize: Callable[[dict], dict] | None = None,
     script: str = "",
     rounds: int | None = None,
+    only_ids: set[str] | None = None,
     log: Callable[[str], None] | None = None,
 ) -> tuple[dict, dict]:
     """Returns (spec, report). Never raises for render/critique failures: the original spec is kept."""
@@ -236,14 +237,14 @@ def run(
         return pages
 
     try:
-        renders = render_frames(pages_for(spec, None), check_js, canvas, srcs_for(spec))
+        renders = render_frames(pages_for(spec, set(only_ids) if only_ids else None), check_js, canvas, srcs_for(spec))
     except Exception as e:
         say(f"critique: render failed, keeping spec as is ({e})")
         report["error"] = f"render: {e}"
         return spec, report
     order = [str(f.get("id")) for f in spec.get("frames") or [] if isinstance(f, dict)]
     report["warns_before"] = sum(len(w) for _, w in renders.values())
-    focus: set[str] | None = None  # round 1 = every frame
+    focus: set[str] | None = set(only_ids) if only_ids else None  # round 1 = every frame (or only_ids)
 
     for n in range(1, rounds + 1):
         shown = [fid for fid in order if fid in renders and (focus is None or fid in focus)]

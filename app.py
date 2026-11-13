@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import audio_transcribe, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import asset_gen, audio_transcribe, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -56,6 +56,14 @@ def preview_url(pid: int, fid: str) -> str:
     return f"{preview_base()}/preview/{pid}/{quote(str(fid), safe='')}"
 app = FastAPI(title="Graphics Studio")
 app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
+
+
+@app.on_event("startup")
+async def _restore_generated_assets():
+    # Railway wipes the disk on deploy; generated assets live in the DB and are written back here.
+    n = await asyncio.to_thread(asset_gen.restore_all)
+    if n:
+        print(f"asset_gen: restored {n} generated asset(s)")
 
 
 @app.middleware("http")
@@ -522,8 +530,13 @@ async def make_storyboard(pid: int, req: Request):
     Errors after streaming starts come back as {"__stream_error": "..."}; the UI's api() raises on it."""
     b = await req.json()
     load(pid)  # 404 before streaming starts
-    user = who(req)
-    task = asyncio.create_task(_make_storyboard(pid, b, user))
+    return _stream_json(_make_storyboard(pid, b, who(req)))
+
+
+def _stream_json(coro) -> StreamingResponse:
+    """Run a long job, sending a space every 15 s so Railway's 5-min idle cut-off never fires,
+    then the JSON result (leading spaces are valid JSON). Errors become {"__stream_error": ...}."""
+    task = asyncio.create_task(coro)
 
     async def body():
         while True:
@@ -539,6 +552,20 @@ async def make_storyboard(pid: int, req: Request):
             yield json.dumps({"__stream_error": f"{type(e).__name__}: {e}", "status": 500}).encode()
 
     return StreamingResponse(body(), media_type="application/json")
+
+
+def _with_assets(theme: str, finalize, report: dict):
+    """finalize → then replace TODO asset placeholders (runs again after each critique fix)."""
+    def fin(sp):
+        if finalize:
+            sp = finalize(sp)
+        sp, r = asset_gen.fill_spec(theme, sp, log=print)
+        report.setdefault("filled", {}).update(r["filled"])
+        report.setdefault("failed", {}).update(r["failed"])
+        for d in r["filled"]:
+            report["failed"].pop(d, None)
+        return sp
+    return fin
 
 
 async def _make_storyboard(pid: int, b: dict, user: str):
@@ -582,6 +609,10 @@ async def _make_storyboard(pid: int, b: dict, user: str):
             sp["look"] = plook
             return spec_enrich.enrich_spec(sp, sb, theme=theme)
         spec = finalize(out["spec"])
+    # Real images for "TODO:<asset>" placeholders (library → Gemini → Claude SVG), so the review sees them.
+    asset_report: dict = {}
+    finalize = _with_assets(theme, finalize, asset_report)
+    spec = await asyncio.to_thread(finalize, spec)
     # Render → look → fix (the skill's build/WARN/contact-sheet step) before anyone sees the frames.
     critique_report: dict = {}
     try:
@@ -590,16 +621,25 @@ async def _make_storyboard(pid: int, b: dict, user: str):
         )
     except Exception as e:  # never lose a generated spec to a critique failure
         critique_report = {"error": str(e)}
-    note = "generated storyboard"
-    if critique_report.get("changed"):
-        note += f" (auto-fixed {len(critique_report['changed'])} frame(s) after render review)"
+    note = "generated storyboard" + _notes_suffix(critique_report, asset_report)
     save(pid, user, note, script=script, look=plook, storyboard=sb, spec=spec)
     warn = claude_client.spec_quality_issues(spec, sb, theme=theme)
     warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
-    return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn, "critique": critique_report}
+    warn += [f"asset not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
+    return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn,
+            "critique": critique_report, "assets": asset_report}
 
 
-def _critique_spec(p_like: dict, spec: dict, storyboard: str, script: str, finalize) -> tuple[dict, dict]:
+def _notes_suffix(critique_report: dict, asset_report: dict) -> str:
+    bits = []
+    if critique_report.get("changed"):
+        bits.append(f"auto-fixed {len(critique_report['changed'])} frame(s) after render review")
+    if asset_report.get("filled"):
+        bits.append(f"generated {len(asset_report['filled'])} asset(s)")
+    return f" ({'; '.join(bits)})" if bits else ""
+
+
+def _critique_spec(p_like: dict, spec: dict, storyboard: str, script: str, finalize, only_ids=None) -> tuple[dict, dict]:
     """Render every frame offline with the kit renderer, then let Claude fix what it sees (critique.py)."""
     theme = p_like["theme"]
     m = builder(theme)
@@ -634,6 +674,7 @@ def _critique_spec(p_like: dict, spec: dict, storyboard: str, script: str, final
         canvas=theme_canvas.canvas_for_theme(theme),
         finalize=finalize,
         script=script,
+        only_ids=only_ids,
         log=print,
     )
 
@@ -762,6 +803,11 @@ async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(
 @app.post("/api/projects/{pid}/storyboard-pdf/batch")
 async def storyboard_pdf_batch_route(pid: int, req: Request):
     b = await req.json()
+    load(pid)
+    return _stream_json(_storyboard_pdf_batch(pid, b, who(req)))
+
+
+async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
     p = load(pid)
     try:
         pdf_bytes = storyboard_pdf.read_pdf(pid)
@@ -815,33 +861,63 @@ async def storyboard_pdf_batch_route(pid: int, req: Request):
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
-    spec = _finalize_spec_after_batch(
-        spec,
-        storyboard,
-        p["theme"],
-        look if isinstance(look, dict) else {},
-        p,
+    lk = look if isinstance(look, dict) else {}
+    asset_report: dict = {}
+    finalize = _with_assets(
+        p["theme"], lambda sp: _finalize_spec_after_batch(sp, storyboard, p["theme"], lk, p), asset_report
     )
+    spec = await asyncio.to_thread(finalize, spec)
     plook = look if isinstance(look, dict) else p.get("look")
     if is_mf_theme_name(p["theme"]) and isinstance(spec.get("look"), str) and isinstance(plook, dict):
         plook = {**plook, "look_line": spec["look"]}
+    # review only the frames this batch added
+    before = {str(f.get("id")) for f in (p.get("spec") or {}).get("frames") or [] if isinstance(f, dict)}
+    new_ids = {str(f.get("id")) for f in spec.get("frames") or [] if isinstance(f, dict)} - before
+    critique_report: dict = {}
+    if new_ids:
+        try:
+            spec, critique_report = await asyncio.to_thread(
+                _critique_spec, {**p, "look": plook}, spec, storyboard, script, finalize, new_ids
+            )
+        except Exception as e:
+            critique_report = {"error": str(e)}
     save(
         pid,
-        who(req),
-        f"PDF storyboard batch (+{out['frames_added']} frames)",
+        user,
+        f"PDF storyboard batch (+{out['frames_added']} frames)" + _notes_suffix(critique_report, asset_report),
         script=script,
         look=plook,
         storyboard=storyboard,
         spec=spec,
     )
     warn = claude_client.spec_quality_issues(spec, storyboard, theme=p["theme"])
+    warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
+    warn += [f"asset not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
     return {
         **load(pid),
         "pdf_progress": out.get("pdf_progress"),
         "frames_added": out.get("frames_added"),
         "frames_dropped": out.get("frames_dropped") or 0,
         "spec_warnings": warn,
+        "critique": critique_report,
+        "assets": asset_report,
     }
+
+
+@app.post("/api/projects/{pid}/assets/fill")
+async def fill_assets_route(pid: int, req: Request):
+    """Generate images for every remaining "TODO:" asset in an existing project."""
+    load(pid)
+    user = who(req)
+
+    async def job():
+        p = load(pid)
+        spec, report = await asyncio.to_thread(asset_gen.fill_spec, p["theme"], p.get("spec") or {}, print)
+        if report["filled"]:
+            save(pid, user, f"generated {len(report['filled'])} asset(s)", spec=spec)
+        return {**load(pid), "assets": report,
+                "todo_left": len(asset_gen.todo_descriptions(spec))}
+    return _stream_json(job())
 
 
 @app.put("/api/projects/{pid}")
