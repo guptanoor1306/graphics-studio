@@ -1116,15 +1116,26 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
     alert('PDF is not on the server.\n\nOpen “Human storyboard PDF”, choose your file, click Save PDF, then try again.\n\n(Script projects: this is normal after deploy — the filename in settings is not the file itself.)');
     if(btn)btn.disabled=false;return;
   }
-  if(finishAll&&!confirm('Generate all remaining frames from the PDF (several batches, may take a few minutes)?')){if(btn)btn.disabled=false;return}
+  let maxNewThisRun=0;
+  if(finishAll){
+    if(!confirm('All remaining runs Next 5 repeatedly until Claude stops.\n\nRisk: every PDF row can become a frame (e.g. 60) if the SB lists chart updates separately.\n\nContinue?')){if(btn)btn.disabled=false;return}
+    const ans=prompt('How many NEW graphic frames max this run?\n(Count distinct PNGs in the SB, not storyboard lines. Blank = no cap.)','20');
+    if(ans===null){if(btn)btn.disabled=false;return}
+    const n=parseInt(String(ans).trim(),10);
+    if(n>0)maxNewThisRun=n;
+  }
   setWorkspaceLoading(true,finishAll?'Starting PDF batches…':'Claude is reading the PDF and building the next batch… (1–2 min)');
   try{
-    const baseBody={script:getScriptValue(),look:{...getLook(),sb_import:'pdf'},notes:getNotesValue(),batch_size:batchSize,finish_all:false};
+    let batchNotes=getNotesValue().trim();
+    if(finishAll&&maxNewThisRun>0&&!/graphic|png|distinct/i.test(batchNotes))
+      batchNotes=(batchNotes?batchNotes+'\n\n':'')+`Only ~${maxNewThisRun} distinct graphic PNGs in this PDF — do not add frames for footage, screen, or same-chart-continues rows.`;
+    const baseBody={script:getScriptValue(),look:{...getLook(),sb_import:'pdf'},notes:batchNotes,batch_size:batchSize,finish_all:false};
     let totalAdded=0;
     let last=null;
-    const maxRounds=finishAll?48:1;
+    const maxRounds=finishAll?Math.min(48,Math.ceil((maxNewThisRun||240)/Math.max(1,batchSize))):1;
     for(let round=0;round<maxRounds;round++){
-      if(finishAll)setWorkspaceLoading(true,`PDF batch ${round+1}… (${totalAdded} frame(s) added this run)`);
+      if(finishAll&&maxNewThisRun>0&&totalAdded>=maxNewThisRun)break;
+      if(finishAll)setWorkspaceLoading(true,`PDF batch ${round+1}… (${totalAdded}${maxNewThisRun?`/${maxNewThisRun}`:''} added)`);
       const r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(baseBody)});
       last=r;
       const added=r.frames_added??0;
