@@ -906,15 +906,21 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
 
 @app.post("/api/projects/{pid}/assets/fill")
 async def fill_assets_route(pid: int, req: Request):
-    """Generate images for every remaining "TODO:" asset in an existing project."""
+    """Generate images for every remaining "TODO:" asset in an existing project ({"redo": true} also
+    remakes the images generated earlier)."""
     load(pid)
     user = who(req)
+    try:
+        redo = bool((await req.json()).get("redo"))
+    except Exception:
+        redo = False
 
     async def job():
         p = load(pid)
-        spec, report = await asyncio.to_thread(asset_gen.fill_spec, p["theme"], p.get("spec") or {}, print)
+        spec, report = await asyncio.to_thread(asset_gen.fill_spec, p["theme"], p.get("spec") or {}, print, redo)
         if report["filled"]:
-            save(pid, user, f"generated {len(report['filled'])} asset(s)", spec=spec)
+            verb = "regenerated" if redo else "generated"
+            save(pid, user, f"{verb} {len(report['filled'])} asset(s)", spec=spec)
         return {**load(pid), "assets": report,
                 "todo_left": len(asset_gen.todo_descriptions(spec))}
     return _stream_json(job())

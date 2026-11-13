@@ -57,9 +57,12 @@ def _ensure_table(c) -> None:
     c.commit()
 
 
+STYLE_VERSION = "2"  # bump when generation changes, so images made the old way are not reused
+
+
 def _key(theme: str, desc: str) -> str:
     norm = re.sub(r"\s+", " ", desc.strip().lower())
-    return f"{theme}:{hashlib.sha1(norm.encode()).hexdigest()[:12]}"
+    return f"{theme}:{hashlib.sha1((STYLE_VERSION + norm).encode()).hexdigest()[:12]}"
 
 
 def _slug(desc: str) -> str:
@@ -126,22 +129,60 @@ def restore_all() -> int:
 
 
 # ------------------------------------------------------------------ Gemini
-def _style_refs(theme: str, limit: int = 4) -> list[tuple[str, bytes]]:
-    """style_at_a_glance + the kit's largest illustrations (not backgrounds, anchors, decor or UI)."""
-    d = THEMES / theme
-    refs: list[tuple[str, bytes]] = []
-    s = d / "references" / "style_at_a_glance.jpg"
-    if s.is_file():
-        refs.append(("image/jpeg", s.read_bytes()))
+REF_BG = (243, 239, 230)  # the kits' cream paper; references are shown on it, never as transparent PNGs
+
+
+def _style_text(theme: str) -> str:
+    """How this kit's illustrations look, in words: references/asset_style.md, else the style guide's
+    lines about illustrations."""
+    d = THEMES / theme / "references"
+    f = d / "asset_style.md"
+    if f.is_file():
+        return f.read_text().strip()
+    guide = d / "style_guide.md"
+    if guide.is_file():
+        lines = [ln.strip("-* ").strip() for ln in guide.read_text().splitlines()
+                 if re.search(r"illustrat|asset|texture|grain|outline|3d|flat|shading", ln, re.I)]
+        if lines:
+            return "\n".join(lines[:8])
+    return "Match the reference illustrations exactly."
+
+
+def _ref_paths(theme: str, limit: int = 5) -> list[pathlib.Path]:
+    d = THEMES / theme / "assets"
+    if not d.is_dir():
+        return []
     skip = ("bg", "anchor", "decor", "ui", "fonts", GEN_DIR, "plates", "uploads")
-    cands = [
-        p for p in (d / "assets").rglob("*.png")
-        if not any(part in skip for part in p.relative_to(d / "assets").parts[:-1])
-        and "logo" not in p.name and "map" not in p.name
-    ] if (d / "assets").is_dir() else []
+    cands = [p for p in d.rglob("*.png")
+             if not any(part in skip for part in p.relative_to(d).parts[:-1])
+             and not re.search(r"logo|map|legend|plate|cutout", p.name)]
     cands.sort(key=lambda p: p.stat().st_size, reverse=True)
-    for p in cands[: max(0, limit - len(refs))]:
-        refs.append(("image/png", _shrink(p.read_bytes(), 768)))
+    return cands[:limit]
+
+
+def _on_cream(raw: bytes, side: int = 640) -> bytes:
+    """Cut-out PNG composited on the kit paper colour (transparent pixels read as black to image models)."""
+    from PIL import Image
+
+    im = Image.open(io.BytesIO(raw)).convert("RGBA")
+    if im.getbbox():
+        im = im.crop(im.getchannel("A").getbbox() or im.getbbox())
+    scale = (side - 40) / max(im.size)  # scale up small art too, so its texture is visible
+    im = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)
+    bg = Image.new("RGB", (side, side), REF_BG)
+    bg.paste(im, ((side - im.width) // 2, (side - im.height) // 2), im)
+    buf = io.BytesIO()
+    bg.save(buf, "JPEG", quality=88)
+    return buf.getvalue()
+
+
+def _style_refs(theme: str) -> list[tuple[str, bytes]]:
+    """The kit's own object illustrations on cream; the full-frame style sheet only if the kit has none."""
+    refs = [("image/jpeg", _on_cream(p.read_bytes())) for p in _ref_paths(theme)]
+    if not refs:
+        s = THEMES / theme / "references" / "style_at_a_glance.jpg"
+        if s.is_file():
+            refs.append(("image/jpeg", _shrink(s.read_bytes(), 1280)))
     return refs
 
 
@@ -153,14 +194,15 @@ def _shrink(raw: bytes, side: int) -> bytes:
         return raw
     im.thumbnail((side, side))
     buf = io.BytesIO()
-    im.save(buf, "PNG")
+    im.convert("RGB").save(buf, "JPEG", quality=88)
     return buf.getvalue()
 
 
 def _key_color(desc: str) -> tuple[str, tuple[int, int, int]]:
-    if re.search(r"green|leaf|plant|tree|grass|emerald|money plant", desc, re.I):
-        return "pure magenta #FF00FF", (255, 0, 255)
-    return "pure green #00FF00", (0, 255, 0)
+    """Magenta by default (finance objects are green notes, gold, silver, paper); green for pink/purple things."""
+    if re.search(r"pink|magenta|purple|violet|rose|lavender|fuchsia", desc, re.I):
+        return "pure green #00FF00", (0, 255, 0)
+    return "pure magenta #FF00FF", (255, 0, 255)
 
 
 def _http_post(url: str, body: dict, headers: dict, timeout: float) -> tuple[int, str]:
@@ -175,24 +217,32 @@ def _http_post(url: str, body: dict, headers: dict, timeout: float) -> tuple[int
         return e.code, e.read().decode(errors="replace")
 
 
-def gemini_image(theme: str, desc: str, *, timeout: float = 120.0) -> bytes:
+def gemini_image(theme: str, desc: str, feedback: str = "", *, timeout: float = 150.0) -> bytes:
     """Generate one isolated object in the kit's style; returns a transparent, cropped PNG."""
     key = gemini_key()
     if not key:
         raise RuntimeError("GEMINI_API_KEY not set")
     color_name, rgb = _key_color(desc)
+    refs = _style_refs(theme)
     prompt = (
-        f"Create ONE isolated object for a YouTube explainer graphic: {desc}.\n"
-        "Match the illustration style of the reference images exactly: same rendering, texture and grain, "
-        "outline weight, colour palette, lighting and three-quarter angle. The references only show the style; "
-        "do not copy their objects.\n"
-        "Show the whole object, centred, filling about 80% of the canvas. Nothing else: no people, no hands, "
-        "no floor, no cast shadow, no scenery. No text, labels or logos unless the description asks for them.\n"
-        f"Background: perfectly flat {color_name} across the whole canvas, with no gradient or texture, and do "
-        "not use that colour anywhere on the object."
+        f"Draw ONE object for a YouTube explainer graphic: {desc}.\n\n"
+        f"The {len(refs)} attached images are illustrations from this channel. Draw the new object so it looks "
+        "like it came from the same illustrator and the same print run: same rendering technique, texture, "
+        "grain, colour palette, level of detail, lighting and viewing angle. They show the style only; do not "
+        "copy their objects.\n\n"
+        f"House style for illustrations:\n{_style_text(theme)}\n\n"
+        "Never: glossy or shiny surfaces, specular highlights, reflections, chrome, 3D render / CGI look, "
+        "photorealism, bevels, lens blur, emoji or stock-icon look.\n"
+        "Composition: the whole object, centred, about 75% of the canvas. Nothing else in the picture: no "
+        "people, hands, floor, ground, podium, pedestal, platform, cast shadow or scenery. No text unless the "
+        "description asks for it; any text that is asked for must be spelled exactly.\n"
+        f"Background: perfectly flat {color_name} edge to edge, no gradient, no texture, no grain on the "
+        "background. Do not use that colour anywhere on the object."
     )
+    if feedback:
+        prompt += f"\n\nA previous attempt was rejected by the art director: {feedback}\nFix exactly that."
     parts: list[dict] = [{"text": prompt}]
-    for mime, raw in _style_refs(theme):
+    for mime, raw in refs:
         parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(raw).decode()}})
     body = {
         "contents": [{"parts": parts}],
@@ -219,34 +269,55 @@ def gemini_image(theme: str, desc: str, *, timeout: float = 120.0) -> bytes:
     raise RuntimeError(f"no Gemini image model available ({last})")
 
 
-def cut_out(raw: bytes, key_rgb: tuple[int, int, int] = (0, 255, 0), max_side: int = 1024) -> bytes:
-    """Remove a flat key-colour background (sampled from the corners), despill edges, crop, return PNG."""
+def cut_out(raw: bytes, key_rgb: tuple[int, int, int] = (255, 0, 255), max_side: int = 1024) -> bytes:
+    """Remove the key-colour background by hue (any shade of it, not just the exact colour): everything
+    connected to the border plus large enclosed pockets. Desaturates the fringe, crops, returns RGBA PNG."""
     import numpy as np
-    from PIL import Image, ImageFilter
+    from PIL import Image, ImageDraw, ImageFilter
 
     im = Image.open(io.BytesIO(raw)).convert("RGB")
-    a = np.asarray(im).astype(np.int16)
-    h, w, _ = a.shape
+    w, h = im.size
+    hsv = np.asarray(im.convert("HSV")).astype(np.int16)
+    H, S, V = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     k = max(4, min(h, w) // 40)
-    corners = np.concatenate([a[:k, :k].reshape(-1, 3), a[:k, -k:].reshape(-1, 3),
-                              a[-k:, :k].reshape(-1, 3), a[-k:, -k:].reshape(-1, 3)])
-    bg = np.median(corners, axis=0)
-    if np.abs(bg - np.array(key_rgb)).max() > 90:  # model ignored the key colour: fall back to the corners
-        key_rgb = tuple(int(x) for x in bg)
-    dist = np.sqrt(((a - np.array(key_rgb)) ** 2).sum(axis=2))
-    alpha = np.clip((dist - 60) / 80, 0, 1)  # soft edge between ~60 and ~140 away from the key colour
-    rgb = a.copy()
-    # despill: pull the key channel(s) down on semi-transparent / edge pixels
-    if key_rgb == (0, 255, 0):
-        rgb[..., 1] = np.minimum(rgb[..., 1], np.maximum(rgb[..., 0], rgb[..., 2]) + 10)
-    elif key_rgb == (255, 0, 255):
-        g = rgb[..., 1] + 10
-        rgb[..., 0] = np.minimum(rgb[..., 0], g + 40)
-        rgb[..., 2] = np.minimum(rgb[..., 2], g + 40)
-    edge = alpha < 1
-    a2 = np.where(edge[..., None], rgb, a)
-    out = Image.fromarray(np.dstack([a2.clip(0, 255), (alpha * 255)]).astype("uint8"), "RGBA")
-    out.putalpha(out.getchannel("A").filter(ImageFilter.GaussianBlur(0.6)))
+    corner = np.concatenate([hsv[:k, :k].reshape(-1, 3), hsv[:k, -k:].reshape(-1, 3),
+                             hsv[-k:, :k].reshape(-1, 3), hsv[-k:, -k:].reshape(-1, 3)])
+    key_h = int(np.asarray(Image.new("RGB", (1, 1), key_rgb).convert("HSV"))[0, 0, 0])
+    c_h, c_s = int(np.median(corner[:, 0])), int(np.median(corner[:, 1]))
+    if c_s > 100:  # trust the actual background hue if it's saturated (model drifted from the exact key)
+        key_h = c_h
+    dh = np.abs(H - key_h)
+    dh = np.minimum(dh, 256 - dh)
+    keyish = (dh < 24) & (S > 90) & (V > 60)
+
+    m = Image.fromarray((keyish * 255).astype("uint8"), "L")
+    draw = ImageDraw.Draw(m)
+    arr = np.asarray(m)
+    for x, y in [(x, 0) for x in range(0, w, 8)] + [(x, h - 1) for x in range(0, w, 8)] + \
+                [(0, y) for y in range(0, h, 8)] + [(w - 1, y) for y in range(0, h, 8)]:
+        if m.getpixel((x, y)) == 255:
+            ImageDraw.floodfill(m, (x, y), 128)
+    # enclosed pockets of key colour (gaps between parts) larger than 0.2% of the image
+    arr = np.array(m)
+    for _ in range(200):
+        left = np.argwhere(arr == 255)
+        if not len(left):
+            break
+        y, x = left[0]
+        ImageDraw.floodfill(m, (int(x), int(y)), 64)
+        arr2 = np.array(m)
+        region = (arr2 == 64)
+        arr2[region] = 128 if region.sum() > 0.002 * w * h else 0
+        m = Image.fromarray(arr2, "L")
+        arr = arr2
+    bg = (np.asarray(m) == 128)
+    soft = np.asarray(Image.fromarray((bg * 255).astype("uint8"), "L").filter(ImageFilter.GaussianBlur(1.2)))
+    alpha = np.where(bg, 0, 255 - soft).astype(np.uint8)
+    fringe = (alpha < 250) & (alpha > 0) | ((dh < 30) & (S > 60) & ~bg)
+    hsv2 = hsv.copy()
+    hsv2[..., 1] = np.where(fringe, hsv2[..., 1] // 4, hsv2[..., 1])
+    rgb = np.asarray(Image.fromarray(hsv2.astype("uint8"), "HSV").convert("RGB"))
+    out = Image.fromarray(np.dstack([rgb, alpha]), "RGBA")
     bbox = out.getchannel("A").point(lambda v: 255 if v > 24 else 0).getbbox()
     if not bbox:
         raise RuntimeError("cut-out left nothing (object matched the background colour)")
@@ -256,6 +327,34 @@ def cut_out(raw: bytes, key_rgb: tuple[int, int, int] = (0, 255, 0), max_side: i
     buf = io.BytesIO()
     out.save(buf, "PNG", optimize=True)
     return buf.getvalue()
+
+
+def leftover_key(png: bytes) -> float:
+    """Share of visible pixels that are still strongly magenta/green (a failed cut-out)."""
+    import numpy as np
+    from PIL import Image
+
+    im = Image.open(io.BytesIO(png)).convert("RGBA")
+    a = np.asarray(im)
+    vis = a[..., 3] > 128
+    if not vis.any():
+        return 1.0
+    hsv = np.asarray(im.convert("RGB").convert("HSV")).astype(np.int16)
+    H, S, V = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    mag = (np.minimum(np.abs(H - 213), 256 - np.abs(H - 213)) < 16) & (S > 170) & (V > 150)
+    grn = (np.abs(H - 85) < 14) & (S > 200) & (V > 200)
+    return float(((mag | grn) & vis).sum() / vis.sum())
+
+
+def review(theme: str, desc: str, png: bytes) -> dict:
+    """Claude as art director: does the candidate match the kit's illustrations? {"ok", "problems"}."""
+    import claude_client
+
+    if leftover_key(png) > 0.03:
+        return {"ok": False, "problems": "background colour left on the object (a coloured patch or base); "
+                "draw the object alone with nothing under it"}
+    refs = [_on_cream(p.read_bytes(), 480) for p in _ref_paths(theme, 4)]
+    return claude_client.review_asset(THEMES / theme, desc, _on_cream(png, 640), refs, _style_text(theme))
 
 
 # ------------------------------------------------------------------ Claude SVG fallback
@@ -299,58 +398,119 @@ def todo_descriptions(spec: dict) -> list[str]:
     return found
 
 
-def _replace(o, mapping: dict[str, str]):
-    if isinstance(o, dict):
-        return {k: _replace(v, mapping) for k, v in o.items()}
-    if isinstance(o, list):
-        return [_replace(v, mapping) for v in o]
-    if isinstance(o, str):
-        m = TODO_RE.match(o)
-        if m and m.group(1) in mapping:
-            return mapping[m.group(1)]
-    return o
 
 
-def make_one(theme: str, desc: str) -> tuple[str, str]:
-    """(path, source) for one description: library → Gemini → Claude SVG. Raises if all fail."""
-    hit = lookup(theme, desc)
-    if hit:
-        return hit, "library"
+def _qa_on() -> bool:
+    return os.environ.get("STUDIO_ASSET_QA", "1") != "0"
+
+
+def make_one(theme: str, desc: str, force: bool = False) -> tuple[str, str, str]:
+    """(path, source, note) for one description: library → Gemini (+ Claude style check, one retry)
+    → Claude SVG. Raises if all fail."""
+    if not force:
+        hit = lookup(theme, desc)
+        if hit:
+            return hit, "library", ""
     errors = []
     if gemini_key():
         try:
-            return store(theme, desc, gemini_image(theme, desc), "png", "gemini"), "gemini"
+            feedback, png, note = "", None, ""
+            for attempt in range(int(os.environ.get("STUDIO_ASSET_ATTEMPTS", "2"))):
+                png = gemini_image(theme, desc, feedback)
+                if not _qa_on():
+                    break
+                try:
+                    verdict = review(theme, desc, png)
+                except Exception as e:  # style check unavailable: keep the image
+                    note = f"style check skipped ({str(e)[:80]})"
+                    break
+                if verdict.get("ok"):
+                    note = ""
+                    break
+                feedback = verdict.get("problems") or "does not match the reference style"
+                note = f"style check: {feedback}"
+            return store(theme, desc, png, "png", "gemini"), "gemini", note
         except Exception as e:
             errors.append(f"gemini: {e}")
     try:
-        return store(theme, desc, claude_svg(theme, desc), "svg", "claude-svg"), "claude-svg"
+        return store(theme, desc, claude_svg(theme, desc), "svg", "claude-svg"), "claude-svg", ""
     except Exception as e:
         errors.append(f"claude: {e}")
     raise RuntimeError("; ".join(errors))
 
 
-def fill_spec(theme: str, spec: dict, log: Callable[[str], None] | None = None) -> tuple[dict, dict]:
-    """Replace every TODO asset in spec. Returns (spec, report). Never raises; failures keep the placeholder."""
+def generated_paths(spec: dict) -> list[str]:
+    out: list[str] = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+        elif isinstance(o, str) and o.startswith(f"{GEN_DIR}/") and o not in out:
+            out.append(o)
+    walk((spec or {}).get("frames") or [])
+    return out
+
+
+def _desc_for(theme: str, path: str) -> str | None:
+    try:
+        with _db() as c:
+            _ensure_table(c)
+            row = c.execute("select description from generated_assets where theme=? and filename=?",
+                            (theme, path.split("/", 1)[1])).fetchone()
+        return row.get("description") if row else None
+    except Exception:
+        return None
+
+
+def _replace_values(o, by_desc: dict[str, str], by_value: dict[str, str]):
+    if isinstance(o, dict):
+        return {k: _replace_values(v, by_desc, by_value) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_replace_values(v, by_desc, by_value) for v in o]
+    if isinstance(o, str):
+        if o in by_value:
+            return by_value[o]
+        m = TODO_RE.match(o)
+        if m and m.group(1) in by_desc:
+            return by_desc[m.group(1)]
+    return o
+
+
+def fill_spec(theme: str, spec: dict, log: Callable[[str], None] | None = None,
+              redo: bool = False) -> tuple[dict, dict]:
+    """Replace every TODO asset in spec (redo=True also remakes images generated earlier).
+    Returns (spec, report). Never raises; failures keep what was there."""
     report = {"filled": {}, "failed": {}, "skipped": []}
     if not enabled() or not spec:
         return spec, report
-    descs = todo_descriptions(spec)
-    if not descs:
+    jobs: list[tuple[str, bool, str | None]] = [(d, False, None) for d in todo_descriptions(spec)]
+    if redo:
+        for path in generated_paths(spec):
+            d = _desc_for(theme, path)
+            if d:
+                jobs.append((d, True, path))
+    if not jobs:
         return spec, report
     cap = int(os.environ.get("STUDIO_ASSET_GEN_MAX", "24"))
-    todo, report["skipped"] = descs[:cap], descs[cap:]
+    report["skipped"] = [d for d, _, _ in jobs[cap:]]
+    jobs = jobs[:cap]
     say = log or (lambda m: None)
-    mapping: dict[str, str] = {}
+    by_desc: dict[str, str] = {}
+    by_value: dict[str, str] = {}
     with cf.ThreadPoolExecutor(max_workers=int(os.environ.get("STUDIO_ASSET_GEN_WORKERS", "4"))) as ex:
-        futs = {ex.submit(make_one, theme, d): d for d in todo}
+        futs = {ex.submit(make_one, theme, d, force): (d, old) for d, force, old in jobs}
         for f in cf.as_completed(futs):
-            d = futs[f]
+            d, old = futs[f]
             try:
-                path, source = f.result()
-                mapping[d] = path
-                report["filled"][d] = {"path": path, "source": source}
+                path, source, note = f.result()
+                (by_value.__setitem__(old, path) if old else by_desc.__setitem__(d, path))
+                report["filled"][d] = {"path": path, "source": source, **({"note": note} if note else {})}
             except Exception as e:
                 report["failed"][d] = str(e)[:300]
                 say(f"asset_gen: '{d}' failed ({e})")
-    say(f"asset_gen: filled {len(mapping)}/{len(descs)} placeholder(s)")
-    return {**spec, "frames": _replace(spec.get("frames") or [], mapping)}, report
+    say(f"asset_gen: filled {len(report['filled'])}/{len(jobs)}")
+    return {**spec, "frames": _replace_values(spec.get("frames") or [], by_desc, by_value)}, report

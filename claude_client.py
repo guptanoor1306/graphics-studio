@@ -989,6 +989,54 @@ def draw_asset_svg(theme_dir: pathlib.Path, description: str) -> str:
     return _tool_input(r, SVG_TOOL["name"])["svg"]
 
 
+REVIEW_TOOL = {
+    "name": "submit_verdict",
+    "description": "Pass or reject a generated illustration.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "ok": {"type": "boolean", "description": "true only if it could sit next to the references unnoticed"},
+            "problems": {"type": "string", "description": "if rejected: one or two short, concrete fixes for the illustrator"},
+        },
+        "required": ["ok", "problems"],
+    },
+}
+
+
+def review_asset(theme_dir: pathlib.Path, description: str, candidate_jpg: bytes,
+                 ref_jpgs: list[bytes], style_text: str) -> dict:
+    """Art-director check of one generated asset against the kit's own illustrations."""
+    import base64
+
+    def img(raw):
+        return {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                            "data": base64.standard_b64encode(raw).decode()}}
+    content: list[dict] = []
+    for r in ref_jpgs:
+        content.append(img(r))
+    content.append({"type": "text", "text": f"Above: {len(ref_jpgs)} illustrations from this channel (the reference style)."})
+    content.append(img(candidate_jpg))
+    msg = (
+        f"Above: a NEW illustration generated for: {description}\n\n"
+        f"House style:\n{style_text}\n\n"
+        "You are the art director. Reject it if any of these is true: it would look out of place next to the "
+        "references (glossy, shiny, 3D-render or photoreal where the references are matte, grainy print-style; "
+        "different palette or level of detail); it is not clearly the described object; requested text is "
+        "misspelled or gibberish; there is a leftover coloured background patch, base, floor or shadow; there "
+        "are extra objects. Otherwise pass it. Be strict about style, lenient about small details."
+    )
+    if _tool_choice(REVIEW_TOOL["name"])["type"] == "auto":
+        msg += f"\n\nRespond only by calling the {REVIEW_TOOL['name']} tool."
+    content.append({"type": "text", "text": msg})
+    r = _messages_create(
+        max_tokens=1500,
+        tools=[REVIEW_TOOL],
+        tool_choice=_tool_choice(REVIEW_TOOL["name"]),
+        messages=[{"role": "user", "content": content}],
+    )
+    return _tool_input(r, REVIEW_TOOL["name"])
+
+
 def patch_until_clean(
     theme_dir: pathlib.Path,
     out: dict,
