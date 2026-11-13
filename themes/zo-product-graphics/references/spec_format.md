@@ -4,7 +4,7 @@
 {"look": {"plate": "anchor_plate_name"}, "frames": [ {"id": "6a", "mode": "fss", "items": [ … ]}, {"id": "2", "mode": "ost", "items": [ … ]} ]}
 ```
 - `id`: graphic number, with a/b/c for build states of the same frame (`"6a"`, `"6b"`). It becomes the PNG name.
-- `mode`: `"fss"` (default) full-screen white grid, content zone x 120–1800, y 60–1020 · `"osa" | "ost" | "tos"` anchor shot (dark plate + text zone from `look.plate` or frame `plate`). TOS adds `title` (+ optional `title_y`, `title_size`).
+- `mode`: `"fss"` (default) full-screen white grid, content zone x 210–1710, y 60–1010 · `"osa" | "ost" | "tos"` anchor shot (dark plate + text zone from `look.plate` or frame `plate`). TOS adds `title`, drawn as a big title + underline beside the presenter on a side plate (m2_right default); `tos_style:"behind"` (+ `title_y`, `title_size`) brings back the old title-behind-the-cut-out.
 - `zone`: override the zone, e.g. `{"x":120,"y":60,"w":1680,"h":960,"valign":"center"}`.
 - `gap`: px between stacked items (default 40). `decor:false` hides sparkles.
 - **Auto-fit:** `heading` items stay 72px. Everything else is scaled to fill the frame, up to `fit` (default 1.6) and down to 0.55 if it overflows. `"fit": false` turns this off. Design at natural size and let fit scale it. If a WARN says "content shrunk to 0.7…", split the frame or cut text.

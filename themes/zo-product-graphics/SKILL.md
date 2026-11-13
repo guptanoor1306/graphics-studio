@@ -12,6 +12,8 @@ Learned from three shipped videos: **Devolvement** (MCX options → futures), **
 - a black hand-drawn loop doodle (often just left of the heading/hero) · two solid rounded triangles (purple / green / orange / yellow) · a grey 4-point star · an orange dash on the left and a short green dash on the right.
 - Optional: a soft grey blob behind a hero (`bigphrase` has one; frame `blob:{x,y,w,h}` elsewhere) or a pale yellow glow circle behind title text (`qtitle` has one; frame `glow:{x,y,d}`).
 
+**Keywords in coloured shapes:** inside steps, pills, notes, yellow boxes and bars a marked keyword just goes bold in the shape's text colour — don't rely on colour there (a green keyword on a green step disappears).
+
 **Type:** Inter, weights 400/500/600/700 only. Heading 72px semibold, dark ink, **≤6 words, ONE coloured keyword or number** (`++blue++` or `{o:orange}`). Optional yellow underline bar under short centred headings only (`underline:true`). Labels ≥34px, nothing under 26px.
 
 **Colours:** blue #387FD1 · orange #F07339 · yellow #FEC02D · green #4DAB4D · purple #A77BF3 · table highlight #FFD064 · loss rows #FDE6E6 with #D23C3C text · interest/cost notes #FDE3D6 with #C4521F text. Pick 2–3 colours per frame. **Same thing = same colour across a video** (e.g. "you pay" yellow, "Zerodha funds" blue, interest blue, brokerage yellow).
@@ -66,9 +68,30 @@ Learned from the SB for *Why do stock prices move every second* (V4) and the PSD
 Split the script into beats (1–3 sentences = one idea).
 
 ### FSS — designed full-screen graphic (the only thing you render)
-Use FSS only when the visual **needs the whole frame or is a thing to look at**:
+Use FSS only when the visual **needs the whole frame or is a thing to look at**. **Pick a v2 recipe first** — they are the current house style; use an older component only for Kite/market UI, price charts, illustrated analogies or when no v2 recipe fits the beat:
 | Beat | FSS component | Seen in |
 |---|---|---|
+| **v2 recipes — use these first** (Family Portfolio · Life Cycle Fund · MTF · Charges) | | |
+| Title / acronym card ("MTF stands for…") | `acronym` (kicker + yellow ink-bordered box, initials bold) | MTF |
+| Question title ("1. Do I understand…") | `qtitle` (240px number, key phrase blue, pale glow, green dash) — one template for the whole series | MTF |
+| Numbered 2–4 steps | `steps` (blue / orange / yellow stickers, straight) | 3 steps |
+| Slab / schedule table | `heading` + `slab_table` (window dots, `hl` row yellow, `loss` rows red, `subs` under headers; ≤5 cols × 6 rows) | Exit load, Life Cycle Fund |
+| Split / funding bar ("you pay / Zerodha funds") | `split_bar` (stock row + tag → two-colour bar → icons + labels → bracket + total; optional interest tag) | MTF |
+| Cost comparison over time | `cost_compare` (one row per option, stacked bars scaled to the max, total at the end, "Lower" tag, legend) | MTF, Charges |
+| Up vs down outcome | `updown` (green bars rising left, orange bars hanging right) | MTF |
+| One % stat | `donut` (+ caption) | Family portfolio |
+| Allocation % | `heading` (underline) + `pie` (must sum to 100) | Asset allocation |
+| One number to remember | `fbox` (blue hero card, "before" values faded with an orange strike) or `bigphrase` (huge blue number over a blob) | 30/500, 10 Family members |
+| People / holders | `people` (line-face cards: `svg:man/woman/child/elder`) | Minor account |
+| Category / list of items | `catgrid` (2×2 white cards, coloured bottom shadow, icon circle) | Charges |
+| Checklist of charges / documents | `checklist` (blue tick rows in a window card, illustration left) | Minor account |
+| Decision options | `options` (source card → arrow → 2×2 numbered boxes) | MTF |
+| Build list ("Will you…") | `buildlist` (active item big with blue chevron, others faded) | MTF |
+| Recap ("five things") | `recap` (numbered badges in the 5 house colours) | MTF |
+| Options / categories as pills | `pills` (active colour, next yellow, rest faded) | Fundamentals / GTT |
+| Things over time | `timeline` (axis + folders + captions) | Life Cycle Fund |
+| Big phrase | `bigphrase` | Family members |
+| **Older components — only when no v2 recipe fits** (Kite UI, charts, analogies, V1–V3 patterns) | | |
 | Surprising account state / positions | `positions` (Kite-like cards + status chips) | V1 #2, #7 |
 | Directional rule (above/below a price) | `chart` with strike, zone, arrow | V1 #6 |
 | Worked example with the script's numbers | `chart` + `positions`, or `compare` with equations under objects | V1 #7, V2 6a–6c |
@@ -90,29 +113,8 @@ Use FSS only when the visual **needs the whole frame or is a thing to look at**:
 | Order book / bids vs offers / why a trade happens | `kite_depth` (+ status tags per row) | V4 #4 |
 | Buyers vs sellers meeting on a price (auction) | `auction` (matched or not) | V4 #3 |
 | Every tick is a trade / price history | `kite_chart` with tick dots | V4 #10 |
-| **v2 recipes** (Family Portfolio · Life Cycle Fund · MTF · Charges) | | |
-| Title / acronym card ("MTF stands for…") | `acronym` (kicker + yellow ink-bordered box, initials bold) | MTF |
-| Question title ("1. Do I understand…") | `qtitle` (240px number, key phrase blue, pale glow, green dash) — one template for the whole series | MTF |
-| Numbered 2–4 steps | `steps` (blue / orange / yellow stickers, straight) | 3 steps |
-| Slab / schedule table | `heading` + `slab_table` (window dots, `hl` row yellow, `loss` rows red, `subs` under headers; ≤5 cols × 6 rows) | Exit load, Life Cycle Fund |
-| Split / funding bar ("you pay / Zerodha funds") | `split_bar` (stock row + tag → two-colour bar → icons + labels → bracket + total; optional interest tag) | MTF |
-| Cost comparison over time | `cost_compare` (one row per option, stacked bars scaled to the max, total at the end, "Lower" tag, legend) | MTF, Charges |
-| Up vs down outcome | `updown` (green bars rising left, orange bars hanging right) | MTF |
-| One % stat | `donut` (+ caption) | Family portfolio |
-| Allocation % | `heading` (underline) + `pie` (must sum to 100) | Asset allocation |
-| One number to remember | `fbox` (blue hero card, "before" values faded with an orange strike) or `bigphrase` (huge blue number over a blob) | 30/500, 10 Family members |
-| People / holders | `people` (line-face cards: `svg:man/woman/child/elder`) | Minor account |
-| Category / list of items | `catgrid` (2×2 white cards, coloured bottom shadow, icon circle) | Charges |
-| Checklist of charges / documents | `checklist` (blue tick rows in a window card, illustration left) | Minor account |
-| Decision options | `options` (source card → arrow → 2×2 numbered boxes) | MTF |
-| Build list ("Will you…") | `buildlist` (active item big with blue chevron, others faded) | MTF |
-| Recap ("five things") | `recap` (numbered badges in the 5 house colours) | MTF |
-| Options / categories as pills | `pills` (active colour, next yellow, rest faded) | Fundamentals / GTT |
-| Things over time | `timeline` (axis + folders + captions) | Life Cycle Fund |
-| Big phrase | `bigphrase` | Family members |
-
 ### OSA / OST / TOS — anchor graphics (render with plate)
-Over-the-presenter moments → spec frame with `mode: "osa" | "ost" | "tos"` and anchor items (`lower`, `punch`, `bignum`, `scroll_list`, …). TOS once per video max: `title` behind the cut-out.
+Over-the-presenter moments → spec frame with `mode: "osa" | "ost" | "tos"` and anchor items (`lower`, `punch`, `bignum`, `scroll_list`, …). TOS once per video max: give the frame a `title` (≤3 words, `**yellow**` keyword) — it renders beside the presenter on a side plate (`m2_right` by default, `m2_left` to put text right), never across the face. The old title-behind-the-cut-out look is opt-in with `tos_style:"behind"`; don't use it unless the storyboard asks.
 Storyboard: `~0:08 – OST – pop-up callout … → 2`. Use the video's anchor **plate** in `look.plate`.
 
 ### Screen capture — not designed, not rendered

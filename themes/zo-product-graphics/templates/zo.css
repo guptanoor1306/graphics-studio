@@ -416,7 +416,7 @@ table.v2-t{border-collapse:collapse;width:100%;font-size:36px;color:var(--ink)}
 .v2-pill{display:inline-block;border-radius:999px;padding:18px 54px;font-size:56px;font-weight:500;color:#fff;white-space:nowrap}
 .v2-pill.blue{background:var(--blue)}.v2-pill.orange{background:var(--orange)}.v2-pill.yellow{background:var(--yellow);color:var(--ink)}
 .v2-pill.green{background:var(--green)}.v2-pill.purple{background:var(--purple)}.v2-pill.ink{background:var(--ink)}.v2-pill.faded{opacity:.45}
-.v2-pill.ghost{background:#DCE7F7;color:#fff}
+.v2-pill.ghost{background:#E6ECF7;color:#8496BC}
 /* timeline */
 .v2-tl{position:relative;width:1500px;height:330px}
 .v2-tl .axis{position:absolute;left:0;right:0;top:150px;height:4px;background:var(--ink);border-radius:4px}
@@ -458,3 +458,10 @@ table.v2-t{border-collapse:collapse;width:100%;font-size:36px;color:var(--ink)}
 .v2-rel .pl{text-shadow:none;border-radius:999px;padding:14px 40px;font-size:48px;font-weight:600;background:#fff;color:var(--ink);white-space:nowrap}
 .v2-rel .pl.o{background:var(--orange);color:#fff}
 .v2-rel .nt{font-size:48px;font-weight:500}
+
+/* keywords inside coloured shapes keep the shape's text colour and go bold (a green keyword on a green step vanished) */
+.v2-step .k-y,.v2-step .k-b,.v2-step .k-g,.v2-step .k-o,.v2-pill .k-y,.v2-pill .k-b,.v2-pill .k-g,.v2-pill .k-o,
+.pillv .k-y,.pillv .k-b,.pillv .k-g,.pillv .k-o,.bigpill .k-y,.bigpill .k-b,.bigpill .k-g,.bigpill .k-o,
+.v2-split .bar .k-y,.v2-split .bar .k-b,.v2-split .bar .k-g,.v2-split .bar .k-o,.note .box .k-y,.note .box .k-b,.note .box .k-g,.note .box .k-o,
+.v2-fbox.hero .k-y,.v2-fbox.hero .k-b,.v2-fbox.hero .k-g,.v2-fbox.hero .k-o,.v2-ybox .k-y,.v2-ybox .k-b,.v2-ybox .k-g,.v2-ybox .k-o,
+.v2-folder .k-y,.v2-folder .k-b,.v2-folder .k-g,.v2-folder .k-o,.v2-rail .pp.on .k-b,.v2-opt .o .bd .k-b{color:inherit;font-weight:700}

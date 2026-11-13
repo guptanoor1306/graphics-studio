@@ -81,3 +81,36 @@ def test_bulletin_diff_catches_a_missing_shape():
     buf_a, buf_b = io.BytesIO(), io.BytesIO(); a.save(buf_a, "PNG"); b.save(buf_b, "PNG")
     assert bulletin._diff(buf_a.getvalue(), buf_b.getvalue()) > 600
     assert bulletin._diff(buf_a.getvalue(), buf_a.getvalue()) == 0
+
+
+def _render(frames):
+    import app, critique
+    spec = {"look": {"plate": "m1_wide_centre"}, "frames": frames}
+    p = {"theme": THEME, "look": spec["look"], "spec": spec}
+    base = (app.THEMES / THEME / "scenes").as_uri() + "/"
+    pages = [(f["id"], app.frame_page(THEME, app.frame_for_render(p, f), app.effective_look(p), base_href=base,
+                                       all_frames=frames, spec=spec), None) for f in frames]
+    return critique.render_frames(pages, app.builder(THEME).CHECK_JS, (1920, 1080))
+
+
+def test_check_flags_text_that_blends_into_its_background():
+    out = _render([{"id": "c", "mode": "fss", "items": [{"t": "heading", "text": "X"},
+                                                        {"t": "text", "text": "Invisible", "color": "#FFFFFF"}]}])
+    assert any("blends into its background" in w for w in out["c"][1])
+
+
+def test_keywords_in_coloured_steps_stay_readable():
+    out = _render([{"id": "s", "mode": "fss", "items": [{"t": "steps", "colors": ["green", "orange"],
+                    "items": ["Buy on the {g:cheaper exchange}", "Sell on the {o:higher-priced exchange}"]}]}])
+    assert not out["s"][1], out["s"][1]
+
+
+def test_tos_title_sits_beside_the_presenter():
+    import app
+    m = app.builder(THEME)
+    f = {"id": "t", "mode": "tos", "title": "NSE or BSE?", "items": []}
+    assert m._resolve_plate(f, {}) == "m2_right"
+    html, *_ = m._render_stage_inner(f, {})
+    assert "v2-ovtitle" in html and "cutout" not in html and 'class="tos' not in html
+    old = {**f, "tos_style": "behind"}
+    assert m._resolve_plate(old, {}) == "m1_tos"

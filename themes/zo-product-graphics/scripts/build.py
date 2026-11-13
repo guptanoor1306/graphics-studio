@@ -32,7 +32,12 @@ def _resolve_plate(f, look):
     if raw in ('', 'default', None):
         raw = 'm1_wide_centre'
     if mode == 'tos':
-        return 'm1_tos' if 'm1_tos' in _PLATE_KEYS else raw
+        # v2: TOS text sits beside the presenter (never across the face). The old title-behind-the-cut-out
+        # look is opt-in with tos_style:"behind".
+        if f.get('tos_style') == 'behind':
+            return 'm1_tos' if 'm1_tos' in _PLATE_KEYS else raw
+        side = ('m2_right', 'm2_left', 'm1_close_left', 'f1_left_circle', 'f1_close_right', 'f1_centre')
+        return raw if raw in side and raw in _PLATE_KEYS else ('m2_right' if 'm2_right' in _PLATE_KEYS else raw)
     types = {it.get('t') for it in (f.get('items') or []) if isinstance(it, dict)}
     if types & _SIDE_PANEL and 'm1_close_left' in _PLATE_KEYS:
         return 'm1_close_left'
@@ -907,14 +912,19 @@ def _render_stage_inner(f, look):
         if p:
             z = dict(p['zone']); z.update(f.get('zone', {}))
             body = 'dark'; plate = f'<img class="plate" src="../assets/plates/{p["file"]}">'
-            cut = f'<img class="cutout" src="../assets/plates/{p["cutout"]}">' if mode == 'tos' and p.get('cutout') else ''
+            cut = (f'<img class="cutout" src="../assets/plates/{p["cutout"]}">'
+                   if mode == 'tos' and f.get('tos_style') == 'behind' and p.get('cutout') else '')
         else:
             z = {'x': 960, 'y': 120, 'w': 880, 'h': 880, 'valign': 'center', 'align': 'left'}
             z.update(f.get('zone', {}))
             body = 'dark'; plate = ''; cut = ''
         decor = anchor_decor(z, f) if f.get('decor', True) is not False else ''
         align = z.get('align', 'center')
-        if mode == 'tos':
+        if mode == 'tos' and f.get('title') and f.get('tos_style') != 'behind':
+            t = f['title']
+            flow_parts.insert(0, ('heading', f'<div class="zo-item" data-zo-t="ov_title">'
+                                             f'{ov_title({"title": t, "size": 150 if len(t) <= 12 else 112, "align": align})}</div>'))
+        elif mode == 'tos':
             t = f.get('title')
             if t:
                 ty = f.get('title_y', (p or {}).get('tos_y', 500))
@@ -964,10 +974,10 @@ FIT_JS = r'''() => {
 }'''
 
 CHECK_JS = r'''() => {
- const W=[], mode=document.body.dataset.mode, face=JSON.parse(document.body.dataset.face||'null');
+ const _st=document.getElementById('stage'); const W=[], mode=(_st&&_st.dataset.mode)||document.body.dataset.mode, face=JSON.parse((_st&&_st.dataset.face)||document.body.dataset.face||'null');
  const els=[...document.querySelectorAll('.z *')].filter(e=>e.children.length===0||e.matches('.obj,.ticket,.note .box,.icard,.pcard,.status,.phone,.notepad,.mtable'));
  const ok=new Set(['rgb(255, 255, 255)','rgb(34, 34, 34)','rgb(66, 66, 66)','rgb(136, 136, 136)','rgb(255, 192, 46)','rgb(73, 147, 233)','rgb(56, 126, 209)',
-   'rgb(129, 187, 255)','rgb(76, 175, 82)','rgb(240, 115, 57)','rgb(155, 123, 234)','rgb(178, 178, 178)','rgb(0, 0, 0)','rgb(29, 34, 40)','rgb(56, 127, 209)','rgb(254, 192, 45)','rgb(77, 171, 77)','rgb(167, 123, 243)','rgb(138, 143, 150)','rgb(91, 97, 104)','rgb(210, 60, 60)','rgb(196, 82, 31)','rgb(227, 237, 249)']);
+   'rgb(129, 187, 255)','rgb(76, 175, 82)','rgb(240, 115, 57)','rgb(155, 123, 234)','rgb(178, 178, 178)','rgb(0, 0, 0)','rgb(29, 34, 40)','rgb(56, 127, 209)','rgb(254, 192, 45)','rgb(77, 171, 77)','rgb(167, 123, 243)','rgb(138, 143, 150)','rgb(91, 97, 104)','rgb(210, 60, 60)','rgb(196, 82, 31)','rgb(227, 237, 249)','rgb(132, 150, 188)']);
  for(const e of els){ const r=e.getBoundingClientRect(); if(!r.width||!r.height) continue;
    const t=(e.innerText||e.className||'').toString().slice(0,40).replace(/\n/g,' ');
    if(r.left<-2||r.top<-2||r.right>1922||r.bottom>1082) W.push(`off-frame: "${t}" (${r.left|0},${r.top|0},${r.right|0},${r.bottom|0})`);
@@ -978,6 +988,13 @@ CHECK_JS = r'''() => {
    if(e.children.length===0 && e.innerText && e.innerText.trim() && eff<25.5 && !e.closest('.phone,.kscreen,.knav,.ktabs,.ktool,.kwin svg')) W.push(`text under 26px: "${t}" (${eff.toFixed(0)}px after fit)`);
    if(e.children.length===0 && e.innerText && e.innerText.trim() && !ok.has(cs.color) && !e.closest('.phone,.kscreen,.kwin,.wpop')) W.push(`off-palette text colour ${cs.color}: "${t}"`);
  }
+ const lum=c=>{const m=c.match(/[\d.]+/g); if(!m) return null; const [r,g,b]=m.slice(0,3).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)}); return .2126*r+.7152*g+.0722*b;};
+ const bgOf=e=>{for(let a=e;a&&a.id!=='stage';a=a.parentElement){const b=getComputedStyle(a).backgroundColor; if(b&&!/rgba\(.*, 0\)$/.test(b)&&b!=='transparent') return b;} return mode==='fss'?'rgb(255, 255, 255)':null;};
+ for(const e of document.querySelectorAll('.z *')){ if(e.children.length||!e.innerText||!e.innerText.trim()) continue;
+   if(e.closest('.v2-pie,.v2-donut,.chartcard,.kwin,.kscreen,.phone,.hubfan,.v2-ud .plot,svg')) continue;  // labels drawn over charts
+   const bg=bgOf(e); if(!bg) continue; const L1=lum(getComputedStyle(e).color), L2=lum(bg); if(L1==null||L2==null) continue;
+   const cr=(Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05);
+   if(cr<1.6) W.push(`text blends into its background (contrast ${cr.toFixed(1)}): "${e.innerText.slice(0,30)}" — use a different keyword colour`); }
  for(const sh of document.querySelectorAll('.between,.hubc,.cal,.bigpill,.pillv,.obj,.icard,.note .box,.fterm')){
    const R=sh.getBoundingClientRect();
    for(const c of sh.querySelectorAll('*')){ if(!c.innerText||!c.innerText.trim()) continue; const r=c.getBoundingClientRect();
