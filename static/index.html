@@ -1095,19 +1095,31 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   const st=await api(`/api/projects/${P.id}/storyboard-pdf`).catch(()=>({has_pdf:false}));
   if(!st.has_pdf){alert('Save a PDF to this project first.');if(btn)btn.disabled=false;return}
   if(finishAll&&!confirm('Generate all remaining frames from the PDF (several batches, may take a few minutes)?')){if(btn)btn.disabled=false;return}
-  const loadMsg=finishAll?'Claude is processing all remaining PDF batches… (may take several minutes)':'Claude is reading the PDF and building the next batch… (1–2 min)';
-  setWorkspaceLoading(true,loadMsg);
+  setWorkspaceLoading(true,finishAll?'Starting PDF batches…':'Claude is reading the PDF and building the next batch… (1–2 min)');
   try{
-    const body={script:getScriptValue(),look:{...getLook(),sb_import:'pdf'},notes:getNotesValue(),batch_size:batchSize,finish_all:finishAll};
-    const r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(body)});
-    P=r;P.look=normLook(P.look);
-    const added=r.frames_added??0;
-    frameVer={};
-    if(!selectedFrameId&&P.spec?.frames?.length)selectedFrameId=studioFrames()[0]?.id;
-    render();list();
-    let msg=`Added ${added} frame(s).`;
-    if(r.pdf_progress)msg+=`\n\nProgress: ${r.pdf_progress}`;
+    const baseBody={script:getScriptValue(),look:{...getLook(),sb_import:'pdf'},notes:getNotesValue(),batch_size:batchSize,finish_all:false};
+    let totalAdded=0;
+    let last=null;
+    const maxRounds=finishAll?48:1;
+    for(let round=0;round<maxRounds;round++){
+      if(finishAll)setWorkspaceLoading(true,`PDF batch ${round+1}… (${totalAdded} frame(s) added this run)`);
+      const r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(baseBody)});
+      last=r;
+      const added=r.frames_added??0;
+      totalAdded+=added;
+      P=r;P.look=normLook(P.look);
+      frameVer={};
+      if(!selectedFrameId&&P.spec?.frames?.length)selectedFrameId=studioFrames()[0]?.id;
+      render();list();
+      if(!added)break;
+    }
+    const added=finishAll?totalAdded:(last?.frames_added??0);
+    let msg=finishAll?`Added ${added} frame(s) in this run.`:`Added ${added} frame(s).`;
+    if(last?.pdf_progress)msg+=`\n\nProgress: ${last.pdf_progress}`;
     if(P.spec_warnings?.length)msg+='\n\nQuality notes:\n'+P.spec_warnings.join('\n');
+    if(finishAll&&totalAdded===0){
+      msg=last?.pdf_progress||'No more graphic frames to add from this PDF.';
+    }
     alert(msg);
   }catch(e){alert(e.message)}finally{if(btn)btn.disabled=false;setWorkspaceLoading(false)}
 }
@@ -2428,9 +2440,15 @@ async function exp(){
  setWorkspaceLoading(true,'Starting export…');
  try{
   const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=1`,{method:'POST',body:'{}'});
+  let pollHost=null;
   await waitExportJob(P.id,jobId,(st,n)=>{
+   if(pollHost&&st.host&&st.host!==pollHost)console.warn('[export] poll hit a different server host — job may 404; use one Railway replica or retry.');
+   pollHost=st.host||pollHost;
    const hint=st.frames?` (${st.frames} frames)`:'';
-   setWorkspaceLoading(true,`Rendering export${hint}… ${n?Math.round(n*2/60)+' min':''}`);
+   const load=st.status==='queued'
+    ?`Export queued${hint}…${st.exports_running?` (${st.exports_running} ahead)`:''}`
+    :`Rendering export${hint}… ${n?Math.round(n*2/60)+' min':''}`;
+   setWorkspaceLoading(true,load);
   });
   const r=await fetch(`/api/projects/${P.id}/export/jobs/${jobId}/file`,{cache:'no-store'});
   await downloadExportResponse(r,(P.name||'frames').replace(/\s+/g,'_')+'_frames.zip');

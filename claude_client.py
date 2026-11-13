@@ -945,6 +945,9 @@ def storyboard_pdf_batch(
     episode_transcript: dict | None = None,
 ) -> dict:
     """Read human SB PDF; return next batch of frames (+ storyboard on first batch)."""
+    from storyboard_pdf import raster_pages
+
+    page_images = raster_pages(pdf_bytes)
     if finish_all:
         return _storyboard_pdf_finish_all(
             theme_dir,
@@ -956,6 +959,7 @@ def storyboard_pdf_batch(
             existing_spec=existing_spec,
             existing_storyboard=existing_storyboard,
             episode_transcript=episode_transcript,
+            page_images=page_images,
         )
     return _storyboard_pdf_batch_once(
         theme_dir,
@@ -967,6 +971,7 @@ def storyboard_pdf_batch(
         existing_spec=existing_spec,
         existing_storyboard=existing_storyboard,
         episode_transcript=episode_transcript,
+        page_images=page_images,
     )
 
 
@@ -981,6 +986,7 @@ def _storyboard_pdf_finish_all(
     existing_spec: dict | None,
     existing_storyboard: str,
     episode_transcript: dict | None,
+    page_images: list | None = None,
 ) -> dict:
     """Run repeated PDF batches (each non-streaming-safe) until no new frames."""
     working_spec = dict(existing_spec or {})
@@ -1000,6 +1006,7 @@ def _storyboard_pdf_finish_all(
             existing_spec=working_spec,
             existing_storyboard=storyboard,
             episode_transcript=episode_transcript,
+            page_images=page_images,
         )
         raw_total += out.get("raw_frame_count", 0)
         added = int(out.get("frames_added") or 0)
@@ -1038,6 +1045,7 @@ def _storyboard_pdf_batch_once(
     existing_spec: dict | None = None,
     existing_storyboard: str = "",
     episode_transcript: dict | None = None,
+    page_images: list | None = None,
 ) -> dict:
     """Single Claude call for the next PDF graphics batch."""
     from storyboard_pdf import raster_pages
@@ -1047,7 +1055,8 @@ def _storyboard_pdf_batch_once(
     done_ids = [f["id"] for f in existing_frames if isinstance(f, dict) and f.get("id")]
     first_batch = not done_ids
     batch_size = max(1, min(10, int(batch_size)))
-    page_images = raster_pages(pdf_bytes)
+    if page_images is None:
+        page_images = raster_pages(pdf_bytes)
     max_tokens = _MAX_TOKENS_NONSTREAM
     rules = _pdf_batch_rules(theme_dir, look)
     if first_batch:

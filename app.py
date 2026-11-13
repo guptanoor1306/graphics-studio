@@ -36,6 +36,16 @@ _EXPORT_JOB_DIR = pathlib.Path(tempfile.gettempdir()) / "graphics_studio_exports
 _EXPORT_JOB_DIR.mkdir(parents=True, exist_ok=True)
 _EXPORT_JOBS: dict[str, dict] = {}
 _EXPORT_JOB_LOCK = threading.Lock()
+_EXPORT_RENDER_SLOTS = threading.Semaphore(
+    max(1, int(os.environ.get("EXPORT_MAX_CONCURRENT", "1")))
+)
+
+
+def _export_load_snapshot() -> tuple[int, int]:
+    with _EXPORT_JOB_LOCK:
+        queued = sum(1 for j in _EXPORT_JOBS.values() if j.get("status") == "queued")
+        running = sum(1 for j in _EXPORT_JOBS.values() if j.get("status") == "running")
+    return queued, running
 def preview_base() -> str:
     """Loopback URL for Playwright inside this container (Render sets PORT, not 8000)."""
     port = os.environ.get("PORT", "8000")
@@ -442,10 +452,13 @@ def status():
     import socket
     with connect() as c:
         n = c.execute("select count(*) as n from projects").fetchone()["n"]
+    eq, er = _export_load_snapshot()
     out = {
         "project_count": n,
         "backend": backend(),
         "host": socket.gethostname(),
+        "export_queued": eq,
+        "export_running": er,
         "studio_ui": os.environ.get("RAILWAY_GIT_COMMIT_SHA")
         or os.environ.get("GIT_COMMIT")
         or str(int((ROOT / "static" / "index.html").stat().st_mtime)),
@@ -699,6 +712,14 @@ async def storyboard_pdf_batch_route(pid: int, req: Request):
         _raise_claude_gateway(e)
     if not out.get("frames_added"):
         raw = out.get("raw_frame_count", 0)
+        existing_n = len((p.get("spec") or {}).get("frames") or [])
+        if not raw and existing_n:
+            return {
+                **load(pid),
+                "pdf_progress": out.get("pdf_progress") or "No more graphic frames in the PDF.",
+                "frames_added": 0,
+                "spec_warnings": [],
+            }
         if raw:
             detail = (
                 "Claude returned frames but none could be merged (missing ids or duplicates). "
@@ -1182,7 +1203,7 @@ def export_start_job(pid: int, png: int = 1, only: str = ""):
     with _EXPORT_JOB_LOCK:
         _EXPORT_JOBS[job_id] = {
             "pid": pid,
-            "status": "running",
+            "status": "queued",
             "path": None,
             "filename": fn,
             "error": None,
@@ -1192,6 +1213,11 @@ def export_start_job(pid: int, png: int = 1, only: str = ""):
 
     def work() -> None:
         try:
+            _EXPORT_RENDER_SLOTS.acquire()
+            with _EXPORT_JOB_LOCK:
+                st = _EXPORT_JOBS.get(job_id)
+                if st:
+                    st["status"] = "running"
             outfile = _export_build_zip(p, png, only, dest)
             with _EXPORT_JOB_LOCK:
                 st = _EXPORT_JOBS.get(job_id)
@@ -1212,6 +1238,8 @@ def export_start_job(pid: int, png: int = 1, only: str = ""):
                     st["status"] = "error"
                     st["error"] = str(e)
                     st["t"] = time.time()
+        finally:
+            _EXPORT_RENDER_SLOTS.release()
 
     threading.Thread(target=work, daemon=True).start()
     return {"job_id": job_id}
@@ -1223,10 +1251,16 @@ def export_job_status(pid: int, job_id: str):
         job = _EXPORT_JOBS.get(job_id)
     if not job or job.get("pid") != pid:
         raise HTTPException(404, "Export job not found")
+    eq, er = _export_load_snapshot()
+    import socket
+
     return {
         "status": job["status"],
         "error": job.get("error"),
         "frames": job.get("frames"),
+        "host": socket.gethostname(),
+        "exports_queued": eq,
+        "exports_running": er,
     }
 
 
