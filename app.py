@@ -757,6 +757,7 @@ async def storyboard_pdf_batch_route(pid: int, req: Request):
         **load(pid),
         "pdf_progress": out.get("pdf_progress"),
         "frames_added": out.get("frames_added"),
+        "frames_dropped": out.get("frames_dropped") or 0,
         "spec_warnings": warn,
     }
 

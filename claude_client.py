@@ -291,8 +291,8 @@ MF_SB_TOOL = {
 GRAPHIC_BATCH_TOOL = {
     "name": "submit_graphic_batch",
     "description": (
-        "From a human storyboard PDF: normalized storyboard text (first batch) and the next batch of "
-        "renderable spec frames only. Skip footage, screen, and repeat beats."
+        "From a human storyboard PDF: the NEXT small batch of renderable spec frames only (caller sets max count). "
+        "Never return more frames than requested in one call. Skip footage, screen, and repeat beats."
     ),
     "input_schema": {
         "type": "object",
@@ -912,6 +912,25 @@ def _normalize_pdf_batch_out(out: dict) -> dict:
     return out
 
 
+def _cap_new_pdf_frames(
+    frames: list, done_ids: set[str] | list[str], batch_size: int
+) -> tuple[list[dict], int, int]:
+    """Keep only new ids, hard-cap to batch_size (Claude often over-fills `frames`)."""
+    done = set(done_ids)
+    new: list[dict] = []
+    for fr in frames:
+        if not isinstance(fr, dict):
+            continue
+        fid = str(fr.get("id") or "").strip()
+        if not fid or fid in done:
+            continue
+        new.append(fr)
+        done.add(fid)
+    dropped = max(0, len(new) - batch_size)
+    capped = new[:batch_size]
+    return capped, len(capped), dropped
+
+
 def _ensure_frame_ids(frames: list, occupied: set[str]) -> list[dict]:
     cleaned: list[dict] = []
     n = 1
@@ -1062,13 +1081,13 @@ def _storyboard_pdf_batch_once(
     rules = _pdf_batch_rules(theme_dir, look)
     if first_batch:
         batch_line = (
-            f"BATCH: Generate exactly up to {batch_size} renderable graphic frames from the START of the PDF "
-            "(in story/time order)."
+            f"BATCH: Return **at most {batch_size}** renderable graphic frames from the START of the PDF "
+            f"(in story/time order). The `frames` array must contain **no more than {batch_size}** objects."
         )
     else:
         batch_line = (
-            f"BATCH: Generate the NEXT up to {batch_size} renderable graphic frames after the last generated id, "
-            "in PDF order."
+            f"BATCH: Return **at most {batch_size}** NEW renderable frames after the last generated id. "
+            f"The `frames` array must contain **no more than {batch_size}** objects."
         )
     if first_batch:
         msg = (
@@ -1113,14 +1132,14 @@ def _storyboard_pdf_batch_once(
         )
         out = _normalize_pdf_batch_out(_call(retry))
         frames = _ensure_frame_ids(out.get("frames") or [], set(done_ids))
-    seen = set(done_ids)
-    added = sum(1 for fr in frames if fr.get("id") not in seen)
+    capped, added, dropped = _cap_new_pdf_frames(frames, set(done_ids), batch_size)
     return {
         "storyboard": out.get("storyboard") or "",
-        "frames": frames,
+        "frames": capped,
         "spec_meta": out.get("spec_meta") or {},
         "pdf_progress": out.get("pdf_progress") or "",
         "frames_added": added,
+        "frames_dropped": dropped,
         "raw_frame_count": len(out.get("frames") or []),
     }
 

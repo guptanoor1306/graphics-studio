@@ -1148,6 +1148,8 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
     }
     const added=finishAll?totalAdded:(last?.frames_added??0);
     let msg=finishAll?`Added ${added} frame(s) in this run.`:`Added ${added} frame(s).`;
+    const drop=last?.frames_dropped||0;
+    if(drop)msg+=`\n\nClaude returned ${added+drop} new frames; server kept ${added} (batch size ${batchSize}).`;
     if(last?.pdf_progress)msg+=`\n\nProgress: ${last.pdf_progress}`;
     if(P.spec_warnings?.length)msg+='\n\nQuality notes:\n'+P.spec_warnings.join('\n');
     if(finishAll&&totalAdded===0){
