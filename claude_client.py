@@ -9,7 +9,7 @@ Cost controls:
   - Output is forced through a tool schema, so there's no prose to pay for or parse.
 API key: ANTHROPIC_API_KEY in .env (loaded by app.py) or the environment.
 """
-import json, os, pathlib, re
+import contextlib, json, os, pathlib, re, threading, time
 
 from spec_enrich import enrich_spec
 
@@ -526,7 +526,7 @@ _Z1H_ROLE = (
     "generates every gen: plate with an image model from spec.gen, and reviews the renders. Return storyboard + spec via "
     "submit_storyboard. Do SKILL.md Step 2 fully (inventory, world bible, beats, move ladder, continuity chain, "
     "self-critique, production plan) in the team's cue voice from the gold corpora, then Step 3: one spec.json in "
-    "references/spec_format.md with every frame type from the kit. Canvas 1920x1080. Every VO second sits on a frame. "
+    "references/spec_format.md with every frame type from the kit. Canvas 1920x1080. Every VO second of the given script sits on a frame (and nothing beyond it). "
     "Reuse past plates (asset:plates/<file> from plates_index.md) and kit assets first; every other picture is "
     "gen:<key> with a plain-English prompt in spec.gen (arjun, expr, cutout, people, aspect, refs as in spec_format.md). "
     "Regional sets are always new gen: keys. Generated images carry no text: all words are kit layers. "
@@ -583,8 +583,23 @@ def _thinking_kwargs() -> dict:
     return kw
 
 
-def _messages_create(*, think: bool = False, **kwargs):
-    """One Messages call. think=True adds adaptive thinking; large budgets stream (SDK requires it)."""
+_PARTIAL = threading.local()
+
+
+@contextlib.contextmanager
+def partial_hook(fn):
+    """While active (this thread only), the storyboard call hands fn(snapshot) the tool input parsed so far, about
+    once a second, so the app can show frames while Claude is still writing. Same call, same prompt, same output."""
+    _PARTIAL.fn = fn
+    try:
+        yield
+    finally:
+        _PARTIAL.fn = None
+
+
+def _messages_create(*, think: bool = False, on_partial=None, **kwargs):
+    """One Messages call. think=True adds adaptive thinking; large budgets stream (SDK requires it).
+    on_partial(snapshot) receives the tool input as it is written (streamed calls only)."""
     client = _client()
     extra = _thinking_kwargs() if think else {}
 
@@ -593,9 +608,20 @@ def _messages_create(*, think: bool = False, **kwargs):
 
         def _via_stream():
             with client.messages.stream(model=MODEL, **kw) as s:
+                if on_partial:
+                    last = 0.0
+                    for ev in s:
+                        if getattr(ev, "type", "") == "input_json" and time.time() - last > 1.0:
+                            last = time.time()
+                            snap = getattr(ev, "snapshot", None)
+                            if isinstance(snap, dict):
+                                try:
+                                    on_partial(snap)
+                                except Exception as e:  # a preview problem never stops the storyboard
+                                    print(f"partial preview skipped: {e}")
                 return s.get_final_message()
 
-        if kw["max_tokens"] > _MAX_TOKENS_NONSTREAM:
+        if on_partial or kw["max_tokens"] > _MAX_TOKENS_NONSTREAM:
             return _via_stream()
         try:
             return client.messages.create(model=MODEL, **kw)
@@ -923,7 +949,7 @@ def _call_storyboard(
     content.append({"type": "text", "text": msg})
     user_content: str | list = content if len(content) > 1 else msg
     r = _messages_create(
-        think=True,
+        think=True, on_partial=getattr(_PARTIAL, "fn", None),
         max_tokens=SB_MAX_TOKENS, system=_system(theme_dir),
         tools=[tool_schema], tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": user_content}])
@@ -1230,10 +1256,21 @@ def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
     if is_z1_hindi_theme(theme_dir):
         return (
             "GRAPHICS STUDIO RULES (Zero1 Hindi IP, SB-given mode from storyboarding_method.md):\n"
+            "- The PDF is the team's storyboard: black = script line, green = Graphics #N + VD (visual direction), "
+            "red = notes. Each shot usually has the team's own styleframe picture above its line.\n"
+            "- One frame per shot / Graphics #N, in PDF order. A shot whose graphic is 'kuch nahi' is still a frame "
+            "(picture only). Add a _b state only when the VD clearly asks for a second picture. Never add frames the PDF "
+            "does not have. Follow red notes (e.g. 'didn't like #7–#11, make it like our original SOP').\n"
             "- Keep every camera move, morph and callback in the PDF; fill vague cues, flag cue vs VO mismatches.\n"
             "- frames: types from spec_format.md, ids = timestamps (states _b, _c), each with section + name.\n"
-            "- Put a prompt for every new gen:<key> in spec_meta.gen (plain English, no text in the image); "
-            "reuse asset:plates/<file> when a past set matches.\n"
+            "- Put a prompt for every new gen:<key> in spec_meta.gen. The prompt describes ONLY the picture: set, props, "
+            "Arjun's pose/outfit/expression, camera and light, taken from the VD and the shot's styleframe. NEVER put "
+            "words, numbers, ₹ amounts, labels, signs or UI text in a prompt; all text is kit layers on top.\n"
+            "- On every gen entry set pdf_page: the PDF page number (1 = first page) that shows this shot's styleframe "
+            "picture. Match pictures to shots by what they show: in these docs a shot's picture often sits ABOVE the next "
+            "shot's text, on the following page. The image model gets that picture as its main reference.\n"
+            "- Shots the VD says reuse a set ('#3 wala hi frame') reuse the same gen key (or a _b key with the change). "
+            "Reuse asset:plates/<file> only when a past set truly matches.\n"
             "Follow SKILL.md + spec_format.md + storyboard_rules.md.\n"
         )
     if is_hindi_fa_theme(theme_dir):
@@ -1579,6 +1616,10 @@ def storyboard(
             "- spec.gen: a prompt for EVERY gen:<key> used (≤ ~25 new plates). Prefer asset:plates/<file> when a past set "
             "really matches the beat; new cities/regions are always gen:.\n"
             "- spec.arjun: the episode's default Arjun variant.\n"
+            "- SCOPE: the script below may be only part of an episode. Storyboard ONLY the lines it contains, in order. "
+            "Do not add beats or frames for anything that is not in it: no extra intro, SOP, chapter cards, recap, bonus "
+            "checklist, outro or callbacks to scenes that are not written. A line can get more than one frame only when "
+            "its cue truly needs a second picture (a state change, _b/_c).\n"
             "- Copy every number from the script exactly, Indian grouping; fix script typos.\n\n"
             f"SCRIPT:\n{script}"
             ),

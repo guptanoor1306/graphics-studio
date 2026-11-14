@@ -182,7 +182,8 @@ def frame_wants_overlay(theme: str, frame: dict) -> bool:
     return frame.get("mode") == "fss"
 
 
-def save(pid, author, note, **fields):
+def save(pid, author, note, version=True, **fields):
+    """version=False: a live preview save (no Undo step)."""
     with connect() as c:
         cur = c.execute("select spec, storyboard from projects where id=?", (pid,)).fetchone()
         if not cur:
@@ -192,7 +193,7 @@ def save(pid, author, note, **fields):
             if _storyboard_pdf_on_disk(pid) and lk.get("sb_import") != "script":
                 lk.setdefault("sb_import", "pdf")
             fields["look"] = lk
-        if "spec" in fields or "storyboard" in fields:
+        if version and ("spec" in fields or "storyboard" in fields):
             c.execute(
                 "insert into versions(project_id,spec,storyboard,author,note,ts) values(?,?,?,?,?,?)",
                 (pid, cur.get("spec"), cur.get("storyboard"), author, note, time.time()),
@@ -558,13 +559,13 @@ def _stream_json(coro) -> StreamingResponse:
     return StreamingResponse(body(), media_type="application/json")
 
 
-def _with_assets(theme: str, finalize, report: dict):
+def _with_assets(theme: str, finalize, report: dict, pdf: dict | None = None, on_plate=None):
     """finalize → then replace TODO asset placeholders (runs again after each critique fix)."""
     def fin(sp):
         if finalize:
             sp = finalize(sp)
         if z1_plates.is_theme(theme):
-            sp, r = z1_plates.fill(sp, log=print)
+            sp, r = z1_plates.fill(sp, log=print, pdf=pdf, on_plate=on_plate)
         else:
             sp, r = asset_gen.fill_spec(theme, sp, log=print)
         report.setdefault("filled", {}).update(r["filled"])
@@ -575,9 +576,160 @@ def _with_assets(theme: str, finalize, report: dict):
     return fin
 
 
+def _pdf_ref(pid: int) -> dict | None:
+    """The project's storyboard PDF for plate references (cache name changes when the PDF is replaced)."""
+    path = storyboard_pdf.pdf_path(pid)
+    if not path.is_file():
+        return None
+    return {"path": str(path), "key": f"{pid}_{int(path.stat().st_mtime)}"}
+
+
+# ---------------------------------------------------------------- live preview (Zero1 Hindi)
+# Same storyboard call, same plates, same review as before; the only difference is that frames and plates are
+# saved as they appear, so the page can show them instead of waiting for the end. The page polls /progress.
+PROGRESS: dict[int, dict] = {}
+
+
+def _live(pid: int, run: str) -> bool:
+    return (PROGRESS.get(pid) or {}).get("run") == run
+
+
+def _progress(pid: int, run: str, **kw) -> bool:
+    if not _live(pid, run):
+        return False
+    PROGRESS[pid] = {**PROGRESS[pid], **kw, "ts": time.time()}
+    return True
+
+
+def _bump(pid: int, run: str):
+    if _live(pid, run):
+        PROGRESS[pid]["rev"] = int(PROGRESS[pid].get("rev") or 0) + 1
+
+
+@app.get("/api/projects/{pid}/progress")
+def project_progress(pid: int):
+    cur = dict(PROGRESS.get(pid) or {"state": "idle", "rev": 0})
+    cur.pop("run", None)
+    if cur.get("started") and cur.get("state") == "running":
+        cur["elapsed"] = round(time.time() - cur["started"])
+    return cur
+
+
+def _merge_gen(pid: int, key: str, path: str) -> dict:
+    spec = dict(load(pid).get("spec") or {})
+    g = dict(spec.get("gen") or {})
+    g[key] = {**(g.get(key) or {}), "file": path}
+    spec["gen"] = g
+    return spec
+
+
+async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: str, before: dict):
+    theme = "zero1-hindi-graphics"
+    t0 = time.time()
+    shown = [0]
+
+    def on_partial(snap: dict):            # worker thread: frames Claude has finished writing so far
+        if not _live(pid, run):
+            return
+        sp = snap.get("spec") if isinstance(snap.get("spec"), dict) else {}
+        frames = [f for f in (sp.get("frames") or [])[:-1] if isinstance(f, dict) and f.get("id") and f.get("type")]
+        if not frames:
+            n = len(re.findall(r"(?m)^\s*#\d+", snap.get("storyboard") or ""))
+            _progress(pid, run, stage="writing", msg=f"Writing the storyboard… {n} beats so far" if n else "Writing the storyboard…")
+            return
+        if len(frames) == shown[0]:
+            return
+        shown[0] = len(frames)
+        part = {k: v for k, v in sp.items() if k != "frames"}
+        part["frames"] = frames
+        save(pid, user, "", version=False, storyboard=snap.get("storyboard") or "", spec=part)
+        _bump(pid, run)
+        _progress(pid, run, stage="frames", msg=f"{len(frames)} frames written so far…")
+
+    def call():
+        with claude_client.partial_hook(on_partial):
+            return claude_client.storyboard(THEMES / theme, script, look, b.get("notes", ""),
+                                            episode_transcript=_episode_transcript_for_project(pid))
+    try:
+        try:
+            out = await asyncio.to_thread(call)
+        except Exception as e:
+            try:
+                _raise_claude_gateway(e)
+            except HTTPException as he:
+                e = RuntimeError(he.detail)
+            if _live(pid, run):              # put the previous frames back
+                save(pid, user, "storyboard failed", version=False, spec=before.get("spec"), storyboard=before.get("storyboard") or "")
+                _bump(pid, run)
+            _progress(pid, run, state="error", msg=f"Storyboard failed: {e}")
+            return
+        if not _live(pid, run):
+            return
+        sb = out.get("storyboard") or ""
+        spec = out.get("spec") or {}
+        print(f"[z1 {pid}] storyboard {len(spec.get('frames') or [])} frames {time.time() - t0:.0f}s")
+        save(pid, user, "", version=False, storyboard=sb, spec=spec)
+        _bump(pid, run)
+        n_plates = len(z1_plates.pending(spec))
+        _progress(pid, run, stage="plates", msg=f"All {len(spec.get('frames') or [])} frames written. Making {n_plates} plate(s)…"
+                  if n_plates else "All frames written. Checking the renders…")
+        made = [0]
+
+        def on_plate(key, path):
+            if not _live(pid, run):
+                return
+            save(pid, user, "", version=False, spec=_merge_gen(pid, key, path))
+            made[0] += 1
+            _bump(pid, run)
+            _progress(pid, run, msg=f"Plates {made[0]}/{n_plates} ready…")
+
+        asset_report: dict = {}
+        finalize = _with_assets(theme, None, asset_report, on_plate=on_plate)
+        spec = await asyncio.to_thread(finalize, spec)
+        if not _live(pid, run):
+            return
+        _progress(pid, run, stage="review", msg="Checking the rendered frames…")
+        critique_report: dict = {}
+        try:
+            spec, critique_report = await asyncio.to_thread(
+                _critique_spec, {**load(pid), "look": look}, spec, sb, script, _with_assets(theme, None, asset_report)
+            )
+        except Exception as e:
+            critique_report = {"error": str(e)}
+        if not _live(pid, run):
+            return
+        save(pid, user, "generated storyboard" + _notes_suffix(critique_report, asset_report), script=script,
+             look=look, storyboard=sb, spec=spec)
+        _bump(pid, run)
+        warn = claude_client.spec_quality_issues(spec, sb, theme=theme)
+        warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
+        warn += [f"plate not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
+        fixed = critique_report.get("changed") or {}
+        bits = [f"{len(spec.get('frames') or [])} frames"]
+        if asset_report.get("filled"):
+            bits.append(f"{len(asset_report['filled'])} plates made")
+        if fixed:
+            bits.append(f"review fixed {len(fixed)}")
+        _progress(pid, run, state="done", stage="done", msg="Done: " + ", ".join(bits), notes=warn,
+                  seconds=round(time.time() - t0))
+        print(f"[z1 {pid}] done {time.time() - t0:.0f}s")
+    except Exception as e:
+        _progress(pid, run, state="error", msg=f"Stopped: {type(e).__name__}: {e}")
+        print(f"[z1 {pid}] job error: {e}")
+
+
 async def _make_storyboard(pid: int, b: dict, user: str):
     p = load(pid)
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
+    if z1_plates.is_theme(p["theme"]) and os.environ.get("STUDIO_LIVE_PREVIEW", "1") != "0":
+        before = {"spec": p.get("spec"), "storyboard": p.get("storyboard") or ""}
+        save(pid, user, "storyboard started", script=script, look=look,
+             **({"spec": p["spec"]} if p.get("spec") else {}))       # keeps the old frames one Undo away
+        run = uuid.uuid4().hex
+        PROGRESS[pid] = {"run": run, "state": "running", "stage": "writing", "msg": "Writing the storyboard…",
+                         "rev": 0, "started": time.time()}
+        asyncio.create_task(_z1_job(pid, user, run, b, look, script, before))
+        return {**load(pid), "background": True}
     try:
         transcript = _episode_transcript_for_project(pid)
         out = await asyncio.to_thread(
@@ -873,7 +1025,8 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
     lk = look if isinstance(look, dict) else {}
     asset_report: dict = {}
     finalize = _with_assets(
-        p["theme"], lambda sp: _finalize_spec_after_batch(sp, storyboard, p["theme"], lk, p), asset_report
+        p["theme"], lambda sp: _finalize_spec_after_batch(sp, storyboard, p["theme"], lk, p), asset_report,
+        pdf=_pdf_ref(pid) if z1_plates.is_theme(p["theme"]) else None,
     )
     spec = await asyncio.to_thread(finalize, spec)
     plook = look if isinstance(look, dict) else p.get("look")
@@ -927,7 +1080,7 @@ async def fill_assets_route(pid: int, req: Request):
     async def job():
         p = load(pid)
         if z1_plates.is_theme(p["theme"]):
-            spec, report = await asyncio.to_thread(z1_plates.fill, p.get("spec") or {}, print, redo)
+            spec, report = await asyncio.to_thread(z1_plates.fill, p.get("spec") or {}, print, redo, None, _pdf_ref(pid))
             left = len(z1_plates.pending(spec))
         else:
             spec, report = await asyncio.to_thread(asset_gen.fill_spec, p["theme"], p.get("spec") or {}, print, redo)
@@ -942,6 +1095,12 @@ async def fill_assets_route(pid: int, req: Request):
 @app.put("/api/projects/{pid}")
 async def update(pid: int, req: Request):
     b = await req.json(); fields = {k: b[k] for k in ("name", "storyboard", "spec", "look", "theme", "script") if k in b}
+    if isinstance(fields.get("spec"), dict) and isinstance(fields["spec"].get("gen"), dict):
+        saved_gen = ((load(pid).get("spec") or {}).get("gen") or {})
+        for k, v in fields["spec"]["gen"].items():
+            s = saved_gen.get(k) or {}
+            if isinstance(v, dict) and not v.get("file") and s.get("file") and s.get("prompt") == v.get("prompt"):
+                v["file"] = s["file"]
     if "look" in fields:
         p = load(pid); spec = fields.get("spec") or p["spec"]
         if spec:

@@ -71,7 +71,8 @@ def pending(spec: dict) -> list[str]:
 
 def _desc(req: dict) -> str:
     """Library key: the full prompt plus which references went in, so a changed prompt makes a new image."""
-    refs = ",".join(pathlib.Path(r).name for r in req["refs"])
+    refs = ",".join((f"{pathlib.Path(r).parent.name}/" if "pdf_refs" in str(r) else "") + pathlib.Path(r).name
+                    for r in req["refs"])
     return f"{req['prompt']} || refs={refs} || aspect={req['aspect']} || cutout={req['cutout']}"
 
 
@@ -100,10 +101,67 @@ def _postprocess(raw: bytes, req: dict) -> bytes:
     return b.getvalue()
 
 
-def make_one(key: str, entry: dict, spec: dict, force: bool = False) -> tuple[str, str]:
-    """(path under assets/, source) for one gen key. Raises when no image could be made."""
+PDF_REF_DIR = pathlib.Path(__file__).resolve().parent / "data" / "pdf_refs"
+_TEXT_RE = re.compile(r'[“"][^”"]{1,80}[”"]|₹\s?[\d,.]+(?:\s?(?:lakh|crore|k))?|\b\d{1,3}(?:,\d{2,3})+\b', re.I)
+
+
+def pdf_page_images(pdf: pathlib.Path, page: int, cache_key: str) -> list[str]:
+    """The pictures on one page of a storyboard PDF, biggest first (the team's styleframe, then its thumbnail)."""
+    out_dir = PDF_REF_DIR / cache_key
+    hits = sorted(out_dir.glob(f"p{page}_*.png"))
+    if hits:
+        return [str(h) for h in hits]
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(str(pdf))
+        if not 1 <= page <= doc.page_count:
+            return []
+        pg = doc[page - 1]
+        found = []
+        for img in pg.get_images(full=True):
+            pix = fitz.Pixmap(doc, img[0])
+            if pix.n - pix.alpha >= 4:
+                pix = fitz.Pixmap(fitz.csRGB, pix)
+            if pix.width >= 240 and pix.height >= 140:
+                found.append((pix.width * pix.height, pix))
+        found.sort(key=lambda x: -x[0])
+        out_dir.mkdir(parents=True, exist_ok=True)
+        paths = []
+        for i, (_, pix) in enumerate(found[:2]):
+            dest = out_dir / f"p{page}_{i}.png"
+            pix.save(str(dest))
+            paths.append(str(dest))
+        return paths
+    except Exception as e:
+        print(f"z1_plates: could not read page {page} of the storyboard PDF ({e})")
+        return []
+
+
+def no_text(prompt: str) -> str:
+    """Drop quoted on-screen words and ₹ amounts from a prompt: text is a kit layer, never painted."""
+    return re.sub(r"\s{2,}", " ", _TEXT_RE.sub("", prompt or "")).strip()
+
+
+def make_one(key: str, entry: dict, spec: dict, force: bool = False, pdf: dict | None = None) -> tuple[str, str]:
+    """(path under assets/, source) for one gen key. Raises when no image could be made.
+    pdf = {"path": storyboard PDF, "key": cache name}: an entry with pdf_page gets that page's styleframe as its
+    main reference (human-storyboard mode)."""
     gi = _gen_images()
+    page = entry.get("pdf_page") if isinstance(entry, dict) else None
+    if pdf and page:
+        entry = {**entry, "prompt": no_text(entry.get("prompt", ""))}
     req = gi.build_request(key, entry, spec)
+    if pdf and page:
+        try:
+            frames = pdf_page_images(pathlib.Path(pdf["path"]), int(page), pdf["key"])
+        except (TypeError, ValueError):
+            frames = []
+        if frames:
+            req["refs"] = [frames[0]] + list(req["refs"])
+            req["prompt"] += (" The FIRST reference image is the team's approved styleframe for this exact shot: keep "
+                              "its set, camera angle, composition, props, Arjun's pose and the lighting, and repaint it "
+                              "in the house miniature look of the other references. Leave out every word, number, "
+                              "label and UI text that appears in it.")
     desc = _desc(req)
     if not force:
         hit = asset_gen.lookup(THEME, desc)
@@ -130,7 +188,8 @@ def make_one(key: str, entry: dict, spec: dict, force: bool = False) -> tuple[st
 
 
 def fill(spec: dict, log: Callable[[str], None] | None = None, redo: bool = False,
-         only: list[str] | None = None) -> tuple[dict, dict]:
+         only: list[str] | None = None, pdf: dict | None = None,
+         on_plate: Callable[[str, str], None] | None = None) -> tuple[dict, dict]:
     """Make every pending plate (redo=True remakes the ones already made). Never raises."""
     report = {"filled": {}, "failed": {}, "skipped": []}
     if not spec or not asset_gen.enabled():
@@ -148,12 +207,17 @@ def fill(spec: dict, log: Callable[[str], None] | None = None, redo: bool = Fals
     report["skipped"] = keys[cap:]
     keys = keys[:cap]
     with cf.ThreadPoolExecutor(max_workers=int(os.environ.get("STUDIO_ASSET_GEN_WORKERS", "4"))) as ex:
-        futs = {ex.submit(make_one, k, gen[k], spec, redo): k for k in keys}
+        futs = {ex.submit(make_one, k, gen[k], spec, redo, pdf): k for k in keys}
         for f in cf.as_completed(futs):
             k = futs[f]
             try:
                 path, source = f.result()
                 gen[k] = {**gen[k], "file": path}
+                if on_plate:
+                    try:
+                        on_plate(k, path)
+                    except Exception as e:
+                        say(f"z1_plates: preview save for {k} skipped ({e})")
                 report["filled"][f"gen:{k}"] = {"path": path, "source": source}
             except Exception as e:
                 report["failed"][f"gen:{k}"] = str(e)[:300]

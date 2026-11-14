@@ -451,6 +451,15 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   main{padding:var(--s-5) var(--s-5) var(--s-7)}
   .studio-split{grid-template-columns:1fr}
 }
+.bg-status{position:fixed;right:var(--s-6);bottom:var(--s-6);z-index:60;display:flex;align-items:center;gap:var(--s-4);max-width:min(420px,calc(100vw - 32px));padding:var(--s-4) var(--s-5);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-pop);font-size:var(--text-sm);line-height:1.45;color:var(--ink)}
+.bg-status[hidden]{display:none}
+body.bg-running #fillAssetsBtn{display:none}
+.bg-status .spinner{width:18px;height:18px;border-width:2px;flex-shrink:0}
+.bg-status.done .spinner,.bg-status.error .spinner{display:none}
+.bg-status.error{border-color:var(--bad-line);color:var(--bad)}
+.bg-status .bg-msg{flex:1;min-width:0}
+.bg-status .bg-sub{display:block;font-size:var(--text-xs);color:var(--mute);font-variant-numeric:tabular-nums}
+.bg-status button{min-height:32px;padding:var(--s-2) var(--s-3)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
   .channel-card:hover{transform:none}
@@ -471,6 +480,7 @@ dialog#layerEditDlg textarea{min-height:100px;resize:vertical}
   </div>
 </aside>
 <main id="main"><p class="muted">Pick a video on the left, or start a new one.</p></main>
+<div id="bgStatus" class="bg-status" role="status" aria-live="polite" hidden><div class="spinner"></div><span class="bg-msg"></span><button type="button" class="ghost" onclick="hideBg()" aria-label="Hide">Hide</button></div>
 <div id="editModeApp" hidden>
  <header class="edit-mode-top"><button type="button" class="brand-home brand-home-compact" onclick="goHome()" title="All channels" aria-label="Graphics Studio home"><span class="brand-mark">GS</span></button><button type="button" class="ghost" onclick="exitEditMode()">← Back to studio</button>
   <b id="editModeTitle">Edit frames</b><span class="spacer"></span>
@@ -1821,6 +1831,7 @@ async function open_(id){
  navChannel=channelForTheme(P.theme);
  channelListKitFilter=loadChannelKitFilter(navChannel);
  selectedFrameId=null;await list();render();
+ stopBg();hideBg();if(isZ1Hindi()){api(`/api/projects/${P.id}/progress`).then(s=>{if(s&&s.state==='running'&&P&&P.id===id){document.body.classList.add('bg-running');bgPid=P.id;bgRev=s.rev||0;showBg(s);bgTimer=setInterval(pollBg,3000)}}).catch(()=>{})}
  refreshPdfSbStatus();
 }
 function renameProject(){if(!P)return;
@@ -1862,16 +1873,50 @@ async function fillAssets(redo=false){
   const n=Object.keys(P.assets?.filled||{}).length;alert((n?`Filled ${n} asset(s).`:'Nothing was generated.')+assetsNote(P).replace(/^\n\nGenerated[^\n]*/,'')+(P.todo_left?`\n\n${P.todo_left} still missing.`:''))}
  catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}
 }
+/* Background finishing (Zero1 Hindi): plates and render review land one by one after the storyboard is shown. */
+let bgTimer=null,bgRev=0,bgPid=null,bgNotes=[];
+function showBg(s){const el=$('#bgStatus');if(!el)return;el.hidden=false;el.classList.toggle('done',s.state==='done');el.classList.toggle('error',s.state==='error');
+ const sub=s.elapsed!=null&&s.state==='running'?`<span class="bg-sub">${Math.floor(s.elapsed/60)}:${String(s.elapsed%60).padStart(2,'0')} so far · frames update as each piece is ready</span>`:'';
+ const notes=(s.state==='done'&&s.notes?.length)?` <button type="button" class="ghost" onclick="alert(bgNotes.join('\\n'))">${s.notes.length} note${s.notes.length>1?'s':''}</button>`:'';bgNotes=s.notes||[];
+ el.querySelector('.bg-msg').innerHTML=esc(s.msg||'Working…')+sub+notes}
+function hideBg(){const el=$('#bgStatus');if(el)el.hidden=true}
+function stopBg(){if(bgTimer)clearInterval(bgTimer);bgTimer=null;document.body.classList.remove('bg-running')}
+function watchBackground(){stopBg();document.body.classList.add('bg-running');bgRev=0;bgPid=P?.id;showBg({msg:'Writing the storyboard…',elapsed:0,state:'running'});bgTimer=setInterval(pollBg,3000)}
+function framePlates(sp,f){const s=JSON.stringify(f);return [...s.matchAll(/"gen:([A-Za-z0-9_.-]+)"/g)].map(m=>sp?.gen?.[m[1]]?.file||'').join('|')}
+async function refreshFromServer(){
+ const np=await api('/api/projects/'+bgPid);if(!P||P.id!==bgPid)return;
+ const old=P.spec||{},ofr=Object.fromEntries((old.frames||[]).map(f=>[f.id,f]));
+ const nfr=np.spec?.frames||[];
+ const sig=(sp,f)=>JSON.stringify(f)+framePlates(sp,f);
+ const changed=nfr.filter(f=>!ofr[f.id]||sig(np.spec,f)!==sig(old,ofr[f.id])).map(f=>f.id);
+ const idsChanged=nfr.map(f=>f.id).join()!==(old.frames||[]).map(f=>f.id).join();
+ const sbChanged=(np.storyboard||'')!==(P.storyboard||'');
+ P={...P,spec:np.spec,storyboard:np.storyboard};
+ if((idsChanged||sbChanged)&&!editModeOpen){if(selectedFrameId&&!nfr.some(f=>f.id===selectedFrameId))selectedFrameId=null;render();return}
+ changed.forEach(bumpFrame);
+ if(editModeOpen&&changed.includes(selectedFrameId)){refreshEditCanvas();renderCanvasLayerList()}
+ const btn=$('#fillAssetsBtn');if(btn&&!editModeOpen){const n=specTodoCount();if(!n)btn.remove();else btn.textContent=`Generate ${n} plate${n>1?'s':''}`}
+}
+async function pollBg(){
+ if(!P||P.id!==bgPid){stopBg();hideBg();return}
+ let s;try{s=await api(`/api/projects/${bgPid}/progress`)}catch(e){return}
+ if(!P||P.id!==bgPid)return;
+ if(s.state==='idle'){stopBg();hideBg();return}
+ showBg(s);
+ if((s.rev||0)>bgRev){bgRev=s.rev||0;try{await refreshFromServer()}catch(e){}}
+ if(s.state==='done'||s.state==='error'){stopBg();if((s.rev||0)>0)try{await refreshFromServer()}catch(e){}
+  if(s.state==='done')setTimeout(()=>{if(!bgTimer)hideBg()},12000)}
+}
 async function gen(){
  if(!scriptHasContent(getScriptValue())&&!P?.has_episode_transcript&&!confirm('No script or audio transcript yet. Generate anyway?'))return;
- const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,'Claude is storyboarding, then reviewing the rendered frames… (3–6 min)');
+ const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,isZ1Hindi()?'Starting…':'Claude is storyboarding, then reviewing the rendered frames… (3–6 min)');
  try{
   const themeSel=$('#theme');
   if(themeSel&&themeSel.value&&themeSel.value!==P.theme){
    P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({theme:themeSel.value,note:'theme'})});
   }
   const look={...getLook(),sb_import:'script'};
-  P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look,notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();const cr=P.critique||{};const fixed=Object.entries(cr.changed||{});let note=fixed.length?('Render review fixed '+fixed.length+' frame(s):\n'+fixed.map(([k,v])=>'• '+k+(v?' — '+v:'')).join('\n')):'';note+=assetsNote(P);if(P.spec_warnings?.length)note+=(note?'\n\n':'')+'Still to check:\n'+P.spec_warnings.join('\n');if(note)alert(note)}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
+  P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look,notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.background){watchBackground();return}const cr=P.critique||{};const fixed=Object.entries(cr.changed||{});let note=fixed.length?('Render review fixed '+fixed.length+' frame(s):\n'+fixed.map(([k,v])=>'• '+k+(v?' — '+v:'')).join('\n')):'';note+=assetsNote(P);if(P.spec_warnings?.length)note+=(note?'\n\n':'')+'Still to check:\n'+P.spec_warnings.join('\n');if(note)alert(note)}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
 async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null,refFile=null,clearLayerRef=false}={}){
  const {ref,rep,flat,lb}=refControls();
  const upload=refFile||ref?.files?.[0];
