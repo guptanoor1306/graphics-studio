@@ -32,7 +32,12 @@ def _resolve_plate(f, look):
     if raw in ('', 'default', None):
         raw = 'm1_wide_centre'
     if mode == 'tos':
-        return 'm1_tos' if 'm1_tos' in _PLATE_KEYS else raw
+        # v2: TOS text sits beside the presenter (never across the face). The old title-behind-the-cut-out
+        # look is opt-in with tos_style:"behind".
+        if f.get('tos_style') == 'behind':
+            return 'm1_tos' if 'm1_tos' in _PLATE_KEYS else raw
+        side = ('m2_right', 'm2_left', 'm1_close_left', 'f1_left_circle', 'f1_close_right', 'f1_centre')
+        return raw if raw in side and raw in _PLATE_KEYS else ('m2_right' if 'm2_right' in _PLATE_KEYS else raw)
     types = {it.get('t') for it in (f.get('items') or []) if isinstance(it, dict)}
     if types & _SIDE_PANEL and 'm1_close_left' in _PLATE_KEYS:
         return 'm1_close_left'
@@ -55,8 +60,9 @@ def md(s):
 def asset(src):
     if not src: return ''
     if src.startswith('<svg'): return src
+    if src.startswith('svg:'): return icon(src[4:], 120)
     p = src if '/' in src else f'illus/{src}'
-    if not p.endswith('.png'): p += '.png'
+    if not re.search(r'\.(png|svg|jpe?g|webp)$', p): p += '.png'
     return f'<img src="../assets/{p}">'
 
 LOCK = '<svg width="26" height="30" viewBox="0 0 26 30"><rect x="2" y="12" width="22" height="17" rx="4" fill="#222"/><path d="M7 12V8a6 6 0 0 1 12 0v4" stroke="#222" stroke-width="3.5" fill="none"/></svg>'
@@ -211,14 +217,14 @@ def hub2(i):
     return f'<div class="hub2">{hub}<div class="arms">{svg}{arms}</div></div>'
 
 def hub_fan(i):
-    W, H = 1700, i.get('h', 800); items = i['items']; n = len(items)
+    W, H = i.get('w', 1450), i.get('h', 800); items = i['items']; n = len(items)
     style = i.get('style', 'fan')  # fan: hub at bottom, cards in an arc above · mind: hub centre, pills around
     if style == 'fan':
         hx, hy, d = W / 2, H - 150, i.get('hub_size', 260)
-        pos = [(W / 2 + (k - (n - 1) / 2) * min(320, 1500 / n), 170) for k in range(n)]
+        pos = [(W / 2 + (k - (n - 1) / 2) * min(300, (W - 150) / n), 170) for k in range(n)]
     else:
         hx, hy, d = W / 2, H / 2, i.get('hub_size', 220)
-        rx, ry = 620, 300
+        rx, ry = min(620, W / 2 - 110), 300
         pos = [(hx + rx * math.cos(math.pi * (k / n * 2) - math.pi / 2 - math.pi / n), hy + ry * math.sin(math.pi * (k / n * 2) - math.pi / 2 - math.pi / n)) for k in range(n)]
     svg = [f'<svg width="{W}" height="{H}">']
     for (x, y) in pos:
@@ -480,22 +486,387 @@ R = dict(lower=lower, punch=punch, bignum=bignum, side_list=side_list, scroll_li
          week=week, notepad=notepad, objstat=objstat, calendar=calendar, exchange=exchange, row=row, html=raw,
          kite_watchlist=kite_watchlist, kite_depth=kite_depth, kite_chart=kite_chart, auction=auction)
 
-# ======================================================================= decor
-def fss_decor(seed):
-    rnd = random.Random(seed)
-    star = lambda x, y, s, c: f'<svg class="decor" style="left:{x}px;top:{y}px" width="{s}" height="{s}" viewBox="0 0 10 10"><path d="M5 0 Q6 4 10 5 Q6 6 5 10 Q4 6 0 5 Q4 4 5 0z" fill="{c}" transform="rotate(15 5 5)"/></svg>'
-    dash = lambda x, y, w, c: f'<div class="decor" style="left:{x}px;top:{y}px;width:{w}px;height:6px;background:{c};border-radius:3px"></div>'
-    tri = lambda x, y, c: f'<svg class="decor" style="left:{x}px;top:{y}px" width="44" height="40"><path d="M0 0 H44 L22 40z" fill="{c}"/></svg>'
-    dot = lambda x, y, c: f'<div class="decor" style="left:{x}px;top:{y}px;width:16px;height:16px;border-radius:50%;background:{c};opacity:.35"></div>'
-    return ''.join([star(rnd.randint(70, 150), rnd.randint(70, 130), 64, '#F07339'), tri(rnd.randint(1650, 1760), rnd.randint(930, 980), rnd.choice(['#3F80E0', '#FFC02E'])),
-                    dash(1840, rnd.randint(150, 330), 80, '#F07339'), dash(0, rnd.randint(560, 700), 90, '#4CAF52'),
-                    dot(rnd.randint(300, 600), rnd.randint(900, 1000), '#B9D3FE'), dot(rnd.randint(1300, 1600), rnd.randint(60, 140), '#B9D3FE')])
+# ======================================================================= v2 recipes (zo-graphic-maker skill)
+# Learned from 78 shipped frames (Family Portfolio, Life Cycle Fund, MTF, Charges, Physical delivery PSDs).
+INK = '#1D2228'
+COL = {'blue': '#387FD1', 'orange': '#F07339', 'yellow': '#FEC02D', 'green': '#4DAB4D', 'purple': '#A77BF3',
+       'ink': INK, 'grey': '#C9CBCF', 'red': '#D23C3C'}
+CYCLE = ['blue', 'orange', 'yellow', 'green', 'purple']
 
-def anchor_decor(zone):
+
+def _c(name, default='blue'):
+    n = name or default
+    return COL.get(n, n)
+
+
+def _txt_on(col):
+    return INK if col in ('yellow', COL['yellow'], 'grey') else '#fff'
+
+
+# simple inline line-art icons (2–6px ink strokes, flat blue/orange/yellow fills) — no emoji, no logos
+_S = 'fill="none" stroke="#1D2228" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"'
+ICONS = {
+    'wallet': f'<rect x="10" y="26" width="80" height="58" rx="10" fill="#387FD1" {_S}/><path d="M18 26 L64 10 L72 26" {_S}/><rect x="60" y="44" width="30" height="22" rx="6" fill="#FEC02D" {_S}/>',
+    'moneybag': f'<path d="M36 22 C30 12 70 12 64 22 L60 30 C82 42 88 86 50 88 C12 86 18 42 40 30Z" fill="#FEC02D" {_S}/><path d="M40 52 H60 M40 62 H60 M46 52 C58 52 58 66 46 66 L58 78" {_S}/>',
+    'calendar': f'<rect x="12" y="20" width="76" height="68" rx="10" fill="#fff" {_S}/><path d="M12 40 H88" {_S}/><rect x="12" y="20" width="76" height="20" rx="8" fill="#387FD1" {_S}/><path d="M32 12 V28 M68 12 V28" {_S}/><circle cx="34" cy="58" r="4" fill="#1D2228"/><circle cx="50" cy="58" r="4" fill="#1D2228"/><circle cx="66" cy="58" r="4" fill="#F07339"/><circle cx="34" cy="74" r="4" fill="#1D2228"/><circle cx="50" cy="74" r="4" fill="#1D2228"/>',
+    'coins': f'<ellipse cx="50" cy="76" rx="32" ry="10" fill="#FEC02D" {_S}/><path d="M18 76 V62 M82 76 V62" {_S}/><ellipse cx="50" cy="62" rx="32" ry="10" fill="#FEC02D" {_S}/><path d="M18 62 V48 M82 62 V48" {_S}/><ellipse cx="50" cy="48" rx="32" ry="10" fill="#FEC02D" {_S}/>',
+    'parcel': f'<path d="M50 10 L88 28 V72 L50 90 L12 72 V28Z" fill="#F7C98B" {_S}/><path d="M12 28 L50 46 L88 28 M50 46 V90" {_S}/><path d="M31 19 L69 37" {_S}/>',
+    'tag': f'<path d="M12 50 L50 12 H86 V48 L48 86Z" fill="#F07339" {_S}/><circle cx="70" cy="30" r="7" fill="#fff" {_S}/>',
+    'gift': f'<rect x="14" y="40" width="72" height="48" rx="6" fill="#A77BF3" {_S}/><rect x="10" y="28" width="80" height="16" rx="5" fill="#A77BF3" {_S}/><path d="M50 28 V88 M50 28 C40 10 22 18 34 28 M50 28 C60 10 78 18 66 28" {_S}/>',
+    'scale': f'<path d="M50 14 V84 M28 84 H72 M18 30 H82" {_S}/><path d="M18 30 L6 60 H30Z" fill="#FEC02D" {_S}/><path d="M82 30 L70 60 H94Z" fill="#387FD1" {_S}/>',
+    'growth': f'<path d="M10 88 H90" {_S}/><rect x="16" y="60" width="16" height="28" fill="#FEC02D" {_S}/><rect x="42" y="44" width="16" height="44" fill="#F07339" {_S}/><rect x="68" y="26" width="16" height="62" fill="#387FD1" {_S}/><path d="M14 46 L40 30 L58 38 L86 12 M72 12 H86 V26" {_S}/>',
+    'warning': f'<path d="M50 10 L92 86 H8Z" fill="#FEC02D" {_S}/><path d="M50 38 V60" {_S}/><circle cx="50" cy="72" r="4" fill="#1D2228"/>',
+    'down': f'<circle cx="50" cy="50" r="40" fill="#F07339" {_S}/><path d="M50 28 V70 M32 54 L50 72 L68 54" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
+    'up': f'<circle cx="50" cy="50" r="40" fill="#4DAB4D" {_S}/><path d="M50 72 V30 M32 46 L50 28 L68 46" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
+    'tick': '<circle cx="50" cy="50" r="44" fill="#387FD1"/><path d="M28 52 L44 68 L74 36" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>',
+    'cross': '<circle cx="50" cy="50" r="44" fill="#D23C3C"/><path d="M34 34 L66 66 M66 34 L34 66" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>',
+    'phone': f'<rect x="28" y="8" width="44" height="84" rx="9" fill="#fff" {_S}/><rect x="34" y="20" width="32" height="54" rx="3" fill="#387FD1"/><circle cx="50" cy="83" r="3.5" fill="#1D2228"/>',
+    'doc': f'<path d="M22 8 H62 L80 26 V92 H22Z" fill="#fff" {_S}/><path d="M62 8 V26 H80 M34 44 H68 M34 58 H68 M34 72 H56" {_S}/>',
+    'bank': f'<path d="M10 36 L50 12 L90 36Z" fill="#387FD1" {_S}/><path d="M22 42 V76 M40 42 V76 M60 42 V76 M78 42 V76 M12 84 H88" {_S}/>',
+    'clock': f'<circle cx="50" cy="50" r="40" fill="#fff" {_S}/><path d="M50 26 V50 L66 60" {_S}/>',
+    'cart': f'<path d="M8 16 H22 L32 66 H80 L88 32 H26" fill="none" {_S}/><circle cx="38" cy="80" r="6" fill="#FEC02D" {_S}/><circle cx="74" cy="80" r="6" fill="#FEC02D" {_S}/>',
+    'shield': f'<path d="M50 8 L86 20 V48 C86 72 68 86 50 92 C32 86 14 72 14 48 V20Z" fill="#4DAB4D" {_S}/><path d="M34 50 L46 62 L68 38" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
+    'rupee': f'<circle cx="50" cy="50" r="40" fill="#FEC02D" {_S}/><path d="M36 30 H66 M36 42 H66 M42 30 C64 30 64 54 42 54 L62 74" {_S}/>',
+    'chevron': '<path d="M38 26 L62 50 L38 74" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>',
+    # line faces for people cards (Family Portfolio style)
+    'man': f'<circle cx="50" cy="52" r="26" fill="#fff" {_S}/><path d="M26 44 C28 22 72 22 74 44 C66 36 46 34 26 44Z" fill="#1D2228"/><circle cx="41" cy="54" r="3" fill="#1D2228"/><circle cx="59" cy="54" r="3" fill="#1D2228"/><path d="M42 66 C46 70 54 70 58 66" {_S}/>',
+    'woman': f'<path d="M22 70 C14 30 30 20 50 20 C70 20 86 30 78 70Z" fill="#1D2228"/><circle cx="50" cy="52" r="24" fill="#fff" {_S}/><path d="M28 48 C36 30 64 30 72 48 C60 42 40 42 28 48Z" fill="#1D2228"/><circle cx="42" cy="54" r="3" fill="#1D2228"/><circle cx="58" cy="54" r="3" fill="#1D2228"/><path d="M43 65 C47 69 53 69 57 65" {_S}/>',
+    'child': f'<circle cx="50" cy="56" r="24" fill="#fff" {_S}/><path d="M36 34 C40 26 46 30 50 26 C54 30 60 26 64 34" {_S}/><circle cx="42" cy="58" r="3" fill="#1D2228"/><circle cx="58" cy="58" r="3" fill="#1D2228"/><path d="M43 68 C47 72 53 72 57 68" {_S}/>',
+    'elder': f'<circle cx="50" cy="52" r="26" fill="#fff" {_S}/><path d="M26 46 C24 30 34 22 50 22 C66 22 76 30 74 46" fill="none" stroke="#C9CBCF" stroke-width="9"/><rect x="36" y="50" width="12" height="9" rx="3" {_S}/><rect x="52" y="50" width="12" height="9" rx="3" {_S}/><path d="M48 54 H52 M42 68 C47 72 53 72 58 68" {_S}/>',
+}
+
+
+def icon(name, size=84, color=None):
+    body = ICONS.get(name)
+    if not body:
+        return ''
+    return f'<svg width="{size}" height="{size}" viewBox="0 0 100 100" aria-label="{E(name)}">{body}</svg>'
+
+
+def any_img(src, size=84):
+    """svg:<icon> → inline line-art icon; anything else → kit/generated asset."""
+    if not src:
+        return ''
+    if isinstance(src, str) and src.startswith('svg:'):
+        return icon(src[4:], size)
+    return asset(src)
+
+
+def acronym(i):
+    kick = f'<div class="v2-kicker">{md(i["kicker"])}</div>' if i.get('kicker') else ''
+    if i.get('words'):
+        body = ' '.join(f'<b>{E(w[0])}</b>{E(w[1:])}' for w in i['words'])
+    else:
+        body = md(i.get('text', ''))
+    return f'<div style="text-align:center">{kick}<div class="v2-ybox">{body}</div></div>'
+
+
+def qtitle(i):
+    lines = ''.join(f'<div class="l">{md(l)}</div>' for l in i['lines'])
+    return (f'<div class="v2-q"><div class="glow"></div><div class="n">{E(str(i.get("n", 1)))}.</div>'
+            f'<div>{lines}<div class="dash"></div></div></div>')
+
+
+def steps(i):
+    cols = i.get('colors') or ['blue', 'orange', 'yellow', 'green']
+    out = ''.join(f'<div class="v2-step {cols[k % len(cols)]}"><div class="n">{k + 1}</div><div>{md(t)}</div><div class="hole"></div></div>'
+                  for k, t in enumerate(i['items']))
+    return f'<div class="v2-steps">{out}</div>'
+
+
+def slab_table(i):
+    subs = i.get('subs') or []
+    th = ''.join(f'<th>{md(h)}{f"<small>{md(subs[n])}</small>" if n < len(subs) and subs[n] else ""}</th>'
+                 for n, h in enumerate(i['head']))
+    hl = i.get('hl'); hl = set(hl if isinstance(hl, list) else ([] if hl is None else [hl]))
+    loss = set(i.get('loss') or [])
+    rows = ''.join(f'<tr class="{"hl" if n in hl else ("loss" if n in loss else "")}">' + ''.join(f'<td>{md(c)}</td>' for c in r) + '</tr>'
+                   for n, r in enumerate(i['rows']))
+    left = ' left' if i.get('align', 'left') == 'left' else ''
+    return (f'<div class="v2-card" style="width:{i.get("w", 1300)}px;padding:10px 30px 34px"><div class="v2-dots"><i></i><i></i><i></i></div>'
+            f'<table class="v2-t{left}"><thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table></div>')
+
+
+def split_bar(i):
+    parts = i['parts']; tot = sum(float(p.get('pct', 1)) for p in parts) or 1
+    bar = ''.join(f'<div style="width:{100 * float(p.get("pct", 1)) / tot:.2f}%;background:{_c(p.get("color"), CYCLE[k])};color:{_txt_on(p.get("color", CYCLE[k]))}">{md(p.get("value", ""))}</div>'
+                  for k, p in enumerate(parts))
+    labs = ''.join(f'<div style="width:{100 * float(p.get("pct", 1)) / tot:.2f}%">{any_img(p.get("icon"), 84)}<span>{md(p.get("label", ""))}</span></div>'
+                   for p in parts)
+    stock = (f'<div class="stock">{icon("growth", 70)}<span>{md(i["stock"])}</span>'
+             f'{f"<span class=tagx>{E(i[chr(116)+chr(97)+chr(103)])}</span>" if i.get("tag") else ""}</div>') if i.get('stock') else ''
+    itag = f'<div class="itag">{md(i["interest"])}</div>' if i.get('interest') else ''
+    br = ('<svg width="1300" height="46" viewBox="0 0 1300 46"><path d="M6 4 V16 Q6 26 30 26 H620 Q650 26 650 44 Q650 26 680 26 H1270 Q1294 26 1294 16 V4" '
+          'fill="none" stroke="#1D2228" stroke-width="4" stroke-linecap="round"/></svg>') if i.get('total') else ''
+    tot_l = f'<div class="total">{md(i["total"])}</div>' if i.get('total') else ''
+    return f'<div class="v2-split">{stock}{itag}<div class="bar">{bar}</div><div class="labs">{labs}</div>{br}{tot_l}</div>'
+
+
+def cost_compare(i):
+    rows = i['rows']
+    mx = max(sum(float(p['v']) for p in r['parts']) for r in rows) or 1
+    out = ''
+    for r in rows:
+        tag = f'<span class="lower">{E(r["tag"])}</span>' if r.get('tag') else ''
+        segs = ''.join(f'<div style="width:{900 * float(p["v"]) / mx:.0f}px;background:{_c(p.get("color"), "blue")}"></div>' for p in r['parts'])
+        out += (f'<div class="r"><div class="nm">{md(r["name"])}{tag}<small>{md(r.get("sub", ""))}</small></div>'
+                f'<div class="track"><div class="stack">{segs}</div><div class="tot">{md(r.get("total", ""))}</div></div></div>')
+    leg = ''.join(f'<span><i style="background:{_c(l.get("color"))}"></i>{md(l["label"])}</span>' for l in i.get('legend', []))
+    return f'<div class="v2-cost">{out}{f"<div class=v2-legend>{leg}</div>" if leg else ""}</div>'
+
+
+def updown(i):
+    def panel(p, down):
+        bars = p['bars']; mx = max(abs(float(b['v'])) for b in bars) or 1
+        cols = ''
+        for b in bars:
+            h = int(320 * abs(float(b['v'])) / mx)
+            col = _c(p.get('color'), 'orange' if down else 'green')
+            if down:
+                cols += (f'<div class="col down" style="justify-content:flex-start;padding-top:60px"><div class="bar" style="height:{h}px;background:{col}"></div>'
+                         f'<div class="val" style="color:{col}">{md(b.get("label", b["v"]))}</div><div class="cap">{md(b.get("caption", ""))}</div></div>')
+            else:
+                cols += (f'<div class="col" style="justify-content:flex-end;padding-bottom:70px"><div class="val" style="color:{col}">{md(b.get("label", b["v"]))}</div>'
+                         f'<div class="bar" style="height:{h}px;background:{col}"></div><div class="cap" style="position:absolute;bottom:14px">{md(b.get("caption", ""))}</div></div>')
+        base = f'<div class="base" style="{"top:58px" if down else "bottom:66px"}"></div>'
+        return f'<div class="p {"down" if down else ""}"><div class="ttl">{md(p.get("title", ""))}</div><div class="plot">{base}{cols}</div></div>'
+    return f'<div class="v2-ud">{panel(i["left"], False)}{panel(i["right"], True)}</div>'
+
+
+def donut(i):
+    d = i.get('size', 420); sw = i.get('stroke', 70); r = (d - sw) / 2; c = 2 * math.pi * r
+    pct = float(str(i['pct']).rstrip('%'))
+    col = _c(i.get('color'), 'blue')
+    fs = i.get('pct_size') or int(d * 0.28)
+    svg = (f'<svg width="{d}" height="{d}" viewBox="0 0 {d} {d}"><circle cx="{d/2}" cy="{d/2}" r="{r}" fill="none" stroke="#ECEEF1" stroke-width="{sw}"/>'
+           f'<circle cx="{d/2}" cy="{d/2}" r="{r}" fill="none" stroke="{col}" stroke-width="{sw}" stroke-linecap="round" '
+           f'stroke-dasharray="{c * pct / 100:.1f} {c:.1f}" transform="rotate(-90 {d/2} {d/2})"/></svg>')
+    label = i.get('label') or f'{i["pct"]}{"" if str(i["pct"]).endswith("%") else "%"}'
+    return (f'<div class="v2-donut"><div class="ring" style="width:{d}px;height:{d}px">{svg}'
+            f'<div class="pct" style="font-size:{fs}px;color:{col}">{md(label)}</div></div>'
+            f'{f"<div class=cap>{md(i[chr(99)+chr(97)+chr(112)+chr(116)+chr(105)+chr(111)+chr(110)])}</div>" if i.get("caption") else ""}</div>')
+
+
+def pie(i):
+    size = i.get('size', 520); pad = i.get('pad', 170); R_ = size / 2; cx = cy = R_ + pad; W = size + 2 * pad
+    a = -90.0; paths = ''; labs = ''
+    for k, s in enumerate(i['slices']):
+        v = float(s['v']); sw = v * 3.6
+        col = _c(s.get('color'), CYCLE[k % 5])
+        x1, y1 = cx + R_ * math.cos(math.radians(a)), cy + R_ * math.sin(math.radians(a))
+        x2, y2 = cx + R_ * math.cos(math.radians(a + sw)), cy + R_ * math.sin(math.radians(a + sw))
+        if v >= 99.99:
+            paths += f'<circle cx="{cx}" cy="{cy}" r="{R_}" fill="{col}"/>'
+        else:
+            paths += f'<path d="M{cx} {cy} L{x1:.1f} {y1:.1f} A{R_} {R_} 0 {1 if sw > 180 else 0} 1 {x2:.1f} {y2:.1f} Z" fill="{col}" stroke="#fff" stroke-width="3"/>'
+        m = math.radians(a + sw / 2); big = v >= 30; sm = v < 8
+        rr = R_ * (.55 if big else .8 if sm else .66)
+        tc = s.get('text') or _txt_on(s.get('color', CYCLE[k % 5]))
+        labs += f'<div class="lab" style="left:{cx + rr * math.cos(m):.0f}px;top:{cy + rr * math.sin(m):.0f}px;font-size:{110 if big else 40 if sm else 56}px;color:{tc}">{E(s.get("display", f"{s[chr(118)]:g}%" if isinstance(s["v"], (int, float)) else s["v"]))}</div>'
+        if s.get('label'):
+            lx, ly = cx + (R_ + 56) * math.cos(m), cy + (R_ + 56) * math.sin(m); cm = math.cos(m)
+            tx = '0' if cm > .2 else '-100%' if cm < -.2 else '-50%'
+            labs += f'<div class="lab" style="left:{lx:.0f}px;top:{ly:.0f}px;font-size:44px;color:{INK};transform:translate({tx},-50%)">{md(s["label"])}</div>'
+        a += sw
+    return f'<div class="v2-pie" style="width:{W}px;height:{W}px"><svg width="{W}" height="{W}" viewBox="0 0 {W} {W}">{paths}</svg>{labs}</div>'
+
+
+def fbox(i):
+    h = i.get('hero') or {}
+    hero = f'<div class="v2-fbox hero"><b>{md(h.get("value", ""))}</b><span>{md(h.get("label", ""))}</span></div>'
+    before = ''.join(f'<div class="v2-fbox faded"><b>{md(b["value"])}</b><span>{md(b.get("label", ""))}</span><div class="strike"></div></div>'
+                     for b in i.get('before', []))
+    ill = f'<div class="v2-blobwrap"><div class="blob"></div>{any_img(i["img"], 300)}</div>' if i.get('img') else ''
+    col = f'<div style="display:flex;flex-direction:column;gap:30px;align-items:center">{before}{hero}</div>'
+    return f'<div class="v2-fwrap">{ill}{col}</div>'
+
+
+def people(i):
+    out = ''
+    for k, p in enumerate(i['items']):
+        col = p.get('color', CYCLE[k % 5])
+        out += (f'<div class="v2-person"><div class="face" style="background:{TINT.get(col, "#EEF3FB")}">{any_img(p.get("icon", "svg:man"), 150)}</div>'
+                f'<div class="lb">{md(p["label"])}</div><div class="vv" style="color:{_c(col)}">{md(p.get("value", ""))}</div>'
+                f'{f"<div class=nt>{md(p[chr(110)+chr(111)+chr(116)+chr(101)])}</div>" if p.get("note") else ""}</div>')
+    return f'<div class="v2-people">{out}</div>'
+
+
+def catgrid(i):
+    items = i['items']; c3 = ' c3' if len(items) in (3, 6) else ''
+    out = ''.join(f'<div class="c" style="box-shadow:0 10px 0 -2px {_c(it.get("color"), CYCLE[k % 5])}">'
+                  f'<div class="ic" style="background:{TINT.get(it.get("color", CYCLE[k % 5]), "#EEF3FB")}">{any_img(it.get("icon"), 78)}</div>{md(it["label"])}</div>'
+                  for k, it in enumerate(items))
+    return f'<div class="v2-cat{c3}">{out}</div>'
+
+
+def checklist(i):
+    dim = set(i.get('dim') or [])
+    rows = ''.join(f'<div class="row {"dim" if k in dim else ""}">{icon("tick", 58)}<span>{md(t)}</span></div>' for k, t in enumerate(i['items']))
+    ill = f'<div class="ill">{any_img(i["img"], 300)}</div>' if i.get('img') else ''
+    return f'<div class="v2-check">{ill}<div class="v2-card plain"><div class="v2-dots"><i></i><i></i><i></i></div><div class="rows">{rows}</div></div></div>'
+
+
+_ARROW = '<svg class="v2-arrow" viewBox="0 0 120 40"><path d="M4 20 H104 M88 6 L108 20 L88 34" fill="none" stroke="#1D2228" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+
+def options(i):
+    src = i.get('source') or {}
+    s = f'<div class="src">{any_img(src.get("img"), 150)}{md(src.get("text", ""))}</div>'
+    opts = ''.join(f'<div class="o"><div class="bd" style="background:{_c(CYCLE[k % 5])};color:{_txt_on(CYCLE[k % 5])}">{k + 1}</div>{md(t)}</div>'
+                   for k, t in enumerate(i['items']))
+    return f'<div class="v2-opt">{s}{_ARROW}<div class="grid2"><div class="ttl">{md(i.get("title", ""))}</div>{opts}</div></div>'
+
+
+def buildlist(i):
+    a = i.get('active', 0)
+    chev = f'<div class="chev">{icon("chevron", 60)}</div>'
+    out = ''.join(f'<div class="it {"on" if k == a else ""}">{chev if k == a else "<div class=sp></div>"}<span>{md(t)}</span></div>'
+                  for k, t in enumerate(i['items']))
+    return f'<div class="v2-build">{out}</div>'
+
+
+def recap(i):
+    out = ''.join(f'<div class="it"><div class="bd" style="background:{_c(CYCLE[k % 5])};color:{_txt_on(CYCLE[k % 5])}">{k + 1}</div><span>{md(t)}</span></div>'
+                  for k, t in enumerate(i['items']))
+    return f'<div class="v2-recap">{out}</div>'
+
+
+def pills(i):
+    a = i.get('active', 0); col = i.get('color', 'green')
+    out = ''
+    for k, t in enumerate(i['items']):
+        cls = col if k == a else ('yellow' if k == a + 1 and i.get('next', True) else 'ghost')
+        out += f'<span class="v2-pill {cls}">{md(t)}</span>'
+    return f'<div class="v2-pills">{out}</div>'
+
+
+def timeline(i):
+    items = i['items']; n = len(items)
+    dots = '<i style="left:-6px"></i><i style="right:-6px"></i>'
+    fs = ''.join(f'<div class="f" style="left:{(k + .5) * 100 / n:.1f}%"><div class="v2-folder" style="background:{_c(it.get("color"), CYCLE[k % 5])};color:{_txt_on(it.get("color", CYCLE[k % 5]))}">'
+                 f'<div class="tab" style="background:{_c(it.get("color"), CYCLE[k % 5])}"></div>{md(it["label"])}</div><div class="cap">{md(it.get("caption", ""))}</div></div>'
+                 for k, it in enumerate(items))
+    return f'<div class="v2-tl"><div class="axis">{dots}</div>{fs}</div>'
+
+
+def bigphrase(i):
+    ill = any_img(i.get('img'), 300) if i.get('img') else ''
+    blob = '<div class="blob"></div>' if i.get('blob', True) else ''
+    al = i.get('align', 'center')
+    return (f'<div class="v2-big">{ill}<div class="v2-blobwrap" style="flex-direction:column;align-items:{"center" if al == "center" else "flex-start"};text-align:{al}">'
+            f'{blob}<div class="w">{md(i["word"])}</div><div class="ph">{md(i.get("phrase", ""))}</div></div></div>')
+
+
+# ---- over the presenter (white text, soft shadow, yellow keywords; never over the face)
+def ov_title(i):
+    sub = f'<div class="sub">{md(i["sub"])}</div>' if i.get('sub') else ''
+    return f'<div class="v2-ov" style="text-align:{i.get("align", "left")}"><div class="v2-ovtitle" style="font-size:{i.get("size", 150)}px">{md(i["title"])}</div><div class="v2-ovline"></div>{sub}</div>'
+
+
+def ybox(i):
+    lead = f'<div class="v2-ovlead">{md(i["lead"])}</div>' if i.get('lead') else ''
+    return f'<div class="v2-ov" style="text-align:{i.get("align", "left")}">{lead}<div class="v2-ovy">{md(i["text"])}</div></div>'
+
+
+def bubble(i):
+    tail = '<svg class="tail" width="60" height="46" viewBox="0 0 60 46"><path d="M0 0 H60 L8 46Z" fill="#fff"/></svg>'
+    return (f'<div class="v2-ov v2-bubble"><div class="bx"><div class="sm">{md(i.get("small", ""))}</div><div class="bg">{md(i["big"])}</div>{tail}</div>'
+            f'<div class="q">?</div></div>')
+
+
+def caption(i):
+    ic = ('<svg width="76" height="76" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#FEC02D"/>'
+          '<path d="M30 50 H70 M54 32 L72 50 L54 68" fill="none" stroke="#1D2228" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+    l2 = f'<div class="l2">{md(i["follow"])}</div>' if i.get('follow') else ''
+    return f'<div class="v2-ov v2-cap"><div class="l1">{ic}<span>{md(i["text"])}</span></div>{l2}</div>'
+
+
+def pill_rail(i):
+    a = i.get('active', 0); n = len(i['items'])
+    lead = f'<div class="v2-ovlead" style="font-size:52px">{md(i["lead"])}</div>' if i.get('lead') else ''
+    ps = ''.join(f'<div class="pp {"on" if k == a else ""}">{md(t)}</div>' for k, t in enumerate(i['items']))
+    return (f'<div class="v2-ov">{lead}<div class="v2-rail"><div class="rl"><i style="top:{100 * a / n:.1f}%;height:{100 / n:.1f}%"></i></div>'
+            f'<div class="ps">{ps}</div></div></div>')
+
+
+def relation(i):
+    note_ = f'<div class="nt">{md(i["note"])}</div>' if i.get('note') else ''
+    return (f'<div class="v2-ov v2-rel"><div class="t">{md(i["title"])}</div><div class="v2-ovline" style="width:60%"></div>'
+            f'<div class="row"><span class="pl">{md(i["left"])}</span>'
+            f'<svg width="90" height="36" viewBox="0 0 90 36"><path d="M4 18 H76 M62 6 L80 18 L62 30" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            f'<span class="pl o">{md(i["right"])}</span></div>{note_}</div>')
+
+
+R.update(acronym=acronym, qtitle=qtitle, steps=steps, slab_table=slab_table, split_bar=split_bar, cost_compare=cost_compare,
+         updown=updown, donut=donut, pie=pie, fbox=fbox, people=people, catgrid=catgrid, checklist=checklist, options=options,
+         buildlist=buildlist, recap=recap, pills=pills, timeline=timeline, bigphrase=bigphrase,
+         ov_title=ov_title, ybox=ybox, bubble=bubble, caption=caption, pill_rail=pill_rail, relation=relation)
+
+# ======================================================================= decor
+_DOODLE = ('<svg width="150" height="90" viewBox="0 0 150 90"><path d="M6 40c18-26 26-36 18-34-8 2-12 34 6 34s20-24 12-22-6 26 12 26 '
+           '18-22 12-20-4 26 14 26 18-18 12-16-2 22 18 30" fill="none" stroke="{c}" stroke-width="4" stroke-linecap="round"/></svg>')
+
+
+def _tri(c, rot, sz):
+    return (f'<svg width="{sz}" height="{sz}" viewBox="0 0 40 40"><path d="M8 6 L36 20 L8 34 Z" fill="{c}" stroke="{c}" stroke-width="5" '
+            f'stroke-linejoin="round" transform="rotate({rot} 20 20)"/></svg>')
+
+
+_STAR = ('<svg width="70" height="70" viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16Z" fill="#C9CBCF" '
+         'transform="rotate(20 20 20)"/></svg>')
+
+
+def _pos(d):
+    """{'left':'210px','top':110} → css; numbers become px."""
+    return ';'.join(f'{k}:{v}px' if isinstance(v, (int, float)) else f'{k}:{v}' for k, v in (d or {}).items()
+                    if k in ('left', 'right', 'top', 'bottom'))
+
+
+def _seed(fid):
+    import zlib
+    return zlib.crc32(str(fid).encode()) % 997
+
+
+def fss_decor(seed, f=None):
+    """v2 decor around the edges, never touching text: black loop doodle, two rounded triangles,
+    grey 4-point star, orange dash left, green dash right. Override any piece per frame with
+    f["decor"] = {doodleAt, tri1, tri2, starAt, dash1, dash2: {left|right|top|bottom}, doodle:false, star:false},
+    plus optional f["blob"] {x,y,w,h} (grey blob behind a hero) and f["glow"] {x,y,d} (pale yellow circle)."""
+    o = (f or {}).get('decor') if isinstance((f or {}).get('decor'), dict) else {}
+    rnd = random.Random(seed)
+    cols = ['#A77BF3', '#4DAB4D', '#F07339', '#FEC02D']
+    c1 = cols[rnd.randrange(4)]; c2 = cols[(cols.index(c1) + 1 + rnd.randrange(3)) % 4]
+    add = lambda html_, pos: f'<div class="decor" style="{_pos(pos)}">{html_}</div>'
+    out = []
+    if f and f.get('blob'):
+        b = f['blob']
+        out.append(f'<div class="decor" style="left:{b.get("x", 760)}px;top:{b.get("y", 300)}px;width:{b.get("w", 420)}px;height:{b.get("h", 420)}px;'
+                   f'background:#F2F2F2;border-radius:46% 54% 60% 40%/50% 42% 58% 50%;z-index:1"></div>')
+    if f and f.get('glow'):
+        g = f['glow']; d = g.get('d', 520)
+        out.append(f'<div class="decor" style="left:{g.get("x", 1100)}px;top:{g.get("y", 280)}px;width:{d}px;height:{d}px;border-radius:50%;background:#FFF6D6;z-index:1"></div>')
+    has_note = any(isinstance(it, dict) and it.get('t') == 'note' for it in (f or {}).get('items') or [])
+    if o.get('doodle', True) is not False and not has_note:
+        out.append(add(_DOODLE.format(c='#1D2228'), o.get('doodleAt') or {'left': 40 + rnd.randint(0, 30), 'top': 60 + rnd.randint(0, 30)}))
+    out.append(add(_tri(c1, rnd.randrange(360), 56), o.get('tri1') or {'right': 70 + rnd.randint(0, 60), 'top': 110 + rnd.randint(0, 60)}))
+    out.append(add(_tri(c2, rnd.randrange(360), 80), o.get('tri2') or {'left': 60 + rnd.randint(0, 60), 'bottom': 90 + rnd.randint(0, 60)}))
+    if o.get('star', True) is not False:
+        out.append(add(_STAR, o.get('starAt') or {'right': 70 + rnd.randint(0, 60), 'bottom': 70 + rnd.randint(0, 40)}))
+    out.append(add('<div style="width:64px;height:10px;border-radius:10px;background:#F07339"></div>', o.get('dash1') or {'left': 40, 'top': f'{40 + rnd.randint(0, 20)}%'}))
+    out.append(add('<div style="width:58px;height:6px;border-radius:6px;background:#4DAB4D"></div>', o.get('dash2') or {'right': 40, 'top': f'{28 + rnd.randint(0, 10)}%'}))
+    return ''.join(out)
+
+
+def anchor_decor(zone, f=None):
+    """Over the presenter: one orange triangle, one purple triangle and a white doodle, at the text zone's edges."""
+    o = (f or {}).get('decor') if isinstance((f or {}).get('decor'), dict) else {}
     x, y, w, h = zone['x'], zone['y'], zone['w'], zone['h']
-    st = lambda X, Y, c, s=48: f'<svg class="decor" style="left:{X}px;top:{Y}px;z-index:8" width="{s}" height="{s}" viewBox="0 0 10 10"><path d="M5 0 Q6 4 10 5 Q6 6 5 10 Q4 6 0 5 Q4 4 5 0z" fill="{c}"/></svg>'
-    sq = '<svg class="decor" style="right:40px;bottom:30px;z-index:8" width="90" height="26" viewBox="0 0 90 26"><path d="M3 18 C 15 0, 25 0, 35 13 C 45 26, 55 26, 65 13 C 75 0, 82 2, 87 8" fill="none" stroke="#3F80E0" stroke-width="5" stroke-linecap="round"/></svg>'
-    return st(x - 60, y + 10, '#F7A65B') + st(x + w - 10, y - 50, '#3F80E0', 36) + sq
+    add = lambda html_, pos: f'<div class="decor" style="{_pos(pos)};z-index:8">{html_}</div>'
+    return (add(_tri('#F07339', 20, 60), o.get('tri1') or {'left': max(20, x - 70), 'top': max(20, y + 10)})
+            + add(_tri('#A77BF3', 200, 64), o.get('tri2') or {'left': min(1840, x + w - 20), 'top': min(1000, y + h - 40)})
+            + (add(_DOODLE.format(c='#FFFFFF'), o.get('doodleAt') or {'left': min(1760, x + w - 160), 'top': max(20, y - 70)})
+               if o.get('doodle', True) is not False else ''))
+
 
 # ======================================================================= frame
 def _zo_item_placed(it):
@@ -526,14 +897,14 @@ def _render_stage_inner(f, look):
         scale = _zo_item_scale_style(it)
         if _zo_item_placed(it) and (it.get('x') is not None or it.get('y') is not None):
             absol.append(
-                f'<div class="abs z zo-item" data-zo-item="{idx}" '
+                f'<div class="abs z zo-item" data-zo-item="{idx}" data-zo-t="{E(str(it.get("t", "")))}" '
                 f'style="left:{it.get("x",0)}px;top:{it.get("y",0)}px">{h}</div>'
             )
         else:
-            flow_parts.append((it.get('t'), f'<div class="zo-item" data-zo-item="{idx}"{scale}>{h}</div>'))
+            flow_parts.append((it.get('t'), f'<div class="zo-item" data-zo-item="{idx}" data-zo-t="{E(str(it.get("t", "")))}"{scale}>{h}</div>'))
     if mode == 'fss':
-        z = f.get('zone', {'x': 120, 'y': 60, 'w': 1680, 'h': 960})
-        body, plate, decor, cut = 'fss', '', fss_decor(hash(f['id']) % 997), ''
+        z = f.get('zone', {'x': 210, 'y': 60, 'w': 1500, 'h': 950})
+        body, plate, decor, cut = 'fss', '', (fss_decor(_seed(f['id']), f) if f.get('decor', True) is not False else ''), ''
         align = 'center'
     else:
         pname = _resolve_plate(f, look)
@@ -541,14 +912,19 @@ def _render_stage_inner(f, look):
         if p:
             z = dict(p['zone']); z.update(f.get('zone', {}))
             body = 'dark'; plate = f'<img class="plate" src="../assets/plates/{p["file"]}">'
-            cut = f'<img class="cutout" src="../assets/plates/{p["cutout"]}">' if mode == 'tos' and p.get('cutout') else ''
+            cut = (f'<img class="cutout" src="../assets/plates/{p["cutout"]}">'
+                   if mode == 'tos' and f.get('tos_style') == 'behind' and p.get('cutout') else '')
         else:
             z = {'x': 960, 'y': 120, 'w': 880, 'h': 880, 'valign': 'center', 'align': 'left'}
             z.update(f.get('zone', {}))
             body = 'dark'; plate = ''; cut = ''
-        decor = anchor_decor(z) if f.get('decor', True) else ''
+        decor = anchor_decor(z, f) if f.get('decor', True) is not False else ''
         align = z.get('align', 'center')
-        if mode == 'tos':
+        if mode == 'tos' and f.get('title') and f.get('tos_style') != 'behind':
+            t = f['title']
+            flow_parts.insert(0, ('heading', f'<div class="zo-item" data-zo-t="ov_title">'
+                                             f'{ov_title({"title": t, "size": 150 if len(t) <= 12 else 112, "align": align})}</div>'))
+        elif mode == 'tos':
             t = f.get('title')
             if t:
                 ty = f.get('title_y', (p or {}).get('tos_y', 500))
@@ -598,10 +974,10 @@ FIT_JS = r'''() => {
 }'''
 
 CHECK_JS = r'''() => {
- const W=[], mode=document.body.dataset.mode, face=JSON.parse(document.body.dataset.face||'null');
+ const _st=document.getElementById('stage'); const W=[], mode=(_st&&_st.dataset.mode)||document.body.dataset.mode, face=JSON.parse((_st&&_st.dataset.face)||document.body.dataset.face||'null');
  const els=[...document.querySelectorAll('.z *')].filter(e=>e.children.length===0||e.matches('.obj,.ticket,.note .box,.icard,.pcard,.status,.phone,.notepad,.mtable'));
  const ok=new Set(['rgb(255, 255, 255)','rgb(34, 34, 34)','rgb(66, 66, 66)','rgb(136, 136, 136)','rgb(255, 192, 46)','rgb(73, 147, 233)','rgb(56, 126, 209)',
-   'rgb(129, 187, 255)','rgb(76, 175, 82)','rgb(240, 115, 57)','rgb(155, 123, 234)','rgb(178, 178, 178)','rgb(0, 0, 0)']);
+   'rgb(129, 187, 255)','rgb(76, 175, 82)','rgb(240, 115, 57)','rgb(155, 123, 234)','rgb(178, 178, 178)','rgb(0, 0, 0)','rgb(29, 34, 40)','rgb(56, 127, 209)','rgb(254, 192, 45)','rgb(77, 171, 77)','rgb(167, 123, 243)','rgb(138, 143, 150)','rgb(91, 97, 104)','rgb(210, 60, 60)','rgb(196, 82, 31)','rgb(227, 237, 249)','rgb(132, 150, 188)']);
  for(const e of els){ const r=e.getBoundingClientRect(); if(!r.width||!r.height) continue;
    const t=(e.innerText||e.className||'').toString().slice(0,40).replace(/\n/g,' ');
    if(r.left<-2||r.top<-2||r.right>1922||r.bottom>1082) W.push(`off-frame: "${t}" (${r.left|0},${r.top|0},${r.right|0},${r.bottom|0})`);
@@ -612,6 +988,13 @@ CHECK_JS = r'''() => {
    if(e.children.length===0 && e.innerText && e.innerText.trim() && eff<25.5 && !e.closest('.phone,.kscreen,.knav,.ktabs,.ktool,.kwin svg')) W.push(`text under 26px: "${t}" (${eff.toFixed(0)}px after fit)`);
    if(e.children.length===0 && e.innerText && e.innerText.trim() && !ok.has(cs.color) && !e.closest('.phone,.kscreen,.kwin,.wpop')) W.push(`off-palette text colour ${cs.color}: "${t}"`);
  }
+ const lum=c=>{const m=c.match(/[\d.]+/g); if(!m) return null; const [r,g,b]=m.slice(0,3).map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)}); return .2126*r+.7152*g+.0722*b;};
+ const bgOf=e=>{for(let a=e;a&&a.id!=='stage';a=a.parentElement){const b=getComputedStyle(a).backgroundColor; if(b&&!/rgba\(.*, 0\)$/.test(b)&&b!=='transparent') return b;} return mode==='fss'?'rgb(255, 255, 255)':null;};
+ for(const e of document.querySelectorAll('.z *')){ if(e.children.length||!e.innerText||!e.innerText.trim()) continue;
+   if(e.closest('.v2-pie,.v2-donut,.chartcard,.kwin,.kscreen,.phone,.hubfan,.v2-ud .plot,svg')) continue;  // labels drawn over charts
+   const bg=bgOf(e); if(!bg) continue; const L1=lum(getComputedStyle(e).color), L2=lum(bg); if(L1==null||L2==null) continue;
+   const cr=(Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05);
+   if(cr<1.6) W.push(`text blends into its background (contrast ${cr.toFixed(1)}): "${e.innerText.slice(0,30)}" — use a different keyword colour`); }
  for(const sh of document.querySelectorAll('.between,.hubc,.cal,.bigpill,.pillv,.obj,.icard,.note .box,.fterm')){
    const R=sh.getBoundingClientRect();
    for(const c of sh.querySelectorAll('*')){ if(!c.innerText||!c.innerText.trim()) continue; const r=c.getBoundingClientRect();

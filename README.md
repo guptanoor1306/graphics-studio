@@ -2,7 +2,7 @@
 
 A team web app built on the theme skill packs. A team member:
 1. pastes a script and picks the look (channel theme, anchor side, full-screen accent, topic prop, optional anchor frame grab);
-2. clicks **Generate**: Claude writes the storyboard and the frame spec;
+2. clicks **Generate**: Claude writes the storyboard and the frame spec, then the app renders every frame, runs the kit's layout check and sends contact sheets back to Claude, which fixes the broken frames before you see them (the same build → look → fix step the chat skill does; see `critique.py`);
 3. sees every frame rendered live, then fixes any frame by **asking Claude in plain English** ("make the table bigger", "move Rahul right") or by editing its JSON;
 4. runs **Check layout** (anchor overlap, off-frame, off-palette colours, mixed headings…);
 5. clicks **Export**, which downloads a zip of static, layer-ready HTML (plus PNGs) for your layer tool.
@@ -36,7 +36,8 @@ Docker: `docker build -t graphics-studio . && docker run -p 8000:8000 -e ANTHROP
 - **Auth:** put it behind your SSO / reverse proxy (Google IAP, Cloudflare Access, oauth2-proxy). The app records the user from the `X-User-Email` header for history.
 - **Database:** Local = SQLite in `data/`. Production = set **`DATABASE_URL`** (Postgres). See [RAILWAY.md](RAILWAY.md) (recommended) or [RENDER.md](RENDER.md).
 - **Uploaded anchor plates** are written into `themes/<theme>/assets/plates/user_<id>.png`. Mount `themes/` on a persistent volume or move uploads to S3.
-- **Spend:** watch Anthropic usage per key. One storyboard is a single call (cached rules ~4k tokens + script in, spec out). An edit is a small call with only one frame's JSON.
+- **Spend:** watch Anthropic usage per key. A storyboard is one call (cached rules + style image + script in, spec out) plus up to two review calls with contact-sheet images (`STUDIO_CRITIQUE_ROUNDS`, default 2). An edit is a small call with only one frame's JSON.
+- **Request time:** Generate now takes ~3–6 min (thinking + render review). Make sure your host's HTTP timeout allows it, or set `STUDIO_CRITIQUE_ROUNDS=1`.
 
 ## Add another channel or theme
 Make a new skill kit for the channel (the same structure as `themes/varsity-english`). Drop the folder into `themes/` and restart; it appears in the Theme dropdown. The kit is the single source of truth. Updating `SKILL.md`, the CSS or the assets there updates both the Claude skill and the app.
@@ -58,5 +59,8 @@ Every visual element carries `data-layer="<component>:<text>"` (e.g. `htab:Tax C
 | `app.py` | API, storage, versioning, preview, checks, export |
 | `claude_client.py` | the two Claude calls (forced JSON via tool schema; rules in a cached system block) |
 | `exporter.py` | static layer-ready HTML + PNG zip |
+| `critique.py` | render → layout check → contact sheets → Claude fixes failing frames (runs after Generate) |
+| `bulletin.py` | layered Bulletin export (ZO team format): html/png/layers JSON + LAYERS.txt + README + spec.json, with a pixel check against the kit render |
+| `asset_gen.py` | turns `TODO:<asset>` placeholders into images: shared library → Gemini (kit style refs, cut-out PNG) → Claude SVG fallback; stored in the DB and restored to `themes/<kit>/assets/gen/` on startup |
 | `static/index.html` | the whole UI (vanilla JS, no build step) |
 | `themes/varsity-english/` | the Varsity skill kit (rules, CSS, components, assets, renderer) |

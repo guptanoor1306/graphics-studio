@@ -1,0 +1,844 @@
+{
+ "episode": "Example_AllTypes",
+ "arjun": "city",
+ "gen": {
+  "kirana": {
+   "prompt": "Andhra kirana store interior, Arjun behind counter",
+   "arjun": "andhra",
+   "aspect": "16:9"
+  },
+  "plaza": {
+   "prompt": "Empty paved township plaza between tan residential towers",
+   "aspect": "16:9"
+  },
+  "village": {
+   "prompt": "Khasi village hillside",
+   "aspect": "16:9"
+  },
+  "locked_gate": {
+   "prompt": "Locked gate of under-construction tower with crowd",
+   "aspect": "16:9"
+  },
+  "gold_bars": {
+   "prompt": "Stack of gold coins and two gold bars",
+   "cutout": true,
+   "aspect": "1:1"
+  },
+  "towers_barren": {
+   "prompt": "Tan residential towers standing on barren dry land with scrub, wide shot, empty sky in the upper third",
+   "aspect": "16:9"
+  },
+  "malabar_coast": {
+   "prompt": "Ancient Malabar coast trading port with thatched huts, palm trees and a wooden sailing ship at a jetty",
+   "cutout": true,
+   "aspect": "16:9"
+  }
+ },
+ "frames": [
+  {
+   "id": "0.05",
+   "section": "Intro",
+   "name": "meet-arjun",
+   "type": "scene",
+   "bg": "sky",
+   "layers": [
+    {
+     "img": "asset:characters/arjun_city_neutral.png",
+     "x": 800,
+     "y": 470,
+     "w": 330
+    },
+    {
+     "text": "_meet_",
+     "x": 700,
+     "y": 250,
+     "size": 54,
+     "weight": 200
+    },
+    {
+     "text": "ARJUN",
+     "font": "imp",
+     "x": 840,
+     "y": 215,
+     "size": 106
+    }
+   ]
+  },
+  {
+   "id": "0.12",
+   "section": "Intro",
+   "name": "lekin",
+   "type": "word",
+   "bg": "sky",
+   "text": "Lekin!",
+   "font": "italic",
+   "size": 320
+  },
+  {
+   "id": "0.20",
+   "section": "SOP",
+   "name": "sop",
+   "type": "sop",
+   "bg": "sky",
+   "items": [
+    {
+     "kicker": "Why",
+     "title": "What is Minimum Due?",
+     "x": 120,
+     "y": 420,
+     "img": "gen:plaza"
+    },
+    {
+     "kicker": "What does",
+     "title": "Why is Interest so Expensive?",
+     "x": 1260,
+     "y": 160,
+     "img": "gen:kirana",
+     "text_pos": [
+      1260,
+      420
+     ]
+    },
+    {
+     "kicker": "Challenges",
+     "title": "How to Escape the Trap",
+     "x": 1300,
+     "y": 600,
+     "img": "gen:village",
+     "text_pos": [
+      1290,
+      860
+     ]
+    }
+   ],
+   "layers": [
+    {
+     "img": "asset:characters/arjun_kerala_thinking.png",
+     "x": 780,
+     "y": 560,
+     "w": 420
+    }
+   ]
+  },
+  {
+   "id": "0.40",
+   "section": "Ch1 Paradox",
+   "name": "chapter",
+   "type": "chapter",
+   "n": 1,
+   "title": "The Noida\nReal Estate Paradox",
+   "bg": {
+    "img": "gen:plaza"
+   },
+   "scrim": true
+  },
+  {
+   "id": "0.45",
+   "section": "Ch2 Afford",
+   "name": "chapter2",
+   "type": "chapter",
+   "n": 2,
+   "title": "Can You\nAFFORD A House In Noida?",
+   "bg": "sky"
+  },
+  {
+   "id": "0.47",
+   "section": "Ch3 Really Get",
+   "name": "chapter3",
+   "type": "chapter",
+   "n": 3,
+   "title": "What does Arjun\n'Really' Get?",
+   "bg": "sky"
+  },
+  {
+   "id": "0.50",
+   "section": "Ch1 Paradox",
+   "name": "stat",
+   "type": "stat",
+   "bg": "sky",
+   "value": "83%",
+   "label": "Borrowers",
+   "pos": [
+    290,
+    170
+   ],
+   "layers": [
+    {
+     "arrow": [
+      400,
+      420,
+      470,
+      560
+     ],
+     "curve": -0.2
+    }
+   ]
+  },
+  {
+   "id": "0.55",
+   "section": "Ch1 Paradox",
+   "name": "darkstat",
+   "type": "stat",
+   "bg": {
+    "img": "gen:village",
+    "look": "dark"
+   },
+   "value": "90%",
+   "label": "of kerala households\nhave *bullion* ya *gold ornaments…*",
+   "pos": [
+    960,
+    150
+   ],
+   "align": "center",
+   "size": 240,
+   "w": 1400
+  },
+  {
+   "id": "0.60",
+   "section": "Ch1 Paradox",
+   "name": "timeline",
+   "type": "timeline",
+   "bg": "paper",
+   "year": "2010",
+   "caption": "",
+   "curve": {
+    "points": [
+     [
+      170,
+      1000
+     ],
+     [
+      900,
+      980
+     ],
+     [
+      1300,
+      800
+     ],
+     [
+      1500,
+      560
+     ],
+     [
+      1700,
+      0
+     ]
+    ],
+    "label": "MFI",
+    "label_at": [
+     1500,
+     560
+    ]
+   }
+  },
+  {
+   "id": "0.70",
+   "section": "Ch1 Paradox",
+   "name": "emi-table",
+   "type": "table",
+   "bg": "sky",
+   "title": "THE EMI MATH",
+   "header": "blue",
+   "rows": [
+    [
+     "Loan Amount",
+     "₹1 crore 50 lakh"
+    ],
+    [
+     "Tenure",
+     "20 Years"
+    ],
+    [
+     "Interest Rate",
+     "8% per annum"
+    ],
+    [
+     "EMI",
+     "₹1,25,466"
+    ],
+    [
+     "Total cost of ownership",
+     "₹3,79,11,842"
+    ]
+   ],
+   "row_styles": {
+    "4": "hl"
+   },
+   "upto": 5,
+   "layers": [
+    {
+     "img": "asset:characters/arjun_city_worried_scratch.png",
+     "x": 1500,
+     "y": 560,
+     "w": 420
+    }
+   ]
+  },
+  {
+   "id": "0.80",
+   "section": "Ch1 Paradox",
+   "name": "tax-desk",
+   "type": "table",
+   "bg": "desk",
+   "mount": "desk",
+   "title": "Taxation",
+   "header": "red",
+   "x": 330,
+   "y": 170,
+   "w": 1220,
+   "cols": [
+    "",
+    "Gold ETF",
+    "Physical Gold"
+   ],
+   "rows": [
+    [
+     "Time Period",
+     "Sell after 1 Year",
+     "Sell after 2 Years"
+    ],
+    [
+     "Tax",
+     "12.5%",
+     "12.5%"
+    ]
+   ],
+   "font_size": 38
+  },
+  {
+   "id": "0.90",
+   "section": "Ch1 Paradox",
+   "name": "idtags",
+   "type": "idtag",
+   "bg": "sky",
+   "tags": [
+    {
+     "x": 201,
+     "fields": {
+      "Name": "Arjun",
+      "Age": "28 Years Old",
+      "Salary": "₹50 Lakh",
+      "Info": "Same",
+      "State": "?"
+     },
+     "highlight": [
+      "State"
+     ]
+    }
+   ],
+   "layers": [
+    {
+     "img": "asset:characters/arjun_andhra_neutral.png",
+     "x": 300,
+     "y": 431,
+     "w": 482
+    }
+   ]
+  },
+  {
+   "id": "1.00",
+   "section": "Ch1 Paradox",
+   "name": "price-tags",
+   "type": "hangtags",
+   "bg": {
+    "img": "gen:locked_gate"
+   },
+   "tags": [
+    {
+     "x": 600,
+     "y": 230,
+     "title": "₹3 Crore"
+    },
+    {
+     "x": 1500,
+     "y": 300,
+     "title": "₹5 Crore"
+    }
+   ]
+  },
+  {
+   "id": "1.10",
+   "section": "Ch1 Paradox",
+   "name": "placards",
+   "type": "placards",
+   "bg": "sky",
+   "items": [
+    {
+     "text": "Mandatory\nRegistration",
+     "x": 450,
+     "y": 720,
+     "rot": -8
+    },
+    {
+     "text": "Collections &\nRecovery Rules",
+     "x": 960,
+     "y": 700
+    },
+    {
+     "text": "Weekly Repayment\nModel",
+     "x": 1450,
+     "y": 720,
+     "rot": 7
+    }
+   ]
+  },
+  {
+   "id": "1.20",
+   "section": "Ch1 Paradox",
+   "name": "checklist",
+   "type": "checklist",
+   "bg": "sky",
+   "title": "Checklist",
+   "items": [
+    "Occupancy load",
+    "Safe with Lifts",
+    "Water supply",
+    "Electricity check",
+    "Power backups",
+    "Maintenance"
+   ],
+   "checked": 3,
+   "photo": "gen:plaza",
+   "photo_pos": [
+    1150,
+    90,
+    340
+   ]
+  },
+  {
+   "id": "1.30",
+   "section": "Ch1 Paradox",
+   "name": "news",
+   "type": "news_wall",
+   "bg": "sky",
+   "items": [
+    {
+     "source": "The Indian Express",
+     "headline": "Homes worth crores, worms in water:\nNoida's residents battle crisis"
+    },
+    {
+     "source": "NDTV",
+     "headline": "\"No Water, 5-Hour Power Cuts\": Noida woman shows\nreality of luxury high-rise flats",
+     "size": 32
+    },
+    {
+     "source": "Hindustan Times",
+     "headline": "Builder sold dreams, but no water in reality"
+    }
+   ]
+  },
+  {
+   "id": "1.40",
+   "section": "Ch1 Paradox",
+   "name": "article",
+   "type": "article",
+   "bg": "sky",
+   "source": "ScienceDirect",
+   "title": "The financial literacy gender gap and the role of culture",
+   "body": "Our results show that women are, on average, less likely to have knowledge of different financial practices in comparison to men in patriarchal India. While we find a significant gender gap in financial literacy in patriarchal states of about 10 percent, we do not find any significant gap in the three matrilineal states.",
+   "highlight": "we do not find any significant gap in the three matrilineal states"
+  },
+  {
+   "id": "1.50",
+   "section": "Ch1 Paradox",
+   "name": "calc",
+   "type": "calc",
+   "bg": "sky",
+   "equation": "₹2 cr. ka 75% =",
+   "answer": "₹50 Lakh",
+   "pos": [
+    0,
+    260
+   ],
+   "layers": [
+    {
+     "img": "asset:characters/arjun_city_worried_scratch.png",
+     "x": 760,
+     "y": 520,
+     "w": 400
+    }
+   ]
+  },
+  {
+   "id": "1.60",
+   "section": "Ch1 Paradox",
+   "name": "dots",
+   "type": "dots",
+   "bg": "sky",
+   "title": "Literacy (Gender)",
+   "groups": [
+    {
+     "label": "Men",
+     "n": 6,
+     "cols": 3,
+     "color": "blue",
+     "x": 540,
+     "y": 420
+    },
+    {
+     "label": "Women",
+     "n": 20,
+     "cols": 5,
+     "color": "red",
+     "x": 1060,
+     "y": 360
+    }
+   ],
+   "sign": "<",
+   "sign_pos": [
+    860,
+    380
+   ]
+  },
+  {
+   "id": "1.70",
+   "section": "Ch1 Paradox",
+   "name": "compare",
+   "type": "compare",
+   "bg": "sky",
+   "board": {
+    "kicker": "Option-1",
+    "title": "GOLD COIN OR BAR",
+    "x": 960,
+    "y": 230
+   },
+   "left": {
+    "img": "asset:props/jewellery_tray_topdown.png",
+    "x": 160,
+    "y": 680,
+    "w": 520,
+    "list": [
+     [
+      "Making charges",
+      true
+     ],
+     [
+      "Wastage charges",
+      true
+     ]
+    ],
+    "list_pos": [
+     180,
+     560
+    ]
+   },
+   "right": {
+    "img": "gen:gold_bars",
+    "x": 1280,
+    "y": 640,
+    "w": 360,
+    "list": [
+     [
+      "Making charges",
+      false
+     ],
+     [
+      "Wastage charges",
+      false
+     ]
+    ],
+    "list_pos": [
+     1250,
+     560
+    ]
+   }
+  },
+  {
+   "id": "1.80",
+   "section": "Ch1 Paradox",
+   "name": "pies",
+   "type": "pie",
+   "bg": "desk",
+   "pies": [
+    {
+     "title": "Demand",
+     "data": [
+      [
+       "Upto 75L",
+       34
+      ],
+      [
+       "75L-1Cr",
+       18
+      ],
+      [
+       "1-1.5Cr",
+       19
+      ],
+      [
+       "1.5-3Cr",
+       23
+      ],
+      [
+       "3-5Cr",
+       4
+      ],
+      [
+       "5Cr+",
+       2
+      ]
+     ],
+     "x": 700,
+     "y": 470,
+     "r": 230
+    },
+    {
+     "title": "Supply",
+     "data": [
+      [
+       "Upto 75L",
+       11
+      ],
+      [
+       "75L-1Cr",
+       12
+      ],
+      [
+       "1-1.5Cr",
+       18
+      ],
+      [
+       "1.5-3Cr",
+       32
+      ],
+      [
+       "3-5Cr",
+       15
+      ],
+      [
+       "5Cr+",
+       12
+      ]
+     ],
+     "x": 1260,
+     "y": 470,
+     "r": 230
+    }
+   ],
+   "legend": [
+    "Upto 75L",
+    "75L - 1Cr",
+    "1Cr - 1.5Cr",
+    "1.5Cr - 3Cr",
+    "3Cr - 5Cr",
+    "Above 5Cr"
+   ],
+   "legend_pos": [
+    560,
+    900
+   ]
+  },
+  {
+   "id": "1.90",
+   "section": "Ch1 Paradox",
+   "name": "callouts",
+   "type": "callouts",
+   "bg": {
+    "img": "gen:plaza",
+    "look": "grey"
+   },
+   "labels": [
+    {
+     "text": "Pool",
+     "x": 1450,
+     "y": 430
+    },
+    {
+     "text": "Garden",
+     "x": 960,
+     "y": 460
+    },
+    {
+     "text": "Garbage Disposal",
+     "x": 500,
+     "y": 600
+    }
+   ]
+  },
+  {
+   "id": "2.00",
+   "section": "Ch1 Paradox",
+   "name": "hub",
+   "type": "hub",
+   "bg": "paper",
+   "title": "The Returns Picture",
+   "center": {
+    "label": "Current value of Gold",
+    "value": "₹3.30 Lakh",
+    "x": 1240,
+    "y": 560
+   },
+   "items": [
+    {
+     "img": "asset:props/necklace_22k.png",
+     "x": 880,
+     "y": 300,
+     "w": 260,
+     "label": "Gold Jewellery",
+     "value": "₹2.30 Lakh",
+     "label_pos": [
+      860,
+      180
+     ]
+    },
+    {
+     "img": "gen:gold_bars",
+     "x": 1380,
+     "y": 660,
+     "w": 260,
+     "label": "Gold coins & bars",
+     "value": "₹2.69 Lakh",
+     "label_pos": [
+      1500,
+      880
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2.10",
+   "section": "Ch1 Paradox",
+   "name": "binocular",
+   "type": "vignette",
+   "bg": {
+    "img": "gen:plaza"
+   }
+  },
+  {
+   "id": "2.20",
+   "section": "Ch1 Paradox",
+   "name": "focus",
+   "type": "scene",
+   "bg": {
+    "img": "gen:plaza",
+    "look": "grey"
+   },
+   "layers": [
+    {
+     "img": "asset:characters/arjun_city_neutral.png",
+     "x": 800,
+     "y": 620,
+     "w": 260
+    },
+    {
+     "text": "How much should be",
+     "x": 570,
+     "y": 250,
+     "size": 54
+    },
+    {
+     "text": "*Arjun's salary?*",
+     "font": "imp",
+     "x": 570,
+     "y": 310,
+     "size": 120
+    }
+   ]
+  },
+  {
+   "id": "2.30",
+   "section": "Ch1 Paradox",
+   "name": "timeline-spine",
+   "type": "timeline",
+   "bg": "paper",
+   "year": "1 AD",
+   "size": 133,
+   "caption": "towards west",
+   "caption_pos": [
+    1150,
+    830
+   ],
+   "layers": [
+    {
+     "img": "gen:malabar_coast",
+     "x": 560,
+     "y": 330,
+     "w": 1000,
+     "h": 420,
+     "shadow": true
+    },
+    {
+     "arrow": [
+      1460,
+      862,
+      1700,
+      862
+     ]
+    },
+    {
+     "text": "Black pepper",
+     "x": 1180,
+     "y": 290,
+     "size": 34
+    }
+   ]
+  },
+  {
+   "id": "2.40",
+   "section": "Ch1 Paradox",
+   "name": "explode",
+   "type": "scene",
+   "bg": "paper",
+   "layers": [
+    {
+     "img": "asset:props/necklace_22k.png",
+     "x": 575,
+     "y": 130,
+     "w": 789
+    },
+    {
+     "rect": [
+      360,
+      170,
+      460,
+      148
+     ]
+    },
+    {
+     "rect": [
+      1161,
+      72,
+      380,
+      252
+     ]
+    },
+    {
+     "rect": [
+      519,
+      399,
+      300,
+      310
+     ]
+    },
+    {
+     "text": "Making charges",
+     "x": 200,
+     "y": 300,
+     "size": 29
+    },
+    {
+     "text": "₹9,900",
+     "font": "imp",
+     "color": "red",
+     "x": 200,
+     "y": 335,
+     "size": 100
+    },
+    {
+     "text": "GST on gold",
+     "x": 1470,
+     "y": 330,
+     "size": 29
+    },
+    {
+     "text": "₹2,481",
+     "font": "imp",
+     "color": "red",
+     "x": 1470,
+     "y": 365,
+     "size": 100
+    }
+   ]
+  }
+ ]
+}

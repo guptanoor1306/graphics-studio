@@ -1,0 +1,7 @@
+# style references for generated assets (paths under assets/)
+illus/psd/clipboard_personal_loan.png
+illus/psd/coins_rupee_stack.png
+illus/psd/folder_yellow_cash.png
+illus/psd/shopping_bag_blue.png
+illus/building_abc_limited.png
+illus/monitor_quote_card.png

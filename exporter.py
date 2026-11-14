@@ -79,17 +79,29 @@ def inline_assets(html: str, base_dir: pathlib.Path) -> str:
     css = re.sub(r"url\((\.\./fonts/[^)]+)\)", lambda m: f"url({_data_uri((base_dir / 'scenes' / m.group(1)).resolve())})", css)
     html = re.sub(rf'<link rel="stylesheet" href="[^"]*{re.escape(css_name)}">', f"<style>{css}</style>", html)
 
-    def fix_src(m):
-        url = m.group(2)
-        if url.startswith(("data:", "http")):
-            return m.group(0)
+    def resolve(url):
         p = (base_dir / "scenes" / re.sub(r"^.*?/assets/", "../assets/", url)).resolve()
         if not p.exists():
             p = (base_dir / url.split('/kit/')[-1]).resolve()
         if not p.exists() and url.startswith("../"):
             p = (base_dir / url).resolve()
-        return f'{m.group(1)}="{_data_uri(p)}"' if p.exists() else m.group(0)
+        return p if p.exists() and p.is_file() else None
+
+    def fix_src(m):
+        url = m.group(2)
+        if url.startswith(("data:", "http")):
+            return m.group(0)
+        p = resolve(url)
+        return f'{m.group(1)}="{_data_uri(p)}"' if p else m.group(0)
+
+    def fix_url(m):  # background plates set in style attributes: url('../assets/…')
+        url = m.group(1)
+        if url.startswith(("data:", "http", "#")):
+            return m.group(0)
+        p = resolve(url)
+        return f"url('{_data_uri(p)}')" if p else m.group(0)
     html = re.sub(r'(src)="([^"]+)"', fix_src, html)
+    html = re.sub(r"url\('([^']+)'\)", fix_url, html)
     html = re.sub(r'<base [^>]*>', '', html)
     return html
 
@@ -263,6 +275,7 @@ def export_zip(
     *,
     storyboard_csv: str | None = None,
     zip_path: pathlib.Path | None = None,
+    extra_files: dict[str, str] | None = None,
 ) -> bytes:
     """pages: list of (frame_id, full_html, skip_overlay, html_overlay|None). Base href in html must point at this server's /themes/."""
     if not pages:
@@ -286,6 +299,9 @@ def export_zip(
         if storyboard_csv:
             z.writestr('storyboard-instructions.csv', storyboard_csv.encode('utf-8'))
             readme += 'storyboard-instructions.csv  timestamp-ordered storyboard beats (CSV)\n'
+        for name, text in (extra_files or {}).items():
+            z.writestr(name, text.encode("utf-8"))
+            readme += f"{name}\n"
         z.writestr("README.txt", readme)
     if zip_path is not None:
         return b""

@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import audio_transcribe, claude_client, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import asset_gen, audio_transcribe, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -56,6 +56,14 @@ def preview_url(pid: int, fid: str) -> str:
     return f"{preview_base()}/preview/{pid}/{quote(str(fid), safe='')}"
 app = FastAPI(title="Graphics Studio")
 app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
+
+
+@app.on_event("startup")
+async def _restore_generated_assets():
+    # Railway wipes the disk on deploy; generated assets live in the DB and are written back here.
+    n = await asyncio.to_thread(asset_gen.restore_all)
+    if n:
+        print(f"asset_gen: restored {n} generated asset(s)")
 
 
 @app.middleware("http")
@@ -165,6 +173,8 @@ def frame_wants_overlay(theme: str, frame: dict) -> bool:
     """True = full frame (skip html_overlay); False = anchor-style (emit overlay export)."""
     if theme == "zero1-reel-graphics":
         return frame.get("type") in {"ost", "anchor"}
+    if z1_plates.is_theme(theme):  # faceless IP: every frame is full screen
+        return True
     if is_zo_theme_name(theme):
         return (frame.get("mode") or "fss") == "fss"
     if is_mf_theme_name(theme):
@@ -277,6 +287,8 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
     """Return frame JSON for preview/export. Enrich only at storyboard generation — not on render."""
     theme = p.get("theme") or ""
     f = _coerce_frame_for_studio(frame, theme)
+    if z1_plates.is_theme(theme):  # Zero1 Hindi: hand the frame its gen: plates; the kit needs no enrichment
+        return z1_plates.attach(p.get("spec") or {}, f)
     if enrich:
         spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "", theme=theme)
     return f
@@ -517,7 +529,54 @@ def delete_project_post(pid: int):
 
 @app.post("/api/projects/{pid}/storyboard")
 async def make_storyboard(pid: int, req: Request):
-    b = await req.json(); p = load(pid)
+    """Generate runs 3–6 min (thinking + render review). Railway closes a request after 5 min with no
+    bytes sent, so stream a space every 15 s and send the JSON at the end (leading spaces are valid JSON).
+    Errors after streaming starts come back as {"__stream_error": "..."}; the UI's api() raises on it."""
+    b = await req.json()
+    load(pid)  # 404 before streaming starts
+    return _stream_json(_make_storyboard(pid, b, who(req)))
+
+
+def _stream_json(coro) -> StreamingResponse:
+    """Run a long job, sending a space every 15 s so Railway's 5-min idle cut-off never fires,
+    then the JSON result (leading spaces are valid JSON). Errors become {"__stream_error": ...}."""
+    task = asyncio.create_task(coro)
+
+    async def body():
+        while True:
+            done, _ = await asyncio.wait({task}, timeout=15)
+            if done:
+                break
+            yield b" "
+        try:
+            yield json.dumps(task.result(), default=str).encode()
+        except HTTPException as e:
+            yield json.dumps({"__stream_error": str(e.detail), "status": e.status_code}).encode()
+        except Exception as e:
+            yield json.dumps({"__stream_error": f"{type(e).__name__}: {e}", "status": 500}).encode()
+
+    return StreamingResponse(body(), media_type="application/json")
+
+
+def _with_assets(theme: str, finalize, report: dict):
+    """finalize → then replace TODO asset placeholders (runs again after each critique fix)."""
+    def fin(sp):
+        if finalize:
+            sp = finalize(sp)
+        if z1_plates.is_theme(theme):
+            sp, r = z1_plates.fill(sp, log=print)
+        else:
+            sp, r = asset_gen.fill_spec(theme, sp, log=print)
+        report.setdefault("filled", {}).update(r["filled"])
+        report.setdefault("failed", {}).update(r["failed"])
+        for d in r["filled"]:
+            report["failed"].pop(d, None)
+        return sp
+    return fin
+
+
+async def _make_storyboard(pid: int, b: dict, user: str):
+    p = load(pid)
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
     try:
         transcript = _episode_transcript_for_project(pid)
@@ -531,29 +590,100 @@ async def make_storyboard(pid: int, req: Request):
         )
     except Exception as e:
         _raise_claude_gateway(e)
-    if is_mf_theme_name(p["theme"]):
-        spec = mf_studio.compact_mf_spec_for_studio(out["spec"])
+    theme = p["theme"]
+    sb = out.get("storyboard") or ""
+    plook = look
+    if is_mf_theme_name(theme) and not is_zo_theme_name(theme):
+        finalize = mf_studio.compact_mf_spec_for_studio
+        spec = finalize(out["spec"])
         plook = {**look}
         if isinstance(spec.get("look"), str):
             plook["look_line"] = spec["look"]
-        save(pid, who(req), "generated storyboard", script=script, look=plook, storyboard=out["storyboard"], spec=spec)
-    elif is_zo_theme_name(p["theme"]):
-        spec = mf_studio.compact_zo_spec_for_studio(out["spec"])
-        if isinstance(look, dict) and look.get("plate") and isinstance(spec.get("look"), dict):
-            spec["look"].setdefault("plate", look["plate"])
-        save(pid, who(req), "generated storyboard", script=script, look=look, storyboard=out["storyboard"], spec=spec)
-        out["spec"] = spec
-    elif is_hindi_theme_name(p["theme"]):
+    elif is_zo_theme_name(theme):
+        def finalize(sp):
+            sp = mf_studio.compact_zo_spec_for_studio(sp)
+            if isinstance(look, dict) and look.get("plate") and isinstance(sp.get("look"), dict):
+                sp["look"].setdefault("plate", look["plate"])
+            return sp
+        spec = finalize(out["spec"])
+    elif is_hindi_theme_name(theme) or z1_plates.is_theme(theme):
+        finalize = None
         spec = out.get("spec") or {}
-        save(pid, who(req), "generated storyboard", script=script, look=look, storyboard=out["storyboard"], spec=spec)
-        out["spec"] = spec
     else:
-        merged = effective_look({**p, "look": look, "spec": out["spec"]})
-        out["spec"]["look"] = merged
-        out["spec"] = spec_enrich.enrich_spec(out["spec"], out.get("storyboard") or "", theme=p["theme"])
-        save(pid, who(req), "generated storyboard", script=script, look=merged, storyboard=out["storyboard"], spec=out["spec"])
-    warn = claude_client.spec_quality_issues(out["spec"], out.get("storyboard") or "", theme=p["theme"])
-    return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn}
+        plook = effective_look({**p, "look": look, "spec": out["spec"]})
+
+        def finalize(sp):
+            sp["look"] = plook
+            return spec_enrich.enrich_spec(sp, sb, theme=theme)
+        spec = finalize(out["spec"])
+    # Real images for "TODO:<asset>" placeholders (library → Gemini → Claude SVG), so the review sees them.
+    asset_report: dict = {}
+    finalize = _with_assets(theme, finalize, asset_report)
+    spec = await asyncio.to_thread(finalize, spec)
+    # Render → look → fix (the skill's build/WARN/contact-sheet step) before anyone sees the frames.
+    critique_report: dict = {}
+    try:
+        spec, critique_report = await asyncio.to_thread(
+            _critique_spec, {**p, "look": plook}, spec, sb, script, finalize
+        )
+    except Exception as e:  # never lose a generated spec to a critique failure
+        critique_report = {"error": str(e)}
+    note = "generated storyboard" + _notes_suffix(critique_report, asset_report)
+    save(pid, user, note, script=script, look=plook, storyboard=sb, spec=spec)
+    warn = claude_client.spec_quality_issues(spec, sb, theme=theme)
+    warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
+    warn += [f"asset not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
+    return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn,
+            "critique": critique_report, "assets": asset_report}
+
+
+def _notes_suffix(critique_report: dict, asset_report: dict) -> str:
+    bits = []
+    if critique_report.get("changed"):
+        bits.append(f"auto-fixed {len(critique_report['changed'])} frame(s) after render review")
+    if asset_report.get("filled"):
+        bits.append(f"generated {len(asset_report['filled'])} asset(s)")
+    return f" ({'; '.join(bits)})" if bits else ""
+
+
+def _critique_spec(p_like: dict, spec: dict, storyboard: str, script: str, finalize, only_ids=None) -> tuple[dict, dict]:
+    """Render every frame offline with the kit renderer, then let Claude fix what it sees (critique.py)."""
+    theme = p_like["theme"]
+    m = builder(theme)
+    base = (THEMES / theme / "scenes").as_uri() + "/"
+
+    def render_html(f: dict, sp: dict) -> str:
+        pp = {**p_like, "spec": sp}
+        return frame_page(
+            theme, frame_for_render(pp, f), effective_look(pp),
+            base_href=base, all_frames=sp.get("frames") or [], spec=sp,
+        )
+
+    def renderable(f: dict) -> bool:
+        if is_zo_theme_name(theme):
+            return mf_studio.is_zo_renderable(f)
+        if is_mf_theme_name(theme):
+            return mf_studio.is_mf_renderable(f)
+        return True
+
+    check_js = getattr(m, "CHECK_JS", None) or getattr(m, "QA_JS", None) or "() => []"
+    check_arg = None
+    if theme == "varsity-hindi-graphics":  # QA_JS(mode) in that kit
+        check_arg = lambda f: (f.get("mode") or "fss") + ("-split" if f.get("split") else "")
+    return critique.run(
+        theme_dir=THEMES / theme,
+        spec=spec,
+        storyboard=storyboard,
+        render_html=render_html,
+        renderable=renderable,
+        check_js=check_js,
+        check_arg=check_arg,
+        canvas=theme_canvas.canvas_for_theme(theme),
+        finalize=finalize,
+        script=script,
+        only_ids=only_ids,
+        log=print,
+    )
 
 
 def _merge_pdf_batch_spec(
@@ -578,6 +708,8 @@ def _merge_pdf_batch_spec(
         for key in ("title", "look"):
             if meta.get(key) and not spec.get(key):
                 spec[key] = meta[key]
+        if isinstance(meta.get("gen"), dict):  # Zero1 Hindi: plate prompts arrive with each batch
+            spec["gen"] = {**(spec.get("gen") or {}), **meta["gen"]}
     old_sb = (p.get("storyboard") or "").strip()
     new_sb = (batch.get("storyboard") or "").strip()
     storyboard = new_sb if (new_sb and not old_sb) else (p.get("storyboard") or new_sb or "")
@@ -594,7 +726,7 @@ def _finalize_spec_after_batch(spec: dict, storyboard: str, theme: str, look: di
         if isinstance(look, dict) and look.get("plate") and isinstance(spec.get("look"), dict):
             spec["look"].setdefault("plate", look["plate"])
         return spec
-    if is_hindi_theme_name(theme):
+    if is_hindi_theme_name(theme) or z1_plates.is_theme(theme):
         return spec
     merged = effective_look({**p, "look": look, "spec": spec})
     spec["look"] = merged
@@ -680,6 +812,11 @@ async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(
 @app.post("/api/projects/{pid}/storyboard-pdf/batch")
 async def storyboard_pdf_batch_route(pid: int, req: Request):
     b = await req.json()
+    load(pid)
+    return _stream_json(_storyboard_pdf_batch(pid, b, who(req)))
+
+
+async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
     p = load(pid)
     try:
         pdf_bytes = storyboard_pdf.read_pdf(pid)
@@ -733,33 +870,73 @@ async def storyboard_pdf_batch_route(pid: int, req: Request):
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
-    spec = _finalize_spec_after_batch(
-        spec,
-        storyboard,
-        p["theme"],
-        look if isinstance(look, dict) else {},
-        p,
+    lk = look if isinstance(look, dict) else {}
+    asset_report: dict = {}
+    finalize = _with_assets(
+        p["theme"], lambda sp: _finalize_spec_after_batch(sp, storyboard, p["theme"], lk, p), asset_report
     )
+    spec = await asyncio.to_thread(finalize, spec)
     plook = look if isinstance(look, dict) else p.get("look")
     if is_mf_theme_name(p["theme"]) and isinstance(spec.get("look"), str) and isinstance(plook, dict):
         plook = {**plook, "look_line": spec["look"]}
+    # review only the frames this batch added
+    before = {str(f.get("id")) for f in (p.get("spec") or {}).get("frames") or [] if isinstance(f, dict)}
+    new_ids = {str(f.get("id")) for f in spec.get("frames") or [] if isinstance(f, dict)} - before
+    critique_report: dict = {}
+    if new_ids:
+        try:
+            spec, critique_report = await asyncio.to_thread(
+                _critique_spec, {**p, "look": plook}, spec, storyboard, script, finalize, new_ids
+            )
+        except Exception as e:
+            critique_report = {"error": str(e)}
     save(
         pid,
-        who(req),
-        f"PDF storyboard batch (+{out['frames_added']} frames)",
+        user,
+        f"PDF storyboard batch (+{out['frames_added']} frames)" + _notes_suffix(critique_report, asset_report),
         script=script,
         look=plook,
         storyboard=storyboard,
         spec=spec,
     )
     warn = claude_client.spec_quality_issues(spec, storyboard, theme=p["theme"])
+    warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
+    warn += [f"asset not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
     return {
         **load(pid),
         "pdf_progress": out.get("pdf_progress"),
         "frames_added": out.get("frames_added"),
         "frames_dropped": out.get("frames_dropped") or 0,
         "spec_warnings": warn,
+        "critique": critique_report,
+        "assets": asset_report,
     }
+
+
+@app.post("/api/projects/{pid}/assets/fill")
+async def fill_assets_route(pid: int, req: Request):
+    """Generate images for every remaining "TODO:" asset in an existing project ({"redo": true} also
+    remakes the images generated earlier)."""
+    load(pid)
+    user = who(req)
+    try:
+        redo = bool((await req.json()).get("redo"))
+    except Exception:
+        redo = False
+
+    async def job():
+        p = load(pid)
+        if z1_plates.is_theme(p["theme"]):
+            spec, report = await asyncio.to_thread(z1_plates.fill, p.get("spec") or {}, print, redo)
+            left = len(z1_plates.pending(spec))
+        else:
+            spec, report = await asyncio.to_thread(asset_gen.fill_spec, p["theme"], p.get("spec") or {}, print, redo)
+            left = len(asset_gen.todo_descriptions(spec))
+        if report["filled"]:
+            verb = "regenerated" if redo else "generated"
+            save(pid, user, f"{verb} {len(report['filled'])} asset(s)", spec=spec)
+        return {**load(pid), "assets": report, "todo_left": left}
+    return _stream_json(job())
 
 
 @app.put("/api/projects/{pid}")
@@ -1150,6 +1327,7 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
         sb_csv = raw_sb.decode("utf-8")
     cw, ch = theme_canvas.canvas_for_theme(p["theme"])
     fn = _export_zip_filename(p, ids)
+    extra = z1_plates.export_files(p) if z1_plates.is_theme(p["theme"]) else None
     if dest is not None:
         exporter.export_zip(
             pages,
@@ -1158,6 +1336,7 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
             (cw, ch),
             storyboard_csv=sb_csv,
             zip_path=dest,
+            extra_files=extra,
         )
         return b"", fn
     data = exporter.export_zip(
@@ -1166,13 +1345,47 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
         bool(png),
         (cw, ch),
         storyboard_csv=sb_csv,
+        extra_files=extra,
     )
     return data, fn
 
 
-def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path) -> str:
+def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "") -> str:
+    if fmt == "bulletin":
+        return _export_bulletin(p, only, dest)
     _, fn = _export_zip_payload(p, png, only, dest)
     return fn
+
+
+def _export_bulletin(p: dict, only: str, dest: pathlib.Path) -> str:
+    """Layered Bulletin format (html/png/layers JSON + LAYERS.txt + README + spec.json) for the ZO team."""
+    if not p.get("spec"):
+        raise HTTPException(400, "Project has no spec")
+    ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
+    theme = p["theme"]
+    base = (THEMES / theme / "scenes").as_uri() + "/"
+    look = effective_look(p)
+    spec = p.get("spec") if isinstance(p.get("spec"), dict) else {}
+    frames = spec.get("frames") or []
+    sb = p.get("storyboard") or ""
+    pages, meta = [], {}
+    for f in frames:
+        fid = str(f.get("id") or "")
+        if ids is not None and fid not in ids:
+            continue
+        if is_zo_theme_name(theme) and not mf_studio.is_zo_renderable(f):
+            continue
+        if is_mf_theme_name(theme) and not is_zo_theme_name(theme) and not mf_studio.is_mf_renderable(f):
+            continue
+        html = frame_page(theme, frame_for_render(p, f), look, base_href=base, all_frames=frames, spec=spec)
+        pages.append((fid, html, f.get("mode", "fss")))
+        meta[fid] = {"vo": _storyboard_line_for_frame(sb, fid)}
+    skipped = [{"id": "", "beat": ln.strip(), "reason": "screen capture"} for ln in sb.splitlines()
+               if re.search(r"screen ?capture", ln, re.I)]
+    cw, ch = theme_canvas.canvas_for_theme(theme)
+    bulletin.export_bulletin(pages, THEMES / theme, p.get("name") or "Video", meta,
+                             viewport=(cw, ch), skipped=skipped, zip_path=dest)
+    return _dl_name(p["name"], "_layers.zip")
 
 
 def _export_job_prune() -> None:
@@ -1191,7 +1404,7 @@ def _export_job_prune() -> None:
 
 
 @app.post("/api/projects/{pid}/export/jobs")
-def export_start_job(pid: int, png: int = 1, only: str = ""):
+def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = ""):
     """Start export in a background thread; poll status then download (avoids long HTTP/2 streams)."""
     p = load(pid)
     _export_job_prune()
@@ -1219,7 +1432,7 @@ def export_start_job(pid: int, png: int = 1, only: str = ""):
                 st = _EXPORT_JOBS.get(job_id)
                 if st:
                     st["status"] = "running"
-            outfile = _export_build_zip(p, png, only, dest)
+            outfile = _export_build_zip(p, png, only, dest, fmt)
             with _EXPORT_JOB_LOCK:
                 st = _EXPORT_JOBS.get(job_id)
                 if not st:

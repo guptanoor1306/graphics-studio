@@ -5,7 +5,22 @@ description: Turn a Zerodha Online (Product IP) video script into a storyboard a
 
 # Zerodha Online · Product IP — script → storyboard → full-screen graphics
 
-Learned from three shipped videos: **Devolvement** (MCX options → futures), **Does a lower share price mean a stock is cheaper?** (concept), **SIFs on Coin** (product + concept).
+Learned from three shipped videos: **Devolvement** (MCX options → futures), **Does a lower share price mean a stock is cheaper?** (concept), **SIFs on Coin** (product + concept) — and refined on **78 newer frames** (Family Portfolio, Life Cycle Fund, MTF, Charges, Physical delivery, Minor account, Market protection; 43 PSDs in `references/psd_breakdown.md`). The newer look (**v2**, below) is the current house style.
+
+## The look (v2 — current)
+**Full-screen (FSS):** white background with a light 52px grid. Decor sits around the edges and never touches text (the renderer draws it; move pieces with frame `decor:{doodleAt, tri1, tri2, starAt, dash1, dash2}` if one lands on content, `decor:false` to drop it):
+- a black hand-drawn loop doodle (often just left of the heading/hero) · two solid rounded triangles (purple / green / orange / yellow) · a grey 4-point star · an orange dash on the left and a short green dash on the right.
+- Optional: a soft grey blob behind a hero (`bigphrase` has one; frame `blob:{x,y,w,h}` elsewhere) or a pale yellow glow circle behind title text (`qtitle` has one; frame `glow:{x,y,d}`).
+
+**Keywords in coloured shapes:** inside steps, pills, notes, yellow boxes and bars a marked keyword just goes bold in the shape's text colour — don't rely on colour there (a green keyword on a green step disappears).
+
+**Type:** Inter, weights 400/500/600/700 only. Heading 72px semibold, dark ink, **≤6 words, ONE coloured keyword or number** (`++blue++` or `{o:orange}`). Optional yellow underline bar under short centred headings only (`underline:true`). Labels ≥34px, nothing under 26px.
+
+**Colours:** blue #387FD1 · orange #F07339 · yellow #FEC02D · green #4DAB4D · purple #A77BF3 · table highlight #FFD064 · loss rows #FDE6E6 with #D23C3C text · interest/cost notes #FDE3D6 with #C4521F text. Pick 2–3 colours per frame. **Same thing = same colour across a video** (e.g. "you pay" yellow, "Zerodha funds" blue, interest blue, brokerage yellow).
+
+**Over the presenter:** no panels and no lower-third bars. White text with a soft shadow, key words **yellow**, placed in the plate's text zone, never over the face. Formats: big title + thin underline (`ov_title`), white lead + yellow box (`ybox`), speech bubble (`bubble`), caption line across the bottom (`caption`), pill rail (`pill_rail`), title + relation (`relation`), plus the older `lower` / `punch` / `bignum` / `side_list` / `scroll_list`. Decor: one orange triangle, one purple triangle and a white doodle (automatic).
+
+**Icons:** simple inline line art via `"svg:<name>"` anywhere an image goes — wallet, moneybag, calendar, coins, parcel, tag, gift, scale, growth, warning, down, up, tick, cross, phone, doc, bank, clock, cart, shield, rupee, man, woman, child, elder. No emoji, no real logos (Zerodha/Kite/Coin names in text are fine). Illustrations: `assets/INDEX.md` (v2 PSD cut-outs under `illus/psd/…`), else `"TODO:<what>"` and the app generates one in the house style.
 
 **Scope:** render **FSS** (full-screen slides) and **anchor graphics** (OSA/OST/TOS — lower thirds, punchlines, side lists, TOS title) as PNGs. Screen capture and footage are storyboard-only (no PNG).
 
@@ -28,6 +43,15 @@ K=zo-product-graphics      # or the installed skill folder
 ```
 If Chromium can't be installed, set `CHROMIUM_PATH`. No code execution → deliver storyboard + `spec.json` only and say so.
 
+## Step 1a — Reading a storyboard (v2 rules)
+- **Numbering:** if the SB has frame numbers, keep them as frame ids (`02`, `04`…). If not, number frames in script order. A skipped beat keeps its number as a gap; say which and why in the storyboard.
+- **Reference images:** rebuild each in the house style with the script's exact numbers and generic names (XYZ Ltd). Never copy a screenshot.
+- **Screen captures:** skip (website pages, calculators, "show the charges page", Kite/Console screens, numbered app procedures). Log each as `Screen capture` with a reason.
+- **Text-on-screen beats without a ref:** make an over-presenter frame. A row of reference frames sharing a pattern ("1. Do I understand…", "2. How long…") gets **one template** reused for all of them (`qtitle` with a different `n`).
+- **Build-up beats** (a list highlighting one item at a time): ONE frame in its final state — the active item full size, the others faded (`buildlist`, `pills`, `pill_rail` with `active`). The editor animates it.
+- **Arithmetic:** check every number in the script (totals, percentages, interest maths) before drawing. Write numbers exactly as given, Indian grouping (₹1,00,000; ₹1.6 lakh). Pie slices must sum to 100.
+- **Copy discipline:** headings ≤6 words. You may add a short clarifying subline (e.g. "Buy and sell ₹1 lakh worth of shares"), but name every added or reworded line in the storyboard notes so the team can delete it.
+
 ## Step 1b — If a team storyboard (SB doc) is attached, it is the source of truth
 Learned from the SB for *Why do stock prices move every second* (V4) and the PSDs built from it:
 - The SB numbers its graphics with codes (`1 - FSS`, `2 - OST`, `5 - OST & Screencapture`). **Render only its FSS items, keep its numbers as ids.** OST/OSA items → anchor notes with their exact text.
@@ -44,9 +68,30 @@ Learned from the SB for *Why do stock prices move every second* (V4) and the PSD
 Split the script into beats (1–3 sentences = one idea).
 
 ### FSS — designed full-screen graphic (the only thing you render)
-Use FSS only when the visual **needs the whole frame or is a thing to look at**:
+Use FSS only when the visual **needs the whole frame or is a thing to look at**. **Pick a v2 recipe first** — they are the current house style; use an older component only for Kite/market UI, price charts, illustrated analogies or when no v2 recipe fits the beat:
 | Beat | FSS component | Seen in |
 |---|---|---|
+| **v2 recipes — use these first** (Family Portfolio · Life Cycle Fund · MTF · Charges) | | |
+| Title / acronym card ("MTF stands for…") | `acronym` (kicker + yellow ink-bordered box, initials bold) | MTF |
+| Question title ("1. Do I understand…") | `qtitle` (240px number, key phrase blue, pale glow, green dash) — one template for the whole series | MTF |
+| Numbered 2–4 steps | `steps` (blue / orange / yellow stickers, straight) | 3 steps |
+| Slab / schedule table | `heading` + `slab_table` (window dots, `hl` row yellow, `loss` rows red, `subs` under headers; ≤5 cols × 6 rows) | Exit load, Life Cycle Fund |
+| Split / funding bar ("you pay / Zerodha funds") | `split_bar` (stock row + tag → two-colour bar → icons + labels → bracket + total; optional interest tag) | MTF |
+| Cost comparison over time | `cost_compare` (one row per option, stacked bars scaled to the max, total at the end, "Lower" tag, legend) | MTF, Charges |
+| Up vs down outcome | `updown` (green bars rising left, orange bars hanging right) | MTF |
+| One % stat | `donut` (+ caption) | Family portfolio |
+| Allocation % | `heading` (underline) + `pie` (must sum to 100) | Asset allocation |
+| One number to remember | `fbox` (blue hero card, "before" values faded with an orange strike) or `bigphrase` (huge blue number over a blob) | 30/500, 10 Family members |
+| People / holders | `people` (line-face cards: `svg:man/woman/child/elder`) | Minor account |
+| Category / list of items | `catgrid` (2×2 white cards, coloured bottom shadow, icon circle) | Charges |
+| Checklist of charges / documents | `checklist` (blue tick rows in a window card, illustration left) | Minor account |
+| Decision options | `options` (source card → arrow → 2×2 numbered boxes) | MTF |
+| Build list ("Will you…") | `buildlist` (active item big with blue chevron, others faded) | MTF |
+| Recap ("five things") | `recap` (numbered badges in the 5 house colours) | MTF |
+| Options / categories as pills | `pills` (active colour, next yellow, rest faded) | Fundamentals / GTT |
+| Things over time | `timeline` (axis + folders + captions) | Life Cycle Fund |
+| Big phrase | `bigphrase` | Family members |
+| **Older components — only when no v2 recipe fits** (Kite UI, charts, analogies, V1–V3 patterns) | | |
 | Surprising account state / positions | `positions` (Kite-like cards + status chips) | V1 #2, #7 |
 | Directional rule (above/below a price) | `chart` with strike, zone, arrow | V1 #6 |
 | Worked example with the script's numbers | `chart` + `positions`, or `compare` with equations under objects | V1 #7, V2 6a–6c |
@@ -68,9 +113,8 @@ Use FSS only when the visual **needs the whole frame or is a thing to look at**:
 | Order book / bids vs offers / why a trade happens | `kite_depth` (+ status tags per row) | V4 #4 |
 | Buyers vs sellers meeting on a price (auction) | `auction` (matched or not) | V4 #3 |
 | Every tick is a trade / price history | `kite_chart` with tick dots | V4 #10 |
-
 ### OSA / OST / TOS — anchor graphics (render with plate)
-Over-the-presenter moments → spec frame with `mode: "osa" | "ost" | "tos"` and anchor items (`lower`, `punch`, `bignum`, `scroll_list`, …). TOS once per video max: `title` behind the cut-out.
+Over-the-presenter moments → spec frame with `mode: "osa" | "ost" | "tos"` and anchor items (`lower`, `punch`, `bignum`, `scroll_list`, …). TOS once per video max: give the frame a `title` (≤3 words, `**yellow**` keyword) — it renders beside the presenter on a side plate (`m2_right` by default, `m2_left` to put text right), never across the face. The old title-behind-the-cut-out look is opt-in with `tos_style:"behind"`; don't use it unless the storyboard asks.
 Storyboard: `~0:08 – OST – pop-up callout … → 2`. Use the video's anchor **plate** in `look.plate`.
 
 ### Screen capture — not designed, not rendered
@@ -108,6 +152,13 @@ Write `spec.json` with **FSS and anchor frames** (format: `references/spec_forma
 python3 $K/scripts/build.py spec.json --out out
 ```
 It renders only `mode:"fss"` frames (any other mode is skipped), auto-fits content to the frame (headings stay 72px), prints `WARN` lines and writes `out/_sheet_N.jpg`. View each sheet once; fix with `--only 7a,13`. Zero WARNs is necessary, not sufficient.
+
+### Layout rules that caught real bugs (v2)
+- Labels in fixed-width boxes stay on one line; if a label is long, shorten it rather than shrinking the box text below 34px.
+- Side-by-side labels under bars collide: keep ≤4 bars per panel.
+- A chart's top axis label collides with the chart title: put the title ≥40px above the plot.
+- Decor must not touch the heading, cards or tables: if it does, move the piece with `decor:{…}`.
+- Big numbers inside donuts/cards: size them to fit (`pct_size`).
 
 ### Review checklist (on the sheet)
 1. Every heading 72px, ≤6 words — or no heading where the picture says it.

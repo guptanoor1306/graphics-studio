@@ -4,7 +4,7 @@
 {"look": {"plate": "anchor_plate_name"}, "frames": [ {"id": "6a", "mode": "fss", "items": [ … ]}, {"id": "2", "mode": "ost", "items": [ … ]} ]}
 ```
 - `id`: graphic number, with a/b/c for build states of the same frame (`"6a"`, `"6b"`). It becomes the PNG name.
-- `mode`: `"fss"` (default) full-screen white grid, content zone x 120–1800, y 60–1020 · `"osa" | "ost" | "tos"` anchor shot (dark plate + text zone from `look.plate` or frame `plate`). TOS adds `title` (+ optional `title_y`, `title_size`).
+- `mode`: `"fss"` (default) full-screen white grid, content zone x 210–1710, y 60–1010 · `"osa" | "ost" | "tos"` anchor shot (dark plate + text zone from `look.plate` or frame `plate`). TOS adds `title`, drawn as a big title + underline beside the presenter on a side plate (m2_right default); `tos_style:"behind"` (+ `title_y`, `title_size`) brings back the old title-behind-the-cut-out.
 - `zone`: override the zone, e.g. `{"x":120,"y":60,"w":1680,"h":960,"valign":"center"}`.
 - `gap`: px between stacked items (default 40). `decor:false` hides sparkles.
 - **Auto-fit:** `heading` items stay 72px. Everything else is scaled to fill the frame, up to `fit` (default 1.6) and down to 0.55 if it overflows. `"fit": false` turns this off. Design at natural size and let fit scale it. If a WARN says "content shrunk to 0.7…", split the frame or cut text.
@@ -49,6 +49,32 @@
 | `kite_chart` | name, shape ("volatile"), points (140), ticks:[point indices for orange dots], x_labels, seed, w, h | Kite desktop chart; dots = individual trades/ticks |
 | `auction` | buyers:[3 prices], sellers:[3 prices], match (price shown big on both sides), matched (true/false), result ("Trade executed"/"No trade yet"), left/right labels | buyers vs sellers meeting on a price |
 
+## Items — FSS v2 recipes (Family Portfolio · Life Cycle Fund · MTF · Charges look)
+Colours are names (`blue`, `orange`, `yellow`, `green`, `purple`, `ink`) or hex. Images: kit asset, `illus/psd/…`, `"svg:<icon>"` (wallet, moneybag, calendar, coins, parcel, tag, gift, scale, growth, warning, down, up, tick, cross, phone, doc, bank, clock, cart, shield, rupee, man, woman, child, elder) or `"TODO:<what>"`.
+| t | keys | use for |
+|---|---|---|
+| `acronym` | kicker?, words:["Margin","Trading","Facility"] (initials bold) or text | title / acronym card |
+| `qtitle` | n, lines:["Do I ++understand++","the risk?"] | question-series title (one template, change `n`) |
+| `steps` | items:[text ×2–4], colors? (default blue, orange, yellow, green) | numbered steps |
+| `slab_table` | head:[…], subs?:[…] (small grey line under each header), rows:[[…]], hl (row index or list), loss?:[row indices], w (1300), align ("left" first col / "center") | slab, schedule, charges table (≤5 cols × 6 rows) |
+| `split_bar` | stock?, tag?, interest?, parts:[{label, value, pct, color, icon}], total? | "you pay / Zerodha funds" funding split |
+| `cost_compare` | rows:[{name, tag? ("Lower"), sub, parts:[{v, color}], total}], legend:[{label, color}] | cost of options over time (bars scaled to the max) |
+| `updown` | left:{title, color?, bars:[{v, label, caption}]}, right:{…} (right hangs down) | gains vs losses |
+| `donut` | pct, color, caption?, size (420), stroke (70), label?, pct_size? | one % stat |
+| `pie` | slices:[{v, color, label, display?, text?}] (sum 100), size (520), pad (170) | allocation |
+| `fbox` | hero:{value, label}, before?:[{value, label}] (faded + orange strike), img? (on a grey blob) | one number to remember |
+| `people` | items:[{icon ("svg:man"), label, value, color, note?}] | holders / who does what |
+| `catgrid` | items:[{icon, label, color?}] (4 → 2×2, 3/6 → 3 columns) | categories, list of charges |
+| `checklist` | items:[text], img?, dim?:[indices] | documents / charges checklist |
+| `options` | source:{text, img?}, title, items:[text ×4] | decide-before-you-enter options |
+| `buildlist` | items, active | "Will you…" build list (final state) |
+| `recap` | items (key phrase in `++blue++`) | closing recap |
+| `pills` | items, active, color (green), next (true → next pill yellow) | options as pills |
+| `timeline` | items:[{label, caption, color?}] | things over time (folders on an axis) |
+| `bigphrase` | word, phrase, img?, blob (true), align | big number/word + ink phrase |
+
+Frame-level (FSS): `decor:{doodleAt, tri1, tri2, starAt, dash1, dash2:{left|right|top|bottom}, doodle:false, star:false}` or `decor:false`; `blob:{x,y,w,h}`; `glow:{x,y,d}`.
+
 ## Items — anchor (osa / ost / tos)
 | t | keys | use for |
 |---|---|---|
@@ -62,6 +88,12 @@
 | `mini_table` | head, rows, head_colors? | small comparison table |
 | `ladder` | segments:[{left,right,pct,color}], caption? | stacked bar metaphor |
 | `note` | title, text, lead?, w, size | Important note over anchor (same as FSS) |
+| `ov_title` | title (`**yellow**` keyword), sub?, size (150), align | big title + thin underline (blue segment) |
+| `ybox` | lead?, text, align | white lead line + yellow box |
+| `bubble` | small, big | speech bubble ("How do I use it?" / "Should I use it?") |
+| `caption` | text, follow? | yellow arrow-circle sentence + white follow-up, bottom zone (plate m2_centre) |
+| `pill_rail` | lead?, items, active | pill rail with the active pill blue |
+| `relation` | title, left, right, note? | title + pill → arrow → orange pill |
 
 ## Other items
 `text` (text, size, weight, color, align) · `img` (src, w|h) · `pillv` (text, color yellow/blue/green/orange/purple/grey) · `row` (items:[…], gap) to put items side by side · `html` (raw, last resort).
