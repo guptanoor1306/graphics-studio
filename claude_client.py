@@ -76,7 +76,9 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
             "references/storyboarding_method.md",
             "references/storyboard_rules.md",
             "references/gold/MOVES.md",
+            "references/gold/v1_corpus.md",
             "references/gold/v2_corpus.md",
+            "references/gold/v3_corpus.md",
             "references/spec_format.md",
             "references/frame_types.md",
             "references/style_guide.md",
@@ -292,41 +294,6 @@ Z1H_SB_TOOL = {
             },
         },
         "required": ["storyboard", "spec"],
-    },
-}
-_Z1H_FRAME_ITEM = Z1H_SB_TOOL["input_schema"]["properties"]["spec"]["properties"]["frames"]["items"]
-Z1H_PLAN_TOOL = {
-    "name": "submit_plan",
-    "description": "Zero1 Hindi step 1: the full storyboard, every plate prompt, and the ordered frame list. No frame JSON yet.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "storyboard": {"type": "string", "description": "SKILL.md Step 2 storyboard, in its format, with rubric scores and flags"},
-            "episode": {"type": "string"},
-            "arjun": {"type": "string", "enum": ["city", "kerala", "andhra", "meghalaya"]},
-            "gen": {"type": "object", "description": "a prompt entry for EVERY new plate the storyboard needs: {key: {prompt, arjun?, expr?, cutout?, people?, aspect?, refs?}}"},
-            "frames_plan": {
-                "type": "array", "minItems": 1,
-                "description": "every frame id the storyboard names, in screen order",
-                "items": {"type": "object", "required": ["id", "type"], "properties": {
-                    "id": {"type": "string"}, "type": {"type": "string", "enum": list(Z1H_FRAME_TYPES)},
-                    "section": {"type": "string"}, "name": {"type": "string"},
-                    "beat": {"type": "string", "description": "the beat number(s) it belongs to, e.g. #4"}}},
-            },
-        },
-        "required": ["storyboard", "gen", "frames_plan"],
-    },
-}
-Z1H_BATCH_TOOL = {
-    "name": "submit_frames",
-    "description": "Zero1 Hindi step 2: the complete spec JSON for exactly the frames asked for.",
-    "input_schema": {
-        "type": "object",
-        "properties": {
-            "frames": {"type": "array", "minItems": 1, "items": _Z1H_FRAME_ITEM},
-            "gen": {"type": "object", "description": "ONLY plates not already in the list you were given"},
-        },
-        "required": ["frames"],
     },
 }
 HI_SB_TOOL = {
@@ -933,7 +900,6 @@ def _call_storyboard(
     ref_images: list[tuple[str, bytes]] | None = None,
     *,
     sb_tool: dict | None = None,
-    think: bool = True,
 ) -> dict:
     import base64
 
@@ -957,7 +923,7 @@ def _call_storyboard(
     content.append({"type": "text", "text": msg})
     user_content: str | list = content if len(content) > 1 else msg
     r = _messages_create(
-        think=think,
+        think=True,
         max_tokens=SB_MAX_TOKENS, system=_system(theme_dir),
         tools=[tool_schema], tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": user_content}])
@@ -1258,54 +1224,6 @@ def _call_with_pdf(
         messages=[{"role": "user", "content": content}],
     )
     return _tool_input(r, tool)
-
-
-def z1h_plan(theme_dir: pathlib.Path, script: str, notes: str = "", episode_transcript: dict | None = None) -> dict:
-    """Step 1 of the batched Zero1 Hindi run: storyboard + all plate prompts + the frame list (fast to show)."""
-    msg = _inject_transcript(
-        (
-            f"Notes: {notes or 'none'}\n\n"
-            "GRAPHICS STUDIO RULES (Zero1 Hindi IP), STEP 1 OF 2:\n"
-            "- storyboard: the full SKILL.md Step 2 output (WORLD BIBLE line, then every beat as #N ~time [set] / VO / Cue / "
-            "Text · Moves · Frames · Make), then numbers→frames, sources→frames, plates/assets/gen list, rubric scores, flags.\n"
-            "- gen: a prompt for EVERY new plate the storyboard uses (≤ ~25), keyed as the frames will use them "
-            "(gen:<key>). Reuse asset:plates/<file> when a past set really matches; new cities/regions are always gen:.\n"
-            "- frames_plan: every frame id the storyboard names (states _b, _c), in screen order, with type/section/name/beat.\n"
-            "- Do NOT write frame JSON now: it is built next, a few frames at a time, from this storyboard.\n"
-            "- Copy every number from the script exactly, Indian grouping; fix script typos.\n\n"
-            f"SCRIPT:\n{script}"
-        ),
-        episode_transcript,
-    )
-    think = os.environ.get("STUDIO_Z1H_THINK", "0") == "1"
-    return _call_storyboard(theme_dir, msg, sb_tool=Z1H_PLAN_TOOL, think=think)
-
-
-def z1h_frames(theme_dir: pathlib.Path, script: str, storyboard: str, gen: dict, plan: list[dict],
-               batch: list[dict], arjun: str = "city") -> dict:
-    """Step 2: complete frame JSON for one batch of the plan (keeps every key and id the storyboard fixed)."""
-    have = "\n".join(f"- gen:{k}: {str((v or {}).get('prompt', ''))[:140]}" for k, v in (gen or {}).items())
-    order = "\n".join(f"- {f.get('id')} [{f.get('type')}] {f.get('section', '')} · {f.get('name', '')} {f.get('beat', '')}" for f in plan)
-    want = ", ".join(str(f.get("id")) for f in batch)
-    msg = (
-        "GRAPHICS STUDIO RULES (Zero1 Hindi IP), STEP 2: build the spec.json frames for ONLY these ids, in this order: "
-        f"{want}.\n"
-        "- Follow references/spec_format.md and examples/example_spec.json field shapes exactly; canvas 1920x1080.\n"
-        "- Keep each id, type, section and name from the plan; carry the storyboard's set, moves, morphs and callbacks.\n"
-        "- Use the plate keys below as gen:<key> (or asset:plates/<file>, kit assets). Add a gen entry ONLY for a plate "
-        "that is genuinely missing. On screen: English + Roman Hinglish, never Devanagari, Indian number grouping.\n"
-        f"- Episode Arjun: {arjun}.\n\n"
-        f"PLATES ALREADY DEFINED:\n{have or '(none)'}\n\nFULL FRAME PLAN (for continuity):\n{order}\n\n"
-        f"STORYBOARD:\n{storyboard}\n\nSCRIPT:\n{script}"
-    )
-    out = _call_storyboard(theme_dir, msg, sb_tool=Z1H_BATCH_TOOL, think=False)
-    got = {f.get("id"): f for f in out.get("frames") or [] if isinstance(f, dict)}
-    frames = []
-    for b in batch:  # one frame per planned id, in plan order; extra ids Claude added are dropped
-        f = got.get(b.get("id"))
-        if f:
-            frames.append({**{k: b[k] for k in ("section", "name") if b.get(k)}, **f})
-    return {"frames": frames, "gen": out.get("gen") if isinstance(out.get("gen"), dict) else {}, "usage": out.get("usage")}
 
 
 def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
@@ -1666,10 +1584,9 @@ def storyboard(
             ),
             episode_transcript,
         )
-        # The skill already reasons in its output (ladder, continuity, self-critique), so extended thinking only
-        # doubles the wait; the quality gate (patch_until_clean) runs in the background after the frames are shown.
-        think = os.environ.get("STUDIO_Z1H_THINK", "0") == "1"
-        return _call_storyboard(theme_dir, msg, sb_tool=Z1H_SB_TOOL, think=think)
+        out = _call_storyboard(theme_dir, msg, sb_tool=Z1H_SB_TOOL)
+        out = patch_until_clean(theme_dir, out, "zero1-hindi-graphics", script)
+        return out
     if is_hindi_fa_theme(theme_dir):
         msg = _inject_transcript(
             (
