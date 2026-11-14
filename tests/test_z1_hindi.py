@@ -127,3 +127,128 @@ def test_export_html_inlines_background_plate_and_adds_prompts():
     assert "url('../assets" not in out and "data:image/jpeg;base64" in out and "<link" not in out
     files = z1_plates.export_files(p)
     assert "storyboard.md" in files and "## kirana" in files["image_prompts.md"] and "wooden toy" in files["image_prompts.md"]
+
+
+def _new_project(app, name="live"):
+    with app.connect() as c:
+        c.execute("insert into projects(name,theme,script,look,storyboard,spec,updated_by,updated_at) values(?,?,?,?,?,?,?,?)",
+                  (name, THEME, "", "{}", "", None, "t", 0)); c.commit()
+        return c.execute("select max(id) as id from projects").fetchone()["id"]
+
+
+def test_live_preview_shows_frames_while_written_and_keeps_the_same_result(monkeypatch):
+    import asyncio, time as _t
+    import app, claude_client, critique, z1_plates
+    final = {"arjun": "city", "gen": {"a": {"prompt": "a Mumbai lane", "arjun": ""}},
+             "frames": [{"id": "0.00", "type": "scene", "bg": "gen:a"}, {"id": "0.05", "type": "word", "text": "Lekin!"},
+                        {"id": "0.10", "type": "word", "text": "Sirf"}]}
+    seen = []
+
+    def fake_storyboard(tdir, script, look, notes="", episode_transcript=None):
+        hook = claude_client._PARTIAL.fn
+        assert hook, "the storyboard call must get the preview hook"
+        hook({"storyboard": "#1 ~0:00\n#2 ~0:05"})                                  # still writing beats
+        hook({"storyboard": "#1\n#2", "spec": {"gen": final["gen"], "frames": final["frames"][:2]}})   # 1 complete
+        seen.append([f["id"] for f in app.load(pid)["spec"]["frames"]])
+        hook({"storyboard": "#1\n#2", "spec": {"gen": final["gen"], "frames": final["frames"]}})       # 2 complete
+        seen.append([f["id"] for f in app.load(pid)["spec"]["frames"]])
+        return {"storyboard": "#1 ~0:00\n#2 ~0:05", "spec": json.loads(json.dumps(final))}
+    monkeypatch.setattr(claude_client, "storyboard", fake_storyboard)
+    monkeypatch.setattr(z1_plates, "_provider", lambda: ("gemini", lambda req, key: (_t.sleep(0.2), _png())[1], "k"))
+    monkeypatch.setattr(app, "_critique_spec", lambda p, sp, sb, sc, fin, only_ids=None: (sp, {}))
+    pid = _new_project(app)
+
+    async def go():
+        out = await app._make_storyboard(pid, {"script": "x", "look": {}}, "t")
+        assert out["background"]
+        for _ in range(100):
+            s = app.project_progress(pid)
+            if s.get("state") in ("done", "error"):
+                return s
+            await asyncio.sleep(0.05)
+    s = asyncio.run(go())
+    assert s["state"] == "done", s
+    assert seen == [["0.00"], ["0.00", "0.05"]]           # frames appeared one by one, last one only when complete
+    sp = app.load(pid)["spec"]
+    assert [f["id"] for f in sp["frames"]] == ["0.00", "0.05", "0.10"] and sp["gen"]["a"]["file"]
+    with app.connect() as c:
+        notes = [r["note"] for r in c.execute("select note from versions where project_id=? order by id", (pid,)).fetchall()]
+    assert notes == ["generated storyboard (generated 1 asset(s))"]   # previews add no Undo steps
+
+
+def test_failed_storyboard_puts_the_old_frames_back(monkeypatch):
+    import asyncio
+    import app, claude_client
+    pid = _new_project(app, "fail")
+    old = {"frames": [{"id": "9", "type": "word", "text": "Old"}]}
+    app.save(pid, "t", "seed", spec=old, storyboard="old sb")
+
+    def boom(*a, **k):
+        claude_client._PARTIAL.fn({"storyboard": "#1", "spec": {"frames": [{"id": "1", "type": "word"}, {"id": "2"}]}})
+        raise RuntimeError("overloaded")
+    monkeypatch.setattr(claude_client, "storyboard", boom)
+
+    async def go():
+        await app._make_storyboard(pid, {"script": "x", "look": {}}, "t")
+        for _ in range(50):
+            s = app.project_progress(pid)
+            if s.get("state") in ("done", "error"):
+                return s
+            await asyncio.sleep(0.05)
+    s = asyncio.run(go())
+    assert s["state"] == "error" and "overloaded" in s["msg"]
+    p = app.load(pid)
+    assert p["spec"] == old and p["storyboard"] == "old sb"
+
+
+def test_stream_hands_partial_tool_input_to_the_hook(monkeypatch):
+    import claude_client
+
+    class Ev:
+        def __init__(self, snap): self.type, self.snapshot = "input_json", snap
+
+    class S:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def __iter__(self):
+            yield Ev({"storyboard": "#1"})
+        def get_final_message(self): return "FINAL"
+
+    class C:
+        class messages:
+            @staticmethod
+            def stream(**kw): return S()
+    monkeypatch.setattr(claude_client, "_client", lambda: C())
+    got = []
+    assert claude_client._messages_create(on_partial=got.append, max_tokens=100, messages=[]) == "FINAL"
+    assert got == [{"storyboard": "#1"}]
+
+
+def test_script_mode_is_told_to_stay_inside_the_given_lines(monkeypatch):
+    import claude_client
+    msgs = []
+    monkeypatch.setattr(claude_client, "_call_storyboard", lambda tdir, msg, **k: msgs.append(msg) or {"spec": {"frames": []}})
+    monkeypatch.setattr(claude_client, "patch_until_clean", lambda tdir, out, *a, **k: out)
+    claude_client.storyboard(KIT, "Line one.\nLine two.", {}, "")
+    assert "SCOPE" in msgs[0] and "Do not invent sections it does not contain" in msgs[0]
+    assert "follow the skill fully" in msgs[0] and "more than one frame only" not in msgs[0]
+
+
+def test_pdf_styleframe_becomes_the_main_reference_and_text_is_dropped(tmp_path, monkeypatch):
+    import fitz
+    import z1_plates
+    pic = tmp_path / "shot.png"
+    from PIL import Image
+    Image.new("RGB", (800, 450), (40, 90, 160)).save(pic)
+    pdf = tmp_path / "sb.pdf"
+    doc = fitz.open(); doc.new_page(); pg = doc.new_page()
+    pg.insert_image(fitz.Rect(50, 50, 450, 275), filename=str(pic)); doc.save(str(pdf))
+    monkeypatch.setattr(z1_plates, "PDF_REF_DIR", tmp_path / "refs")
+    imgs = z1_plates.pdf_page_images(pdf, 2, "p1")
+    assert len(imgs) == 1 and z1_plates.pdf_page_images(pdf, 1, "p1") == []
+    sent = {}
+    monkeypatch.setattr(z1_plates, "_provider", lambda: ("gemini", lambda req, key: (sent.update(req), _png())[1], "k"))
+    entry = {"prompt": 'Big paper-cut "₹1,00,000" numerals over the Mumbai skyline, ₹4,000 balance', "pdf_page": 2}
+    z1_plates.make_one("sky", entry, {"arjun": "city"}, True, {"path": str(pdf), "key": "p1"})
+    assert sent["refs"][0] == imgs[0] and "approved styleframe" in sent["prompt"]
+    assert "1,00,000" not in sent["prompt"] and "4,000" not in sent["prompt"] and "Mumbai skyline" in sent["prompt"]
