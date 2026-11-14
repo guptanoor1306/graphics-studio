@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import asset_gen, audio_transcribe, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import asset_gen, audio_transcribe, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -173,6 +173,8 @@ def frame_wants_overlay(theme: str, frame: dict) -> bool:
     """True = full frame (skip html_overlay); False = anchor-style (emit overlay export)."""
     if theme == "zero1-reel-graphics":
         return frame.get("type") in {"ost", "anchor"}
+    if z1_plates.is_theme(theme):  # faceless IP: every frame is full screen
+        return True
     if is_zo_theme_name(theme):
         return (frame.get("mode") or "fss") == "fss"
     if is_mf_theme_name(theme):
@@ -285,6 +287,8 @@ def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
     """Return frame JSON for preview/export. Enrich only at storyboard generation — not on render."""
     theme = p.get("theme") or ""
     f = _coerce_frame_for_studio(frame, theme)
+    if z1_plates.is_theme(theme):  # Zero1 Hindi: hand the frame its gen: plates; the kit needs no enrichment
+        return z1_plates.attach(p.get("spec") or {}, f)
     if enrich:
         spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "", theme=theme)
     return f
@@ -559,7 +563,10 @@ def _with_assets(theme: str, finalize, report: dict):
     def fin(sp):
         if finalize:
             sp = finalize(sp)
-        sp, r = asset_gen.fill_spec(theme, sp, log=print)
+        if z1_plates.is_theme(theme):
+            sp, r = z1_plates.fill(sp, log=print)
+        else:
+            sp, r = asset_gen.fill_spec(theme, sp, log=print)
         report.setdefault("filled", {}).update(r["filled"])
         report.setdefault("failed", {}).update(r["failed"])
         for d in r["filled"]:
@@ -599,7 +606,7 @@ async def _make_storyboard(pid: int, b: dict, user: str):
                 sp["look"].setdefault("plate", look["plate"])
             return sp
         spec = finalize(out["spec"])
-    elif is_hindi_theme_name(theme):
+    elif is_hindi_theme_name(theme) or z1_plates.is_theme(theme):
         finalize = None
         spec = out.get("spec") or {}
     else:
@@ -701,6 +708,8 @@ def _merge_pdf_batch_spec(
         for key in ("title", "look"):
             if meta.get(key) and not spec.get(key):
                 spec[key] = meta[key]
+        if isinstance(meta.get("gen"), dict):  # Zero1 Hindi: plate prompts arrive with each batch
+            spec["gen"] = {**(spec.get("gen") or {}), **meta["gen"]}
     old_sb = (p.get("storyboard") or "").strip()
     new_sb = (batch.get("storyboard") or "").strip()
     storyboard = new_sb if (new_sb and not old_sb) else (p.get("storyboard") or new_sb or "")
@@ -717,7 +726,7 @@ def _finalize_spec_after_batch(spec: dict, storyboard: str, theme: str, look: di
         if isinstance(look, dict) and look.get("plate") and isinstance(spec.get("look"), dict):
             spec["look"].setdefault("plate", look["plate"])
         return spec
-    if is_hindi_theme_name(theme):
+    if is_hindi_theme_name(theme) or z1_plates.is_theme(theme):
         return spec
     merged = effective_look({**p, "look": look, "spec": spec})
     spec["look"] = merged
@@ -917,12 +926,16 @@ async def fill_assets_route(pid: int, req: Request):
 
     async def job():
         p = load(pid)
-        spec, report = await asyncio.to_thread(asset_gen.fill_spec, p["theme"], p.get("spec") or {}, print, redo)
+        if z1_plates.is_theme(p["theme"]):
+            spec, report = await asyncio.to_thread(z1_plates.fill, p.get("spec") or {}, print, redo)
+            left = len(z1_plates.pending(spec))
+        else:
+            spec, report = await asyncio.to_thread(asset_gen.fill_spec, p["theme"], p.get("spec") or {}, print, redo)
+            left = len(asset_gen.todo_descriptions(spec))
         if report["filled"]:
             verb = "regenerated" if redo else "generated"
             save(pid, user, f"{verb} {len(report['filled'])} asset(s)", spec=spec)
-        return {**load(pid), "assets": report,
-                "todo_left": len(asset_gen.todo_descriptions(spec))}
+        return {**load(pid), "assets": report, "todo_left": left}
     return _stream_json(job())
 
 
@@ -1314,6 +1327,7 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
         sb_csv = raw_sb.decode("utf-8")
     cw, ch = theme_canvas.canvas_for_theme(p["theme"])
     fn = _export_zip_filename(p, ids)
+    extra = z1_plates.export_files(p) if z1_plates.is_theme(p["theme"]) else None
     if dest is not None:
         exporter.export_zip(
             pages,
@@ -1322,6 +1336,7 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
             (cw, ch),
             storyboard_csv=sb_csv,
             zip_path=dest,
+            extra_files=extra,
         )
         return b"", fn
     data = exporter.export_zip(
@@ -1330,6 +1345,7 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
         bool(png),
         (cw, ch),
         storyboard_csv=sb_csv,
+        extra_files=extra,
     )
     return data, fn
 

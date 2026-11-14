@@ -51,6 +51,10 @@ def is_zo_product_theme(theme_dir: pathlib.Path) -> bool:
     return theme_dir.name == "zo-product-graphics"
 
 
+def is_z1_hindi_theme(theme_dir: pathlib.Path) -> bool:
+    return theme_dir.name == "zero1-hindi-graphics"
+
+
 def is_hindi_charts_theme(theme_dir: pathlib.Path) -> bool:
     return theme_dir.name == "varsity-hindi-graphics"
 
@@ -66,7 +70,23 @@ def is_hindi_theme(theme_dir: pathlib.Path) -> bool:
 def theme_rules(theme_dir: pathlib.Path) -> str:
     """Skill rules + asset index + style guide so specs use kit buildings, people, etc."""
     parts = []
-    if is_reel_theme(theme_dir):
+    if is_z1_hindi_theme(theme_dir):
+        rels = (
+            "SKILL.md",
+            "references/storyboarding_method.md",
+            "references/storyboard_rules.md",
+            "references/gold/MOVES.md",
+            "references/gold/v1_corpus.md",
+            "references/gold/v2_corpus.md",
+            "references/gold/v3_corpus.md",
+            "references/spec_format.md",
+            "references/frame_types.md",
+            "references/style_guide.md",
+            "references/character_and_prompts.md",
+            "references/plates_index.md",
+            "examples/example_spec.json",
+        )
+    elif is_reel_theme(theme_dir):
         rels = (
             "SKILL.md",
             "references/spec_format.md",
@@ -236,6 +256,46 @@ HI_FA_SB_TOOL = {
         "required": ["storyboard", "spec"],
     },
 }
+Z1H_FRAME_TYPES = (
+    "scene", "chapter", "word", "stat", "timeline", "table", "idtag", "hangtags", "placards", "checklist", "sop",
+    "news_wall", "article", "calc", "dots", "callouts", "compare", "hub", "flow", "pie", "vignette",
+)
+Z1H_SB_TOOL = {
+    "name": "submit_storyboard",
+    "description": "Return the Zero1 Hindi storyboard (world bible + every beat in the team's VO/Cue format) and spec.json (gen prompts + frames).",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "storyboard": {"type": "string", "description": "SKILL.md Step 2 storyboard, in its format, including the rubric scores and flags"},
+            "spec": {
+                "type": "object",
+                "properties": {
+                    "episode": {"type": "string"},
+                    "arjun": {"type": "string", "enum": ["city", "kerala", "andhra", "meghalaya"]},
+                    "gen": {"type": "object", "description": "one entry per gen:<key> used in frames: {prompt, arjun?, expr?, cutout?, people?, aspect?, refs?}"},
+                    "allow_words": {"type": "array", "items": {"type": "string"}},
+                    "frames": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "type"],
+                            "properties": {
+                                "id": {"type": "string"},
+                                "section": {"type": "string"},
+                                "name": {"type": "string"},
+                                "type": {"type": "string", "enum": list(Z1H_FRAME_TYPES)},
+                            },
+                            "additionalProperties": True,
+                        },
+                    },
+                },
+                "required": ["gen", "frames"],
+            },
+        },
+        "required": ["storyboard", "spec"],
+    },
+}
 HI_SB_TOOL = {
     "name": "submit_storyboard",
     "description": "Return Varsity Hindi Charts storyboard and spec.json (frames with mode side|main|fss|blur|scene|takeaways).",
@@ -311,10 +371,11 @@ GRAPHIC_BATCH_TOOL = {
             },
             "spec_meta": {
                 "type": "object",
-                "description": "Batch 1 only for MF/reel kits: title and one-line look string.",
+                "description": "Batch 1 only for MF/reel kits: title and one-line look string. Zero1 Hindi: every batch, gen prompts for the new gen:<key>s.",
                 "properties": {
                     "title": {"type": "string"},
                     "look": {"type": "string"},
+                    "gen": {"type": "object"},
                 },
             },
             "pdf_progress": {
@@ -458,8 +519,25 @@ _ZO_ROLE = (
 )
 
 
+_Z1H_ROLE = (
+    "You are the Zero1 Hindi IP storyboard artist and graphics designer in the skill below (faceless, 100% graphics, "
+    "Hinglish VO, wooden-toy Arjun in a handcrafted paper/clay/wood miniature world). You run inside Graphics Studio "
+    "(web app), not a chat: ignore setup, CLI build, gen_images.py, packaging and zip steps; the app renders the frames, "
+    "generates every gen: plate with an image model from spec.gen, and reviews the renders. Return storyboard + spec via "
+    "submit_storyboard. Do SKILL.md Step 2 fully (inventory, world bible, beats, move ladder, continuity chain, "
+    "self-critique, production plan) in the team's cue voice from the gold corpora, then Step 3: one spec.json in "
+    "references/spec_format.md with every frame type from the kit. Canvas 1920x1080. Every VO second sits on a frame. "
+    "Reuse past plates (asset:plates/<file> from plates_index.md) and kit assets first; every other picture is "
+    "gen:<key> with a plain-English prompt in spec.gen (arjun, expr, cutout, people, aspect, refs as in spec_format.md). "
+    "Regional sets are always new gen: keys. Generated images carry no text: all words are kit layers. "
+    "On screen: English + Roman Hinglish, never Devanagari, Indian number grouping."
+)
+
+
 def _system(theme_dir):
-    if is_reel_theme(theme_dir):
+    if is_z1_hindi_theme(theme_dir):
+        role = _Z1H_ROLE
+    elif is_reel_theme(theme_dir):
         role = _REEL_ROLE
     elif is_zo_product_theme(theme_dir):
         role = _ZO_ROLE
@@ -632,7 +710,38 @@ _ZO_ITEM_TYPES = frozenset({
 _ZO_ANCHOR_MODES = frozenset({"osa", "ost", "tos"})
 
 
+def _z1h_issues(spec: dict) -> list[str]:
+    issues: list[str] = []
+    frames = (spec or {}).get("frames") or []
+    gen = (spec or {}).get("gen") or {}
+    seen: set = set()
+    for f in frames:
+        if not isinstance(f, dict):
+            continue
+        fid = f.get("id") or "?"
+        if fid in seen:
+            issues.append(f'Frame "{fid}": duplicate id — states of one set use _b, _c.')
+        seen.add(fid)
+        if f.get("type", "scene") not in Z1H_FRAME_TYPES:
+            issues.append(f'Frame "{fid}": unknown type "{f.get("type")}" — see spec_format.md.')
+        blob = json.dumps(f, ensure_ascii=False)
+        for k in sorted(set(re.findall(r'"gen:([A-Za-z0-9_.-]+)"', blob))):
+            if not (isinstance(gen.get(k), dict) and gen[k].get("prompt")):
+                issues.append(f'Frame "{fid}": gen:{k} has no prompt in spec.gen — add one (plain English, no text in the image).')
+        if re.search(r"[\u0900-\u097F]", blob):
+            issues.append(f'Frame "{fid}": Devanagari on screen — use English / Roman Hinglish.')
+        if f.get("type") == "scene" and not f.get("layers") and not f.get("under") and f.get("bg") in (None, "sky", "paper", "desk"):
+            issues.append(f'Frame "{fid}": empty scene — give it a plate (asset:plates/…, gen:…) or layers.')
+    chapters = [f for f in frames if isinstance(f, dict) and f.get("type") == "chapter"]
+    sops = [f for f in frames if isinstance(f, dict) and f.get("type") == "sop"]
+    if sops and chapters and len(sops[-1].get("items") or []) != len(chapters):
+        issues.append(f"SOP lists {len(sops[-1].get('items') or [])} questions but there are {len(chapters)} chapter frames.")
+    return issues
+
+
 def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") -> list[str]:
+    if theme == "zero1-hindi-graphics":
+        return _z1h_issues(spec)
     if theme == "varsity-hindi-fa-graphics":
         issues: list[str] = []
         _fa_modes = {"fss", "osa", "osa_center", "blur", "takeaways"}
@@ -1118,6 +1227,15 @@ def _call_with_pdf(
 
 
 def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
+    if is_z1_hindi_theme(theme_dir):
+        return (
+            "GRAPHICS STUDIO RULES (Zero1 Hindi IP, SB-given mode from storyboarding_method.md):\n"
+            "- Keep every camera move, morph and callback in the PDF; fill vague cues, flag cue vs VO mismatches.\n"
+            "- frames: types from spec_format.md, ids = timestamps (states _b, _c), each with section + name.\n"
+            "- Put a prompt for every new gen:<key> in spec_meta.gen (plain English, no text in the image); "
+            "reuse asset:plates/<file> when a past set matches.\n"
+            "Follow SKILL.md + spec_format.md + storyboard_rules.md.\n"
+        )
     if is_hindi_fa_theme(theme_dir):
         return (
             "GRAPHICS STUDIO RULES (Varsity Hindi Elements):\n"
@@ -1198,6 +1316,8 @@ def _normalize_pdf_batch_out(out: dict) -> dict:
             meta["title"] = sp["title"]
         if sp.get("look"):
             meta["look"] = sp["look"]
+        if isinstance(sp.get("gen"), dict):
+            meta["gen"] = sp["gen"]
         if meta:
             out["spec_meta"] = meta
     return out
@@ -1325,7 +1445,11 @@ def _storyboard_pdf_finish_all(
             storyboard = out.get("storyboard") or ""
         meta = out.get("spec_meta")
         if isinstance(meta, dict) and meta and not spec_meta:
-            spec_meta = meta
+            spec_meta = dict(meta)
+        elif isinstance(meta, dict) and isinstance(meta.get("gen"), dict):
+            spec_meta["gen"] = {**(spec_meta.get("gen") or {}), **meta["gen"]}
+        if isinstance(meta, dict) and isinstance(meta.get("gen"), dict):
+            working_spec = {**working_spec, "gen": {**(working_spec.get("gen") or {}), **meta["gen"]}}
         if not added:
             break
         new_frames = list(out.get("frames") or [])
@@ -1443,6 +1567,26 @@ def storyboard(
     *,
     episode_transcript: dict | None = None,
 ) -> dict:
+    if is_z1_hindi_theme(theme_dir):
+        msg = _inject_transcript(
+            (
+            f"Notes: {notes or 'none'}\n\n"
+            "GRAPHICS STUDIO RULES (Zero1 Hindi IP):\n"
+            "- storyboard: the full SKILL.md Step 2 output (WORLD BIBLE line, then every beat as #N ~time [set] / VO / Cue / "
+            "Text · Moves · Frames · Make), then numbers→frames, sources→frames, plates/assets/gen list, rubric scores, flags.\n"
+            "- spec.frames: one frame per frame id named in the storyboard (states as _b, _c), types from spec_format.md, "
+            "every frame with section + name. Match examples/example_spec.json field shapes.\n"
+            "- spec.gen: a prompt for EVERY gen:<key> used (≤ ~25 new plates). Prefer asset:plates/<file> when a past set "
+            "really matches the beat; new cities/regions are always gen:.\n"
+            "- spec.arjun: the episode's default Arjun variant.\n"
+            "- Copy every number from the script exactly, Indian grouping; fix script typos.\n\n"
+            f"SCRIPT:\n{script}"
+            ),
+            episode_transcript,
+        )
+        out = _call_storyboard(theme_dir, msg, sb_tool=Z1H_SB_TOOL)
+        out = patch_until_clean(theme_dir, out, "zero1-hindi-graphics", script)
+        return out
     if is_hindi_fa_theme(theme_dir):
         msg = _inject_transcript(
             (

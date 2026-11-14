@@ -1,0 +1,109 @@
+/* Zero1 Hindi IP — house CSS. Canvas 1920x1080. Tokens are the ONLY colours allowed. */
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-200-normal.woff2) format("woff2");font-weight:200;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-ext-200-normal.woff2) format("woff2");font-weight:200;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-300-normal.woff2) format("woff2");font-weight:300;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-ext-300-normal.woff2) format("woff2");font-weight:300;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-ext-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-500-normal.woff2) format("woff2");font-weight:500;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-ext-500-normal.woff2) format("woff2");font-weight:500;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-600-normal.woff2) format("woff2");font-weight:600;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-ext-600-normal.woff2) format("woff2");font-weight:600;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-700-normal.woff2) format("woff2");font-weight:700;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-ext-700-normal.woff2) format("woff2");font-weight:700;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-800-normal.woff2) format("woff2");font-weight:800;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Bricolage";src:url(../fonts/bricolage-grotesque-latin-ext-800-normal.woff2) format("woff2");font-weight:800;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Anton";src:url(../fonts/anton-latin-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Anton";src:url(../fonts/anton-latin-ext-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
+
+:root{
+  --red:#B23636;      /* the ONLY accent red: key numbers, emphasis words, alerts */
+  --ink:#1F1F1F;      /* body text / years */
+  --black:#000000;
+  --gold:#E0A422;     /* numbers/keywords on dark frames */
+  --gold2:#D7A742;
+  --blue:#447599;     /* contrast group (men vs women dots) */
+  --tblue:#30749B;    /* neutral table header */
+  --teal:#127FA6;     /* neutral value box (hub) */
+  --navy:#083061;     /* signboard frames */
+  --tagbrown:#592D25; /* ID-tag field labels */
+  --yellow:#F2C66D;   /* table sub-header */
+  --cream:#F7F1E5;    /* hanging boards / tags */
+  --creamedge:#E2D3B8;
+  --paper:#F2F2F2;
+  --white:#FFFFFF;
+  --dark:#191610;
+  --ok:#2E9D4A; --no:#D23B3B;  /* tick / cross marks only */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:var(--paper)}
+.frame{position:relative;width:1920px;height:1080px;overflow:hidden;font-family:"Bricolage",sans-serif;color:var(--ink)}
+.bg{position:absolute;inset:0;background-size:cover;background-position:center}
+.bg.grey{filter:grayscale(1) contrast(.95) brightness(1.03)}
+.bg.sepia{filter:sepia(.85) contrast(.95)}
+.bg.dark{filter:brightness(.32) saturate(.8)}
+.bg.blur{filter:blur(14px) brightness(.35)}
+.L{position:absolute}
+.L img{display:block;width:100%;height:auto}
+.shadow img{filter:drop-shadow(0 18px 18px rgba(0,0,0,.28))}
+.grey img{filter:grayscale(1)}
+.sepia img{filter:sepia(.85)}
+.imp{font-family:"Anton",Impact,sans-serif;font-weight:400;line-height:.95;letter-spacing:0}
+.br{font-family:"Bricolage",sans-serif;line-height:1.12}
+.red{color:var(--red)} .gold{color:var(--gold)} .white{color:#fff} .ink{color:var(--ink)}
+em{font-style:italic}
+.t{white-space:pre-line}
+/* placeholder for images still to be generated */
+.ph{position:absolute;border:4px dashed #9a9a9a;background:repeating-linear-gradient(45deg,rgba(0,0,0,.035) 0 18px,rgba(0,0,0,0) 18px 36px);display:flex;align-items:center;justify-content:center;text-align:center;color:#666;font:500 26px/1.25 "Bricolage";padding:24px}
+.ph b{display:block;color:#B23636;font-weight:700;margin-bottom:8px}
+/* hanging string + card */
+.hang{position:absolute;display:flex;flex-direction:column;align-items:center}
+.rope{width:16px;background:url(../assets/props/rope_segment.png) repeat-y center top/16px auto}
+.eye{width:22px;height:22px;border-radius:50%;border:4px solid #7a5a32;background:#f3e8d2;margin-top:-6px;margin-bottom:-11px;z-index:2}
+.card{background:var(--cream);border:3px solid var(--creamedge);border-radius:16px;box-shadow:0 14px 22px rgba(0,0,0,.25), inset 0 0 0 6px #fbf7ef, inset 0 0 0 8px var(--creamedge);padding:26px 40px 22px;text-align:center}
+/* placard on stake */
+.placard{position:absolute;display:flex;flex-direction:column;align-items:center}
+.placard .board{background:#fff;border:3px solid #d9d2c7;border-radius:10px;box-shadow:0 12px 16px rgba(0,0,0,.25);padding:22px 30px;font:500 40px/1.15 "Bricolage";color:#000;text-align:center}
+.placard .stake{width:22px;background:linear-gradient(90deg,#8a6236,#b48650,#8a6236);border-radius:3px;box-shadow:6px 8px 8px rgba(0,0,0,.18)}
+/* polaroid */
+.pol{position:absolute;background:#fff;padding:12px 12px 12px;box-shadow:0 10px 16px rgba(0,0,0,.28)}
+.pol .ph,.pol img{position:relative;display:block}
+.badge{position:absolute;width:76px;height:76px;border-radius:50%;background:#1d1d1d;color:#fff;font:400 46px/76px "Anton",Impact;text-align:center}
+/* tables */
+.tbl{position:absolute;background:#fff;box-shadow:0 14px 26px rgba(0,0,0,.22);border:2px solid #cfcfcf}
+.tbl table{border-collapse:collapse;width:100%;font-family:"Bricolage"}
+.tbl th{color:#fff;font-weight:600;text-align:center}
+.tbl td{border-top:2px solid #d6d6d6;color:#111}
+.tbl td+td{border-left:2px solid #d6d6d6}
+.tbl tr.hl td{background:#FCEDEA;font-weight:600}
+.tbl tr.total td{font-weight:600}
+.tbl tr.hidden{display:none}
+.tbl .sub th{background:var(--yellow);color:#111;font-weight:600}
+/* pills / callouts */
+.pill{position:absolute;background:#fff;border-radius:12px;padding:10px 22px;box-shadow:0 8px 14px rgba(0,0,0,.25);font:400 40px/1.1 "Bricolage";color:var(--red);white-space:nowrap}
+.dpill{position:absolute;background:#1d1d1d;color:#fff;border-radius:40px;padding:12px 26px 12px 64px;font:400 46px/1 "Bricolage";white-space:nowrap;box-shadow:0 8px 14px rgba(0,0,0,.25)}
+.dpill i{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:#fff;color:#111;font:400 30px/44px "Anton",Impact;text-align:center;font-style:normal}
+/* timeline */
+.tl-line{position:absolute;left:162px;top:-20px;width:5px;height:1200px;background:#2a2a2a}
+.tl-dot{position:absolute;width:52px;height:52px;border-radius:50%;background:var(--red);left:139px}
+/* checklist */
+.clip{position:absolute;background:#b98552;border-radius:22px;box-shadow:0 18px 26px rgba(0,0,0,.3);padding:70px 34px 40px}
+.clip .sheet{background:#fbfaf6;border-radius:6px;padding:40px 46px;box-shadow:inset 0 0 0 1px #e7e2d6}
+.clip .clamp{position:absolute;left:50%;top:-26px;transform:translateX(-50%);width:230px;height:84px;background:linear-gradient(#5d5d5d,#2f2f2f);border-radius:18px 18px 10px 10px;box-shadow:0 6px 10px rgba(0,0,0,.35)}
+.clip li{list-style:none;display:flex;align-items:center;gap:22px;font:300 40px/1.1 "Bricolage";color:#111;padding:14px 0;border-bottom:2px solid #e3ded2}
+.box{width:40px;height:40px;border:3px solid #222;border-radius:4px;flex:none;position:relative;background:#fff}
+.box.on:after{content:"";position:absolute;left:9px;top:1px;width:12px;height:24px;border:solid #111;border-width:0 6px 6px 0;transform:rotate(40deg)}
+/* marks */
+.ok,.no{display:inline-block;width:42px;height:42px;border-radius:7px;color:#fff;text-align:center;font:700 34px/42px "Bricolage";vertical-align:middle;margin-left:14px}
+.ok{background:var(--ok)} .ok:before{content:"\2713"}
+.no{background:transparent;color:var(--no);font-size:46px} .no:before{content:"\2715"}
+/* article card */
+.article{position:absolute;background:#FBF8F1;border-radius:22px;border:10px solid #C9A67A;box-shadow:0 20px 30px rgba(0,0,0,.3);padding:46px 56px}
+.article .src{font:600 26px "Bricolage";color:#B23636;margin-bottom:22px;letter-spacing:.02em}
+.article h2{font:600 52px/1.16 "Bricolage";color:#111;margin-bottom:24px}
+.article p{font:300 30px/1.42 "Bricolage";color:#111}
+.article mark{background:rgba(242,198,109,.75);padding:0 4px}
+/* dots */
+.dot{position:absolute;border-radius:50%}
+/* svg overlays */
+svg.ov{position:absolute;inset:0;width:1920px;height:1080px;overflow:visible}

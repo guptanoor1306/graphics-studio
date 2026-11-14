@@ -394,6 +394,7 @@ aside.edit-frame-strip{display:block;flex-direction:unset;gap:0;overflow-y:auto;
 .reel-phone-chrome .reel-phone-btn-mute{left:-3px;top:12%;width:3px;height:4%;border-radius:2px 0 0 2px}
 .reel-phone-chrome .reel-phone-btn-power{right:-3px;top:22%;width:3px;height:10%;border-radius:0 2px 2px 0}
 .reel-phone-ui{position:absolute;pointer-events:none;z-index:4;box-sizing:border-box}
+.reel-phone-ui[hidden],.reel-phone-chrome[hidden]{display:none}
 .reel-phone-island{left:50%;transform:translateX(-50%);top:0;width:32%;max-width:118px;min-width:42px;height:clamp(12px,4.2%,28px);border-radius:999px;background:var(--phone-glass);display:flex;align-items:center;justify-content:flex-end;padding:0 12% 0 0}
 .reel-phone-island .reel-phone-cam{width:22%;aspect-ratio:1;border-radius:50%;background:var(--phone-cam)}
 .reel-phone-home{left:50%;transform:translateX(-50%);bottom:2%;width:34%;max-width:104px;height:clamp(3px,1.1%,5px);border-radius:999px;background:var(--phone-home)}
@@ -569,7 +570,7 @@ function setChannelKitFilter(theme){
 const CHANNELS=[
  {id:'varsity',label:'Varsity',desc:'Varsity English, Varsity Hindi – Charts & Elements, and Varsity Mutual Fund.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics','varsity-hindi-fa-graphics'],accent:'#5b55e6'},
  {id:'zo',label:'ZO',desc:'ZO Product: FSS, OSA, OST and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
- {id:'zero1',label:'Zero1',desc:'Reels: vertical 1080×1920 safe-zone layouts.',themes:['zero1-reel-graphics'],accent:'#c96442'},
+ {id:'zero1',label:'Zero1',desc:'Zero1 Hindi long-form toy-world frames, and vertical 1080×1920 Reels.',themes:['zero1-hindi-graphics','zero1-reel-graphics'],accent:'#c96442'},
 ];
 function syncShellNav(){
   const inProj=!!P;
@@ -741,13 +742,14 @@ function isZoProduct(t){return (t||(P&&P.theme))==='zo-product-graphics'}
 function isHindiChartsTheme(t){return (t||(P&&P.theme))==='varsity-hindi-graphics'}
 function isHindiFaTheme(t){return (t||(P&&P.theme))==='varsity-hindi-fa-graphics'}
 function isHindiTheme(t){return isHindiChartsTheme(t)||isHindiFaTheme(t)}
-function isChannelKit(t){return isKitTheme(t)||isZoProduct(t)}
+function isZ1Hindi(t){return (t||(P&&P.theme))==='zero1-hindi-graphics'}
+function isChannelKit(t){return isKitTheme(t)||isZoProduct(t)||isZ1Hindi(t)}
 const KIT_SKIP_TYPES=new Set(['footage','screen','repeat']);
 const ZO_RENDER_MODES=new Set(['fss','osa','ost','tos']);
 function zoRenderable(f){const m=(f?.mode||'fss').toLowerCase();return ZO_RENDER_MODES.has(m)}
 function studioFrames(){const all=P?.spec?.frames||[];if(!P)return all;if(isKitTheme(P.theme))return all.filter(f=>!KIT_SKIP_TYPES.has(f.type||''));if(isZoProduct())return all.filter(zoRenderable);return all}
-function frameMetaLine(fr){if(!fr)return '';if(isKitTheme(P?.theme))return `${frameLabel(fr.id)} · ${fr.id} · ${fr.type||'frame'}`;if(isZoProduct()){const m=(fr.mode||'fss').toUpperCase();return `${frameLabel(fr.id)} · ${fr.id} · ${m}`}if(isHindiTheme())return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||(isHindiFaTheme()?'fss':'side')}`;return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||'anchor'}`}
-function normLook(l){l=l||{};if(P&&(isKitTheme(P.theme)||isZoProduct()||isHindiTheme())){if(l.look_line==null)l.look_line='';return l}if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
+function frameMetaLine(fr){if(!fr)return '';if(isKitTheme(P?.theme))return `${frameLabel(fr.id)} · ${fr.id} · ${fr.type||'frame'}`;if(isZoProduct()){const m=(fr.mode||'fss').toUpperCase();return `${frameLabel(fr.id)} · ${fr.id} · ${m}`}if(isHindiTheme())return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||(isHindiFaTheme()?'fss':'side')}`;if(isZ1Hindi())return `${frameLabel(fr.id)} · ${fr.id} · ${fr.type||'scene'}${fr.section?' · '+fr.section:''}`;return `${frameLabel(fr.id)} · ${fr.id} · ${fr.mode||'anchor'}`}
+function normLook(l){l=l||{};if(P&&(isKitTheme(P.theme)||isZoProduct()||isHindiTheme()||isZ1Hindi())){if(l.look_line==null)l.look_line='';return l}if(!l.props){if(l.prop&&l.prop!=='none')l.props=[l.prop];else l.props=[...DEFAULT_PROPS]}if(!l.graphics_mix)l.graphics_mix='balanced';return l}
 const TOPIC_PROPS_TIP='First checked prop = corner dressing on text-only frames only. Every checked prop hints storyboard generation and frame Apply to prefer matching kit assets (broker, bank, chart, etc.).';
 function sbForFrame(fid,sb){
   const lines=(sb||'').split('\n').filter(x=>x.trim());
@@ -958,6 +960,9 @@ function lookForm(l){l=normLook(l);
   if(isZoProduct()){
     return `<div class="field-grid">${themeField}
   <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">ZO Product: FSS + anchor (OSA/OST/TOS) render in spec; upload an optional anchor plate in Edit mode. Screen capture and footage stay storyboard-only.</p></div>`}
+  if(isZ1Hindi()){
+    return `<div class="field-grid">${themeField}
+  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Zero1 Hindi: faceless toy world with wooden Arjun. Every VO line gets a frame; past-episode plates are reused and new sets are generated as images (needs GEMINI_API_KEY or OPENAI_API_KEY on the server, otherwise they stay as labelled placeholders).</p></div>`}
   if(isHindiFaTheme()){
     return `<div class="field-grid">${themeField}
   <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Varsity Hindi – Elements: fss / osa / blur frames with characters, buildings, cards, and FA props. Footage and screen beats stay storyboard-only.</p></div>`}
@@ -984,7 +989,7 @@ const getLook=()=>{
   const sb=sbImportFromUi();
   if(isReelChannel())return {look_line,reel_theme:$('#editReelTheme')?.value||$('#lk_reel_theme')?.value||'',...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
   if(isZoProduct())return {...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
-  if(isHindiTheme())return {...sb};
+  if(isHindiTheme()||isZ1Hindi())return {...sb};
   if(isKitTheme(P.theme))return {look_line:look_line||mainLine,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
   const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
   return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
@@ -993,6 +998,7 @@ function lookSummaryLine(l){
   l=normLook(l||{});
   if(isReelChannel())return (l.look_line||l.reel_theme||'Reels look').slice(0,80)||'Reels';
   if(isZoProduct())return 'ZO Product · anchor plates';
+  if(isZ1Hindi())return 'Zero1 Hindi · toy world';
   if(isHindiFaTheme())return 'Varsity Hindi – Elements';
   if(isHindiChartsTheme())return 'Varsity Hindi – Charts';
   if(isKitTheme(P?.theme))return (l.look_line||'Kit look').slice(0,80);
@@ -1328,7 +1334,7 @@ function framesStudio(){
   return `<div class="frames-studio">
    <div class="studio-head"><div><div class="eyebrow">Frames</div><h2 class="studio-title">Generated frames</h2></div>
     <div class="studio-head-actions">
-     ${specTodoCount()?`<button type="button" class="btn-neutral" id="fillAssetsBtn" onclick="fillAssets()" title="Make images for the ASSET NEEDED boxes (Gemini if a key is set, otherwise Claude draws them)">Fill ${specTodoCount()} missing asset${specTodoCount()>1?'s':''}</button>`:(specGenCount()?`<button type="button" class="btn-neutral" id="fillAssetsBtn" onclick="fillAssets(true)" title="Make the generated images again in the theme style (Claude checks each one against the theme's illustrations)">Redo ${specGenCount()} generated asset${specGenCount()>1?'s':''}</button>`:'')}
+     ${specTodoCount()?`<button type="button" class="btn-neutral" id="fillAssetsBtn" onclick="fillAssets()" title="Make images for the ASSET NEEDED boxes (Gemini if a key is set, otherwise Claude draws them)">${isZ1Hindi()?`Generate ${specTodoCount()} plate${specTodoCount()>1?'s':''}`:`Fill ${specTodoCount()} missing asset${specTodoCount()>1?'s':''}`}</button>`:(specGenCount()?`<button type="button" class="btn-neutral" id="fillAssetsBtn" onclick="fillAssets(true)" title="Make the generated images again in the theme style (Claude checks each one against the theme's illustrations)">Redo ${specGenCount()} generated asset${specGenCount()>1?'s':''}</button>`:'')}
      <button type="button" class="btn-neutral" onclick="openAllPreview()">Preview all</button>
      <button type="button" class="btn-neutral" onclick="openEditMode()">Edit mode</button>
      ${P?.look?.sb_import==='pdf'?'':`<button type="button" class="btn-neutral" id="gen" onclick="gen()">Regenerate all</button>`}</div></div>
@@ -1349,7 +1355,7 @@ function framesStudio(){
       <button type="button" class="frame-arrow" id="frameNext" onclick="frameNav(1)" aria-label="Next frame">›</button>
      </div>
      <div class="frame-export-row"><button type="button" class="btn-neutral" onclick="expFrame()">Export Frame</button></div>
-     <p class="studio-hint" style="margin-top:12px">${isZoProduct()?'Open <b>Edit mode</b> to edit FSS components (compare, chart, positions, …) per layer.':'Open <b>Edit mode</b> to change layers, apply prompts, or switch anchor / full-screen layout.'}</p></div></div></div>`}
+     <p class="studio-hint" style="margin-top:12px">${isZ1Hindi()?'Open <b>Edit mode</b> to move or resize Arjun, props and text, or describe a change for the whole frame.':isZoProduct()?'Open <b>Edit mode</b> to edit FSS components (compare, chart, positions, …) per layer.':'Open <b>Edit mode</b> to change layers, apply prompts, or switch anchor / full-screen layout.'}</p></div></div></div>`}
 function render(){
   syncShellNav();
   P.look=normLook(P.look);
@@ -1619,6 +1625,7 @@ function themeLabel(theme){
   if(theme==='varsity-hindi-fa-graphics')return 'Varsity Hindi - Elements';
   if(theme==='zo-product-graphics')return 'ZO Product';
   if(theme==='zero1-reel-graphics')return 'Reels';
+  if(theme==='zero1-hindi-graphics')return 'Zero1 Hindi';
   return theme||'—';
 }
 function sidebarProjectRow(p,showKit){
@@ -1795,7 +1802,7 @@ function newProject(){
     onSubmit:async name=>{
     if(!name)throw new Error('Enter a name');
     const theme=$('#newProjectTheme')?.value||$('#newProjectThemeSingle')?.value||pick[0];
-    const look=(isKitTheme(theme)||theme==='zo-product-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
+    const look=(isKitTheme(theme)||theme==='zo-product-graphics'||theme==='zero1-hindi-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
     const p=await api('/api/projects',{method:'POST',body:JSON.stringify({name,theme,look})});
     navChannel=channelForTheme(theme);
     await open_(p.id);
@@ -1831,11 +1838,14 @@ function deleteProject(){if(!P)return;
     list();
   }});
 }
+function z1GenKeys(){const s=JSON.stringify(P?.spec?.frames||[]);return [...new Set([...s.matchAll(/"gen:([A-Za-z0-9_.-]+)"/g)].map(m=>m[1]))]}
 function specTodoCount(){
+ if(isZ1Hindi()){const g=P?.spec?.gen||{};return z1GenKeys().filter(k=>g[k]?.prompt&&!g[k]?.file).length}
  const seen=new Set();const walk=o=>{if(!o)return;if(typeof o==='string'){const m=o.match(/^\s*TODO:\s*(.+)$/s);if(m)seen.add(m[1].trim());}else if(Array.isArray(o))o.forEach(walk);else if(typeof o==='object')Object.values(o).forEach(walk);};
  walk(P?.spec?.frames);return seen.size;
 }
 function specGenCount(){
+ if(isZ1Hindi()){const g=P?.spec?.gen||{};return z1GenKeys().filter(k=>g[k]?.file).length}
  const seen=new Set();const walk=o=>{if(!o)return;if(typeof o==='string'){if(o.startsWith('gen/'))seen.add(o);}else if(Array.isArray(o))o.forEach(walk);else if(typeof o==='object')Object.values(o).forEach(walk);};
  walk(P?.spec?.frames);return seen.size;
 }
@@ -2004,11 +2014,22 @@ function layerRowLabel(it,idx){
  if(!tx&&Array.isArray(it.items)&&it.items[0]!=null&&typeof it.items[0]!=='object')tx=String(it.items[0]);
  return t+(tx?': '+String(tx).slice(0,36):'');
 }
+function z1LayerEntries(fr){
+ const lab=l=>l.text?('text: '+String(l.text).replace(/[*_\n]+/g,' ').slice(0,40)):l.img?('image: '+String(l.img).replace(/^(asset:|gen:)/,'').split('/').pop()):l.arrow?'arrow':l.rect?'box':l.dot?'dot':'layer';
+ const out=[];
+ (fr.under||[]).forEach((l,i)=>{if(!l.arrow)out.push({label:lab(l),mfPath:'under.'+i})});
+ (fr.layers||[]).forEach((l,i)=>{if(!l.arrow)out.push({label:lab(l),mfPath:'layers.'+i})});
+ return out;
+}
 function renderCanvasLayerList(){
  const list=$('#canvasLayerList');
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  if(!fr){list.innerHTML='';return}
+ if(isZ1Hindi(P.theme)){
+  const rows=z1LayerEntries(fr);
+  list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">This ${esc(fr.type||'scene')} frame has no free layers. Use Frame changes below.</p>`;
+  return}
  if(isKitTheme(P.theme)){
   const rows=mfLayerEntries(fr);
   list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>`;
@@ -2486,6 +2507,9 @@ async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
    if(w!=null)setSpecPath(fr,mfPath+'.w',Math.round(w));
    if(h!=null)setSpecPath(fr,mfPath+'.h',Math.round(h));
    if(size!=null)setSpecPath(fr,mfPath+'.size',Math.round(size));
+  }else if(/^(layers|under)\.\d+$/.test(mfPath)){
+   if(w!=null)setSpecPath(fr,mfPath+'.w',Math.round(w));
+   if(size!=null)setSpecPath(fr,mfPath+'.size',Math.round(size));
   }else if(/^questions\.\d+$/.test(mfPath)&&size!=null){
    fr.question_font=Math.round(size);
   }else if(/^steps\.\d+\.label$/.test(mfPath)&&size!=null){
@@ -2546,7 +2570,7 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
    setSpecPath(fr,mfPath+'.x',Math.round(x));
    setSpecPath(fr,mfPath+'.y',Math.round(y));
    setSpecPath(fr,mfPath+'.abs',true);
-  }else if(/^els\.\d+$/.test(mfPath)){
+  }else if(/^els\.\d+$/.test(mfPath)||/^(layers|under)\.\d+$/.test(mfPath)){
    setSpecPath(fr,mfPath+'.x',Math.round(x));
    setSpecPath(fr,mfPath+'.y',Math.round(y));
   }else{
@@ -2588,6 +2612,7 @@ function applyMfPathDelete(fr,mfPath){
  if((m=mfPath.match(/^props\.(\d+)$/))&&fr.props){fr.props.splice(+m[1],1);return true}
  if((m=mfPath.match(/^items\.(\d+)$/))&&Array.isArray(fr.items)){fr.items.splice(+m[1],1);return true}
  if((m=mfPath.match(/^els\.(\d+)$/))&&Array.isArray(fr.els)){fr.els.splice(+m[1],1);return true}
+ if((m=mfPath.match(/^(layers|under)\.(\d+)$/))&&Array.isArray(fr[m[1]])){fr[m[1]].splice(+m[2],1);return true}
  if((m=mfPath.match(/^cards\.(\d+)$/))&&fr.cards){fr.cards.splice(+m[1],1);return true}
  if((m=mfPath.match(/^questions\.(\d+)$/))&&fr.questions){fr.questions.splice(+m[1],1);return true}
  if((m=mfPath.match(/^steps\.(\d+)\.label$/))&&fr.steps?.[+m[1]]){fr.steps[+m[1]].label='';return true}
