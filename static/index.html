@@ -1,5 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Graphics Studio</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<script>try{if(new URLSearchParams(location.search).get('embed')==='la-studio')document.documentElement.classList.add('embed-la')}catch(e){}</script>
 <meta name="description" content="Graphics Studio turns a video script into a storyboard and on-brand frames for each channel.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -460,6 +461,24 @@ body.bg-running #fillAssetsBtn{display:none}
 .bg-status .bg-msg{flex:1;min-width:0}
 .bg-status .bg-sub{display:block;font-size:var(--text-xs);color:var(--mute);font-variant-numeric:tabular-nums}
 .bg-status button{min-height:32px;padding:var(--s-2) var(--s-3)}
+/* Inside LA Studio (?embed=la-studio): its macOS look, one sidebar (LA Studio's), no Graphics Studio chrome */
+html.embed-la{
+  --paper:#F5F5F7;--paper-2:#F5F5F7;--surface:#FFFFFF;--ink:#1D1D1F;--ink-2:#3A3A3C;--mute:#6E6E73;--faint:#AEAEB2;
+  --line:#E5E5EA;--line-strong:#D2D2D7;--hover:#F0F0F2;--press:#E8E8ED;
+  --accent:#0071E3;--accent-hover:#0062C4;--accent-press:#0055AA;--accent-ink:#FFFFFF;--accent-text:#0066CC;
+  --accent-soft:#E8F1FC;--accent-line:#99C4F2;--focus:#0071E3;--ok:#248A3D;--ok-soft:#EAF7EE;--ok-strong:#D4F0DC;
+  --ok-line:#8FD3A3;--bad:#D70015;--bad-soft:#FFF0F0;--bad-line:#FFB3B0;--radius:14px;--radius-sm:10px;
+  --font:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,sans-serif}
+html.embed-la body{grid-template-columns:1fr!important;height:100vh}
+html.embed-la aside#nav,html.embed-la .nav-toggle{display:none!important}
+html.embed-la #editModeApp{grid-column:1}
+html.embed-la main{padding:var(--s-5) var(--s-6) var(--s-7)}
+html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;padding:var(--s-6) var(--s-5)}
+.la-start{max-width:560px;margin:var(--s-7) auto;display:flex;flex-direction:column;gap:var(--s-5)}
+.la-start h1{font-size:var(--text-xl);font-weight:600;margin:0}
+.la-start p{margin:0;color:var(--mute)}
+.la-start .card{display:flex;flex-direction:column;gap:var(--s-4)}
+.la-send-note{font-size:var(--text-xs);color:var(--mute)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
   .channel-card:hover{transform:none}
@@ -622,7 +641,7 @@ const ICON_EDIT='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V2
 const PROP_OPTS=['coins','tax','jar','house','bank','broker','document','chart','magnifier'];
 const DEFAULT_PROPS=['coins'];
 const $=s=>document.querySelector(s);
-const api=async(u,o={})=>{
+let api=async(u,o={})=>{
   const r=await fetch(u,{cache:'no-store',headers:{'content-type':'application/json'},...o});
   if(!r.ok){let m=await r.text();try{const j=JSON.parse(m);m=j.detail||m}catch(_){}throw new Error(typeof m==='string'?m:JSON.stringify(m))}
   const j=await r.json();
@@ -1372,10 +1391,10 @@ function render(){
   const m=sbMode();
   const preSpec=preSpecSectionHtml();
   const pdfBlock=P.spec?humanPdfSectionHtml():'';
-  $('#main').innerHTML=`<div class="toolbar"><h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
-   ${P.spec?`<button type="button" onclick="undo()">Undo</button><button type="button" class="p" onclick="exp()">Export All</button>`:''}
+  $('#main').innerHTML=`<div class="toolbar">${EMBED&&!LA.id?'<button type="button" class="ghost" onclick="goHome()">‹ All projects</button>':''}<h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
+   ${P.spec?`<button type="button" onclick="undo()">Undo</button>${EMBED?`<button type="button" class="btn-neutral" onclick="exp()">Export All</button><button type="button" class="p" id="laSendBtn" onclick="laSend()">Send to Import Graphics</button>`:'<button type="button" class="p" onclick="exp()">Export All</button>'}`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
-   <button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button></div>
+   ${EMBED&&LA.id?'':`<button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button>`}</div>
   ${lookSectionHtml()}
   ${P.spec?pdfBlock+framesStudio():preSpec}<div id="warns"></div>`;
   fit();
@@ -2855,10 +2874,70 @@ window.addEventListener('resize',()=>{
  fitCanvasEdit();
  try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers()}catch(_){}
 });
+/* ---------------- LA Studio bridge (?embed=la-studio) ----------------
+   Graphics Studio is step 1 ("Graphics") of an LA Studio project, or LA Studio's Graphics tab. ?la=<LA project id>
+   (+ name, channel, form) opens the linked Graphics Studio project, or offers to start one. "Send to Import Graphics"
+   hands LA Studio one self-contained HTML per frame (+ the storyboard sheet); LA Studio's own engine makes the
+   picture and the exact layered PSD from each. Messages: {zo:'graphics', op, id, data} up, {zo:'graphics-host', id, ok}
+   back. Only LA Studio's local addresses are talked to. */
+const EMBED=document.documentElement.classList.contains('embed-la');
+const LA=(()=>{const q=new URLSearchParams(location.search);return {id:q.get('la')||'',name:q.get('name')||'',channel:q.get('channel')||'',form:q.get('form')||''}})();
+const LA_ORIGINS=[8770,8771].flatMap(p=>[`http://127.0.0.1:${p}`,`http://localhost:${p}`]);
+const laOrigin=(()=>{try{const a=location.ancestorOrigins&&location.ancestorOrigins[0];const o=a||(document.referrer?new URL(document.referrer).origin:'');return LA_ORIGINS.includes(o)?o:''}catch(e){return ''}})();
+let laSeq=0;const laWait=new Map();
+function laPost(op,data){return new Promise((res,rej)=>{if(!EMBED||!laOrigin||window.parent===window)return rej(new Error('Open this inside LA Studio to send frames.'));
+ const id='g'+(++laSeq);laWait.set(id,{res,rej});window.parent.postMessage({zo:'graphics',op,id,data},laOrigin);
+ setTimeout(()=>{if(laWait.has(id)){laWait.delete(id);rej(new Error('LA Studio did not answer.'))}},op==='frames'?15*60000:20000)})}
+window.addEventListener('message',e=>{if(e.origin!==laOrigin||e.source!==window.parent)return;const m=e.data||{};if(m.zo!=='graphics-host')return;
+ const w=laWait.get(m.id);if(w){laWait.delete(m.id);m.ok?w.res(m.data):w.rej(new Error(m.error||'LA Studio said no'))}});
+const laChanged=(()=>{let t;return()=>{if(!EMBED||!laOrigin)return;clearTimeout(t);t=setTimeout(()=>laPost('changed',{project:P?{id:P.id,frames:(P.spec?.frames||[]).length,theme:P.theme}:null}).catch(()=>{}),800)}})();
+const _api0=api;api=async(u,o={})=>{const r=await _api0(u,o);if(o.method&&o.method!=='GET'&&/^\/api\/(projects|la)\b/.test(u))laChanged();return r};
+const laSlug=s=>String(s||'graphics').normalize('NFKD').replace(/[^\w-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'graphics';
+async function laSend(){
+ if(!P?.spec?.frames?.length){alert('No frames yet.');return}
+ const btn=$('#laSendBtn');const ids=P.spec.frames.map(f=>String(f.id));const stem=laSlug(P.name);
+ if(!confirm(`Send ${ids.length} frame${ids.length>1?'s':''} to Import Graphics? LA Studio makes a layered PSD from each one.`))return;
+ const label=t=>{if(btn)btn.textContent=t};if(btn)btn.disabled=true;
+ try{
+  const files=[];
+  for(let i=0;i<ids.length;i++){label(`Preparing ${i+1}/${ids.length}…`);
+   const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(ids[i])}/export.html`,{cache:'no-store'});
+   if(r.status===404||r.status===400)continue;if(!r.ok)throw new Error(`Frame ${ids[i]}: ${await r.text()}`);
+   files.push(new File([await r.text()],`${stem}_${ids[i].replace(/[^\w.-]+/g,'_')}.html`,{type:'text/html'}))}
+  let csv=null;try{const r=await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`);if(r.ok)csv=new File([await r.blob()],`${stem}_storyboard-instructions.csv`,{type:'text/csv'})}catch(_){}
+  label('Sending to LA Studio…');
+  const out=await laPost('frames',{project:{id:P.id,name:P.name,theme:P.theme},la:LA.id||null,files,csv});
+  label('Sent');setTimeout(()=>{label('Send to Import Graphics');if(btn)btn.disabled=false},2500);
+  if(out&&out.message)alert(out.message);
+ }catch(e){alert(e.message);label('Send to Import Graphics');if(btn)btn.disabled=false}
+}
+function laKits(){
+ const ch=CHANNELS.find(c=>c.id===LA.channel.toLowerCase()||c.label.toLowerCase()===LA.channel.toLowerCase());
+ const list=(ch?[ch]:CHANNELS).flatMap(c=>c.themes.filter(t=>themes.includes(t)).map(t=>({t,c})));
+ const sf=x=>/reel/.test(x.t);return LA.form==='sf'?list.filter(sf).concat(list.filter(x=>!sf(x))):list.filter(x=>!sf(x)).concat(list.filter(sf));
+}
+function laStartPanel(){
+ syncShellNav();document.body.classList.add('home-shell');
+ const kits=laKits();
+ $('#main').innerHTML=`<div class="la-start"><div><h1>Start graphics</h1><p>Graphics Studio writes the storyboard and the frames for this project. Pick the kit for its IP.</p></div>
+  <div class="card"><div class="field"><label for="laName">Name</label><input id="laName" value="${esc(LA.name)}"></div>
+  <div class="field"><label for="laKit">Kit</label><select id="laKit">${kits.map(({t,c})=>`<option value="${t}">${esc(themeLabel(t))} · ${esc(c.label)}</option>`).join('')}</select></div>
+  <div class="row" style="margin-top:0"><button type="button" class="p" id="laCreate">Start graphics</button></div></div></div>`;
+ $('#laCreate').onclick=async()=>{const b=$('#laCreate');b.disabled=true;
+  try{const p=await api('/api/la/link',{method:'POST',body:JSON.stringify({la_project:LA.id,la_name:LA.name,name:$('#laName').value||LA.name,theme:$('#laKit').value})});await open_(p.id)}
+  catch(e){alert(e.message);b.disabled=false}};
+}
+async function laBoot(){
+ themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}
+ await list();
+ if(!LA.id){renderHomeMain();return}
+ try{const r=await api('/api/la/project/'+encodeURIComponent(LA.id));if(r.project_id){await open_(r.project_id);return}}catch(_){}
+ laStartPanel();
+}
 initNav();
 bindProjectList();
 bindFrameEdit();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')list()});
 setInterval(()=>{if(document.visibilityState==='visible')list()},45000);
-(async()=>{themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}await list();renderHomeMain()})();
+if(EMBED)laBoot();else (async()=>{themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}await list();renderHomeMain()})();
 </script></body></html>

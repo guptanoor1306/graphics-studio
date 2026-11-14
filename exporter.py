@@ -94,14 +94,14 @@ def inline_assets(html: str, base_dir: pathlib.Path) -> str:
         p = resolve(url)
         return f'{m.group(1)}="{_data_uri(p)}"' if p else m.group(0)
 
-    def fix_url(m):  # background plates set in style attributes: url('../assets/…')
-        url = m.group(1)
+    def fix_url(m):  # pictures set in styles: url('../assets/…'), url("…") or url(…) unquoted
+        url = m.group(2).strip()
         if url.startswith(("data:", "http", "#")):
             return m.group(0)
         p = resolve(url)
         return f"url('{_data_uri(p)}')" if p else m.group(0)
     html = re.sub(r'(src)="([^"]+)"', fix_src, html)
-    html = re.sub(r"url\('([^']+)'\)", fix_url, html)
+    html = re.sub(r"""url\(\s*(['"]?)([^'")]+)\1\s*\)""", fix_url, html)
     html = re.sub(r'<base [^>]*>', '', html)
     return html
 
