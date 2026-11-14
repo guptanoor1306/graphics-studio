@@ -230,7 +230,8 @@ def test_script_mode_is_told_to_stay_inside_the_given_lines(monkeypatch):
     monkeypatch.setattr(claude_client, "_call_storyboard", lambda tdir, msg, **k: msgs.append(msg) or {"spec": {"frames": []}})
     monkeypatch.setattr(claude_client, "patch_until_clean", lambda tdir, out, *a, **k: out)
     claude_client.storyboard(KIT, "Line one.\nLine two.", {}, "")
-    assert "SCOPE" in msgs[0] and "Do not add beats or frames for anything that is not in it" in msgs[0]
+    assert "SCOPE" in msgs[0] and "Do not invent sections it does not contain" in msgs[0]
+    assert "follow the skill fully" in msgs[0] and "more than one frame only" not in msgs[0]
 
 
 def test_pdf_styleframe_becomes_the_main_reference_and_text_is_dropped(tmp_path, monkeypatch):
