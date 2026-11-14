@@ -10,3 +10,4 @@ varsity-mf-graphics.zip
 
 # generated assets (kept in the database, restored on startup)
 themes/*/assets/gen/
+.hallmark/
