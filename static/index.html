@@ -1,6 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><title>Graphics Studio</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<script>try{if(new URLSearchParams(location.search).get('embed')==='la-studio')document.documentElement.classList.add('embed-la')}catch(e){}</script>
+<script>try{const q=new URLSearchParams(location.search);if(q.get('embed')==='la-studio'){document.documentElement.classList.add('embed-la');if(q.get('la'))document.documentElement.classList.add('la-boot')}}catch(e){}</script>
+<style>/* opened from an LA Studio project: nothing shows until that project (or its start panel) is ready, so the home page never flashes */
+html.la-boot body>*{visibility:hidden}
+html.la-boot body::after{content:'';position:fixed;left:50%;top:45%;width:22px;height:22px;margin:-11px;border-radius:50%;border:2px solid rgba(0,0,0,.12);border-top-color:#0071E3;animation:laspin .8s linear infinite}
+@keyframes laspin{to{transform:rotate(360deg)}}</style>
 <meta name="description" content="Graphics Studio turns a video script into a storyboard and on-brand frames for each channel.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2993,11 +2997,15 @@ function laStartPanel(){
   catch(e){alert(e.message);b.disabled=false}};
 }
 async function laBoot(){
- themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}
- await list();
- if(!LA.id){renderHomeMain();return}
- try{const r=await api('/api/la/project/'+encodeURIComponent(LA.id));if(r.project_id){await open_(r.project_id);return}}catch(_){}
- laStartPanel();
+ const done=()=>document.documentElement.classList.remove('la-boot');setTimeout(done,10000);   // never stuck hidden
+ try{
+  const linked=LA.id?api('/api/la/project/'+encodeURIComponent(LA.id)).catch(()=>({})):null;   // asked alongside the lists
+  themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}
+  await list();
+  if(!LA.id){renderHomeMain();return}
+  const r=await linked;if(r&&r.project_id){try{await open_(r.project_id);return}catch(_){}}
+  laStartPanel();
+ }finally{done()}
 }
 initNav();
 bindProjectList();
