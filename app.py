@@ -57,10 +57,11 @@ def preview_url(pid: int, fid: str) -> str:
 app = FastAPI(title="Graphics Studio")
 # LA Studio runs on each computer (127.0.0.1:8770, staging 8771) and reads the hierarchy / links from here.
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+# Any local LA Studio port 8700-8799 (live 8770, staging 8771, test copies via LA_PORT).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"http://{h}:{p}" for h in ("127.0.0.1", "localhost") for p in (8770, 8771)]
-    + [o.strip() for o in os.environ.get("STUDIO_CORS_ORIGINS", "").split(",") if o.strip()],
+    allow_origin_regex=r"^http://(127\.0\.0\.1|localhost):87\d\d$",
+    allow_origins=[o.strip() for o in os.environ.get("STUDIO_CORS_ORIGINS", "").split(",") if o.strip()],
     allow_methods=["GET", "POST"], allow_headers=["*"],
 )
 app.mount("/themes", StaticFiles(directory=THEMES), name="themes")

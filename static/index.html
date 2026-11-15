@@ -496,6 +496,9 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
 .la-start p{margin:0;color:var(--mute)}
 .la-start .card{display:flex;flex-direction:column;gap:var(--s-4)}
 .la-send-note{font-size:var(--text-xs);color:var(--mute)}
+.ui-dlg .modal-msg{white-space:pre-line}
+.ui-dlg #uiDlgInput{margin:0 0 var(--s-2)}
+.ui-dlg button.danger-fill{background:var(--bad);border-color:var(--bad);color:var(--accent-ink);font-weight:600}
 .la-skip{margin:0;font-size:var(--text-sm);color:var(--mute);text-align:center}
 .la-skip button{min-height:32px;padding:var(--s-1) var(--s-2);color:var(--accent-text)}
 @media (prefers-reduced-motion:reduce){
@@ -561,6 +564,7 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
   </aside>
  </div>
 </div>
+<dialog id="uiDlg" class="modal-sm ui-dlg" aria-labelledby="uiDlgTitle"><form class="modal-in" method="dialog"><b id="uiDlgTitle"></b><div class="modal-msg" id="uiDlgMsg"></div><input id="uiDlgInput" hidden><div class="modal-actions" id="uiDlgActions"></div></form></dialog>
 <dialog id="allFramesDlg"><div class="dlg-bar"><b>All frames</b><button type="button" class="ghost" onclick="allFramesDlg.close()">Close</button></div>
 <div class="all-body"><div class="all-grid" id="allGrid"></div></div></dialog>
 <dialog id="toolModal" class="modal-sm"><form class="modal-in" method="dialog" onsubmit="return submitToolModal(event)">
@@ -660,6 +664,27 @@ const ICON_EDIT='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V2
 const PROP_OPTS=['coins','tax','jar','house','bank','broker','document','chart','magnifier'];
 const DEFAULT_PROPS=['coins'];
 const $=s=>document.querySelector(s);
+/* In-app dialogs instead of the browser's alert / confirm / prompt (same look as the app, clear button names).
+   uiAsk({title, message, actions:[{label, value, primary, danger}], input:{value, placeholder}}) -> chosen value
+   (or the typed text for a primary action when input is set); Esc / click outside -> null. */
+const uiQueue=[];let uiBusy=false;
+function uiAsk(o){return new Promise(res=>{uiQueue.push({o,res});uiNext()})}
+function uiNext(){
+ if(uiBusy||!uiQueue.length)return;const {o,res}=uiQueue.shift();const d=$('#uiDlg');if(!d){res(null);return}
+ uiBusy=true;$('#uiDlgTitle').textContent=o.title||'';$('#uiDlgTitle').hidden=!o.title;$('#uiDlgMsg').textContent=o.message||'';
+ const inp=$('#uiDlgInput');inp.hidden=!o.input;if(o.input){inp.value=o.input.value??'';inp.placeholder=o.input.placeholder||''}
+ const acts=o.actions||[{label:'OK',value:true,primary:true}];let done=false;
+ const finish=v=>{if(done)return;done=true;d.close();uiBusy=false;res(v);setTimeout(uiNext,0)};
+ $('#uiDlgActions').innerHTML=acts.map((a,i)=>`<button type="button" data-i="${i}" class="${a.primary?(a.danger?'danger-fill':'p'):a.danger?'danger':'btn-neutral'}">${esc(a.label)}</button>`).join('');
+ $('#uiDlgActions').onclick=e=>{const b=e.target.closest('button[data-i]');if(!b)return;const a=acts[+b.dataset.i];finish(o.input&&a.primary?inp.value:a.value)};
+ d.oncancel=e=>{e.preventDefault();finish(null)};d.onclick=e=>{if(e.target===d)finish(null)};
+ inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();finish(inp.value)}};
+ d.showModal();(o.input?inp:d.querySelector('#uiDlgActions .p,#uiDlgActions .danger-fill,#uiDlgActions button'))?.focus();
+}
+const uiAlert=(message,title)=>uiAsk({title:title||'',message:String(message??''),actions:[{label:'OK',value:true,primary:true}]});
+const uiConfirm=(message,{title='',ok='Continue',cancel='Cancel',danger=false}={})=>uiAsk({title,message,actions:[{label:cancel,value:false},{label:ok,value:true,primary:true,danger}]}).then(v=>v===true);
+const uiPrompt=(message,value='',{title='',ok='OK'}={})=>uiAsk({title,message,input:{value},actions:[{label:'Cancel',value:null},{label:ok,value:'',primary:true}]});
+window.alert=m=>{uiAlert(m)};   // every existing alert(...) now opens the in-app dialog
 let api=async(u,o={})=>{
   const r=await fetch(u,{cache:'no-store',headers:{'content-type':'application/json'},...o});
   if(!r.ok){let m=await r.text();try{const j=JSON.parse(m);m=j.detail||m}catch(_){}throw new Error(typeof m==='string'?m:JSON.stringify(m))}
@@ -1321,8 +1346,8 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   }
   let maxNewThisRun=0;
   if(finishAll){
-    if(!confirm('All remaining runs Next 5 repeatedly until Claude stops.\n\nRisk: every PDF row can become a frame (e.g. 60) if the SB lists chart updates separately.\n\nContinue?')){if(btn)btn.disabled=false;return}
-    const ans=prompt('How many NEW graphic frames max this run?\n(Count distinct PNGs in the SB, not storyboard lines. Blank = no cap.)','20');
+    if(!await uiConfirm('This keeps building 5 frames at a time until the storyboard is done. If the PDF lists chart updates as separate rows, each can become its own frame.',{title:'Build all remaining frames?',ok:'Build all'})){if(btn)btn.disabled=false;return}
+    const ans=await uiPrompt('How many new graphic frames at most? Count the distinct graphics in the storyboard, not its lines. Leave empty for no limit.','20',{title:'Frame limit',ok:'Start'});
     if(ans===null){if(btn)btn.disabled=false;return}
     const n=parseInt(String(ans).trim(),10);
     if(n>0)maxNewThisRun=n;
@@ -1921,7 +1946,7 @@ function assetsNote(r){
  if(bad.length)m+='\n\nCould not generate: '+bad.join(', ');return m;
 }
 async function fillAssets(redo=false){
- if(redo&&!confirm('Make the generated images again in the theme style? Each one is checked by Claude and may take 1–3 min in total.'))return;
+ if(redo&&!await uiConfirm('Each image is made again in the theme style and checked by Claude. This takes 1–3 minutes.',{title:'Make the generated images again?',ok:'Make again'}))return;
  const b=$('#fillAssetsBtn');if(b)b.disabled=true;setWorkspaceLoading(true,redo?'Remaking the generated images in the theme style…':'Making images for the missing assets… (about 1–3 min)');
  try{P=await api(`/api/projects/${P.id}/assets/fill`,{method:'POST',body:JSON.stringify({redo})});P.look=normLook(P.look);frameVer={};render();
   const n=Object.keys(P.assets?.filled||{}).length;alert((n?`Filled ${n} asset(s).`:'Nothing was generated.')+assetsNote(P).replace(/^\n\nGenerated[^\n]*/,'')+(P.todo_left?`\n\n${P.todo_left} still missing.`:''))}
@@ -1962,7 +1987,7 @@ async function pollBg(){
   if(s.state==='done')setTimeout(()=>{if(!bgTimer)hideBg()},12000)}
 }
 async function gen(){
- if(!scriptHasContent(getScriptValue())&&!P?.has_episode_transcript&&!confirm('No script or audio transcript yet. Generate anyway?'))return;
+ if(!scriptHasContent(getScriptValue())&&!P?.has_episode_transcript&&!await uiConfirm('There is no script or audio transcript yet.',{title:'Generate anyway?',ok:'Generate'}))return;
  const b=$('#gen');if(b)b.disabled=true;setWorkspaceLoading(true,isZ1Hindi()?'Starting…':'Claude is storyboarding, then reviewing the rendered frames… (3–6 min)');
  try{
   const themeSel=$('#theme');
@@ -2831,10 +2856,13 @@ async function waitExportJob(pid,jobId,onTick){
 async function exp(){
  if(!P?.spec)return;
  const n=(P.spec?.frames||[]).length;
- const bulletinFmt=isZoProduct()&&confirm(`Export all ${n||''} frames in the layered Bulletin format?\n\nOK = Bulletin (html + png + layers JSON + spec.json, the team's layered format)\nCancel = the usual export`);
- if(!bulletinFmt&&!confirm(`Export all ${n||''} frames? (about 1–3 minutes on the server)`))return;
+ let bulletinFmt=false;
+ if(isZoProduct()){const v=await uiAsk({title:`Export all ${n||''} frames`,message:'Bulletin is the team\'s layered format (HTML, PNG, layer data and spec). The usual export is HTML and PNG per frame.',
+   actions:[{label:'Cancel',value:null},{label:'Usual export',value:'usual'},{label:'Bulletin',value:'bulletin',primary:true}]});if(!v)return;bulletinFmt=v==='bulletin'}
+ else if(!await uiConfirm('This takes about 1–3 minutes on the server.',{title:`Export all ${n||''} frames?`,ok:'Export'}))return;
  const wantPng=bulletinFmt?true:n>12
-  ?confirm(`Include PNG renders in the zip?\n\nOK = full zip with PNGs (large download, can fail on slow links).\nCancel = HTML + layer pages only (recommended for ${n}+ frames).`)
+  ?await uiAsk({title:'Include PNG pictures?',message:`With PNGs the zip is much larger and can fail on a slow connection. HTML only is recommended for ${n}+ frames.`,
+     actions:[{label:'HTML only',value:false},{label:'With PNGs',value:true,primary:true}]}).then(v=>v===true)
   :true;
  const png=wantPng?1:0;
  setWorkspaceLoading(true,'Starting export…');
@@ -2917,8 +2945,8 @@ window.addEventListener('resize',()=>{
    back. Only LA Studio's local addresses are talked to. */
 const EMBED=document.documentElement.classList.contains('embed-la');
 const LA=(()=>{const q=new URLSearchParams(location.search);return {id:q.get('la')||'',name:q.get('name')||'',channel:q.get('channel')||'',form:q.get('form')||''}})();
-const LA_ORIGINS=[8770,8771].flatMap(p=>[`http://127.0.0.1:${p}`,`http://localhost:${p}`]);
-const laOrigin=(()=>{try{const a=location.ancestorOrigins&&location.ancestorOrigins[0];const o=a||(document.referrer?new URL(document.referrer).origin:'');return LA_ORIGINS.includes(o)?o:''}catch(e){return ''}})();
+const LA_ORIGIN_RE=/^http:\/\/(127\.0\.0\.1|localhost):87\d\d$/;   // LA Studio on this computer: 8770 live, 8771 staging, test copies
+const laOrigin=(()=>{try{const a=location.ancestorOrigins&&location.ancestorOrigins[0];const o=a||(document.referrer?new URL(document.referrer).origin:'');return LA_ORIGIN_RE.test(o)?o:''}catch(e){return ''}})();
 let laSeq=0;const laWait=new Map();
 function laPost(op,data){return new Promise((res,rej)=>{if(!EMBED||!laOrigin||window.parent===window)return rej(new Error('Open this inside LA Studio to send frames.'));
  const id='g'+(++laSeq);laWait.set(id,{res,rej});window.parent.postMessage({zo:'graphics',op,id,data},laOrigin);
@@ -2931,7 +2959,7 @@ const laSlug=s=>String(s||'graphics').normalize('NFKD').replace(/[^\w-]+/g,'_').
 async function laSend(){
  if(!P?.spec?.frames?.length){alert('No frames yet.');return}
  const btn=$('#laSendBtn');const ids=P.spec.frames.map(f=>String(f.id));const stem=laSlug(P.name);
- if(!confirm(`Make layers for ${ids.length} frame${ids.length>1?'s':''}? LA Studio turns each one into a layered PSD in Layers.`))return;
+ if(!await uiConfirm('LA Studio turns each frame into a layered PSD in Layers.',{title:`Make layers for ${ids.length} frame${ids.length>1?'s':''}?`,ok:'Make Layers'}))return;
  const label=t=>{if(btn)btn.textContent=t};if(btn)btn.disabled=true;
  try{
   const files=[];
