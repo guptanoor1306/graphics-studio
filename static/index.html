@@ -172,6 +172,23 @@ textarea#dlgJson{font-family:var(--mono);font-size:var(--text-sm);min-height:380
 .setup-col-pdf .pdf-human-panel{margin-top:0}
 .setup-col-pdf .pdf-human-actions{margin-top:var(--s-3)}
 .setup-panel-body.card{padding:var(--s-5) var(--s-6)}
+.src-card{margin:var(--s-6) 0 var(--s-5);padding:var(--s-6)}
+.src-card-head{margin-bottom:var(--s-5)}
+.src-card-head h2{margin:0;font-size:var(--text-md);font-weight:600}
+.src-card-head p{margin:var(--s-1) 0 0;font-size:var(--text-sm);color:var(--mute)}
+.src-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-4)}
+.src-item{display:flex;flex-direction:column;gap:var(--s-2);padding:var(--s-4) var(--s-5);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper-2);min-width:0}
+.src-item.src-script{grid-column:1/-1}
+.src-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
+.src-title{font-size:var(--text-sm);font-weight:600;color:var(--ink)}
+.src-hint{margin:0;font-size:var(--text-xs);color:var(--mute);line-height:1.45}
+.src-row{display:flex;gap:var(--s-3);align-items:center;margin-top:var(--s-2)}
+.src-row input[type=file]{flex:1;min-width:0;font-size:var(--text-xs);padding:var(--s-2) var(--s-3);background:var(--surface)}
+.src-item textarea#script{margin-top:var(--s-2);background:var(--surface)}
+.src-tag{font-size:var(--text-xs);color:var(--mute);background:var(--hover);border-radius:var(--radius-pill);padding:0 var(--s-3);white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis}
+.src-tag.on{color:var(--ok);background:var(--ok-soft);font-weight:600}
+.src-item .audio-card-status:empty,.src-item .pdf-saved-tag[hidden]{display:none}
+@media (max-width:760px){.src-grid{grid-template-columns:1fr}}
 .audio-card{border:0;border-top:1px solid var(--line);border-radius:0;padding:var(--s-4) 0 0;background:transparent}
 .audio-card-head{display:flex;align-items:center;gap:var(--s-3);margin-bottom:var(--s-3)}
 .audio-card-icon{width:32px;height:32px;border-radius:var(--radius-sm);background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:var(--text-md);flex-shrink:0}
@@ -479,6 +496,8 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
 .la-start p{margin:0;color:var(--mute)}
 .la-start .card{display:flex;flex-direction:column;gap:var(--s-4)}
 .la-send-note{font-size:var(--text-xs);color:var(--mute)}
+.la-skip{margin:0;font-size:var(--text-sm);color:var(--mute);text-align:center}
+.la-skip button{min-height:32px;padding:var(--s-1) var(--s-2);color:var(--accent-text)}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
   .channel-card:hover{transform:none}
@@ -991,7 +1010,7 @@ function lookForm(l){l=normLook(l);
   <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">ZO Product: FSS + anchor (OSA/OST/TOS) render in spec; upload an optional anchor plate in Edit mode. Screen capture and footage stay storyboard-only.</p></div>`}
   if(isZ1Hindi()){
     return `<div class="field-grid">${themeField}
-  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Zero1 Hindi: faceless toy world with wooden Arjun. Every VO line gets a frame; past-episode plates are reused and new sets are generated as images (needs GEMINI_API_KEY or OPENAI_API_KEY on the server, otherwise they stay as labelled placeholders).</p></div>`}
+  <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Faceless toy world with wooden Arjun. Every voice-over line gets a frame; sets from past episodes are reused and new ones are generated as images.</p></div>`}
   if(isHindiFaTheme()){
     return `<div class="field-grid">${themeField}
   <p class="muted" style="grid-column:1/-1;font-size:13px;margin:0;line-height:1.45">Varsity Hindi – Elements: fss / osa / blur frames with characters, buildings, cards, and FA props. Footage and screen beats stay storyboard-only.</p></div>`}
@@ -1166,45 +1185,62 @@ function episodeAudioStatusHtml(){
   if(P.has_episode_audio)return `<span class="muted" style="font-size:13px">Audio saved — re-upload to transcribe (needs OPENAI_API_KEY on server).</span>`;
   return '';
 }
+/* Sources: script, voice-over audio and a human storyboard PDF are each optional; any one, two or all three.
+   One Generate button follows what is there: a saved PDF builds frames 5 at a time from it (script + audio timing
+   ride along), otherwise the script / transcript makes the storyboard in one go. */
+function srcState(){
+  const script=scriptHasContent($('#script')?.value??P?.script??'');
+  return {script,audio:!!P?.has_episode_transcript,pdf:hasPdfOnServer()};
+}
+function srcTag(on,text){return on?`<span class="src-tag on">${esc(text||'Added')}</span>`:`<span class="src-tag">Optional</span>`}
 function episodeAudioFieldHtml(){
-  return `<div class="audio-card">
-   <div class="audio-card-head">
-    <span class="audio-card-icon" aria-hidden="true">♪</span>
-    <div><p class="audio-card-title">Episode audio</p>
-     <p class="audio-card-sub">Whisper timing · mp3, m4a, wav</p></div>
-   </div>
-   <div class="audio-card-actions">
-    <input type="file" id="episodeAudioFile" accept="audio/*,.mp3,.m4a,.wav,.webm">
-    <button type="button" class="btn-neutral block" id="episodeAudioBtn" onclick="uploadEpisodeAudio()">Upload &amp; transcribe</button>
-    <div class="audio-card-status" id="episodeAudioStatus">${episodeAudioStatusHtml()}</div>
-   </div></div>`;
+  const s=srcState();
+  return `<section class="src-item" id="srcAudio">
+   <div class="src-head"><span class="src-title">Voice-over audio</span>${srcTag(s.audio,'Transcribed')}</div>
+   <p class="src-hint">Times each beat to the real voice-over. mp3, m4a or wav.</p>
+   <div class="src-row"><input type="file" id="episodeAudioFile" accept="audio/*,.mp3,.m4a,.wav,.webm">
+    <button type="button" class="btn-neutral" id="episodeAudioBtn" onclick="uploadEpisodeAudio()">${s.audio?'Replace':'Transcribe'}</button></div>
+   <div class="audio-card-status" id="episodeAudioStatus">${episodeAudioStatusHtml()}</div>
+  </section>`;
 }
 function voSourceColumnHtml(){
-  return `<div class="setup-col setup-col-vo">
-   <div class="setup-col-head"><span class="setup-col-title">Script or audio</span><span class="optional-tag">optional</span></div>
-   <p class="setup-col-hint">Script for copy and numbers; audio for beat timing. Use either or both.</p>
-   <div class="field"><label>Script</label>
-    <textarea id="script" placeholder="Paste voiceover…">${esc(P.script||'')}</textarea></div>
-   <div class="optional-or">or</div>
-   ${episodeAudioFieldHtml()}
-  </div>`;
+  const s=srcState();
+  return `<section class="src-item src-script" id="srcScript">
+   <div class="src-head"><label class="src-title" for="script">Script</label>${srcTag(s.script)}</div>
+   <p class="src-hint">The voice-over text. Copy and numbers come from here.</p>
+   <textarea id="script" placeholder="Paste the voice-over…" oninput="refreshSetupCta()">${esc(P.script||'')}</textarea>
+  </section>`;
 }
 function pdfStoryboardColumnHtml(){
-  return `<div class="setup-col setup-col-pdf">
-   <div class="setup-col-head"><span class="setup-col-title">Human storyboard</span><span class="optional-tag">optional</span></div>
-   <p class="setup-col-hint">Save PDF, then generate frames in batches.</p>
-   ${humanPdfPanelInner()}
-  </div>`;
+  const s=srcState(),name=storyboardPdfName();
+  return `<section class="src-item" id="srcPdf">
+   <div class="src-head"><span class="src-title">Storyboard PDF</span>${srcTag(s.pdf,name?name.slice(0,28):'Saved')}</div>
+   <p class="src-hint">The team's storyboard. Frames follow its shots and styleframes.</p>
+   ${pdfStaleNoticeHtml()}
+   <div class="src-row" id="pdfHumanTop"><input type="file" id="sbPdfFile" accept="application/pdf,.pdf">
+    <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">${s.pdf?'Replace':'Save'}</button></div>
+   <span id="pdfSbStatus" class="pdf-saved-tag" hidden></span>
+  </section>`;
 }
+function setupCta(){
+  const s=srcState(),used=[s.script&&'script',s.audio&&'audio timing',s.pdf&&'storyboard PDF'].filter(Boolean);
+  if(s.pdf)return {label:'Generate first 5 frames',hint:`Uses your ${used.join(', ')}. Frames come 5 at a time; continue after reviewing them.`,ok:true};
+  if(s.script||s.audio)return {label:'Generate storyboard + frames',hint:`Uses your ${used.join(' and ')}.`,ok:true};
+  return {label:'Generate storyboard + frames',hint:'Add a script, voice-over audio or a storyboard PDF to start.',ok:false};
+}
+function refreshSetupCta(){
+  const c=setupCta(),b=$('#gen'),h=$('#genHint');if(!b)return;
+  b.textContent=c.label;b.disabled=!c.ok;if(h)h.textContent=c.hint;
+  const tag=document.querySelector('#srcScript .src-tag');if(tag){const on=srcState().script;tag.className='src-tag'+(on?' on':'');tag.textContent=on?'Added':'Optional'}
+}
+function setupGenerate(ev){return srcState().pdf?genPdfBatch(ev,{batchSize:5}):gen()}
 function storyboardSetupBodyHtml(){
+  const c=setupCta();
   return `<input type="hidden" id="notes" value="">
-   <div class="script-pdf-row setup-storyboard-grid">
-    ${voSourceColumnHtml()}
-    ${pdfStoryboardColumnHtml()}
-   </div>
+   <div class="src-grid">${voSourceColumnHtml()}${episodeAudioFieldHtml()}${pdfStoryboardColumnHtml()}</div>
    <div class="setup-actions">
-    <button type="button" class="p" id="gen" onclick="gen()">Generate storyboard + frames</button>
-    <p class="setup-actions-hint muted">From script (+ transcript if uploaded). PDF-only: use <b>First 5</b> on the right.</p>
+    <button type="button" class="p" id="gen" onclick="setupGenerate(event)" ${c.ok?'':'disabled'}>${esc(c.label)}</button>
+    <p class="setup-actions-hint muted" id="genHint">${esc(c.hint)}</p>
    </div>`;
 }
 async function uploadEpisodeAudio(){
@@ -1220,6 +1256,7 @@ async function uploadEpisodeAudio(){
     if(!r.ok){const m=parseApiErrorText(await r.text());throw new Error(m)}
     P=await r.json();P.look=normLook(P.look);
     if(st)st.innerHTML=episodeAudioStatusHtml();
+    const tile=$('#srcAudio');if(tile){tile.outerHTML=episodeAudioFieldHtml();}refreshSetupCta();
   }catch(e){
     if(st){st.textContent='Failed';st.style.color='var(--bad)'}
     alert(e.message||String(e));
@@ -1229,12 +1266,10 @@ async function uploadEpisodeAudio(){
   }
 }
 function preSpecSectionHtml(){
-  const open=setupPanelOpen('setup',true);
-  const hint=hasPdfOnServer()||P?.look?.sb_import==='pdf'?pdfSummaryHint():(P?.has_episode_transcript?'Audio transcribed':(scriptHasContent(P?.script||'')?'Script ready':'Nothing added yet'));
-  return `<details class="setup-panel" data-panel-key="setup" ${open?'open':''}>
-   <summary><span>Storyboard setup</span><span class="setup-panel-hint">${esc(hint)}</span></summary>
-   <div class="setup-panel-body card">${storyboardSetupBodyHtml()}</div>
-  </details>`;
+  return `<section class="src-card card" aria-labelledby="srcTitle">
+   <div class="src-card-head"><h2 id="srcTitle">Sources</h2><p>Add any one, two or all three. Claude uses everything you add.</p></div>
+   ${storyboardSetupBodyHtml()}
+  </section>`;
 }
 function lookSectionHtml(){
   const open=setupPanelOpen('look',!P?.spec);
@@ -1390,9 +1425,9 @@ function render(){
   P.look=normLook(P.look);
   const m=sbMode();
   const preSpec=preSpecSectionHtml();
-  const pdfBlock=P.spec?humanPdfSectionHtml():'';
+  const pdfBlock=P.spec&&pdfWorkflowActive()?humanPdfSectionHtml():'';
   $('#main').innerHTML=`<div class="toolbar">${EMBED&&!LA.id?'<button type="button" class="ghost" onclick="goHome()">‹ All projects</button>':''}<h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
-   ${P.spec?`<button type="button" onclick="undo()">Undo</button>${EMBED?`<button type="button" class="btn-neutral" onclick="exp()">Export All</button><button type="button" class="p" id="laSendBtn" onclick="laSend()">Send to Import Graphics</button>`:'<button type="button" class="p" onclick="exp()">Export All</button>'}`:''}
+   ${P.spec?`<button type="button" onclick="undo()">Undo</button>${EMBED?`<button type="button" class="btn-neutral" onclick="exp()">Export All</button><button type="button" class="p" id="laSendBtn" onclick="laSend()" title="LA Studio turns every frame into a layered PSD">Make Layers</button>`:'<button type="button" class="p" onclick="exp()">Export All</button>'}`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    ${EMBED&&LA.id?'':`<button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button>`}</div>
   ${lookSectionHtml()}
@@ -2876,7 +2911,7 @@ window.addEventListener('resize',()=>{
 });
 /* ---------------- LA Studio bridge (?embed=la-studio) ----------------
    Graphics Studio is step 1 ("Graphics") of an LA Studio project, or LA Studio's Graphics tab. ?la=<LA project id>
-   (+ name, channel, form) opens the linked Graphics Studio project, or offers to start one. "Send to Import Graphics"
+   (+ name, channel, form) opens the linked Graphics Studio project, or offers to start one. "Make Layers"
    hands LA Studio one self-contained HTML per frame (+ the storyboard sheet); LA Studio's own engine makes the
    picture and the exact layered PSD from each. Messages: {zo:'graphics', op, id, data} up, {zo:'graphics-host', id, ok}
    back. Only LA Studio's local addresses are talked to. */
@@ -2896,7 +2931,7 @@ const laSlug=s=>String(s||'graphics').normalize('NFKD').replace(/[^\w-]+/g,'_').
 async function laSend(){
  if(!P?.spec?.frames?.length){alert('No frames yet.');return}
  const btn=$('#laSendBtn');const ids=P.spec.frames.map(f=>String(f.id));const stem=laSlug(P.name);
- if(!confirm(`Send ${ids.length} frame${ids.length>1?'s':''} to Import Graphics? LA Studio makes a layered PSD from each one.`))return;
+ if(!confirm(`Make layers for ${ids.length} frame${ids.length>1?'s':''}? LA Studio turns each one into a layered PSD in Layers.`))return;
  const label=t=>{if(btn)btn.textContent=t};if(btn)btn.disabled=true;
  try{
   const files=[];
@@ -2907,9 +2942,9 @@ async function laSend(){
   let csv=null;try{const r=await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`);if(r.ok)csv=new File([await r.blob()],`${stem}_storyboard-instructions.csv`,{type:'text/csv'})}catch(_){}
   label('Sending to LA Studio…');
   const out=await laPost('frames',{project:{id:P.id,name:P.name,theme:P.theme},la:LA.id||null,files,csv});
-  label('Sent');setTimeout(()=>{label('Send to Import Graphics');if(btn)btn.disabled=false},2500);
+  label('Sent to Layers');setTimeout(()=>{label('Make Layers');if(btn)btn.disabled=false},2500);
   if(out&&out.message)alert(out.message);
- }catch(e){alert(e.message);label('Send to Import Graphics');if(btn)btn.disabled=false}
+ }catch(e){alert(e.message);label('Make Layers');if(btn)btn.disabled=false}
 }
 function laKits(){
  const ch=CHANNELS.find(c=>c.id===LA.channel.toLowerCase()||c.label.toLowerCase()===LA.channel.toLowerCase());
@@ -2922,7 +2957,9 @@ function laStartPanel(){
  $('#main').innerHTML=`<div class="la-start"><div><h1>Start graphics</h1><p>Graphics Studio writes the storyboard and the frames for this project. Pick the kit for its IP.</p></div>
   <div class="card"><div class="field"><label for="laName">Name</label><input id="laName" value="${esc(LA.name)}"></div>
   <div class="field"><label for="laKit">Kit</label><select id="laKit">${kits.map(({t,c})=>`<option value="${t}">${esc(themeLabel(t))} · ${esc(c.label)}</option>`).join('')}</select></div>
-  <div class="row" style="margin-top:0"><button type="button" class="p" id="laCreate">Start graphics</button></div></div></div>`;
+  <div class="row" style="margin-top:0"><button type="button" class="p" id="laCreate">Start graphics</button></div></div>
+  <p class="la-skip">Already have the graphics? <button type="button" class="ghost" id="laSkip">Skip to Layers</button> and add the PNGs, HTML or a Graphics Studio zip there.</p></div>`;
+ $('#laSkip').onclick=()=>laPost('skip',{}).catch(e=>alert(e.message));
  $('#laCreate').onclick=async()=>{const b=$('#laCreate');b.disabled=true;
   try{const p=await api('/api/la/link',{method:'POST',body:JSON.stringify({la_project:LA.id,la_name:LA.name,name:$('#laName').value||LA.name,theme:$('#laKit').value})});await open_(p.id)}
   catch(e){alert(e.message);b.disabled=false}};
