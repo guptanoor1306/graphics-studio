@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import asset_gen, audio_transcribe, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import asset_gen, audio_transcribe, la_link, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -55,6 +55,14 @@ def preview_base() -> str:
 def preview_url(pid: int, fid: str) -> str:
     return f"{preview_base()}/preview/{pid}/{quote(str(fid), safe='')}"
 app = FastAPI(title="Graphics Studio")
+# LA Studio runs on each computer (127.0.0.1:8770, staging 8771) and reads the hierarchy / links from here.
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[f"http://{h}:{p}" for h in ("127.0.0.1", "localhost") for p in (8770, 8771)]
+    + [o.strip() for o in os.environ.get("STUDIO_CORS_ORIGINS", "").split(",") if o.strip()],
+    allow_methods=["GET", "POST"], allow_headers=["*"],
+)
 app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
 
 
@@ -515,7 +523,71 @@ def _delete_project(pid: int) -> dict:
         c.execute("delete from versions where project_id=?", (pid,))
         c.execute("delete from projects where id=?", (pid,))
         c.commit()
+    try:
+        for l in la_link.links():
+            if l["project_id"] == pid:
+                la_link.unlink(l["la_project"])
+    except Exception as e:
+        print(f"la link cleanup skipped: {e}")
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- LA Studio (step 1 "Graphics")
+@app.get("/api/hierarchy")
+def la_hierarchy():
+    """Channels → kits, for LA Studio's channel list and its new-project kit choice."""
+    return la_link.hierarchy(themes())
+
+
+@app.get("/api/la/links")
+def la_links():
+    return {"links": la_link.links()}
+
+
+@app.post("/api/la/link")
+async def la_link_route(req: Request):
+    """Link an LA Studio project to a Graphics Studio project: an existing one (project_id) or a new one
+    (name + theme). Returns the Graphics Studio project."""
+    b = await req.json()
+    la = str(b.get("la_project") or "")
+    if not la_link.LA_ID.match(la):
+        raise HTTPException(400, "Missing LA Studio project id")
+    pid = b.get("project_id")
+    if pid:
+        load(int(pid))
+    else:
+        theme = b.get("theme") or ""
+        if theme not in themes():
+            raise HTTPException(400, "Pick a kit")
+        name = (b.get("name") or "").strip()[:120] or "Untitled"
+        look = {**_DEFAULT_LOOK, **({"look_line": ""} if theme != "varsity-english" else {})}
+        pid = insert_project(name, theme, "", json.dumps(look), who(req), time.time())
+    la_link.link(la, int(pid), b.get("la_name") or "")
+    return load(int(pid))
+
+
+@app.post("/api/la/unlink")
+async def la_unlink_route(req: Request):
+    b = await req.json()
+    la_link.unlink(str(b.get("la_project") or ""))
+    return {"ok": True}
+
+
+@app.get("/api/la/project/{la_project}")
+def la_project_lookup(la_project: str):
+    pid = la_link.project_for(la_project)
+    return {"project_id": pid}
+
+
+@app.get("/api/projects/{pid}/frames/{fid}/export.html", response_class=HTMLResponse)
+def export_frame_html(pid: int, fid: str):
+    """One frame as a self-contained HTML (fonts and pictures inlined): what LA Studio's Import Graphics turns
+    into an exact layered PSD."""
+    p = load(pid)
+    pages = _export_pages(p, {fid})
+    if not pages:
+        raise HTTPException(404, "frame not found or not a graphic")
+    return HTMLResponse(exporter.inline_assets(pages[0][1], THEMES / p["theme"]))
 
 
 @app.delete("/api/projects/{pid}")
