@@ -70,5 +70,9 @@ def test_frame_html_is_self_contained(client):
 def test_local_la_studio_may_read_the_api(client):
     r = client.get("/api/hierarchy", headers={"Origin": "http://127.0.0.1:8770"})
     assert r.headers.get("access-control-allow-origin") == "http://127.0.0.1:8770"
+    r = client.get("/api/hierarchy", headers={"Origin": "http://127.0.0.1:8772"})
+    assert r.headers.get("access-control-allow-origin") == "http://127.0.0.1:8772"     # a test copy on its own port
+    r = client.get("/api/hierarchy", headers={"Origin": "http://127.0.0.1:9000"})
+    assert "access-control-allow-origin" not in r.headers
     r = client.get("/api/hierarchy", headers={"Origin": "https://evil.example"})
     assert "access-control-allow-origin" not in r.headers

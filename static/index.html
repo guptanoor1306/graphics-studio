@@ -2917,8 +2917,8 @@ window.addEventListener('resize',()=>{
    back. Only LA Studio's local addresses are talked to. */
 const EMBED=document.documentElement.classList.contains('embed-la');
 const LA=(()=>{const q=new URLSearchParams(location.search);return {id:q.get('la')||'',name:q.get('name')||'',channel:q.get('channel')||'',form:q.get('form')||''}})();
-const LA_ORIGINS=[8770,8771].flatMap(p=>[`http://127.0.0.1:${p}`,`http://localhost:${p}`]);
-const laOrigin=(()=>{try{const a=location.ancestorOrigins&&location.ancestorOrigins[0];const o=a||(document.referrer?new URL(document.referrer).origin:'');return LA_ORIGINS.includes(o)?o:''}catch(e){return ''}})();
+const LA_ORIGIN_RE=/^http:\/\/(127\.0\.0\.1|localhost):87\d\d$/;   // LA Studio on this computer: 8770 live, 8771 staging, test copies
+const laOrigin=(()=>{try{const a=location.ancestorOrigins&&location.ancestorOrigins[0];const o=a||(document.referrer?new URL(document.referrer).origin:'');return LA_ORIGIN_RE.test(o)?o:''}catch(e){return ''}})();
 let laSeq=0;const laWait=new Map();
 function laPost(op,data){return new Promise((res,rej)=>{if(!EMBED||!laOrigin||window.parent===window)return rej(new Error('Open this inside LA Studio to send frames.'));
  const id='g'+(++laSeq);laWait.set(id,{res,rej});window.parent.postMessage({zo:'graphics',op,id,data},laOrigin);
