@@ -98,17 +98,10 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
             "assets/INDEX.md",
         )
     elif is_zo_product_theme(theme_dir):
+        # The team's ZO graphic maker skill (Claude chat), app version: Claude hand-writes each frame's HTML.
         rels = (
-            "SKILL.md",
-            "references/spec_format.md",
-            "references/studio_brief.md",
-            "references/kit_breakdown.md",
-            "references/anchor_plates.md",
-            "references/psd_breakdown.md",
-            "references/deep/video_breakdowns.md",
+            "references/chat_skill.md",
             "assets/plates/plates.json",
-            "scenes/example_spec.json",
-            "assets/INDEX.md",
         )
     elif is_mf_theme(theme_dir):
         rels = (
@@ -198,7 +191,7 @@ SB_TOOL = {
 }
 ZO_SB_TOOL = {
     "name": "submit_storyboard",
-    "description": "Return the Product IP storyboard and spec.json (FSS + anchor osa/ost/tos frames).",
+    "description": "Return the Product IP storyboard and spec.json: every frame hand-written as html (FSS or over the presenter).",
     "input_schema": {
         "type": "object",
         "properties": {
@@ -212,11 +205,13 @@ ZO_SB_TOOL = {
                         "minItems": 1,
                         "items": {
                             "type": "object",
-                            "required": ["id", "items"],
+                            "required": ["id", "html"],
                             "properties": {
                                 "id": {"type": "string"},
                                 "mode": {"type": "string", "enum": ["fss", "osa", "ost", "tos"]},
-                                "items": {"type": "array", "minItems": 1},
+                                "html": {"type": "string"},
+                                "decor": {},
+                                "plate": {"type": "string"},
                             },
                             "additionalProperties": True,
                         },
@@ -386,6 +381,34 @@ GRAPHIC_BATCH_TOOL = {
         "required": ["frames"],
     },
 }
+def _edit_zo_html_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line):
+    """A hand-written ZO frame (chat-skill mode) is edited as HTML with the same skill."""
+    import base64
+    tool = "submit_frame"
+    msg = (f"Storyboard line for this frame: {storyboard_line or frame.get('vo') or '(none)'}\n\n"
+           f"Current frame JSON (html = the markup inside #content):\n{json.dumps(frame, ensure_ascii=False)}\n\n")
+    if regenerate:
+        msg += ("REGENERATE this frame: same beat, same words and numbers, a fresh and better design from the skill's "
+                "recipes (fill the canvas, one coloured heading keyword, decor clear of text).\n")
+    else:
+        msg += f"Change requested by the team member: {ask}\nKeep everything the request doesn't mention.\n"
+    msg += ("Return the whole frame (id, mode, name, section, vo, html, decor, plate if over the presenter) via "
+            "submit_frame, following references/chat_skill.md (data-name on every block, no ::before/::after, weights "
+            "400–700, labels ≥34px).")
+    if _tool_choice(tool)["type"] == "auto":
+        msg += f"\n\nRespond only by calling the {tool} tool."
+    content = msg
+    if ref_image:
+        media, raw = ref_image
+        content = [{"type": "image", "source": {"type": "base64", "media_type": media,
+                                                "data": base64.standard_b64encode(raw).decode()}},
+                   {"type": "text", "text": msg + "\nThe attached image is a reference: rebuild it in the house style "
+                                                  "with the script's numbers and generic names, never copy it."}]
+    r = _messages_create(max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
+                         tool_choice=_tool_choice(tool), messages=[{"role": "user", "content": content}])
+    return _tool_input(r, tool)["frame"]
+
+
 def _edit_z1_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line, storyboard_full, gen_entries):
     """Zero1 Hindi frames are toy-world shots (type / bg plate / words / gen:<key> pictures), not the
     heading-and-points items of the other kits, so they get their own edit brief."""
@@ -551,14 +574,11 @@ _HI_ROLE = (
 )
 
 _ZO_ROLE = (
-    "You are the Zerodha Online Product IP graphics designer in the skill below. You run inside Graphics Studio (web app), not a chat: "
-    "ignore local zip delivery and CLI build steps — only return storyboard + spec via submit_storyboard. "
-    "Follow SKILL.md, references/spec_format.md, kit_breakdown.md, anchor_plates.md, and video_breakdowns (patterns only). Canvas is 1920×1080. "
-    "Design for the user's script: ~90% house toolkit (component types, plates, INDEX illustrations, layout grammar from kit_breakdown) "
-    "and ~10% fresh creative choices (headlines, which objects, compare pairings, anchor copy) — do NOT clone scenes/example_spec.json or ship unrelated Devolvement/SIF frames. "
-    "spec.frames = FSS (mode fss) + anchor (osa|ost|tos with lower, punch, scroll_list, …). Set spec.look.plate from anchor_plates.md (default m1_wide_centre). "
-    "One primary anchor graphic per frame (one lower OR one punch OR one side list — avoid stacking multiple punchlines on wide-centre plates). "
-    "Screen capture, footage, repeat are storyboard-only. Copy script numbers exactly (Indian ₹ grouping)."
+    "You are the Zerodha Online Product IP graphics designer: the team's ZO graphic maker skill below, the same one they "
+    "use in Claude chat. You run inside Graphics Studio (a web app): no setup, flatten, zip or file sending. You design "
+    "every graphic yourself as HTML with the kit classes (zo.css, extra.css, decor.js), exactly as the skill describes, "
+    "and return storyboard + spec via submit_storyboard. Each spec frame = {id, mode fss|ost|osa|tos, name, section, vo, "
+    "html, decor} (+ plate for over-presenter frames). Canvas 1920×1080. Copy script numbers exactly (Indian ₹ grouping)."
 )
 
 
@@ -850,8 +870,10 @@ def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") ->
             if mode not in ({"fss"} | _ZO_ANCHOR_MODES):
                 issues.append(f'Frame "{fid}": mode must be fss, osa, ost, or tos (not "{mode}").')
             items = f.get("items") or []
+            if isinstance(f.get("html"), str) and f["html"].strip():
+                continue                      # hand-written frame (chat-skill mode): checked when rendered
             if mode == "fss" and not items:
-                issues.append(f'Frame "{fid}": FSS frame needs at least one items[] entry.')
+                issues.append(f'Frame "{fid}": write the frame as html (see references/chat_skill.md).')
             if mode in _ZO_ANCHOR_MODES:
                 if mode == "tos" and not f.get("title") and not items:
                     issues.append(f'Frame "{fid}": TOS frame needs title and/or anchor items[].')
@@ -1339,14 +1361,19 @@ def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
         else:
             plate_hint = "- Set spec.look.plate to m1_wide_centre (or f1_centre_circle for female-anchor concepts) per anchor_plates.md.\n"
         return (
-            "GRAPHICS STUDIO RULES (Zerodha Online Product IP):\n"
-            "- spec.frames: FSS (mode fss) AND anchor (mode osa | ost | tos). Every OSA/OST/TOS PDF beat → matching frame with plate + items.\n"
-            "- Storyboard tags: FSS | OSA | OST | TOS | Screen | Footage | Repeat. Screen/footage/repeat NOT in frames.\n"
-            f"{plate_hint}"
-            "- ~90% kit grammar (kit_breakdown, INDEX assets, plates) ~10% script-specific wording/layout.\n"
-            "- Anchor: one main item on wide-centre plates; side lists → m1_close_left; TOS → m1_tos + title.\n"
-            "- Kite UI mocks where needed; copy numbers exactly from script/PDF.\n"
-            "Follow SKILL.md + spec_format.md + kit_breakdown.md + anchor_plates.md + studio_brief.md.\n"
+            "GRAPHICS STUDIO RULES (Zerodha Online Product IP, chat-skill mode):\n"
+            "- Every frame is hand-written: put its full markup in frame.html (what goes inside #content) and its decor "
+            "positions in frame.decor, per references/chat_skill.md. Do NOT use items[] or component names.\n"
+            "- Full-screen = mode fss. Text over the presenter = mode ost (or osa / tos) + plate m2_right (text left), m2_left "
+            "(text right) or m2_centre (bottom caption).\n"
+            "- Storyboard: one line per beat with its tag (FSS | OST | OSA | TOS | Screen | Footage | Repeat) and frame id; "
+            "screen captures, footage and repeats stay in the storyboard only, with the reason.\n"
+            "- Fill the frame like the shipped videos: heading 72px, labels ≥34px, tables with 44px cells, cards and charts "
+            "sized to the canvas, decor clear of every text.\n"
+            "- Name every added or reworded line in the storyboard notes so the team can delete it.\n"
+            "- The PDF is the team's storyboard: keep its frame numbers as ids; rebuild reference images in the house style "
+            "with the script's numbers and generic names (XYZ Ltd), never copy a screenshot.\n"
+            "Follow references/chat_skill.md.\n"
         )
     if is_mf_theme(theme_dir):
         look_line = (look.get("look_line") or "").strip()
@@ -1715,16 +1742,17 @@ def storyboard(
         msg = _inject_transcript(
             (
             f"Notes: {notes or 'none'}\n\n"
-            "GRAPHICS STUDIO RULES (Zerodha Online Product IP):\n"
-            "- spec.frames: FSS (mode fss) AND anchor (mode osa | ost | tos). Every OSA/OST/TOS storyboard beat → matching spec frame with plate + items.\n"
-            "- Storyboard tags: FSS | OSA | OST | TOS | Screen | Footage | Repeat. Screen/footage/repeat NOT in spec.frames.\n"
-            f"{plate_hint}"
-            "- CREATIVE MIX: ~90% kit grammar (kit_breakdown + video_breakdowns component picks, plates, INDEX assets) "
-            "~10% new for THIS script (wording, metaphors, which compare/chart). Do NOT reuse example_spec.json frame content for unrelated topics.\n"
-            "- Anchor layout: one main item per frame on wide-centre plates; side lists → plate m1_close_left; TOS → m1_tos + title field.\n"
-            "- Fewest frames; a/b/c only when the same picture gains new facts (max 3 states).\n"
-            "- Kite UI: kite_watchlist, kite_depth, kite_chart, auction — vector mocks; script numbers exactly (Indian grouping).\n\n"
-            "Follow SKILL.md + spec_format.md + kit_breakdown.md + anchor_plates.md + studio_brief.md.\n\n"
+            "GRAPHICS STUDIO RULES (Zerodha Online Product IP, chat-skill mode):\n"
+            "- Every frame is hand-written: put its full markup in frame.html (what goes inside #content) and its decor "
+            "positions in frame.decor, per references/chat_skill.md. Do NOT use items[] or component names.\n"
+            "- Full-screen = mode fss. Text over the presenter = mode ost (or osa / tos) + plate m2_right (text left), m2_left "
+            "(text right) or m2_centre (bottom caption).\n"
+            "- Storyboard: one line per beat with its tag (FSS | OST | OSA | TOS | Screen | Footage | Repeat) and frame id; "
+            "screen captures, footage and repeats stay in the storyboard only, with the reason.\n"
+            "- Fill the frame like the shipped videos: heading 72px, labels ≥34px, tables with 44px cells, cards and charts "
+            "sized to the canvas, decor clear of every text.\n"
+            "- Name every added or reworded line in the storyboard notes so the team can delete it.\n"
+            "Follow references/chat_skill.md.\n\n"
             f"SCRIPT:\n{script}"
             ),
             episode_transcript,
@@ -1826,6 +1854,8 @@ def edit_frame(
     if is_z1_hindi_theme(theme_dir):
         return _edit_z1_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line, storyboard_full,
                               gen_entries or {})
+    if is_zo_product_theme(theme_dir) and isinstance(frame.get("html"), str) and frame["html"].strip():
+        return _edit_zo_html_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line)
     if is_mf_theme(theme_dir) or is_zo_product_theme(theme_dir):
         kit = "Product IP" if is_zo_product_theme(theme_dir) else "MF"
         sb_excerpt = (storyboard_full or "")[:6000]
