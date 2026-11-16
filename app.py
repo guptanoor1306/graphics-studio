@@ -591,6 +591,11 @@ def _delete_project(pid: int) -> dict:
 
 
 # ---------------------------------------------------------------- LA Studio (step 1 "Graphics")
+@app.get("/api/health/assets")
+def health_assets():
+    return asset_gen.storage_status()
+
+
 @app.get("/api/hierarchy")
 def la_hierarchy():
     """Channels → kits, for LA Studio's channel list and its new-project kit choice."""

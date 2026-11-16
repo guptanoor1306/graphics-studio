@@ -58,6 +58,8 @@ def _ensure_table(c) -> None:
 
     def make(conn):
         conn.execute(_SCHEMA)
+        # pictures are fetched by kit + file name (restores, on-demand); without this every fetch scanned the table
+        conn.execute("CREATE INDEX IF NOT EXISTS generated_assets_theme_file ON generated_assets(theme, filename)")
         conn.commit()
     once("generated_assets", c, make)
 
@@ -153,7 +155,9 @@ def use_persistent_storage() -> int:
     return n
 
 
-_RESTORE_SLOTS = threading.BoundedSemaphore(int(os.environ.get("STUDIO_RESTORE_MAX", "2")))
+_RESTORE_SLOTS = threading.BoundedSemaphore(int(os.environ.get("STUDIO_RESTORE_MAX", "4")))   # pictures people open
+_BACKGROUND_SLOT = threading.Lock()                                                           # the startup sweep: one at a time
+RESTORE_STATUS = {"state": "idle", "stored": 0, "missing_at_start": 0, "restored": 0, "failed": 0, "on_demand": 0}
 _RESTORE_LOCKS: dict[str, threading.Lock] = {}
 _RESTORE_GUARD = threading.Lock()
 
@@ -165,6 +169,17 @@ def restore_one(theme: str, filename: str) -> bool:
     with _RESTORE_GUARD:
         lock = _RESTORE_LOCKS.setdefault(f"{theme}/{filename}", threading.Lock())
     with lock, _RESTORE_SLOTS:
+        ok = _restore_one(theme, filename)
+    if ok:
+        RESTORE_STATUS["on_demand"] += 1
+    return ok
+
+
+def _restore_background(theme: str, filename: str) -> bool:
+    """The startup sweep's own slot, so pictures someone is waiting for never queue behind it."""
+    with _RESTORE_GUARD:
+        lock = _RESTORE_LOCKS.setdefault(f"{theme}/{filename}", threading.Lock())
+    with lock, _BACKGROUND_SLOT:
         return _restore_one(theme, filename)
 
 
@@ -194,20 +209,41 @@ def restore_all() -> int:
     try:
         with _db() as c:
             _ensure_table(c)
-            rows = c.execute("select key, theme, filename from generated_assets").fetchall()
+            rows = c.execute("select key, theme, filename from generated_assets order by created desc").fetchall()
     except Exception as e:
         print(f"asset_gen: restore skipped ({e})")
+        RESTORE_STATUS["state"] = f"skipped: {e}"[:200]
         return 0
+    todo = [r for r in rows if (THEMES / r["theme"]).is_dir()
+            and not (THEMES / r["theme"] / "assets" / GEN_DIR / r["filename"]).is_file()]
+    RESTORE_STATUS.update(state="running", stored=len(rows), missing_at_start=len(todo), restored=0, failed=0)
     n = 0
-    for r in rows:
-        if not (THEMES / r["theme"]).is_dir() or (THEMES / r["theme"] / "assets" / GEN_DIR / r["filename"]).is_file():
-            continue
+    for r in todo:                     # newest first: the projects people are working on come back first
+        if (THEMES / r["theme"] / "assets" / GEN_DIR / r["filename"]).is_file():
+            continue                   # already fetched on demand
         try:
-            if restore_one(r["theme"], r["filename"]):
+            if _restore_background(r["theme"], r["filename"]):
                 n += 1
+                RESTORE_STATUS["restored"] = n
         except Exception as e:
+            RESTORE_STATUS["failed"] += 1
             print(f"asset_gen: could not restore {r['filename']} ({e})")
+    RESTORE_STATUS["state"] = "done"
     return n
+
+
+def storage_status() -> dict:
+    """What /api/health/assets shows: where generated pictures live and how the restore is going."""
+    import db_store
+    root = persist_dir()
+    kits = [p for p in THEMES.iterdir() if (p / "assets").is_dir()] if THEMES.is_dir() else []
+    linked = [p.name for p in kits if (p / "assets" / GEN_DIR).is_symlink()]
+    url = db_store.database_url() or ""
+    host = url.split("@")[-1].split("/")[0].split(":")[0] if url else ""
+    return {"volume": str(root) if root else None, "volume_exists": bool(root and root.is_dir()),
+            "kits_linked_to_volume": len(linked), "kits": len(kits),
+            "database": "sqlite" if not url else ("private network" if host.endswith(".railway.internal") else "public address"),
+            "restore": dict(RESTORE_STATUS)}
 
 
 # ------------------------------------------------------------------ Gemini
