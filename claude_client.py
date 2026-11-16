@@ -35,6 +35,12 @@ def resolve_model(name: str | None = None) -> str:
 MODEL = resolve_model()
 # Anthropic rejects high max_tokens on non-streaming calls; studio uses stream only server-side.
 _MAX_TOKENS_NONSTREAM = 16384
+# PDF batches: storyboard + several frames in one reply. Hand-written frames (ZO) are long, so allow more (streamed).
+PDF_BATCH_MAX_TOKENS = int(os.environ.get("STUDIO_PDF_BATCH_MAX_TOKENS", "32000"))
+
+
+class ReplyCutOff(RuntimeError):
+    """Claude's reply reached max_tokens: the tool input is incomplete."""
 # Storyboard + every frame's JSON (+ thinking) in one response; streamed, so a high cap is fine.
 SB_MAX_TOKENS = int(os.environ.get("STUDIO_SB_MAX_TOKENS", "48000"))
 
@@ -1309,6 +1315,8 @@ def _call_with_pdf(
         tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": content}],
     )
+    if getattr(r, "stop_reason", "") == "max_tokens":
+        raise ReplyCutOff(f"reply cut off at {max_tokens} tokens")
     return _tool_input(r, tool)
 
 
@@ -1583,7 +1591,7 @@ def _storyboard_pdf_batch_once(
     batch_size = max(1, min(10, int(batch_size)))
     if page_images is None:
         page_images = raster_pages(pdf_bytes)
-    max_tokens = _MAX_TOKENS_NONSTREAM
+    max_tokens = PDF_BATCH_MAX_TOKENS
     rules = _pdf_batch_rules(theme_dir, look)
     if first_batch:
         batch_line = (
@@ -1627,14 +1635,20 @@ def _storyboard_pdf_batch_once(
             max_tokens=max_tokens,
         )
 
-    out = _call(msg)
+    try:
+        out = _call(msg)
+    except ReplyCutOff:
+        # too long for one reply: ask again for fewer frames and a terse storyboard instead of repeating the same call
+        batch_size = max(1, (batch_size + 1) // 2)
+        out = _call(msg + f"\n\nYour previous reply was cut off at the length limit. This time return at most "
+                          f"{batch_size} frames, and keep the storyboard to one short line per beat.")
     out = _normalize_pdf_batch_out(out)
     frames = _ensure_frame_ids(out.get("frames") or [], set(done_ids))
     if not frames and first_batch:
         retry = (
             msg
             + "\n\nRETRY: Your last response had no usable frames. Call submit_graphic_batch with a non-empty "
-            "`frames` array. Each frame needs id + type (MF) or id + mode + items (Zo/varsity)."
+            "`frames` array. Each frame needs id + type (MF), id + mode + html (ZO Product) or id + mode + items (varsity)."
         )
         out = _normalize_pdf_batch_out(_call(retry))
         frames = _ensure_frame_ids(out.get("frames") or [], set(done_ids))

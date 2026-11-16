@@ -66,3 +66,22 @@ def test_html_frames_export_to_bulletin(tmp_path):
     layers = [json.loads(z.read(n)) for n in names if "/layers/" in n and n.endswith(".json")]
     flat = json.dumps(layers)
     assert "Heading text" in flat and "Presenter plate" in flat
+
+
+def test_pdf_batch_cut_off_reply_retries_with_fewer_frames(monkeypatch):
+    import pathlib
+    import claude_client as c
+    calls = []
+
+    def fake_call(theme_dir, msg, pdf_bytes, *, page_images=None, max_tokens=0, sb_tool=None):
+        calls.append((msg, max_tokens))
+        if len(calls) == 1:
+            raise c.ReplyCutOff("cut")
+        return {"storyboard": "SB", "frames": [{"id": "01", "mode": "fss", "html": "<div class=abs>x</div>"},
+                                                {"id": "02", "mode": "fss", "html": "<div class=abs>y</div>"}]}
+
+    monkeypatch.setattr(c, "_call_with_pdf", fake_call)
+    out = c._storyboard_pdf_batch_once(pathlib.Path("themes/zo-product-graphics"), b"%PDF", "", {}, "",
+                                       batch_size=5, page_images=[])
+    assert len(calls) == 2 and calls[0][1] == c.PDF_BATCH_MAX_TOKENS
+    assert "at most 3 frames" in calls[1][0] and out["frames_added"] == 2
