@@ -115,20 +115,49 @@ def store(theme: str, desc: str, raw: bytes, ext: str, source: str) -> str:
     return f"{GEN_DIR}/{filename}"
 
 
-def restore_all() -> int:
-    """Write every stored asset back to disk (call on startup)."""
+def restore_one(theme: str, filename: str) -> bool:
+    """Bring one stored picture back to disk if it is missing (asked for before the startup restore reached it)."""
+    if "/" in filename or "\\" in filename or ".." in filename or not (THEMES / theme).is_dir():
+        return False
+    if (THEMES / theme / "assets" / GEN_DIR / filename).is_file():
+        return True
     try:
         with _db() as c:
             _ensure_table(c)
-            rows = c.execute("select theme, filename, data from generated_assets").fetchall()
+            d = c.execute("select data from generated_assets where theme=? and filename=? limit 1", (theme, filename)).fetchone()
+    except Exception as e:
+        print(f"asset_gen: could not restore {filename} ({e})")
+        return False
+    if not d or not d.get("data"):
+        return False
+    _write_file(theme, filename, base64.b64decode(d["data"]))
+    return True
+
+
+def restore_all() -> int:
+    """Write stored assets that are missing on disk back to disk (call on startup).
+    Only the names are listed first; each missing picture's data is then read on its own, so memory stays at one
+    picture. (Reading every picture's data in one query held all of them in memory at once: with full-size
+    Zero1 plates that could stall or crash the server right after each deploy.)"""
+    try:
+        with _db() as c:
+            _ensure_table(c)
+            rows = c.execute("select key, theme, filename from generated_assets").fetchall()
     except Exception as e:
         print(f"asset_gen: restore skipped ({e})")
         return 0
     n = 0
     for r in rows:
-        if (THEMES / r["theme"]).is_dir():
-            _write_file(r["theme"], r["filename"], base64.b64decode(r["data"]))
-            n += 1
+        if not (THEMES / r["theme"]).is_dir() or (THEMES / r["theme"] / "assets" / GEN_DIR / r["filename"]).is_file():
+            continue
+        try:
+            with _db() as c:
+                d = c.execute("select data from generated_assets where key=?", (r["key"],)).fetchone()
+            if d and d.get("data"):
+                _write_file(r["theme"], r["filename"], base64.b64decode(d["data"]))
+                n += 1
+        except Exception as e:
+            print(f"asset_gen: could not restore {r['filename']} ({e})")
     return n
 
 

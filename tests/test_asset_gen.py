@@ -217,3 +217,21 @@ def test_redo_regenerates_existing_generated_assets(monkeypatch):
     assert n["calls"] == 2
     new = spec2["frames"][0]["hero"]["asset"]
     assert new != first and new.startswith("gen/gold-bar-")
+
+
+def test_restore_brings_back_only_missing_pictures_and_one_on_demand(tmp_path, monkeypatch):
+    import asset_gen, db_store
+    monkeypatch.setattr(db_store, "SQLITE_PATH", tmp_path / "s.db")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    theme = "zero1-hindi-graphics"
+    path = asset_gen.store(theme, "a test sky plate", b"PNGDATA1", "png", "test")
+    f = asset_gen.THEMES / theme / "assets" / path
+    try:
+        f.unlink()
+        assert asset_gen.restore_one(theme, f.name) and f.read_bytes() == b"PNGDATA1"
+        f.unlink()
+        assert asset_gen.restore_all() == 1 and f.is_file()
+        assert asset_gen.restore_all() == 0          # already on disk: not read again
+        assert not asset_gen.restore_one(theme, "../x.png")
+    finally:
+        f.unlink(missing_ok=True)
