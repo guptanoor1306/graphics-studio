@@ -52,6 +52,7 @@ Plates are full-frame backgrounds. Everything in setA/ and setB/ is a transparen
 | `setB/rupee_pin_green.png` | 72×57 | green ₹ map pin |
 | `setB/stacked_bar_salary_split.png` | 452×623 | single stacked bar with labels (example) |
 | `setC/bank_building_classic.png` | 420×428 | classic pillared BANK building (flat) |
+| `setC/government_building.png` | 791×643 | neoclassical blue government building (government job, regulator, ministry); from the Varsity Hindi kit |
 | `setC/calculator.png` | 176×173 | 3D-ish calculator (tax/loan maths prop) |
 | `setC/cash_stack_short.png` | 108×295 | short stack of green cash notes (bar-chart unit) |
 | `setC/cash_stack_tall.png` | 108×421 | tall stack of green cash notes |

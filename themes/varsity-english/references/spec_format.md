@@ -34,9 +34,10 @@
 | `folder` | `items` [..], `active` | blurred list on paper in a blue folder |
 | `cards` | `items` [{`img` (asset path) or `svg`, `label`, `sub`}], `active` | row of icon cards |
 | `bars` | `labels`, `values`, `value_labels`, `highlight` [idx → amber], `target`, `target_label`, `unit_fmt` ("₹{} cr"), `w`, `h` | bar chart vs a dashed target |
-| `person` | `color`, `hair` (spiky/long/none), `hat`, `moustache`, `bindi`, `name`, `h` (default 315), `x`, `facing` | doodle character, auto-stood on the floor. Give only `x` |
+| `person` | `name`, `gender` ("f"/"m"), `who` (c1–c7, optional), `pose`, `expr`, `x`, `facing`, `h` (optional) | one of the team's Varsity characters (same as the Varsity Hindi kits), stood on the floor at a readable size (470 px; 520 beside an FSS table). Give `name` + `gender` and `x`; the build keeps the same character for that person in every frame |
 | `asset` | `src` (e.g. `setC/house_home_loan.png`), `x`, `h` (visible height; default by role: building 560, house 360, character 315, jar 230, coin 100), `z` | kit PNG, auto-stood on the floor (transparent padding handled). Give `y` only for things that really float (cursor, pill). `grep` assets/INDEX.md to find one |
 | `html` | `html` | escape hatch: raw HTML using varsity.css classes |
 
-Colours for `person`: yellow `#F2B233`, blue `#248EF7`, green `#A5CC65`, coral `#F26B5B`.
+Characters (`assets/chars6`): women **c3** (coral, bindi) and **c7** (green dress, black hair); men **c1** (yellow, curly), **c2** (blue, sceptical), **c4** (yellow, spiky, glasses), **c6** (yellow, quiff), **c5** (blue, hat, moustache: older person / business owner). Two women in a video are c3 and c7, never a man. Without `who`, named people get characters by `gender` in order of first appearance; an unnamed "you" takes what is left.
+Poses: idle, point_left, point_right, point_up, happy, hips, think, worried, hold, give, shrug, explain. Expressions: neutral, smile, happy, worried, surprised, talk.
 See `scenes/example_spec.json` for 8 working frames (title stack, htab + text, htab + points + building + person, calc table + person, popup, bars, glass table, list).

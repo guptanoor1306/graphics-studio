@@ -95,7 +95,7 @@ V.decor=(o={})=>{
   const svg=el('svg',{width:1920,height:1080,style:'position:absolute;left:0;top:0;z-index:1'});
   if(o.wires!==false){wire(svg,'M-20 300 Q60 60 150 0',c);node(svg,108,248,c);
     wire(svg,'M1920 720 Q1700 820 1690 640 Q1700 470 1860 420',c);node(svg,1820,280,c);node(svg,1640,560,c);}
-  if(o.papers!==false){paper(svg,40,520,-14);paper(svg,1700,160,30);}
+  if(o.papers!==false){paper(svg,40,o.personLeft?300:520,-14);paper(svg,1700,160,30);}   // a person stands bottom-left: keep the note above them
   if(o.clouds!==false){cloud(svg,1580,90,1.1,warm?'#FFF6DD':'#D9E9FF');cloud(svg,210,110,.8,warm?'#FFF6DD':'#D9E9FF');}
   document.body.appendChild(svg);return svg;
 };
@@ -104,9 +104,9 @@ V.anchorDecor=(o={})=>{
   const c='#248EF7', right=o.side!=='left';
   const svg=el('svg',{width:1920,height:1080,style:'position:absolute;left:0;top:0;z-index:1'});
   if(right){if(o.wires!==false){wire(svg,'M30 0 Q90 90 62 190',c);node(svg,62,190,c);}
-    if(o.papers!==false){paper(svg,18,760,-18);paper(svg,1740,70,40);}}
+    if(o.papers!==false){paper(svg,18,o.person?330:760,-18);paper(svg,1740,70,40);}}
   else{if(o.wires!==false){wire(svg,'M1890 0 Q1830 90 1858 190',c);node(svg,1858,190,c);}
-    if(o.papers!==false){paper(svg,1820,760,18);paper(svg,100,70,-30);}}
+    if(o.papers!==false){paper(svg,1820,o.person?330:760,18);paper(svg,100,70,-30);}}
   document.body.appendChild(svg);return svg;
 };
 window.V=V;

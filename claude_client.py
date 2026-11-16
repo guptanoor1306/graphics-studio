@@ -1391,6 +1391,26 @@ def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
             "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n"
         )
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
+    if theme_dir.name == "varsity-english":
+        return (
+            f"Look (use in frames): {json.dumps(look)}\n"
+            f"Topic props: {json.dumps(props if props else [])}\n"
+            "GRAPHICS STUDIO RULES (Varsity English, storyboard PDF given):\n"
+            "- The PDF is the team's storyboard and decides every graphic: one frame per PDF row tagged FSS / OST / OSA, "
+            "at that row's timestamp, in PDF order. Frame id = the row's timestamp (1:41 → \"1.41\"). Footage, screen "
+            "capture and repeat rows stay in the storyboard text only.\n"
+            "- Each frame shows exactly what ITS row asks for, with the words and numbers of the voice-over at that "
+            "timestamp. Never merge two rows into one frame, never move content to a different timestamp, and never "
+            "bring in numbers or people from other rows (a row about Priya's job is Priya's job, not a Priya vs Neha "
+            "table).\n"
+            "- A row's reference image is the composition the team wants: rebuild it with kit pieces (the row's person "
+            "as a `person` with name + gender, kit buildings/props from assets/INDEX.md, cards or points for the facts in "
+            "the VO), never paste or redraw the picture. Text in the picture is only a guide.\n"
+            "- People: give every named person `name` + `gender` (Priya, Neha = \"f\") so the same team character plays "
+            "them in every frame; two women are c3 and c7 (spec_format.md).\n"
+            "- The graphics-mix / fewest-frames guidance does not apply when a PDF is given: the PDF's rows decide.\n"
+            "Follow app_storyboard_overrides.md + studio_brief.md + spec_format.md for the items themselves.\n"
+        )
     return (
         f"Look (use in frames): {json.dumps(look)}\n"
         f"Topic props: {json.dumps(props if props else [])}\n"

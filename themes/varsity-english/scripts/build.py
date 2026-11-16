@@ -273,6 +273,7 @@ def frame_html(f, look, edit=False, all_frames=None):
     except Exception:
         _person_plan = None
         should_relayout_x = lambda it: False  # noqa: E731
+    _cast = _kit_module('cast').build_cast(all_frames if all_frames else [f])
     fss = mode == 'fss'; warm = look.get('fss', 'blue') == 'warm'
     plate = f.get('plate') or (('fss_sky_warm' if warm else 'fss_sky_blue') if fss else look.get('plate') or PLATES[side])
     body_cls = ('fss ' + ('warm' if warm else '')) if fss else ''
@@ -348,6 +349,10 @@ def frame_html(f, look, edit=False, all_frames=None):
             hx = 140 if side == 'right' else 1040
             cls = 'abs z studio-editable' if edit else 'abs z'
             absol.append(f'<div class="{cls}"{data_attrs} style="left:{hx}px;top:26px">{R[t](it)}</div>'); has_head = True
+            continue
+        if t == 'person' and not it.get('doodle') and not it.get('src'):
+            # the team's characters (shared with Varsity Hindi), one per person for the whole video
+            absol.append(_char_html(it, f, fss, side, idx, edit, data_attrs, _cast, _keep_apart))
             continue
         if t in ('person', 'asset'):
             if t == 'person':
@@ -438,12 +443,82 @@ def frame_html(f, look, edit=False, all_frames=None):
     return _page(f, plate, body_cls, mode, side, flow_html, absol, js, f, look, fss, warm, side)
 
 
-FSS_BODY = (175, 975)   # FSS content area under the heading, above the floor's front edge
+FSS_BODY = (175, 975)
+
+# character heights on screen (px): big enough to read beside the presenter / in a full-screen frame
+CHAR_H = {'anchor': 470, 'fss': 470, 'fss_left': 520}
+
+
+def _kit_module(name):
+    """This kit's own helper module, under a private name (the Varsity Hindi kits ship a `charrig` too)."""
+    import importlib.util
+    import sys as _sys
+    key = f've_{name}'
+    if key not in _sys.modules:
+        spec = importlib.util.spec_from_file_location(key, os.path.join(KIT, 'scripts', f'{name}.py'))
+        mod = importlib.util.module_from_spec(spec)
+        _sys.modules[key] = mod
+        spec.loader.exec_module(mod)
+    return _sys.modules[key]
+
+
+def _char_html(it, f, fss, side, idx, edit, data_attrs, cast, keep_apart):
+    """A person as one of the team's characters (assets/chars6 + charrig: poses, expressions), standing on the floor."""
+    charrig = _kit_module('charrig')
+    _c = _kit_module('cast')
+    POSE_ALIASES, character_for = _c.POSE_ALIASES, _c.character_for
+    cid = character_for(it, cast)
+    pose = POSE_ALIASES.get(str(it.get('pose') or 'idle'), str(it.get('pose') or 'idle'))
+    if pose not in charrig.POSES:
+        pose = 'idle'
+    expr = it.get('expr') or it.get('expression') or 'smile'
+    if expr not in charrig.EXPRESSIONS:
+        expr = 'smile'
+    svg, info = charrig.char_svg(cid, pose, expr, data_uri=f'../assets/chars6/{cid}.png')
+    role = 'fss_left' if (fss and f.get('person_left')) else ('fss' if fss else 'anchor')
+    want = CHAR_H[role]
+    try:
+        h = int(it.get('h') or want)
+    except (TypeError, ValueError):
+        h = want
+    if h < 0.85 * want:          # old specs asked for 300-315px: far too small next to the presenter
+        h = want
+    h = min(h, 760)
+    s = h / info['h']
+    body_w = info['w'] * s
+    floor = FLOOR['fss' if fss else 'anchor']
+    if 'x' in it:
+        x = int(it['x'])
+    elif fss:
+        x = 110 if f.get('person_left') else 1500
+    else:
+        x = 560 if side == 'right' else 1300
+    if 'y' in it:
+        top_body = int(it['y'])
+    else:
+        top_body = floor - h
+        x = keep_apart({'x': x, 'w': round(body_w)})['x']
+    flip = bool(it.get('flip') or it.get('facing') == 'left')
+    W_, H_ = (info['w'] + 2 * info['pad_x']) * s, (info['h'] + info['pad_t']) * s
+    left, top = x - info['pad_x'] * s, top_body - info['pad_t'] * s
+    tr = 'transform:scaleX(-1);' if flip else ''
+    z = f"z-index:{it['z']};" if it.get('z') is not None else 'z-index:3;'
+    inner = svg.replace('<svg ', '<svg style="width:100%;height:100%;display:block" ', 1)
+    cls = 'abs studio-editable' if edit else 'abs'
+    out = (f'<div class="{cls}"{data_attrs} data-char="{cid}" style="left:{left:.0f}px;top:{top:.0f}px;'
+           f'width:{W_:.0f}px;height:{H_:.0f}px;{tr}{z}">{inner}</div>')
+    if it.get('name'):
+        ncls = 'name' if fss else 'name dark'
+        out += (f'<div class="abs {ncls}" style="left:{x + body_w / 2:.0f}px;top:{top_body - (64 if fss else 86):.0f}px;'
+                f'transform:translateX(-50%);z-index:4;white-space:nowrap">{E(it["name"])}</div>')
+    return out   # FSS content area under the heading, above the floor's front edge
 
 
 def _page(f, plate, body_cls, mode, side, flow_html, absol, js, _f, look, fss, warm, _side):
     # dressing + topic prop
-    js.insert(0, f"V.decor({{theme:'{'warm' if warm else 'blue'}'}});" if fss else f"V.anchorDecor({{side:'{side}'}});")
+    has_person = any(it.get('t') == 'person' for it in f['items'])
+    js.insert(0, f"V.decor({{theme:'{'warm' if warm else 'blue'}',personLeft:{'true' if f.get('person_left') else 'false'}}});" if fss
+              else f"V.anchorDecor({{side:'{side}',person:{'true' if has_person else 'false'}}});")
     types = {it['t'] for it in f['items']}
     title_only = types <= {'title'} or (types <= {'title', 'pill', 'hpill'})
     # topic prop only on frames without their own illustrations (review rule 9: declutter)
@@ -534,7 +609,7 @@ if __name__ == '__main__':
         if n_assets > 3: print(f"WARN {f['id']}: {n_assets} illustrations; declutter to the 1-3 that carry the idea")
     for f in spec['frames']:
         if only and f['id'] not in only: continue
-        open(os.path.join(KIT, 'scenes', f['id'] + '.html'), 'w').write(frame_html(f, look)); ids.append(f['id'])
+        open(os.path.join(KIT, 'scenes', f['id'] + '.html'), 'w').write(frame_html(f, look, all_frames=spec['frames'])); ids.append(f['id'])
     asyncio.run(render(ids, out))
     print(f'rendered {len(ids)} frames -> {out}/')
     if '--no-sheet' not in a: sheet([f['id'] for f in spec['frames'] if os.path.exists(f"{out}/{f['id']}.png")], out)
