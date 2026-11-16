@@ -45,6 +45,15 @@
       if (dr.left < -40 || dr.top < -40 || dr.right > W + 40 || dr.bottom > H + 40) warn.push(`decor ${d.getAttribute('data-name')} is off the frame: move it`);
       for (const { e, r } of rects) if (hit(dr, r, 10)) { warn.push(`decor ${d.getAttribute('data-name')} touches "${label(e)}": move it with decor.${({Squiggle:'doodleAt',Sparkle:'starAt'})[d.getAttribute('data-name')] || 'tri1/tri2/dash1/dash2'}`); break; }
     }
+    // drawn blocks (cards, boxes, pills, tags) sitting on top of each other
+    const drawnOf = el => { const c = getComputedStyle(el); return (c.backgroundColor && !/rgba\(.*, 0\)$/.test(c.backgroundColor) && c.backgroundColor !== 'transparent') || parseFloat(c.borderLeftWidth) > 0 || (c.boxShadow && c.boxShadow !== 'none'); };
+    const blocks = [...document.querySelectorAll('#content [data-name*="/"], #content .card, #content .fbox, #content .pill, #content .step, #content .tagc')]
+      .filter((e, i, all) => all.indexOf(e) === i && drawnOf(e)).map(e => ({ e, r: e.getBoundingClientRect() })).filter(b => b.r.width && b.r.height);
+    for (let i = 0; i < blocks.length; i++) for (let j = i + 1; j < blocks.length; j++) {
+      const a = blocks[i], b = blocks[j];
+      if (a.e.contains(b.e) || b.e.contains(a.e)) continue;
+      if (inter(a.r, b.r) > 400) warn.push(`boxes overlap: "${a.e.getAttribute('data-name') || label(a.e)}" / "${b.e.getAttribute('data-name') || label(b.e)}"`);
+    }
     const face = JSON.parse(document.body.dataset.face || 'null');
     if (face) {
       const fr = { left: face[0], top: face[1], right: face[2], bottom: face[3] };
