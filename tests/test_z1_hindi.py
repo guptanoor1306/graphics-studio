@@ -252,3 +252,36 @@ def test_pdf_styleframe_becomes_the_main_reference_and_text_is_dropped(tmp_path,
     z1_plates.make_one("sky", entry, {"arjun": "city"}, True, {"path": str(pdf), "key": "p1"})
     assert sent["refs"][0] == imgs[0] and "approved styleframe" in sent["prompt"]
     assert "1,00,000" not in sent["prompt"] and "4,000" not in sent["prompt"] and "Mumbai skyline" in sent["prompt"]
+
+
+def test_edited_frame_pictures_go_to_spec_gen_and_are_made(monkeypatch):
+    """Regenerate / edit on a Zero1 Hindi frame: picture prompts Claude puts in the frame move to spec.gen and
+    the pictures are made (new or re-prompted ones; all of the frame's on Regenerate)."""
+    import asyncio
+    import app
+    calls = []
+
+    def fake_fill(spec, log=None, redo=False, only=None, pdf=None, on_plate=None):
+        calls.append((sorted(only or []), redo))
+        gen = dict(spec["gen"])
+        for k in only or []:
+            gen[k] = {**gen[k], "file": f"gen/{k}.png"}
+        return {**spec, "gen": gen}, {}
+
+    monkeypatch.setattr(app.z1_plates, "fill", fake_fill)
+    monkeypatch.setattr(app.z1_plates, "available", lambda: True)
+    monkeypatch.setattr(app, "_pdf_ref", lambda pid: None)
+    monkeypatch.setattr(app.z1_plates, "_have", lambda e: bool((e or {}).get("file")))   # files "on disk"
+    spec = {"gen": {"sky": {"prompt": "old sky", "file": "gen/sky_old.png"}, "other": {"prompt": "x", "file": "gen/o.png"}},
+            "frames": []}
+    new = {"id": "0.00", "bg": {"img": "gen:sky"}, "fg": "gen:confetti",
+           "gen": {"sky": {"prompt": "old sky"}, "confetti": {"prompt": "paper confetti", "cutout": True}}}
+    frame, out = asyncio.run(app._z1_after_edit(1, spec, new, regenerate=False))
+    assert "gen" not in frame
+    assert out["gen"]["confetti"]["file"] == "gen/confetti.png" and out["gen"]["confetti"]["cutout"] is True
+    assert out["gen"]["sky"]["file"] == "gen/sky_old.png"          # same prompt: kept, not remade
+    assert out["gen"]["other"]["file"] == "gen/o.png"
+    assert calls == [(["confetti"], False)]
+    calls.clear()
+    frame, out = asyncio.run(app._z1_after_edit(1, spec, {**new}, regenerate=True))
+    assert calls == [(["confetti", "sky"], True)]                   # Regenerate: fresh pictures for the frame
