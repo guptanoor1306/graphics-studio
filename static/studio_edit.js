@@ -690,7 +690,9 @@
       if (e.target.closest && e.target.closest(".studio-editable")) e.preventDefault();
     }, true);
     const st = document.createElement("style");
-    st.textContent = ".studio-editable{touch-action:none;-webkit-user-drag:none}.studio-editable img{-webkit-user-drag:none;user-select:none}";
+    st.textContent = ".studio-editable{touch-action:none;-webkit-user-drag:none}.studio-editable img{-webkit-user-drag:none;user-select:none}"
+      // a drawing (chart line) laid over labels: only its drawn strokes catch clicks, so the labels under it stay reachable
+      + "svg.studio-editable[data-layer-type=html]{pointer-events:none}svg.studio-editable[data-layer-type=html] *{pointer-events:visiblePainted}";
     document.head.appendChild(st);
   }
 
@@ -875,8 +877,51 @@
     initInlineText();
   }
 
+  // A block of hand-written html (MF frame.html, FA "html" element) is marked data-html-block="<spec path>".
+  // Its pieces become layers: path "<spec path>><child index path>" (e.g. "html>0.3", "els.4.html>1"); a move,
+  // resize or word change sends the piece's new markup (outer) and the page rewrites that piece in the spec.
+  // Single wrappers are skipped so the pieces people see (labels, chart, notes) are the layers.
+  function tagHtmlBlocks() {
+    let seq = 1000;
+    document.querySelectorAll("[data-spec-idx]").forEach((e) => { seq = Math.max(seq, (parseInt(e.dataset.specIdx, 10) || 0) + 1); });
+    document.querySelectorAll("[data-html-block]").forEach((box) => {
+      const base = box.dataset.htmlBlock;
+      let level = box;
+      const prefix = [];
+      while (level.children.length === 1 && level.children[0].children.length > 0 && !level.children[0].matches("svg,table,img")) {
+        prefix.push(0);
+        level = level.children[0];
+      }
+      [...level.children].forEach((ch, i) => {
+        if (ch.dataset.mfTagged || /^(SCRIPT|STYLE|LINK|META)$/.test(ch.tagName)) return;
+        const r = ch.getBoundingClientRect();
+        if (r.width < 4 || r.height < 4) return;
+        const path = base + ">" + [...prefix, i].join(".");
+        const text = (ch.innerText || ch.textContent || "").replace(/\s+/g, " ").trim();
+        ch.dataset.mfTagged = "1";
+        ch.classList.add("studio-editable");
+        ch.dataset.layerType = "html";
+        ch.dataset.layerLabel = (text || (ch.matches("svg") || ch.querySelector("svg") ? "drawing" : ch.tagName.toLowerCase())).slice(0, 40);
+        ch.dataset.mfPath = path;
+        ch.dataset.specIdx = String(seq++);
+        if (!ch.querySelector("img,svg,canvas") && !ch.matches("svg,img,canvas")) ch.dataset.resize = "w";
+        if (text && !ch.querySelector("div,p,ul,ol,img,svg,table") && !ch.matches("svg") && window.studioInline) {
+          window.studioInline(ch, () => window.parent.postMessage({ studio: "inline", mfPath: path, outer: ch.outerHTML }, "*"));
+        }
+      });
+    });
+    // text that saves to a spec field by path (FA side-block heading)
+    document.querySelectorAll("[data-inline-path]").forEach((el) => {
+      if (el.dataset.inlineBound || !window.studioInline) return;
+      el.dataset.inlineBound = "1";
+      const path = el.dataset.inlinePath;
+      window.studioInline(el, (value) => window.parent.postMessage({ studio: "inline", mfPath: path, value }, "*"));
+    });
+  }
+
   function bootLayers() {
     lastBoundsSig = "";
+    tagHtmlBlocks();
     initInlineTextOnce();
     initInteractDrag();
     placeChips();

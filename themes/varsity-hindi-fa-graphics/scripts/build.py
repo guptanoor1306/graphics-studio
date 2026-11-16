@@ -4,6 +4,7 @@
 usage: python3 build.py spec.json --out out [--only 0.21,1.16] [--package Ep10_Title_graphics]
 """
 import argparse, base64, html, json, math, os, random, re, sys, zipfile
+import html as html_mod
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import charrig, scenes
@@ -706,9 +707,12 @@ def el_osa(e, fid):
     theme = e.get("theme", SERIES["theme"])
     k = e.get("kind", "quote")
     out = []
+    # positions can be moved in the studio: header -> hx/hy, block -> x/y/w (defaults are the house layout)
+    hx, hy = e.get("hx", OSA_X), e.get("hy", OSA_HDR_Y)
+    bx, by, bw = e.get("x", OSA_X), e.get("y", OSA_Y), e.get("w", OSA_W)
     if e.get("header"):
         hcls = "osa-h dark" if theme == "dark" else "osa-h"
-        out.append(f'<div class="el {hcls}" style="left:{OSA_X}px;top:{OSA_HDR_Y}px">{md(e["header"])}</div>')
+        out.append(f'<div class="el {hcls}" style="left:{hx}px;top:{hy}px">{md(e["header"])}</div>')
     body = ""
     if k == "quote": body = f'<div class="quote">“{md(e["text"])}”</div>'
     elif k == "text": body = f'<div class="ctext">{md(e["text"])}</div>'
@@ -728,10 +732,10 @@ def el_osa(e, fid):
     elif k == "tags":
         body = "".join(f'<div class="otag"><span class="ol">{md(t.get("label",""))}</span><span class="ov">{md(t["value"])}</span></div>' for t in e["items"])
     elif k in ("formula", "calc"):
-        return "".join(out) + el_card({**e, "kind": k, "x": OSA_X, "y": OSA_Y, "w": OSA_W, "glass": theme != "dark",
+        return "".join(out) + el_card({**e, "kind": k, "x": bx, "y": by, "w": bw, "glass": theme != "dark",
                                        **({"pad": None} if theme != "dark" else {})}, fid).replace('class="el card', f'class="el card {"darkcard" if theme=="dark" else ""}', 1)
     ccls = "darkcard" if theme == "dark" else "glass"
-    out.append(f'<div class="el card osa-b {ccls} osa-{k}" style="left:{OSA_X}px;top:{OSA_Y}px;width:{OSA_W}px;font-size:{e.get("size", 34)}px">{body}</div>')
+    out.append(f'<div class="el card osa-b {ccls} osa-{k}" style="left:{bx}px;top:{by}px;width:{bw}px;font-size:{e.get("size", 34)}px">{body}</div>')
     return "".join(out)
 
 RENDER = {"text": el_text, "header": el_header, "img": el_img, "card": el_card, "bigword": el_bigword,
@@ -807,6 +811,13 @@ def _fa_edit_attrs(idx, e, edit):
         f' data-layer-type="{html.escape(lt)}" data-layer-label="{html.escape(ll)}"'
     )
     et = e.get("type")
+    if et == "html":
+        attrs += f' data-html-block="els.{idx}.html"'
+    if et == "osa":   # the block beside the presenter: its words are edited by double-click only for quote/text
+        if e.get("kind", "quote") in ("quote", "text"):
+            attrs += ' data-inline-field="text"'
+        attrs += ' data-resize="w"'
+        return attrs, 'studio-editable'
     if et in _INLINE_FA:
         attrs += f' data-inline-field="{_INLINE_FA[et]}"'
     if et in _RESIZE_FA:
@@ -818,6 +829,14 @@ def _fa_wrap_edit(html, idx, e, edit):
     if not edit or not html:
         return html
     attrs, cls = _fa_edit_attrs(idx, e, edit)
+    if e.get("type") == "osa" and e.get("header") and html.startswith('<div class="el osa-h'):
+        # two layers: the heading (moves into hx/hy, double-click edits it) and the block (els.N)
+        cut = html.index("</div>") + 6
+        head, rest = html[:cut], html[cut:]
+        head = head.replace('class="el ', 'class="el studio-editable ', 1).replace(
+            ">", f' data-spec-idx="{500 + idx}" data-mf-path="els.{idx}.header" data-inline-path="els.{idx}.header"'
+                 f' data-layer-type="header" data-layer-label="{html_mod.escape(str(e.get("header"))[:32])}">', 1)
+        return head + _fa_wrap_edit(rest, idx, e, edit)
 
     def _add_cls(m):
         c = m.group(1)
