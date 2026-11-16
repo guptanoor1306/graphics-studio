@@ -21,6 +21,7 @@ import hashlib
 import io
 import json
 import os
+import threading
 import pathlib
 import re
 import time
@@ -115,8 +116,22 @@ def store(theme: str, desc: str, raw: bytes, ext: str, source: str) -> str:
     return f"{GEN_DIR}/{filename}"
 
 
+_RESTORE_SLOTS = threading.BoundedSemaphore(int(os.environ.get("STUDIO_RESTORE_MAX", "2")))
+_RESTORE_LOCKS: dict[str, threading.Lock] = {}
+_RESTORE_GUARD = threading.Lock()
+
+
 def restore_one(theme: str, filename: str) -> bool:
-    """Bring one stored picture back to disk if it is missing (asked for before the startup restore reached it)."""
+    """Bring one stored picture back to disk if it is missing (asked for before the startup restore reached it).
+    At most STUDIO_RESTORE_MAX (2) pictures are pulled from the database at once, and a picture asked for by many
+    pages at once is pulled only once, so restores never take every database connection."""
+    with _RESTORE_GUARD:
+        lock = _RESTORE_LOCKS.setdefault(f"{theme}/{filename}", threading.Lock())
+    with lock, _RESTORE_SLOTS:
+        return _restore_one(theme, filename)
+
+
+def _restore_one(theme: str, filename: str) -> bool:
     if "/" in filename or "\\" in filename or ".." in filename or not (THEMES / theme).is_dir():
         return False
     if (THEMES / theme / "assets" / GEN_DIR / filename).is_file():
@@ -151,10 +166,7 @@ def restore_all() -> int:
         if not (THEMES / r["theme"]).is_dir() or (THEMES / r["theme"] / "assets" / GEN_DIR / r["filename"]).is_file():
             continue
         try:
-            with _db() as c:
-                d = c.execute("select data from generated_assets where key=?", (r["key"],)).fetchone()
-            if d and d.get("data"):
-                _write_file(r["theme"], r["filename"], base64.b64decode(d["data"]))
+            if restore_one(r["theme"], r["filename"]):
                 n += 1
         except Exception as e:
             print(f"asset_gen: could not restore {r['filename']} ({e})")
