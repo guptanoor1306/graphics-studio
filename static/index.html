@@ -2960,23 +2960,50 @@ window.addEventListener('message',e=>{if(e.origin!==laOrigin||e.source!==window.
 const laChanged=(()=>{let t;return()=>{if(!EMBED||!laOrigin)return;clearTimeout(t);t=setTimeout(()=>laPost('changed',{project:P?{id:P.id,frames:(P.spec?.frames||[]).length,theme:P.theme}:null}).catch(()=>{}),800)}})();
 const _api0=api;api=async(u,o={})=>{const r=await _api0(u,o);if(o.method&&o.method!=='GET'&&/^\/api\/(projects|la)\b/.test(u))laChanged();return r};
 const laSlug=s=>String(s||'graphics').normalize('NFKD').replace(/[^\w-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'graphics';
+/* Make Layers: fonts LA Studio already has are left out of each frame (a frame is mostly its fonts), and each frame goes
+   to LA Studio as soon as it has downloaded (batch {id, n}, a last message with end), so the first PSD doesn't wait for
+   the last download. A broken download is tried twice more; frames that still fail are named at the end. */
+const LA_WEIGHT={100:['thin','hairline'],200:['extralight','ultralight'],300:['light'],400:['regular','normal','book','roman',''],500:['medium'],600:['semibold','demibold'],700:['bold'],800:['extrabold','ultrabold'],900:['black','heavy']};
+function laHas(installed,f){
+ const fam=Object.keys(installed||{}).find(k=>k.toLowerCase()===String(f.family||'').toLowerCase());if(!fam)return false;
+ return (installed[fam]||[]).some(st=>{const s=String(st).toLowerCase().replace(/[\s_-]+/g,''),it=/italic|oblique/.test(s);
+  return it===!!f.italic&&(LA_WEIGHT[f.weight]||[]).includes(s.replace(/italic|oblique/,''))})}
+async function laSkip(){
+ try{const asked=Promise.race([laPost('fonts',{}),new Promise(r=>setTimeout(()=>r(null),10000))]).catch(()=>null);
+  const [ff,ans]=await Promise.all([api(`/api/projects/${P.id}/font-faces`),asked]);
+  if(!ans||!ans.families)return '';                                     // LA Studio didn't say: every font stays in
+  return (ff.faces||[]).filter(f=>laHas(ans.families,f)).map(f=>`${f.family}:${f.weight}${f.italic?'i':''}`).join(',')}catch(e){return ''}}
+async function laFetch(url,tries=3){
+ let last;for(let k=0;k<tries;k++){
+  const ac=new AbortController(),t=setTimeout(()=>ac.abort(),90000);   // a download that hangs counts as broken
+  try{const r=await fetch(url,{cache:'no-store',signal:ac.signal});if(r.status===404||r.status===400)return null;if(!r.ok)throw new Error(await r.text()||('error '+r.status));return await r.text()}
+  catch(e){last=e.name==='AbortError'?new Error('took too long'):e;if(k<tries-1)await new Promise(z=>setTimeout(z,1500*(k+1)))}
+  finally{clearTimeout(t)}}
+ throw last}
 async function laSend(){
  if(!P?.spec?.frames?.length){alert('No frames yet.');return}
  const btn=$('#laSendBtn');const ids=P.spec.frames.map(f=>String(f.id));const stem=laSlug(P.name);
  if(!await uiConfirm('LA Studio turns each frame into a layered PSD in Layers.',{title:`Make layers for ${ids.length} frame${ids.length>1?'s':''}?`,ok:'Make Layers'}))return;
  const label=t=>{if(btn)btn.textContent=t};if(btn)btn.disabled=true;
+ const batch={id:'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:ids.length};
+ const base={project:{id:P.id,name:P.name,theme:P.theme},la:LA.id||null,batch};
+ const sent=[],failed=[];let csv=null,first=true;
+ const done=()=>{setTimeout(()=>{label('Make Layers');if(btn)btn.disabled=false},2500)};
  try{
-  const files=[];
-  for(let i=0;i<ids.length;i++){label(`Preparing ${i+1}/${ids.length}…`);
-   const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(ids[i])}/export.html`,{cache:'no-store'});
-   if(r.status===404||r.status===400)continue;if(!r.ok)throw new Error(`Frame ${ids[i]}: ${await r.text()}`);
-   files.push(new File([await r.text()],`${stem}_${ids[i].replace(/[^\w.-]+/g,'_')}.html`,{type:'text/html'}))}
-  let csv=null;try{const r=await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`);if(r.ok)csv=new File([await r.blob()],`${stem}_storyboard-instructions.csv`,{type:'text/csv'})}catch(_){}
-  label('Sending to LA Studio…');
-  const out=await laPost('frames',{project:{id:P.id,name:P.name,theme:P.theme},la:LA.id||null,files,csv});
-  label('Sent to Layers');setTimeout(()=>{label('Make Layers');if(btn)btn.disabled=false},2500);
-  if(out&&out.message)alert(out.message);
- }catch(e){alert(e.message);label('Make Layers');if(btn)btn.disabled=false}
+  label('Checking fonts…');const skip=await laSkip();
+  try{const r=await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`);if(r.ok)csv=new File([await r.blob()],`${stem}_storyboard-instructions.csv`,{type:'text/csv'})}catch(_){}
+  for(let i=0;i<ids.length;i++){label(`Sending ${i+1}/${ids.length}…`);
+   let html=null;
+   try{html=await laFetch(`/api/projects/${P.id}/frames/${encodeURIComponent(ids[i])}/export.html${skip?'?skip='+encodeURIComponent(skip):''}`)}catch(e){failed.push(ids[i]);continue}
+   if(html==null)continue;                                              // not a graphic frame
+   await laPost('frames',{...base,files:[new File([html],`${stem}_${ids[i].replace(/[^\w.-]+/g,'_')}.html`,{type:'text/html'})],csv:first?csv:null});
+   first=false;sent.push(ids[i])}
+  await laPost('frames',{...base,files:[],csv:first?csv:null,end:true});
+  label(sent.length?'Sent to Layers':'Make Layers');done();
+  const miss=failed.length?` ${failed.length} frame${failed.length>1?'s':''} could not be downloaded (${failed.join(', ')}). Click Make Layers again to send ${failed.length>1?'them':'it'}; frames already in Layers stay as they are.`:'';
+  alert(sent.length?`LA Studio is making ${sent.length} layered PSD${sent.length>1?'s':''} in Layers.${miss}`:(failed.length?'No frames could be downloaded. Check the connection and try again.':'There are no graphic frames to send.'));
+ }catch(e){try{await laPost('frames',{...base,files:[],end:true})}catch(_){}
+  alert((sent.length?`${sent.length} frame${sent.length>1?'s were':' was'} sent to Layers before this stopped: `:'')+e.message);label('Make Layers');if(btn)btn.disabled=false}
 }
 function laKits(){
  const ch=CHANNELS.find(c=>c.id===LA.channel.toLowerCase()||c.label.toLowerCase()===LA.channel.toLowerCase());
