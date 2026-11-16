@@ -114,8 +114,14 @@ async def _db_call(fn, *a, **kw):
     return await asyncio.to_thread(fn, *a, **kw)
 
 
+_GEN_PATH = re.compile(r"^/themes/([A-Za-z0-9_-]+)/assets/gen/([^/]+)$")
+
+
 @app.middleware("http")
 async def cache_headers(request, call_next):
+    m = _GEN_PATH.match(request.url.path)
+    if m and not (THEMES / m.group(1) / "assets" / "gen" / m.group(2)).is_file():
+        await asyncio.to_thread(asset_gen.restore_one, m.group(1), m.group(2))   # not restored yet after a deploy
     response = await call_next(request)
     path = request.url.path
     if path.startswith("/api/") or path == "/" or path.startswith("/preview/"):
