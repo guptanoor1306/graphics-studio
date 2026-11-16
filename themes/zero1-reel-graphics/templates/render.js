@@ -89,10 +89,20 @@
   }
 
   function tagStudioLayers() {
+    // the full-frame html shell must not catch clicks meant for the blocks inside it
+    if (!document.getElementById("studio-reel-pe")) {
+      const st = document.createElement("style"); st.id = "studio-reel-pe";
+      st.textContent = ".reel-html-shell{pointer-events:none}.reel-html-shell .studio-editable{pointer-events:auto}";
+      document.head.appendChild(st);
+    }
     document.querySelectorAll("[data-mf-path]").forEach((el) => {
       const path = el.getAttribute("data-mf-path");
       const lab = (el.innerText || path || "layer").slice(0, 40);
       tagOne(el, "html", lab, path);
+      if (!el.dataset.resize && !el.querySelector("img,svg")) el.dataset.resize = "w";
+      if (window.studioInline && !el.querySelector("div,img,svg,table")) {   // double-click to change the words
+        window.studioInline(el, () => window.parent.postMessage({ studio: "inline", mfPath: path, outer: el.outerHTML }, "*"));
+      }
     });
     document.querySelectorAll("#stage .abs, #stage [data-content]").forEach((el) => {
       if (el.dataset.mfTagged || el.id === "stage" || el.classList.contains("reel-html-shell")) return;

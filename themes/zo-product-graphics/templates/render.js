@@ -102,8 +102,13 @@
 
   function bindEl(el, path) {
     if (!el || el.dataset.inlineBound) return;
+    if (!window.studioInline && window.parent !== window) return;   // the editor script binds it once loaded
     el.dataset.inlineBound = "1";
     el.dataset.mfPath = path;
+    if (window.studioInline) {   // click selects, drag moves, double-click edits
+      window.studioInline(el, (value) => window.parent.postMessage({ studio: "inline", mfPath: path, value }, "*"));
+      return;
+    }
     el.classList.add("studio-inline-edit");
     el.contentEditable = "true";
     el.spellcheck = true;

@@ -18,6 +18,8 @@
   const overlay = !!O.overlay && isAnchor;
 
   // ---------- helpers ----------
+  // the frame's hand-written html: in edit mode its pieces become layers (studio_edit.js tagHtmlBlocks)
+  function htmlBlock(e) { if (O.studioEdit) e.dataset.htmlBlock = "html"; return e; }
   function el(tag, cls, css, html) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -203,7 +205,7 @@
     }
     if (F.chain) chain(F.chain);
     if (F.pill) pill(Object.assign({ size: "lg" }, F.pill), F.pill.x !== undefined ? F.pill.x : "center", F.pill.y !== undefined ? F.pill.y : 104, { studioLayer: "pill" });
-    if (F.html) add(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html));
+    if (F.html) add(htmlBlock(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html)));
     cursor(F.cursor);
     disclaimer();
   };
@@ -258,7 +260,7 @@
   T.anchor = function () {
     background("plate"); decor("anchor");
     if (F.pill) pill(F.pill, F.pill.x || 20, F.pill.y || 238, { studioLayer: "pill" });
-    if (F.html) content(add(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html)));
+    if (F.html) content(add(htmlBlock(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html))));
   };
 
   // SOP / agenda tiles on the dark grid
@@ -410,7 +412,7 @@
     background(F.bg || "light"); if (F.bg === "dark") darkGrid();
     decor(F.decorset || (F.bg === "dark" ? "dark" : "light"));
     if (F.pill) pill(F.pill, F.pill.x !== undefined ? F.pill.x : "center", F.pill.y || 104, { studioLayer: "pill" });
-    content(add(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html || "")));
+    content(add(htmlBlock(el("div", "abs", { left: 0, top: 0, width: "1920px", height: "1080px" }, F.html || ""))));
     cursor(F.cursor); disclaimer();
   };
 
@@ -418,18 +420,20 @@
     if (!O.studioEdit) return;
     function bindEl(el, path) {
       if (!el || el.dataset.inlineBound) return;
+      // The editor script loads after this one and calls bindMfStudioInline again; until then leave the text
+      // alone (an always-editable span swallowed every drag on the pill).
+      if (!window.studioInline && window.parent !== window) return;
       el.dataset.inlineBound = "1";
       el.dataset.mfPath = path;
+      const save = (value) => window.parent.postMessage({ studio: "inline", mfPath: path, value }, "*");
+      if (window.studioInline) { window.studioInline(el, save); return; }   // click selects, double-click edits
       el.classList.add("studio-inline-edit");
       el.contentEditable = "true";
       el.spellcheck = true;
       el.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.blur(); }
       });
-      el.addEventListener("blur", () => {
-        const value = el.innerText.replace(/\u00a0/g, " ").trim();
-        window.parent.postMessage({ studio: "inline", mfPath: path, value }, "*");
-      });
+      el.addEventListener("blur", () => save(el.innerText.replace(/\u00a0/g, " ").trim()));
     }
     const pillT = document.querySelector(".pill .t");
     if (F.pill && pillT) bindEl(pillT, F.type === "definition" ? "term" : (F.type === "points" ? "title" : "pill.text"));
