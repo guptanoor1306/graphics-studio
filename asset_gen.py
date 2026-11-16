@@ -116,6 +116,43 @@ def store(theme: str, desc: str, raw: bytes, ext: str, source: str) -> str:
     return f"{GEN_DIR}/{filename}"
 
 
+def persist_dir() -> pathlib.Path | None:
+    """Where generated pictures are kept across deploys: STUDIO_GEN_DIR, else <Railway volume>/generated."""
+    d = os.environ.get("STUDIO_GEN_DIR")
+    if not d and os.environ.get("RAILWAY_VOLUME_MOUNT_PATH"):
+        d = str(pathlib.Path(os.environ["RAILWAY_VOLUME_MOUNT_PATH"]) / "generated")
+    return pathlib.Path(d) if d else None
+
+
+def use_persistent_storage() -> int:
+    """Point every kit's assets/gen at the volume (themes/<kit>/assets/gen -> <volume>/generated/<kit>), so
+    generated pictures survive deploys instead of being pulled back from the database each time. Files already in
+    a kit's gen folder are moved across first. Returns how many kits were linked; 0 when there is no volume."""
+    import shutil
+    root = persist_dir()
+    if root is None:
+        return 0
+    n = 0
+    for kit in sorted(p for p in THEMES.iterdir() if (p / "assets").is_dir()):
+        link, target = kit / "assets" / GEN_DIR, root / kit.name
+        try:
+            if os.path.ismount(link) or (link.is_symlink() and link.resolve() == target.resolve()):
+                continue
+            target.mkdir(parents=True, exist_ok=True)
+            if link.is_symlink():
+                link.unlink()
+            elif link.is_dir():
+                for f in link.iterdir():
+                    if not (target / f.name).exists():
+                        shutil.move(str(f), str(target / f.name))
+                shutil.rmtree(link, ignore_errors=True)
+            link.symlink_to(target, target_is_directory=True)
+            n += 1
+        except OSError as e:
+            print(f"asset_gen: {kit.name} keeps its generated pictures on the app disk ({e})")
+    return n
+
+
 _RESTORE_SLOTS = threading.BoundedSemaphore(int(os.environ.get("STUDIO_RESTORE_MAX", "2")))
 _RESTORE_LOCKS: dict[str, threading.Lock] = {}
 _RESTORE_GUARD = threading.Lock()

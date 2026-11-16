@@ -64,7 +64,13 @@ app.add_middleware(
     allow_origins=[o.strip() for o in os.environ.get("STUDIO_CORS_ORIGINS", "").split(",") if o.strip()],
     allow_methods=["GET", "POST"], allow_headers=["*"],
 )
-app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
+try:   # generated pictures live on the Railway volume (asset_gen.use_persistent_storage): served through a link
+    _linked = asset_gen.use_persistent_storage()
+    if _linked:
+        print(f"asset_gen: generated pictures kept on the volume ({asset_gen.persist_dir()}) for {_linked} kit(s)")
+except Exception as _e:
+    print(f"asset_gen: volume link skipped ({_e})")
+app.mount("/themes", StaticFiles(directory=THEMES, follow_symlink=True), name="themes")
 
 
 @app.on_event("startup")

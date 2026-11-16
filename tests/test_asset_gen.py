@@ -235,3 +235,26 @@ def test_restore_brings_back_only_missing_pictures_and_one_on_demand(tmp_path, m
         assert not asset_gen.restore_one(theme, "../x.png")
     finally:
         f.unlink(missing_ok=True)
+
+
+def test_generated_pictures_move_to_the_volume_and_stay_reachable(tmp_path, monkeypatch):
+    import asset_gen
+    from fastapi import FastAPI
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.testclient import TestClient
+    themes = tmp_path / "themes"
+    (themes / "kit-a" / "assets" / "gen").mkdir(parents=True)
+    (themes / "kit-a" / "assets" / "gen" / "old.png").write_bytes(b"OLD")
+    (themes / "kit-b" / "assets").mkdir(parents=True)
+    vol = tmp_path / "vol"
+    monkeypatch.setattr(asset_gen, "THEMES", themes)
+    monkeypatch.delenv("STUDIO_GEN_DIR", raising=False)
+    monkeypatch.setenv("RAILWAY_VOLUME_MOUNT_PATH", str(vol))
+    assert asset_gen.use_persistent_storage() == 2
+    assert (themes / "kit-a" / "assets" / "gen").is_symlink()
+    assert (vol / "generated" / "kit-a" / "old.png").read_bytes() == b"OLD"       # moved across
+    asset_gen._write_file("kit-b", "new.png", b"NEW")
+    assert (vol / "generated" / "kit-b" / "new.png").read_bytes() == b"NEW"       # new pictures land on the volume
+    assert asset_gen.use_persistent_storage() == 0                                 # second start: nothing to do
+    app = FastAPI(); app.mount("/themes", StaticFiles(directory=themes, follow_symlink=True))
+    assert TestClient(app).get("/themes/kit-b/assets/gen/new.png").content == b"NEW"
