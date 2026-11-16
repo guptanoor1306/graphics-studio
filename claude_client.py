@@ -41,6 +41,10 @@ PDF_BATCH_MAX_TOKENS = int(os.environ.get("STUDIO_PDF_BATCH_MAX_TOKENS", "32000"
 
 class ReplyCutOff(RuntimeError):
     """Claude's reply reached max_tokens: the tool input is incomplete."""
+
+
+class NoToolCall(RuntimeError):
+    """Claude answered in text instead of calling the tool."""
 # Storyboard + every frame's JSON (+ thinking) in one response; streamed, so a high cap is fine.
 SB_MAX_TOKENS = int(os.environ.get("STUDIO_SB_MAX_TOKENS", "48000"))
 
@@ -364,7 +368,7 @@ GRAPHIC_BATCH_TOOL = {
             },
             "frames": {
                 "type": "array",
-                "minItems": 1,
+                "description": "The next frames. Empty array (with pdf_progress = done) when the PDF has no more graphics.",
                 "items": {"type": "object", "additionalProperties": True},
             },
             "spec_meta": {
@@ -627,7 +631,7 @@ def _tool_input(response, tool_name: str) -> dict:
     for block in response.content:
         if block.type == "tool_use" and block.name == tool_name:
             return block.input
-    raise RuntimeError(f"Claude did not call {tool_name} (stop_reason={response.stop_reason}). Try again.")
+    raise NoToolCall(f"Claude did not call {tool_name} (stop_reason={response.stop_reason}). Try again.")
 
 
 def _thinking_kwargs() -> dict:
@@ -1546,18 +1550,25 @@ def _storyboard_pdf_finish_all(
     raw_total = 0
     spec_meta: dict = {}
     for _ in range(40):
-        out = _storyboard_pdf_batch_once(
-            theme_dir,
-            pdf_bytes,
-            script,
-            look,
-            notes,
-            batch_size=batch_size,
-            existing_spec=working_spec,
-            existing_storyboard=storyboard,
-            episode_transcript=episode_transcript,
-            page_images=page_images,
-        )
+        try:
+            out = _storyboard_pdf_batch_once(
+                theme_dir,
+                pdf_bytes,
+                script,
+                look,
+                notes,
+                batch_size=batch_size,
+                existing_spec=working_spec,
+                existing_storyboard=storyboard,
+                episode_transcript=episode_transcript,
+                page_images=page_images,
+            )
+        except Exception as e:
+            if not accumulated:
+                raise
+            # keep what this run already made; the next "All remaining" carries on from here
+            last_progress = f"stopped early ({str(e)[:120]}); press All remaining again to continue"
+            break
         raw_total += out.get("raw_frame_count", 0)
         added = int(out.get("frames_added") or 0)
         if out.get("storyboard") and not storyboard:
@@ -1641,7 +1652,8 @@ def _storyboard_pdf_batch_once(
             f"{rules}\n"
             f"ALREADY GENERATED frame ids (do NOT duplicate): {json.dumps(done_ids)}\n\n"
             f"Existing storyboard text:\n{existing_storyboard[:12000]}\n\n"
-            f"{batch_line} Return `frames` only (omit storyboard unless fixing a typo). Set pdf_progress.\n"
+            f"{batch_line} Return `frames` only (omit storyboard unless fixing a typo). Set pdf_progress. If every "
+            "graphic in the PDF is already generated, call submit_graphic_batch with frames: [] and pdf_progress: done.\n"
             f"Optional script:\n\n{script or '(none)'}"
         )
     msg = _inject_transcript(msg, episode_transcript)
@@ -1657,6 +1669,11 @@ def _storyboard_pdf_batch_once(
 
     try:
         out = _call(msg)
+    except NoToolCall:
+        if not first_batch:      # later batch answered in words: it means the PDF has no more graphics
+            return {"storyboard": "", "frames": [], "spec_meta": {}, "pdf_progress": "done",
+                    "frames_added": 0, "frames_dropped": 0, "raw_frame_count": 0}
+        out = _call(msg + "\n\nAnswer only by calling submit_graphic_batch.")
     except ReplyCutOff:
         # too long for one reply: ask again for fewer frames and a terse storyboard instead of repeating the same call
         batch_size = max(1, (batch_size + 1) // 2)
