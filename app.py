@@ -69,10 +69,16 @@ app.mount("/themes", StaticFiles(directory=THEMES), name="themes")
 
 @app.on_event("startup")
 async def _restore_generated_assets():
-    # Railway wipes the disk on deploy; generated assets live in the DB and are written back here.
-    n = await asyncio.to_thread(asset_gen.restore_all)
-    if n:
-        print(f"asset_gen: restored {n} generated asset(s)")
+    # a roomier pool for asyncio.to_thread (database calls, picture restores): the default is cpu+4 threads
+    import concurrent.futures
+    asyncio.get_running_loop().set_default_executor(concurrent.futures.ThreadPoolExecutor(max_workers=48))
+    # Railway wipes the disk on deploy; generated assets live in the DB and are written back here, in the
+    # background: the server answers at once, and a picture someone opens first is fetched on demand.
+    async def restore():
+        n = await asyncio.to_thread(asset_gen.restore_all)
+        if n:
+            print(f"asset_gen: restored {n} generated asset(s)")
+    app.state.restore_task = asyncio.create_task(restore())
 
 
 def _z1_frame_gen(spec: dict, frame: dict) -> dict:
