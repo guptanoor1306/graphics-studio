@@ -80,7 +80,7 @@ body.fss .num i{background:var(--ink);color:#fff}
   box-shadow:0 6px 30px rgba(0,0,0,.35), inset 0 0 18px rgba(255,255,255,.15);backdrop-filter:blur(8px)}
 .glass.dark{background:rgba(20,20,22,.55);border-color:rgba(255,255,255,.18)}
 .gt{border-collapse:collapse;font-size:24px;color:#fff;width:100%}
-.gt th,.gt td{text-align:left;padding:0 34px;height:62px;border-bottom:2px solid rgba(255,255,255,.55)}
+.gt th,.gt td{text-align:left;padding:12px 34px;height:62px;line-height:1.25;border-bottom:2px solid rgba(255,255,255,.55)}
 .gt th{font-weight:600}
 .gt td+td,.gt th+th{border-left:2px solid rgba(0,0,0,.45)}
 .gt tr:last-child td{border-bottom:0}
@@ -172,15 +172,16 @@ body.fss .points .pt i{background:var(--ink);color:#fff}
 .nlist li{list-style:none;display:flex;gap:18px;font-size:36px;line-height:1.3;margin:0 0 30px;color:var(--ink)}
 .nlist li b{flex:none;font-weight:700}
 .nlist li.off{opacity:.45}
+.nlist.lg{padding:52px 64px}.nlist.lg li{font-size:42px;margin-bottom:34px}.nlist li:last-child{margin-bottom:0}
 /* D3. Drum list (current item big, neighbours shrink and fade) */
 .drum{display:flex;flex-direction:column;align-items:center;gap:8px}
 .drum div{background:#fff;color:#222;border-radius:12px;font-weight:600;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.18)}
 /* D4. Icon card row (AIS / SFT style) */
-.icard{width:270px;height:390px;background:rgba(255,255,255,.75);border:2px solid #fff;border-radius:16px;
+.icard{width:300px;min-height:420px;background:rgba(255,255,255,.75);border:2px solid #fff;border-radius:16px;
   box-shadow:0 14px 34px rgba(40,70,120,.18);display:flex;flex-direction:column;align-items:center;padding:24px 16px;text-align:center}
-.icard img,.icard svg{height:170px;margin-bottom:24px}
-.icard b{font-size:27px;color:var(--ink);font-weight:600}
-.icard span{margin-top:12px;font-size:19px;color:var(--grey);line-height:1.3}
+.icard img,.icard svg{height:190px;margin-bottom:26px}
+.icard b{font-size:30px;line-height:1.2;color:var(--ink);font-weight:600}
+.icard span{margin-top:12px;font-size:23px;color:var(--grey);line-height:1.3}
 .icard.on{transform:scale(1.06);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent),0 18px 40px rgba(40,70,120,.25)}
 .icard.off{opacity:.45;filter:grayscale(.4)}
 

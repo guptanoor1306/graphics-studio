@@ -62,7 +62,8 @@ Rules:
 6. **Names over the anchor** use the large dark pill (automatic).
 7. **Charts:** `bars` (boxed ₹ y-axis, baseline, 26–30 px labels), centred under the heading on FSS. Key numbers go in the heading or big labels, never small captions.
 8. **Declutter:** one idea per frame, at most 1–3 illustrations. Drop decorative icons (clock, magnifier) when they compete. The topic prop is skipped automatically on frames that have their own illustrations.
-9. **Colours:** kit tokens only (blue #248EF7, blue-soft #64B0FC, amber #F2B233, green #A5CC65, coral #F26B5B, ink, white). The build warns on anything else.
+9. **Spacing:** on FSS, don't set `w`, `size`, `top` or `y` on the main content. The builder sizes it to fill the frame and centres it under the heading. Over the anchor, give each person or asset a different `x` (the builder also nudges overlaps apart).
+10. **Colours:** kit tokens only (blue #248EF7, blue-soft #64B0FC, amber #F2B233, green #A5CC65, coral #F26B5B, ink, white). The build warns on anything else.
 
 **Density check:** aim for about one graphic per 20–40 s of VO. That is roughly `spoken_words / 80` frames, ±30%. If you are above that, merge beats.
 
