@@ -59,6 +59,9 @@ def compact_zo_spec_for_studio(spec: dict) -> dict:
         mode = str(f.get("mode") or "fss").strip().lower()
         if mode in _ZO_STORYBOARD_ONLY or mode not in ZO_RENDER_MODES:
             continue
+        if isinstance(f.get("html"), str) and f["html"].strip():   # hand-written frame (chat-skill mode)
+            kept.append({**f, "mode": mode})
+            continue
         items = [it for it in (f.get("items") or []) if isinstance(it, dict) and it.get("t")]
         if mode == "tos":
             if not f.get("title") and not items:
@@ -74,6 +77,9 @@ def compact_zo_spec_for_studio(spec: dict) -> dict:
     if not lp or lp == "default":
         look["plate"] = ZO_DEFAULT_PLATE
     for f in kept:
+        if f.get("html") and f.get("mode") != "fss":
+            f["plate"] = f.get("plate") or "m2_right"         # chat-skill plates: m2_right / m2_left / m2_centre
+            continue
         if f.get("mode") in ZO_RENDER_MODES - {"fss"}:
             f["plate"] = zo_plate_for_frame(f, look.get("plate"))
             if len(f.get("items") or []) > 2 and not (

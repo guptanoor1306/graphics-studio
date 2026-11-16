@@ -949,8 +949,52 @@ def _render_stage_inner(f, look):
     return inner, body, mode, face
 
 
+# ---------------------------------------------------------------- hand-written frames (the chat skill's look)
+# A frame with "html" is designed by Claude exactly like the team's ZO graphic maker skill in Claude chat: its own
+# markup inside #content, the skill's zo.css / extra.css / decor.js, decor placed per frame, plates + shade over the
+# presenter. Frames with "items" keep using the component renderer below.
+CHAT_SHADES = {   # the chat skill's shade per plate (text zone left / right / bottom)
+    'm2_right': 'left:0;top:0;width:1100px;height:1080px;background:linear-gradient(90deg,rgba(0,0,0,.45),transparent)',
+    'm2_left': 'left:900px;top:0;width:1020px;height:1080px;background:linear-gradient(90deg,transparent,rgba(0,0,0,.55))',
+    'm2_centre': 'left:0;top:560px;width:1920px;height:520px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.75))',
+    'm2_centre_dark': 'left:0;top:560px;width:1920px;height:520px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.75))',
+}
+
+
+def html_frame(f, look=None, edit=False):
+    look = look or {}
+    mode = str(f.get('mode') or 'fss').lower()
+    decor = f.get('decor', {})
+    if decor is True:
+        decor = {}
+    head = ('<!doctype html><html><head><meta charset="utf-8"><meta name="studio-canvas" content="1920,1080">'
+            '<link rel="stylesheet" href="../templates/chat/zo.css"><link rel="stylesheet" href="../templates/chat/extra.css">'
+            '<script src="../templates/chat/decor.js"></script></head>')
+    deco_js = '' if decor is False else f'<script>zoDecor({json.dumps({**({"dark": True} if mode != "fss" else {}), "seed": _seed(f["id"]) % 9 + 1, **(decor or {})})});</script>'
+    tail = ('<script>window.RENDERED = window.RENDERED || false;</script>'
+            f'<script>window.FRAME={json.dumps(f, ensure_ascii=False)};window.OPTS={json.dumps({"studioEdit": bool(edit)})};</script>'
+            '<script src="../templates/chat/frame.js"></script></body></html>')
+    cls = ' class="studio-edit-mode"' if edit else ''
+    if mode == 'fss':
+        return (f'{head}<body{cls} data-mode="fss" data-face="null">'
+                '<div class="grid" data-name="Background grid" style="position:absolute;inset:0"></div>'
+                '<div id="decor" data-name="Decor"></div>'
+                f'<div id="content" data-name="Content">{f["html"]}</div>{deco_js}{tail}')
+    pname = f.get('plate') or 'm2_right'
+    p = PLATES.get(pname) or PLATES.get(_resolve_plate(f, look) or '') or {}
+    shade = f.get('shade') or CHAT_SHADES.get(pname, CHAT_SHADES['m2_right'])
+    face = json.dumps(p.get('face'))
+    return (f'{head}<body{cls} data-mode="{E(mode)}" data-face=\'{face}\' style="background:#111">'
+            f'<img data-name="Presenter plate" src="../assets/plates/{E(p.get("file", "m2_right.jpg"))}" '
+            'style="position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover">'
+            f'<div data-name="Plate shade" style="position:absolute;{shade}"></div>'
+            f'<div id="content" data-name="Content">{f["html"]}</div><div id="decor" data-name="Decor"></div>{deco_js}{tail}')
+
+
 def frame_html(f, look=None, edit=False):
     look = look or {}
+    if isinstance(f, dict) and isinstance(f.get('html'), str) and f['html'].strip():
+        return html_frame(f, look, edit)
     inner, body, mode, face = _render_stage_inner(f, look)
     opts = {'studioEdit': bool(edit)}
     body_cls = 'studio-edit-mode' if edit else ''
@@ -974,6 +1018,7 @@ FIT_JS = r'''() => {
 }'''
 
 CHECK_JS = r'''() => {
+ if (window.FRAME && window.FRAME.html && window.QA) return window.QA();   // hand-written frame: its own checks
  const _st=document.getElementById('stage'); const W=[], mode=(_st&&_st.dataset.mode)||document.body.dataset.mode, face=JSON.parse((_st&&_st.dataset.face)||document.body.dataset.face||'null');
  const els=[...document.querySelectorAll('.z *')].filter(e=>e.children.length===0||e.matches('.obj,.ticket,.note .box,.icard,.pcard,.status,.phone,.notepad,.mtable'));
  const ok=new Set(['rgb(255, 255, 255)','rgb(34, 34, 34)','rgb(66, 66, 66)','rgb(136, 136, 136)','rgb(255, 192, 46)','rgb(73, 147, 233)','rgb(56, 126, 209)',
