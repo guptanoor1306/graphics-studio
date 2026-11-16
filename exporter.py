@@ -65,6 +65,93 @@ def _theme_css(base_dir: pathlib.Path) -> tuple[pathlib.Path, str]:
     raise FileNotFoundError(f"No theme CSS in {base_dir / 'templates'}")
 
 
+# ---- fonts LA Studio already has: Make Layers can leave them out of each frame (a frame is mostly its fonts) ----
+_FACE = re.compile(r"@font-face\s*\{([^{}]*)\}", re.I)
+_SKIP_ITEM = re.compile(r"([A-Za-z0-9_\-]+(?: [A-Za-z0-9_\-]+)*)\s*:\s*([1-9]00)(i?)")   # words split by single spaces: no ambiguity, no slow matching
+MAX_SKIP_LEN, MAX_SKIP_ITEM = 2048, 80
+MAX_SKIP = 64
+
+
+def _face_key(body: str) -> tuple[str, int, bool] | None:
+    """(family, weight, italic) of one @font-face block; weight 400 when it says nothing."""
+    fam = re.search(r"font-family\s*:\s*([^;}]+)", body, re.I)
+    if not fam:
+        return None
+    family = fam.group(1).strip().strip("\"'").strip()
+    w = re.search(r"font-weight\s*:\s*([A-Za-z0-9]+)(\s+\d)?", body, re.I)
+    raw = (w.group(1).lower() if w else "400")
+    if w and w.group(2):
+        return family, -1, False                                             # a weight range (variable font): never taken from the computer
+    weight = int(raw) if raw.isdigit() and len(raw) <= 4 else {"normal": 400, "bold": 700}.get(raw, 400)
+    italic = bool(re.search(r"font-style\s*:\s*(italic|oblique)", body, re.I))
+    return family, weight, italic
+
+
+def font_faces(html: str) -> list[dict]:
+    """Every font a page or stylesheet defines, once: [{family, weight, italic}]."""
+    out, seen = [], set()
+    for m in _FACE.finditer(html or ""):
+        k = _face_key(m.group(1))
+        if k and k not in seen:
+            seen.add(k)
+            out.append({"family": k[0], "weight": k[1], "italic": k[2]})
+    return out
+
+
+def parse_skip(value) -> set[tuple[str, int, bool]]:
+    """export.html?skip=Inter:300,Inter:700i -> {("inter", 300, False), ("inter", 700, True)}; anything else is ignored."""
+    out, value = set(), str(value or "")
+    if len(value) > MAX_SKIP_LEN:
+        return out
+    for part in value.split(",")[: MAX_SKIP * 4]:
+        part = part.strip()
+        m = _SKIP_ITEM.fullmatch(part) if len(part) <= MAX_SKIP_ITEM else None
+        if m:
+            out.add((m.group(1).strip().lower(), int(m.group(2)), bool(m.group(3))))
+            if len(out) >= MAX_SKIP:
+                break
+    return out
+
+
+_STYLE = {100: "Thin", 200: "ExtraLight", 300: "Light", 400: "Regular", 500: "Medium", 600: "SemiBold", 700: "Bold",
+          800: "ExtraBold", 900: "Black"}
+
+
+def _local_src(family: str, weight: int, italic: bool) -> str:
+    """src for a font installed on the computer: its full name and its PostScript name ("Inter Light", "Inter-Light")."""
+    style = _STYLE.get(weight, "Regular")
+    if italic:
+        style = "Italic" if style == "Regular" else style + "Italic"
+    full = f"{family} {style[:-6] + ' Italic' if italic and style != 'Italic' else style}"
+    ps = f"{family.replace(' ', '')}-{style}"
+    return f'src:local("{full}"),local("{ps}")'
+
+
+def drop_faces(html: str, skip: set) -> str:
+    """The fonts named in skip are taken from the computer instead of the page: each @font-face keeps its family, weight
+    and style, only its src becomes local(…). The page then picks exactly the same weights as before, without the
+    font files inside it."""
+    if not skip:
+        return html
+    def swap(m):
+        k = _face_key(m.group(1))
+        if not k or (k[0].lower(), k[1], k[2]) not in skip:
+            return m.group(0)
+        body = re.sub(r"src\s*:(?:[^;()]|\([^)]*(?:\)|\Z))*;?", "", m.group(1)).strip().rstrip(";")   # (a data: URL has its own ";")
+        return "@font-face{" + (body + ";" if body else "") + _local_src(*k) + "}"
+    return _FACE.sub(swap, html)
+
+
+def theme_font_faces(base_dir: pathlib.Path) -> list[dict]:
+    """The fonts a kit's stylesheets define (its main CSS and templates/fonts.css)."""
+    css_path, _ = _theme_css(base_dir)
+    css = css_path.read_text()
+    extra = base_dir / "templates" / "fonts.css"
+    if extra.is_file() and extra != css_path:
+        css += "\n" + extra.read_text()
+    return font_faces(css)
+
+
 def inline_assets(html: str, base_dir: pathlib.Path) -> str:
     """Replace the stylesheet link with inline CSS (fonts embedded) and every relative src/url with data URIs."""
     css_path, css_name = _theme_css(base_dir)
