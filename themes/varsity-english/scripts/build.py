@@ -79,7 +79,10 @@ def calc_table(i):
             c = str(c)
             cells += '<td>' + ('<ul>' + ''.join(f'<li>{E(x.strip())}</li>' for x in c.split('•') if x.strip()) + '</ul>' if '•' in c else E(c)) + '</td>'
         rows += f'<tr class="{cls}">{cells}</tr>'
-    w = i.get('w', 1000); fs = i.get('size', 24 if len(i['rows']) > 5 else 30)
+    n = len(i['rows'])
+    w = i.get('w', 1000 if i.get('_anchor') else (1120 if i.get('_beside') else 1300))
+    cols = len(i.get('head') or (i['rows'][0] if i['rows'] else []))
+    fs = i.get('size', (32 if cols <= 3 else 28) if n <= 4 else 28 if n <= 6 else 24)
     return f'<div class="card" style="width:{w}px"><table class="ct {i.get("color","")}" style="font-size:{fs}px"><tr>{th}</tr>{rows}</table></div>'
 
 def popup(i):
@@ -97,7 +100,8 @@ def result_pill(i):
 def nlist(i):
     a = i.get('active', 0)
     lis = ''.join(f'<li class="{"" if n == a or a == "all" else "off"}"><b>{n+1}.</b>{E(t)}</li>' for n, t in enumerate(i['items']))
-    return f'<ol class="nlist" style="width:{i.get("w",1020)}px">{lis}</ol>'
+    big = len(i['items']) <= 4 and not i.get('_anchor')
+    return f'<ol class="nlist{" lg" if big else ""}" style="width:{i.get("w", 1020 if i.get("_anchor") else 1160)}px">{lis}</ol>'
 def folder(i):
     a = i.get('active', 0)
     lis = ''.join(f'<li class="{"" if n == a else "off"}">{n+1}. {E(t)}</li>' for n, t in enumerate(i['items']))
@@ -151,6 +155,8 @@ def cards(i, *, edit=False, spec_idx=None, layer_attrs=''):
             )
         return ''.join(parts)
     out = ''
+    room = 1060 if i.get('_anchor') else (1300 if i.get('_beside') else 1560)      # the row always fits its zone
+    each = '' if i.get('card_w') or not items else f'width:{min(300, int((room - 28 * (len(items) - 1)) / len(items)))}px;'
     for n, c in enumerate(items):
         st = _icard_state(a, n)
         if c.get('fade') is False or c.get('visible') is True:
@@ -160,13 +166,14 @@ def cards(i, *, edit=False, spec_idx=None, layer_attrs=''):
         op = c.get('opacity')
         op_css = f'opacity:{float(op)};' if op is not None else ''
         img = f'<img src="../assets/{c["img"]}">' if c.get('img') else (c.get('svg') or '')
-        out += f'<div class="icard {st}" style="{op_css}">{img}<b>{E(c["label"])}</b><span>{E(c.get("sub",""))}</span></div>'
+        out += f'<div class="icard {st}" style="{op_css}{each}">{img}<b>{E(c["label"])}</b><span>{E(c.get("sub",""))}</span></div>'
     w = i.get('card_w') or i.get('w')
     extra = f'width:{w}px;' if w else ''
     return f'<div style="display:flex;gap:28px;justify-content:center;{extra}{scale_css}">{out}</div>'
 def bars(i):
     # bar chart in house style: boxed y-axis with labels, baseline, blue bars (amber = highlight), dashed target (review rule 7)
-    W, H = i.get('w', 1200), i.get('h', 600); vals = i['values']; mx = i.get('max', max(vals + [i.get('target', 0)]) * 1.2)
+    W, H = i.get('w', 1300), i.get('h', 640); vals = i['values']
+    mx = i.get('max') or _nice_max(max(vals + [i.get('target', 0)]) * 1.1)
     n = len(vals); AX = 130; L = AX + 40; base = H - 70; top = 40
     bw = min(170, (W - L - 30) / n * 0.55); gap = (W - L - 30) / n
     fmt = i.get('unit_fmt', '{}')
@@ -174,7 +181,7 @@ def bars(i):
            f'<rect x="4" y="{top-20}" width="{AX-14}" height="{base-top+40}" fill="#fff" stroke="#1d1d1d" stroke-width="3"/>']
     for k in range(6):
         y = base - (base - top) * k / 5; v = mx * k / 5
-        lab = fmt.format(int(v) if v >= 10 or float(v).is_integer() else round(v, 1))
+        lab = fmt.format(int(round(v)) if float(round(v, 6)).is_integer() else round(v, 1))
         svg.append(f'<text x="{AX-26}" y="{y+8}" text-anchor="end" font-size="24" font-weight="800">{E(lab)}</text>')
     svg.append(f'<line x1="{L-10}" y1="{base}" x2="{W-10}" y2="{base}" stroke="#111" stroke-width="3"/>')
     for k, v in enumerate(vals):
@@ -191,6 +198,14 @@ def bars(i):
         svg.append(f'<text x="{L+4}" y="{y-12}" text-anchor="start" font-size="26" font-weight="700">{E(i.get("target_label",""))}</text>')
     svg.append('</svg>')
     return f'<div class="chartcard" style="padding:30px 40px 20px 30px">{"".join(svg)}</div>'
+def _nice_max(v):
+    """Axis top on a round step (5 ticks of 1, 2, 2.5 or 5 x 10^k), so labels read 0, 20, 40… not 0, 19, 38…."""
+    import math
+    if v <= 0: return 1
+    step = v / 5; mag = 10 ** math.floor(math.log10(step))
+    for m in (1, 2, 2.5, 5, 10):
+        if step <= m * mag + 1e-9: return m * mag * 5
+    return 10 * mag * 5
 def points(i):
     # body points under a heading: plain text, small numbered discs, no box (review rule 2/3)
     lis = ''.join(f'<div class="pt"><i>{n+1}</i><span>{E(t)}</span></div>' for n, t in enumerate(i['items']))
@@ -265,6 +280,7 @@ def frame_html(f, look, edit=False, all_frames=None):
         body_cls = (body_cls + ' studio-edit-mode').strip()
     flow, absol, js = [], [], []
     has_head = False
+    head_fss = None
 
     def _layer_label(it):
         t = it.get('t') or '?'
@@ -287,7 +303,25 @@ def frame_html(f, look, edit=False, all_frames=None):
         'text': 'font', 'label': 'font', 'callout': 'font', 'num': 'font', 'pill': 'font',
         'result_pill': 'font', 'htab': 'font', 'title': 'font',
     }
+    placed = []   # x-ranges of the floor-standing assets / people placed so far
+
+    def _keep_apart(o):
+        """Slide a floor-standing item sideways off the ones already placed (it keeps its size)."""
+        if 'y' in it_now or 'x' not in o or 'w' not in o:
+            return o
+        lo, hi = (160, 1760) if fss else ((60, 900) if side == 'right' else (1020, 1860))
+        x, w = o['x'], o['w']
+        def hits(a):
+            return any(min(a + w, b + bw) - max(a, b) > 0.25 * min(w, bw) for b, bw in placed)
+        if hits(x):
+            for cand in sorted({b + bw + 24 for b, bw in placed} | {b - w - 24 for b, bw in placed}, key=lambda c: abs(c - x)):
+                if lo <= cand and cand + w <= hi and not hits(cand):
+                    o = {**o, 'x': round(cand)}; break
+        placed.append((o['x'], o['w']))
+        return o
+
     for idx, it in enumerate(f['items']):
+        it_now = it
         if it.get('t') == 'heading':
             it = {**it, 't': 'htab', 'text': it.get('text') or it.get('heading', '')}
         if it.get('t') == 'formula':
@@ -331,7 +365,7 @@ def frame_html(f, look, edit=False, all_frames=None):
                         o = {k: v for k, v in it.items() if k not in ('t', 'src', 'color', 'hair', 'hat', 'moustache', 'bindi', 'facing', 'item', 'pose', 'small', 'doodle')}
                         o = normalize_asset_opts(o, kit, visible_box)
                     else:
-                        o = floor_asset(kit, 'fss' if fss else 'anchor', x, h, it.get('w'), it.get('z'))
+                        o = _keep_apart(floor_asset(kit, 'fss' if fss else 'anchor', x, h, it.get('w'), it.get('z')))
                     if plan and plan.flip:
                         o['flip'] = True
                     elif it.get('facing') == 'left':
@@ -360,7 +394,7 @@ def frame_html(f, look, edit=False, all_frames=None):
                     o = {k: v for k, v in it.items() if k not in ('t', 'src')}
                     o = normalize_asset_opts(o, src, visible_box)
                 else:              # stand it on the floor, sized by role
-                    o = floor_asset(it['src'], 'fss' if fss else 'anchor', it.get('x', 140), it.get('h'), it.get('w'), it.get('z'))
+                    o = _keep_apart(floor_asset(it['src'], 'fss' if fss else 'anchor', it.get('x', 140), it.get('h'), it.get('w'), it.get('z')))
                 if edit:
                     o['specIdx'] = idx
                     o['layerType'] = lt
@@ -370,20 +404,44 @@ def frame_html(f, look, edit=False, all_frames=None):
         if t == 'cards' and edit:
             absol.append(cards(it, edit=True, spec_idx=idx, layer_attrs=data_attrs.strip()))
             continue
-        h = R[t](it) if t != 'cards' else cards(it)
+        ctx = {**it, '_anchor': not fss, '_beside': bool(f.get('person_left'))}
+        h = R[t](ctx) if t != 'cards' else cards(ctx)
         if 'x' in it or 'y' in it:
             cls = 'abs z studio-editable' if edit else 'abs z'
             absol.append(f'<div class="{cls}"{data_attrs} style="left:{it.get("x",0)}px;top:{it.get("y",0)}px">{h}</div>')
         else:
-            flow.append(f'<div class="studio-editable"{data_attrs}>{h}</div>' if edit else h)
+            piece = f'<div class="studio-editable"{data_attrs}>{h}</div>' if edit else h
+            if fss and t == 'htab' and not flow and head_fss is None:
+                head_fss = piece      # FSS heading: always the same place at the top
+            else:
+                flow.append(piece)
     # flow container = the safe content zone
+    gap = f.get('gap', 30)
     if fss:
-        zone = 'left:{}px;top:40px;width:{}px;align-items:center'.format(*( (480, 1340) if f.get('person_left') else (160, 1600)))
+        L, W = (480, 1340) if f.get('person_left') else (160, 1600)
+        if head_fss is not None and 'top' not in f:
+            # heading pinned top-centre; the content is centred in the space between it and the floor, so a short
+            # list or table sits in the middle of the frame instead of hugging the heading with the bottom half empty
+            body = ''.join(flow)
+            return _page(f, plate, body_cls, mode, side,
+                f'<div class="abs z flow-head" style="left:{L}px;top:40px;width:{W}px;display:flex;justify-content:center">{head_fss}</div>'
+                f'<div class="abs z flow fss-body" style="left:{L}px;top:{FSS_BODY[0]}px;width:{W}px;height:{FSS_BODY[1] - FSS_BODY[0]}px;'
+                f'display:flex;flex-direction:column;align-items:center;justify-content:safe center;gap:{gap}px">{body}</div>',
+                absol, js, f, look, fss, warm, side)
+        if head_fss is not None:
+            flow.insert(0, head_fss)
+        zone = 'left:{}px;top:{}px;width:{}px;align-items:center'.format(L, f.get('top', 40), W)
     else:
         top = f.get('top', 200 if has_head else 110)
         zone = 'left:{}px;top:{}px;width:{}px;align-items:flex-start'.format(140 if side == 'right' else 1020, top, f.get('zone_w', 760))
-    gap = f.get('gap', 30)
     flow_html = f'<div class="abs z flow" style="{zone};display:flex;flex-direction:column;gap:{gap}px">{"".join(flow)}</div>'
+    return _page(f, plate, body_cls, mode, side, flow_html, absol, js, f, look, fss, warm, side)
+
+
+FSS_BODY = (175, 975)   # FSS content area under the heading, above the floor's front edge
+
+
+def _page(f, plate, body_cls, mode, side, flow_html, absol, js, _f, look, fss, warm, _side):
     # dressing + topic prop
     js.insert(0, f"V.decor({{theme:'{'warm' if warm else 'blue'}'}});" if fss else f"V.anchorDecor({{side:'{side}'}});")
     types = {it['t'] for it in f['items']}
@@ -415,6 +473,7 @@ CHECK_JS = r'''() => {
      if(side==='right' && r.right>lim) W.push(`covers anchor: "${t}" right edge ${r.right|0} > ${lim}`);
      if(side==='left' && r.left<1920-lim) W.push(`covers anchor: "${t}" left edge ${r.left|0} < ${1920-lim}`);}
    if(e.scrollWidth>e.clientWidth+2 && getComputedStyle(e).overflow!=='visible') W.push(`text clipped: "${t}"`);
+   const fb=e.closest('.fss-body'); if(fb){ const b=fb.getBoundingClientRect(); if(r.top<b.top-1||r.bottom>b.bottom+1) W.push(`too tall for the space under the heading: "${t}" (shorten it, or split the frame)`); }
    const cs=getComputedStyle(e);
    for(const c of [cs.color, cs.backgroundColor]){ const m=c.match(/rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?/); if(!m) continue;
      const [r,g,b,a]=[+m[1],+m[2],+m[3],m[4]===undefined?1:+m[4]]; if(a<0.9) continue;
