@@ -386,6 +386,49 @@ GRAPHIC_BATCH_TOOL = {
         "required": ["frames"],
     },
 }
+def _edit_z1_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line, storyboard_full, gen_entries):
+    """Zero1 Hindi frames are toy-world shots (type / bg plate / words / gen:<key> pictures), not the
+    heading-and-points items of the other kits, so they get their own edit brief."""
+    import base64
+    tool = "submit_frame"
+    head = (
+        f"Storyboard line for this frame: {storyboard_line or '(none)'}\n"
+        f"Storyboard context:\n{(storyboard_full or '')[:6000] or '(none)'}\n\n"
+        f"Current frame JSON (Zero1 Hindi kit, same format as spec.frames[]):\n{json.dumps(frame, ensure_ascii=False)}\n\n"
+        f"Pictures this frame uses now (spec.gen entries):\n{json.dumps(gen_entries, ensure_ascii=False)}\n\n"
+    )
+    if regenerate:
+        msg = head + (
+            "REGENERATE this frame for the same beat: keep its id, its VO moment and every on-screen word and number "
+            "exactly. Make it a fresh, better shot in the kit's style (camera, set, Arjun's pose, layout), following "
+            "the skill's frame types and positions.\n"
+        )
+    else:
+        msg = head + f"Change requested by the team member: {ask}\nKeep everything the request doesn't mention.\n"
+    msg += (
+        "Rules:\n"
+        "- Pictures: refer to them as \"gen:<key>\" exactly like the current frame. For every key the returned frame "
+        "uses, put its full entry (prompt, and cutout / aspect if any) under frame.gen.<key>; reuse the current keys "
+        "and improve their prompts rather than inventing new ones, and add a new key only if the shot needs a new "
+        "picture. Prompts never contain words, numbers or ₹ amounts: text is a kit layer.\n"
+        "- Text: each word or number appears once (don't repeat a word in both `text` and `sub`), stays inside the "
+        "1920×1080 frame and doesn't sit on top of another text block or of Arjun's face.\n"
+        "Return the whole frame via submit_frame only."
+    )
+    if _tool_choice(tool)["type"] == "auto":
+        msg += f"\n\nRespond only by calling the {tool} tool."
+    content = msg
+    if ref_image:
+        media, raw = ref_image
+        content = [{"type": "image", "source": {"type": "base64", "media_type": media,
+                                                "data": base64.standard_b64encode(raw).decode()}},
+                   {"type": "text", "text": msg + "\nThe attached image is a reference for this shot: match what it "
+                                                  "shows, in the kit's own look (redraw it, never paste it)."}]
+    r = _messages_create(max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
+                         tool_choice=_tool_choice(tool), messages=[{"role": "user", "content": content}])
+    return _tool_input(r, tool)["frame"]
+
+
 FRAME_TOOL = {
     "name": "submit_frame",
     "description": "Return the edited frame object (same id unless asked to rename).",
@@ -1775,10 +1818,14 @@ def edit_frame(
     regenerate: bool = False,
     storyboard_line: str = "",
     storyboard_full: str = "",
+    gen_entries: dict | None = None,
 ) -> dict:
     import base64
 
     tool = "submit_frame"
+    if is_z1_hindi_theme(theme_dir):
+        return _edit_z1_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line, storyboard_full,
+                              gen_entries or {})
     if is_mf_theme(theme_dir) or is_zo_product_theme(theme_dir):
         kit = "Product IP" if is_zo_product_theme(theme_dir) else "MF"
         sb_excerpt = (storyboard_full or "")[:6000]

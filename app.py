@@ -75,6 +75,39 @@ async def _restore_generated_assets():
         print(f"asset_gen: restored {n} generated asset(s)")
 
 
+def _z1_frame_gen(spec: dict, frame: dict) -> dict:
+    """The spec.gen entries (picture prompts) a Zero1 Hindi frame uses, without file paths."""
+    gen = (spec or {}).get("gen") or {}
+    keys = set(z1_plates.GEN_RE.findall(json.dumps(frame, ensure_ascii=False)))
+    return {k: {kk: vv for kk, vv in gen[k].items() if kk != "file"} for k in sorted(keys) if isinstance(gen.get(k), dict)}
+
+
+async def _z1_after_edit(pid: int, spec: dict, new: dict, regenerate: bool) -> tuple[dict, dict]:
+    """After Claude edits a Zero1 Hindi frame: its picture prompts (frame.gen) go into spec.gen, where the kit
+    reads them, and the pictures are made: new or re-prompted ones always, every one of the frame's on
+    Regenerate (fresh images). Before, they stayed in the frame and showed as dashed placeholders."""
+    new = dict(new)
+    fg = new.pop("gen", None) or {}
+    new.pop("_gen", None)
+    gen = dict(spec.get("gen") or {})
+    changed = []
+    for k, e in fg.items():
+        if not isinstance(e, dict) or not e.get("prompt"):
+            continue
+        old = gen.get(k) if isinstance(gen.get(k), dict) else {}
+        if old.get("prompt") != e.get("prompt") or not old:
+            gen[k] = {**{kk: vv for kk, vv in e.items() if kk != "file"}}
+            changed.append(k)
+    spec = {**spec, "gen": gen}
+    used = sorted(set(z1_plates.GEN_RE.findall(json.dumps(new, ensure_ascii=False))))
+    todo = [k for k in used if isinstance(gen.get(k), dict) and gen[k].get("prompt")
+            and (regenerate or k in changed or k in z1_plates.pending({**spec, "frames": [new]}))]
+    if todo and z1_plates.available():
+        filled, _report = await asyncio.to_thread(z1_plates.fill, {**spec, "frames": [new]}, print, regenerate, todo, _pdf_ref(pid))
+        spec = {**spec, "gen": filled.get("gen") or gen}
+    return new, spec
+
+
 async def _db_call(fn, *a, **kw):
     """A database call from an async handler, run on a worker thread: the server keeps answering everyone else
     while it waits (a slow query used to freeze every page, seen in browsers as ERR_HTTP2_PING_FAILED)."""
@@ -1311,7 +1344,10 @@ async def edit(pid: int, fid: str, req: Request):
             regenerate=regenerate,
             storyboard_line=sb_line,
             storyboard_full=storyboard_full,
+            gen_entries=_z1_frame_gen(spec, before) if z1_plates.is_theme(p["theme"]) else None,
         )
+        if z1_plates.is_theme(p["theme"]):
+            new, spec = await _z1_after_edit(pid, spec, new, regenerate)
         mf_item_ix = mf_path_item_index(mf_path) if mf_path else None
         if item_index is not None and not is_mf_theme_name(p["theme"]):
             if is_hindi_fa_theme_name(p["theme"]):
@@ -1328,7 +1364,7 @@ async def edit(pid: int, fid: str, req: Request):
                 new = strip_upload_assets(new, ref_src)
         elif flat_paste and ref_src and replace_flag and not is_mf_theme_name(p["theme"]):
             new = apply_flat_paste_replace(new, ref_src, ask, True)
-        elif regenerate and not ref_src:
+        elif z1_plates.is_theme(p["theme"]) or (regenerate and not ref_src):
             pass
         elif mf_path and is_mf_theme_name(p["theme"]) and not ref_src:
             pass
