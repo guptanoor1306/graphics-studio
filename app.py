@@ -75,6 +75,12 @@ async def _restore_generated_assets():
         print(f"asset_gen: restored {n} generated asset(s)")
 
 
+async def _db_call(fn, *a, **kw):
+    """A database call from an async handler, run on a worker thread: the server keeps answering everyone else
+    while it waits (a slow query used to freeze every page, seen in browsers as ERR_HTTP2_PING_FAILED)."""
+    return await asyncio.to_thread(fn, *a, **kw)
+
+
 @app.middleware("http")
 async def cache_headers(request, call_next):
     response = await call_next(request)
@@ -505,13 +511,13 @@ async def create(req: Request):
     b = await req.json()
     look = {**_DEFAULT_LOOK, **(b.get("look") or {})}
     try:
-        pid = insert_project(
+        pid = (await _db_call(insert_project, 
             b["name"], b.get("theme", "varsity-english"), b.get("script", ""),
             json.dumps(look), who(req), time.time(),
-        )
+        ))
     except Exception as e:
         raise HTTPException(500, detail=f"Database: {e}") from e
-    return load(pid)
+    return (await _db_call(load, pid))
 
 @app.get("/api/projects/{pid}")
 def get(pid: int): return load(pid)
@@ -555,22 +561,22 @@ async def la_link_route(req: Request):
         raise HTTPException(400, "Missing LA Studio project id")
     pid = b.get("project_id")
     if pid:
-        load(int(pid))
+        (await _db_call(load, int(pid)))
     else:
         theme = b.get("theme") or ""
         if theme not in themes():
             raise HTTPException(400, "Pick a kit")
         name = (b.get("name") or "").strip()[:120] or "Untitled"
         look = {**_DEFAULT_LOOK, **({"look_line": ""} if theme != "varsity-english" else {})}
-        pid = insert_project(name, theme, "", json.dumps(look), who(req), time.time())
-    la_link.link(la, int(pid), b.get("la_name") or "")
-    return load(int(pid))
+        pid = (await _db_call(insert_project, name, theme, "", json.dumps(look), who(req), time.time()))
+    (await _db_call(la_link.link, la, int(pid), b.get("la_name") or ""))
+    return (await _db_call(load, int(pid)))
 
 
 @app.post("/api/la/unlink")
 async def la_unlink_route(req: Request):
     b = await req.json()
-    la_link.unlink(str(b.get("la_project") or ""))
+    (await _db_call(la_link.unlink, str(b.get("la_project") or "")))
     return {"ok": True}
 
 
@@ -580,15 +586,20 @@ def la_project_lookup(la_project: str):
     return {"project_id": pid}
 
 
+_INLINE_SLOTS = threading.BoundedSemaphore(int(os.environ.get("STUDIO_INLINE_MAX", "2")))
+
+
 @app.get("/api/projects/{pid}/frames/{fid}/export.html", response_class=HTMLResponse)
 def export_frame_html(pid: int, fid: str):
     """One frame as a self-contained HTML (fonts and pictures inlined): what LA Studio's Import Graphics turns
-    into an exact layered PSD."""
+    into an exact layered PSD. At most STUDIO_INLINE_MAX (2) are built at once: each inlines megabytes of
+    pictures, and a burst of them used to starve every other request."""
     p = load(pid)
     pages = _export_pages(p, {fid})
     if not pages:
         raise HTTPException(404, "frame not found or not a graphic")
-    return HTMLResponse(exporter.inline_assets(pages[0][1], THEMES / p["theme"]))
+    with _INLINE_SLOTS:
+        return HTMLResponse(exporter.inline_assets(pages[0][1], THEMES / p["theme"]))
 
 
 @app.delete("/api/projects/{pid}")
@@ -607,7 +618,7 @@ async def make_storyboard(pid: int, req: Request):
     bytes sent, so stream a space every 15 s and send the JSON at the end (leading spaces are valid JSON).
     Errors after streaming starts come back as {"__stream_error": "..."}; the UI's api() raises on it."""
     b = await req.json()
-    load(pid)  # 404 before streaming starts
+    (await _db_call(load, pid))  # 404 before streaming starts
     return _stream_json(_make_storyboard(pid, b, who(req)))
 
 
@@ -732,7 +743,7 @@ async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: st
             except HTTPException as he:
                 e = RuntimeError(he.detail)
             if _live(pid, run):              # put the previous frames back
-                save(pid, user, "storyboard failed", version=False, spec=before.get("spec"), storyboard=before.get("storyboard") or "")
+                (await _db_call(save, pid, user, "storyboard failed", version=False, spec=before.get("spec"), storyboard=before.get("storyboard") or ""))
                 _bump(pid, run)
             _progress(pid, run, state="error", msg=f"Storyboard failed: {e}")
             return
@@ -741,7 +752,7 @@ async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: st
         sb = out.get("storyboard") or ""
         spec = out.get("spec") or {}
         print(f"[z1 {pid}] storyboard {len(spec.get('frames') or [])} frames {time.time() - t0:.0f}s")
-        save(pid, user, "", version=False, storyboard=sb, spec=spec)
+        (await _db_call(save, pid, user, "", version=False, storyboard=sb, spec=spec))
         _bump(pid, run)
         n_plates = len(z1_plates.pending(spec))
         _progress(pid, run, stage="plates", msg=f"All {len(spec.get('frames') or [])} frames written. Making {n_plates} plate(s)…"
@@ -765,14 +776,14 @@ async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: st
         critique_report: dict = {}
         try:
             spec, critique_report = await asyncio.to_thread(
-                _critique_spec, {**load(pid), "look": look}, spec, sb, script, _with_assets(theme, None, asset_report)
+                _critique_spec, {**(await _db_call(load, pid)), "look": look}, spec, sb, script, _with_assets(theme, None, asset_report)
             )
         except Exception as e:
             critique_report = {"error": str(e)}
         if not _live(pid, run):
             return
-        save(pid, user, "generated storyboard" + _notes_suffix(critique_report, asset_report), script=script,
-             look=look, storyboard=sb, spec=spec)
+        (await _db_call(save, pid, user, "generated storyboard" + _notes_suffix(critique_report, asset_report), script=script,
+             look=look, storyboard=sb, spec=spec))
         _bump(pid, run)
         warn = claude_client.spec_quality_issues(spec, sb, theme=theme)
         warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
@@ -792,17 +803,17 @@ async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: st
 
 
 async def _make_storyboard(pid: int, b: dict, user: str):
-    p = load(pid)
+    p = (await _db_call(load, pid))
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
     if z1_plates.is_theme(p["theme"]) and os.environ.get("STUDIO_LIVE_PREVIEW", "1") != "0":
         before = {"spec": p.get("spec"), "storyboard": p.get("storyboard") or ""}
-        save(pid, user, "storyboard started", script=script, look=look,
-             **({"spec": p["spec"]} if p.get("spec") else {}))       # keeps the old frames one Undo away
+        (await _db_call(save, pid, user, "storyboard started", script=script, look=look,
+             **({"spec": p["spec"]} if p.get("spec") else {})))       # keeps the old frames one Undo away
         run = uuid.uuid4().hex
         PROGRESS[pid] = {"run": run, "state": "running", "stage": "writing", "msg": "Writing the storyboard…",
                          "rev": 0, "started": time.time()}
         asyncio.create_task(_z1_job(pid, user, run, b, look, script, before))
-        return {**load(pid), "background": True}
+        return {**(await _db_call(load, pid)), "background": True}
     try:
         transcript = _episode_transcript_for_project(pid)
         out = await asyncio.to_thread(
@@ -854,11 +865,11 @@ async def _make_storyboard(pid: int, b: dict, user: str):
     except Exception as e:  # never lose a generated spec to a critique failure
         critique_report = {"error": str(e)}
     note = "generated storyboard" + _notes_suffix(critique_report, asset_report)
-    save(pid, user, note, script=script, look=plook, storyboard=sb, spec=spec)
+    (await _db_call(save, pid, user, note, script=script, look=plook, storyboard=sb, spec=spec))
     warn = claude_client.spec_quality_issues(spec, sb, theme=theme)
     warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
     warn += [f"asset not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
-    return {**load(pid), "usage": out.get("usage"), "spec_warnings": warn,
+    return {**(await _db_call(load, pid)), "usage": out.get("usage"), "spec_warnings": warn,
             "critique": critique_report, "assets": asset_report}
 
 
@@ -981,7 +992,7 @@ def episode_audio_status(pid: int):
 
 @app.post("/api/projects/{pid}/episode-audio")
 async def upload_episode_audio(pid: int, req: Request, file: UploadFile = File(...)):
-    load(pid)
+    (await _db_call(load, pid))
     raw = await file.read()
     fn = (file.filename or "episode.mp3").lower()
     try:
@@ -995,8 +1006,8 @@ async def upload_episode_audio(pid: int, req: Request, file: UploadFile = File(.
         raise HTTPException(507, str(e)) from e
     except RuntimeError as e:
         raise HTTPException(502, str(e)) from e
-    save(pid, who(req), "upload episode audio")
-    return {**load(pid), "ok": True}
+    (await _db_call(save, pid, who(req), "upload episode audio"))
+    return {**(await _db_call(load, pid)), "ok": True}
 
 
 @app.get("/api/projects/{pid}/storyboard-pdf")
@@ -1012,7 +1023,7 @@ def has_storyboard_pdf(pid: int):
 
 @app.post("/api/projects/{pid}/storyboard-pdf")
 async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(...)):
-    load(pid)
+    (await _db_call(load, pid))
     ct = (file.content_type or "").split(";")[0].strip().lower()
     fn = (file.filename or "").lower()
     if ct not in ("application/pdf", "application/octet-stream", "binary/octet-stream", "") and not fn.endswith(
@@ -1026,23 +1037,23 @@ async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(
         raise HTTPException(400, str(e)) from e
     except OSError as e:
         raise HTTPException(507, str(e)) from e
-    p = load(pid)
+    p = (await _db_call(load, pid))
     orig = (file.filename or "storyboard.pdf").strip() or "storyboard.pdf"
     look = {**(p.get("look") or {}), "sb_import": "pdf", "storyboard_pdf_name": orig}
-    save(pid, who(req), "upload storyboard PDF", look=look)
-    out = load(pid)
+    (await _db_call(save, pid, who(req), "upload storyboard PDF", look=look))
+    out = (await _db_call(load, pid))
     return {**out, "ok": True, "has_pdf": _storyboard_pdf_on_disk(pid)}
 
 
 @app.post("/api/projects/{pid}/storyboard-pdf/batch")
 async def storyboard_pdf_batch_route(pid: int, req: Request):
     b = await req.json()
-    load(pid)
+    (await _db_call(load, pid))
     return _stream_json(_storyboard_pdf_batch(pid, b, who(req)))
 
 
 async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
-    p = load(pid)
+    p = (await _db_call(load, pid))
     try:
         pdf_bytes = storyboard_pdf.read_pdf(pid)
     except FileNotFoundError:
@@ -1077,7 +1088,7 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
         existing_n = len((p.get("spec") or {}).get("frames") or [])
         if not raw and existing_n:
             return {
-                **load(pid),
+                **(await _db_call(load, pid)),
                 "pdf_progress": out.get("pdf_progress") or "No more graphic frames in the PDF.",
                 "frames_added": 0,
                 "spec_warnings": [],
@@ -1116,7 +1127,7 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
             )
         except Exception as e:
             critique_report = {"error": str(e)}
-    save(
+    (await _db_call(save, 
         pid,
         user,
         f"PDF storyboard batch (+{out['frames_added']} frames)" + _notes_suffix(critique_report, asset_report),
@@ -1124,12 +1135,12 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
         look=plook,
         storyboard=storyboard,
         spec=spec,
-    )
+    ))
     warn = claude_client.spec_quality_issues(spec, storyboard, theme=p["theme"])
     warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
     warn += [f"asset not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
     return {
-        **load(pid),
+        **(await _db_call(load, pid)),
         "pdf_progress": out.get("pdf_progress"),
         "frames_added": out.get("frames_added"),
         "frames_dropped": out.get("frames_dropped") or 0,
@@ -1143,7 +1154,7 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
 async def fill_assets_route(pid: int, req: Request):
     """Generate images for every remaining "TODO:" asset in an existing project ({"redo": true} also
     remakes the images generated earlier)."""
-    load(pid)
+    (await _db_call(load, pid))
     user = who(req)
     try:
         redo = bool((await req.json()).get("redo"))
@@ -1151,7 +1162,7 @@ async def fill_assets_route(pid: int, req: Request):
         redo = False
 
     async def job():
-        p = load(pid)
+        p = (await _db_call(load, pid))
         if z1_plates.is_theme(p["theme"]):
             spec, report = await asyncio.to_thread(z1_plates.fill, p.get("spec") or {}, print, redo, None, _pdf_ref(pid))
             left = len(z1_plates.pending(spec))
@@ -1160,8 +1171,8 @@ async def fill_assets_route(pid: int, req: Request):
             left = len(asset_gen.todo_descriptions(spec))
         if report["filled"]:
             verb = "regenerated" if redo else "generated"
-            save(pid, user, f"{verb} {len(report['filled'])} asset(s)", spec=spec)
-        return {**load(pid), "assets": report, "todo_left": left}
+            (await _db_call(save, pid, user, f"{verb} {len(report['filled'])} asset(s)", spec=spec))
+        return {**(await _db_call(load, pid)), "assets": report, "todo_left": left}
     return _stream_json(job())
 
 
@@ -1169,19 +1180,19 @@ async def fill_assets_route(pid: int, req: Request):
 async def update(pid: int, req: Request):
     b = await req.json(); fields = {k: b[k] for k in ("name", "storyboard", "spec", "look", "theme", "script") if k in b}
     if isinstance(fields.get("spec"), dict) and isinstance(fields["spec"].get("gen"), dict):
-        saved_gen = ((load(pid).get("spec") or {}).get("gen") or {})
+        saved_gen = (((await _db_call(load, pid)).get("spec") or {}).get("gen") or {})
         for k, v in fields["spec"]["gen"].items():
             s = saved_gen.get(k) or {}
             if isinstance(v, dict) and not v.get("file") and s.get("file") and s.get("prompt") == v.get("prompt"):
                 v["file"] = s["file"]
     if "look" in fields:
-        p = load(pid); spec = fields.get("spec") or p["spec"]
+        p = (await _db_call(load, pid)); spec = fields.get("spec") or p["spec"]
         if spec:
             merged = effective_look({**p, "look": fields["look"], "spec": spec})
             spec["look"] = merged
             fields["look"] = merged
             fields["spec"] = spec
-    save(pid, who(req), b.get("note", "manual edit"), **fields); return load(pid)
+    (await _db_call(save, pid, who(req), b.get("note", "manual edit"), **fields)); return (await _db_call(load, pid))
 
 def _save_frame_reference(theme: str, pid: int, fid: str, raw: bytes) -> tuple[str, bytes]:
     from PIL import Image
@@ -1201,7 +1212,7 @@ def _save_frame_reference(theme: str, pid: int, fid: str, raw: bytes) -> tuple[s
 
 @app.post("/api/projects/{pid}/frames/{fid}/edit")
 async def edit(pid: int, fid: str, req: Request):
-    p = load(pid)
+    p = (await _db_call(load, pid))
     spec = p["spec"]
     i = next((k for k, f in enumerate(spec["frames"]) if f["id"] == fid), None)
     if i is None:
@@ -1278,7 +1289,7 @@ async def edit(pid: int, fid: str, req: Request):
     if item_index is not None and ref_src:
         new = apply_layer_reference_replace(before, item_index, ref_src)
         spec["frames"][i] = new
-        save(pid, who(req), f"{fid}: layer ref #{item_index}", spec=spec)
+        (await _db_call(save, pid, who(req), f"{fid}: layer ref #{item_index}", spec=spec))
         return new
 
     edit_frame_in = copy.deepcopy(before)
@@ -1335,7 +1346,7 @@ async def edit(pid: int, fid: str, req: Request):
         new = normalize_cards_items(new)
     spec["frames"][i] = new
     note = f"{fid}: {(ask or 'reference')[:80]}"
-    save(pid, who(req), note, spec=spec)
+    (await _db_call(save, pid, who(req), note, spec=spec))
     return new
 
 @app.post("/api/projects/{pid}/undo")
@@ -1358,14 +1369,14 @@ def history(pid: int):
 async def plate(pid: int, req: Request, file: UploadFile = File(...)):
     from PIL import Image
     import io
-    p = load(pid); name = f"user_{pid}"
+    p = (await _db_call(load, pid)); name = f"user_{pid}"
     cw, ch = theme_canvas.canvas_for_theme(p["theme"])
     Image.open(io.BytesIO(await file.read())).convert("RGB").resize((cw, ch)).save(
         THEMES / p["theme"] / "assets/plates" / f"{name}.png"
     )
-    look = {**p["look"], "plate": name}; save(pid, who(req), "uploaded anchor plate", look=look)
-    if p["spec"]: p["spec"]["look"]["plate"] = name; save(pid, who(req), "plate on spec", spec=p["spec"])
-    return load(pid)
+    look = {**p["look"], "plate": name}; (await _db_call(save, pid, who(req), "uploaded anchor plate", look=look))
+    if p["spec"]: p["spec"]["look"]["plate"] = name; (await _db_call(save, pid, who(req), "plate on spec", spec=p["spec"]))
+    return (await _db_call(load, pid))
 
 @app.get("/preview/{pid}/{fid}", response_class=HTMLResponse)
 def preview(pid: int, fid: str, edit: int = 0):
@@ -1396,7 +1407,7 @@ async def storyboard_ref(pid: int, req: Request, file: UploadFile = File(...)):
     from PIL import Image
     import io
 
-    p = load(pid)
+    p = (await _db_call(load, pid))
     refs = list((p.get("look") or {}).get("ref_images") or [])
     if len(refs) >= 10:
         raise HTTPException(400, "Maximum 10 storyboard reference images")
@@ -1407,8 +1418,8 @@ async def storyboard_ref(pid: int, req: Request, file: UploadFile = File(...)):
     Image.open(io.BytesIO(await file.read())).convert("RGBA").save(dest / f"sbref_{pid}_{n}.png", "PNG")
     refs.append(rel)
     look = {**p["look"], "ref_images": refs}
-    save(pid, who(req), "storyboard ref", look=look)
-    return load(pid)
+    (await _db_call(save, pid, who(req), "storyboard ref", look=look))
+    return (await _db_call(load, pid))
 
 
 @app.get("/api/projects/{pid}/look-ref")
@@ -1430,22 +1441,22 @@ async def delete_storyboard_ref(pid: int, req: Request):
     rel = (b.get("path") or "").strip()
     if not rel or ".." in rel or not rel.startswith("uploads/sbref_"):
         raise HTTPException(400, "Invalid reference path")
-    p = load(pid)
+    p = (await _db_call(load, pid))
     refs = list((p.get("look") or {}).get("ref_images") or [])
     if rel not in refs:
         raise HTTPException(404, "Reference not found")
     refs = [r for r in refs if r != rel]
     look = {**p["look"], "ref_images": refs}
-    save(pid, who(req), "remove storyboard ref", look=look)
+    (await _db_call(save, pid, who(req), "remove storyboard ref", look=look))
     fp = THEMES / p["theme"] / "assets" / rel
     if fp.is_file():
         fp.unlink()
-    return load(pid)
+    return (await _db_call(load, pid))
 
 @app.get("/api/projects/{pid}/check")
 async def check(pid: int):
     from playwright.async_api import async_playwright
-    p = load(pid); m = builder(p["theme"]); warns = []
+    p = (await _db_call(load, pid)); m = builder(p["theme"]); warns = []
     try:
         async with async_playwright() as pw:
             b = await exporter.launch_chromium(pw)
@@ -1747,7 +1758,7 @@ def export_job_file(pid: int, job_id: str):
 
 @app.get("/api/projects/{pid}/export")
 async def export(pid: int, png: int = 1, only: str = ""):
-    p = load(pid)
+    p = (await _db_call(load, pid))
     try:
         data, fn = await asyncio.to_thread(_export_zip_payload, p, png, only, None)
     except HTTPException:
@@ -1765,7 +1776,7 @@ async def export(pid: int, png: int = 1, only: str = ""):
 
 @app.get("/api/projects/{pid}/frames/{fid}/export.png")
 async def export_frame_png(pid: int, fid: str):
-    p = load(pid)
+    p = (await _db_call(load, pid))
     pages = _export_pages(p, {fid})
     try:
         cw, ch = theme_canvas.canvas_for_theme(p["theme"])

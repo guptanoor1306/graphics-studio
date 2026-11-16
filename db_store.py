@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
@@ -112,6 +113,23 @@ class _Conn:
         self._raw.close()
 
 
+_SCHEMA_LOCK = threading.Lock()
+_SCHEMA_DONE: set[str] = set()
+
+
+def once(key: str, conn, fn) -> None:
+    """Run a schema statement (CREATE TABLE IF NOT EXISTS …) once per process and database, not on every query:
+    per-query DDL cost a round trip each time and could queue behind other sessions' locks."""
+    k = f"{database_url() or SQLITE_PATH}:{key}"
+    if k in _SCHEMA_DONE:
+        return
+    with _SCHEMA_LOCK:
+        if k in _SCHEMA_DONE:
+            return
+        fn(conn)
+        _SCHEMA_DONE.add(k)
+
+
 def init_schema(conn: _Conn) -> None:
     if conn._pg:
         conn._raw.cursor().execute(_SCHEMA_PG)
@@ -120,10 +138,43 @@ def init_schema(conn: _Conn) -> None:
         conn._raw.executescript(_SCHEMA_SQLITE)
 
 
+_POOL = None
+_POOL_LOCK = threading.Lock()
+
+
+def _pool(url: str):
+    """A small pool of open Postgres connections shared by every request (STUDIO_DB_POOL, default 12).
+    Opening a fresh TLS connection per query was slow, and many requests at once (a page of frame previews,
+    several people) could pile up waiting for connections. None when psycopg_pool is not installed."""
+    global _POOL
+    if _POOL is None:
+        with _POOL_LOCK:
+            if _POOL is None:
+                try:
+                    from psycopg.rows import dict_row
+                    from psycopg_pool import ConnectionPool
+                except ImportError:
+                    return None
+                kwargs = {"row_factory": dict_row}
+                if "sslmode=" not in url:
+                    kwargs["connect_timeout"] = 30
+                _POOL = ConnectionPool(url, min_size=1, max_size=int(os.environ.get("STUDIO_DB_POOL", "12")),
+                                       kwargs=kwargs, timeout=60, max_idle=300,
+                                       check=ConnectionPool.check_connection, open=True)
+    return _POOL
+
+
 @contextmanager
 def connect() -> Iterator[_Conn]:
     url = database_url()
     if url:
+        pool = _pool(url)
+        if pool is not None:
+            with pool.connection() as raw:        # commits on success, rolls back on error, returns it to the pool
+                conn = _Conn(raw, True)
+                once("core", conn, init_schema)
+                yield conn
+            return
         import psycopg
         from psycopg.rows import dict_row
 
@@ -132,7 +183,7 @@ def connect() -> Iterator[_Conn]:
             kwargs["connect_timeout"] = 30
         raw = psycopg.connect(url, **kwargs)
         conn = _Conn(raw, True)
-        init_schema(conn)
+        once("core", conn, init_schema)
         try:
             yield conn
         finally:
@@ -144,7 +195,7 @@ def connect() -> Iterator[_Conn]:
         raw.execute("pragma journal_mode=WAL")
         raw.execute("pragma busy_timeout=30000")
         conn = _Conn(raw, False)
-        init_schema(conn)
+        once("core", conn, init_schema)
         try:
             yield conn
         finally:

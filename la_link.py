@@ -50,8 +50,12 @@ def _db():
 
 
 def _ensure(c) -> None:
-    c.execute(_SCHEMA)
-    c.commit()
+    from db_store import once
+
+    def make(conn):
+        conn.execute(_SCHEMA)
+        conn.commit()
+    once("la_links", c, make)
 
 
 def link(la_project: str, project_id: int, la_name: str = "") -> None:

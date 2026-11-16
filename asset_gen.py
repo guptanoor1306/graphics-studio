@@ -53,8 +53,12 @@ def _db():
 
 
 def _ensure_table(c) -> None:
-    c.execute(_SCHEMA)
-    c.commit()
+    from db_store import once
+
+    def make(conn):
+        conn.execute(_SCHEMA)
+        conn.commit()
+    once("generated_assets", c, make)
 
 
 STYLE_VERSION = "2"  # bump when generation changes, so images made the old way are not reused
