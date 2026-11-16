@@ -581,14 +581,25 @@ def la_project_lookup(la_project: str):
 
 
 @app.get("/api/projects/{pid}/frames/{fid}/export.html", response_class=HTMLResponse)
-def export_frame_html(pid: int, fid: str):
+def export_frame_html(pid: int, fid: str, skip: str = ""):
     """One frame as a self-contained HTML (fonts and pictures inlined): what LA Studio's Import Graphics turns
-    into an exact layered PSD."""
+    into an exact layered PSD. ?skip=Inter:300,Inter:700i leaves out fonts LA Studio already has installed."""
     p = load(pid)
     pages = _export_pages(p, {fid})
     if not pages:
         raise HTTPException(404, "frame not found or not a graphic")
-    return HTMLResponse(exporter.inline_assets(pages[0][1], THEMES / p["theme"]))
+    html = exporter.inline_assets(pages[0][1], THEMES / p["theme"])
+    return HTMLResponse(exporter.drop_faces(html, exporter.parse_skip(skip)))
+
+
+@app.get("/api/projects/{pid}/font-faces")
+def project_font_faces(pid: int):
+    """The fonts this project's kit uses, so Make Layers can ask LA Studio which are installed."""
+    p = load(pid)
+    try:
+        return {"faces": exporter.theme_font_faces(THEMES / p["theme"])}
+    except FileNotFoundError:
+        return {"faces": []}
 
 
 @app.delete("/api/projects/{pid}")
