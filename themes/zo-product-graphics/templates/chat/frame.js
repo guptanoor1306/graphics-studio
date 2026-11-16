@@ -64,16 +64,46 @@
     return [...new Set(warn)];
   };
 
+  // Studio edit mode: every named block is a layer. Blocks in #content save by name + occurrence
+  // ("html:Card#1" -> the page rewrites that element in frame.html); decor saves its position into frame.decor
+  // (Squiggle -> doodleAt, Sparkle -> starAt, Triangle 1/2 -> tri1/tri2, Dash 1/2 -> dash1/dash2).
+  // The presenter plate and its shade are the background, not layers.
+  const DECOR_KEY = { Squiggle: ['doodleAt'], Sparkle: ['starAt'], Triangle: ['tri1', 'tri2'], Dash: ['dash1', 'dash2'] };
   function tagLayers() {
+    // the full-frame #content / #decor wrappers must not catch clicks meant for the layers under them
+    if (!document.getElementById('studio-zo-pe')) {
+      const st = document.createElement('style'); st.id = 'studio-zo-pe';
+      st.textContent = '#content,#decor{pointer-events:none}#content .studio-editable,#decor .studio-editable{pointer-events:auto}';
+      document.head.appendChild(st);
+    }
     let i = 0;
-    document.querySelectorAll('#content [data-name], #decor [data-name], [data-name="Presenter plate"], [data-name="Plate shade"]').forEach(el => {
-      if (el.dataset.mfTagged) return;
+    const seen = {};
+    const tag = (el, path) => {
+      if (el.dataset.mfTagged) { i = Math.max(i, +el.dataset.specIdx + 1); return; }
       el.dataset.mfTagged = '1';
       el.classList.add('studio-editable');
       el.dataset.layerType = 'html';
       el.dataset.layerLabel = (el.getAttribute('data-name') || label(el)).slice(0, 40);
-      el.dataset.mfPath = 'html:' + el.getAttribute('data-name');
+      el.dataset.mfPath = path;
       el.dataset.specIdx = String(i++);
+      if (path.startsWith('html:') && (!el.querySelector('img,svg,canvas') || el.matches('[data-name*="text" i]'))) el.dataset.resize = 'w';
+    };
+    document.querySelectorAll('#content [data-name]').forEach(el => {
+      const n = el.getAttribute('data-name');
+      const k = seen['c' + n] = (seen['c' + n] ?? -1) + 1;
+      tag(el, 'html:' + n + '#' + k);
+    });
+    document.querySelectorAll('#decor [data-name]').forEach(el => {
+      const n = el.getAttribute('data-name');
+      const k = seen['d' + n] = (seen['d' + n] ?? -1) + 1;
+      const key = (DECOR_KEY[n] || [])[k];
+      if (key) tag(el, 'decor.' + key);
+    });
+    // double-click a text-only block to change its words (saved like a move: the block's new markup)
+    if (window.studioInline) document.querySelectorAll('#content [data-name].studio-editable').forEach(el => {
+      if (el.querySelector('div,p,ul,ol,img,svg,table,[data-name]')) return;
+      if (!(el.innerText || '').trim()) return;
+      window.studioInline(el, () => window.parent.postMessage({ studio: 'inline', mfPath: el.dataset.mfPath, outer: el.outerHTML }, '*'));
     });
     if (window.parent && window.parent !== window && !window.__zoLayersPinged) {
       window.__zoLayersPinged = true;

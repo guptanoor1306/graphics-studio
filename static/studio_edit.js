@@ -1,4 +1,40 @@
 (function () {
+
+  /* Text layers: click selects, drag moves, double-click edits the words; Enter saves, Escape cancels.
+     Shared by every kit (window.studioInline(el, save)); text used to be always-editable, which turned
+     every drag on a text layer into a text selection. */
+  window.studioInline = function (el, save) {
+    if (!el || el.dataset.studioInline) return;
+    el.dataset.studioInline = "1";
+    el.classList.add("studio-inline-text");
+    el.spellcheck = true;
+    let before = "";
+    el.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      before = el.innerText;
+      el.contentEditable = "true";
+      el.classList.add("studio-inline-edit");
+      el.focus();
+      const r = document.createRange();
+      r.selectNodeContents(el);
+      const s = window.getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+    });
+    el.addEventListener("keydown", (e) => {
+      if (el.contentEditable !== "true") return;
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.blur(); }
+      if (e.key === "Escape") { el.innerText = before; el.blur(); }
+    });
+    el.addEventListener("blur", () => {
+      if (el.contentEditable !== "true") return;
+      el.contentEditable = "false";
+      el.classList.remove("studio-inline-edit");
+      const value = el.innerText.replace(/\u00a0/g, " ").trim();
+      if (value !== before.replace(/\u00a0/g, " ").trim()) save(value);
+    });
+  };
   const useParentChrome = document.body.classList.contains("in-studio-iframe");
   const overlay = document.createElement("div");
   overlay.id = "studio-overlay";
@@ -254,6 +290,7 @@
     const mp = el.dataset.mfPath || el.dataset.mfDrag;
     if (mp) payload.mfPath = mp;
     if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
+    if (el.dataset.layerType === "html") payload.outer = el.outerHTML;
     window.parent.postMessage(payload, "*");
     schedulePlaceChips();
   }
@@ -403,7 +440,7 @@
     const top = parseFloat(el.style.top);
     if (!Number.isNaN(left) && !Number.isNaN(top)) return { x: left, y: top };
     const r = el.getBoundingClientRect();
-    const o = stageOrigin();
+    const o = parentOrigin(el);
     return { x: r.left - o.x, y: r.top - o.y };
   }
 
@@ -428,20 +465,37 @@
     if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
     const mp = el.dataset.mfPath || el.dataset.mfDrag;
     if (mp) payload.mfPath = mp;
+    if (el.dataset.layerType === "html") payload.outer = el.outerHTML;
     window.parent.postMessage(payload, "*");
     schedulePlaceChips();
+  }
+
+  // left/top of an absolute element are measured from its container (offsetParent), not always the stage:
+  // blocks inside cards (ZO hand-written frames) used to jump by the card's offset when dragged.
+  function parentOrigin(el) {
+    const op = el.offsetParent;
+    if (!op || op === document.body || op === document.documentElement) return stageOrigin();
+    const r = op.getBoundingClientRect();
+    return { x: r.left + op.clientLeft, y: r.top + op.clientTop };
   }
 
   function ensureAbsolute(el) {
     const pos = getComputedStyle(el).position;
     const r = el.getBoundingClientRect();
-    const o = stageOrigin();
     if (pos !== "absolute" && pos !== "fixed") {
+      if (el.dataset.layerType === "html") {   // keep its size once it leaves the flow
+        el.style.width = Math.round(r.width) + "px";
+        el.style.boxSizing = "border-box";
+      }
       el.style.position = "absolute";
+      el.style.margin = "0";
     }
     if (el.style.transform && el.style.transform !== "none") {
       el.style.transform = "none";
     }
+    el.style.right = "auto";    // decor placed from the right/bottom would stretch once left/top are set
+    el.style.bottom = "auto";
+    const o = parentOrigin(el);
     el.style.left = Math.round(r.left - o.x) + "px";
     el.style.top = Math.round(r.top - o.y) + "px";
   }
@@ -452,7 +506,10 @@
 
   function initInteractDrag() {
     initPointerDrag();
-    if (typeof interact === "undefined") return;
+    // One drag system only: the pointer drag above handles every layer. interact.js ran on the same layers too
+    // (hold 110 ms), threw "reading 'enabled'" on some kits and swallowed the pointer events, so some layers
+    // (the MF pill, ZO and reel blocks) never moved.
+    if (!window.STUDIO_USE_INTERACT || typeof interact === "undefined") return;
     interactTargets.forEach((t) => {
       try {
         t.unset();
@@ -559,7 +616,7 @@
         pending = null;
         ensureAbsolute(drag.el);
         const pos = readPos(drag.el);
-        const origin = stageOrigin();
+        const origin = parentOrigin(drag.el);
         drag.originX = origin.x;
         drag.originY = origin.y;
         drag.offX = e.clientX - origin.x - pos.x;
@@ -578,8 +635,11 @@
       const eh = drag.el.offsetHeight || 80;
       const ox = drag.originX != null ? drag.originX : stageOrigin().x;
       const oy = drag.originY != null ? drag.originY : stageOrigin().y;
-      const x = clamp(Math.round(e.clientX - ox - drag.offX), 0, w - ew);
-      const y = clamp(Math.round(e.clientY - oy - drag.offY), 0, h - eh);
+      // keep the layer on the frame (bounds in stage space, position in its container's space)
+      const so = stageOrigin();
+      const dx0 = ox - so.x, dy0 = oy - so.y;
+      const x = clamp(Math.round(e.clientX - ox - drag.offX), -dx0, w - ew - dx0);
+      const y = clamp(Math.round(e.clientY - oy - drag.offY), -dy0, h - eh - dy0);
       drag.el.style.position = "absolute";
       drag.el.style.left = x + "px";
       drag.el.style.top = y + "px";
@@ -624,6 +684,14 @@
 
     document.addEventListener("pointerup", finishDrag);
     document.addEventListener("pointercancel", finishDrag);
+    // Images and links are natively draggable: the browser's own drag cancels the pointer drag (pointercancel),
+    // so a picture layer never moved. Layers move only through the pointer drag above.
+    document.addEventListener("dragstart", (e) => {
+      if (e.target.closest && e.target.closest(".studio-editable")) e.preventDefault();
+    }, true);
+    const st = document.createElement("style");
+    st.textContent = ".studio-editable{touch-action:none;-webkit-user-drag:none}.studio-editable img{-webkit-user-drag:none;user-select:none}";
+    document.head.appendChild(st);
   }
 
   function applyAssetSize(el, w) {
@@ -792,22 +860,9 @@
       const el = inlineTarget(wrap) || wrap;
       if (el.dataset.inlineBound) return;
       el.dataset.inlineBound = "1";
-      el.classList.add("studio-inline-edit");
-      el.contentEditable = "true";
-      el.spellcheck = true;
-      el.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-          e.preventDefault();
-          el.blur();
-        }
-      });
-      el.addEventListener("blur", () => {
-        const value = el.innerText.replace(/\u00a0/g, " ").trim();
-        window.parent.postMessage(
-          { studio: "inline", idx: parseInt(idx, 10), field, value },
-          "*"
-        );
-      });
+      window.studioInline(el, (value) =>
+        window.parent.postMessage({ studio: "inline", idx: parseInt(idx, 10), field, value }, "*")
+      );
     });
     if (window.OPTS && window.OPTS.studioEdit && typeof window.bindMfStudioInline === "function") {
       window.bindMfStudioInline();

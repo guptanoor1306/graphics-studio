@@ -418,18 +418,20 @@
     if (!O.studioEdit) return;
     function bindEl(el, path) {
       if (!el || el.dataset.inlineBound) return;
+      // The editor script loads after this one and calls bindMfStudioInline again; until then leave the text
+      // alone (an always-editable span swallowed every drag on the pill).
+      if (!window.studioInline && window.parent !== window) return;
       el.dataset.inlineBound = "1";
       el.dataset.mfPath = path;
+      const save = (value) => window.parent.postMessage({ studio: "inline", mfPath: path, value }, "*");
+      if (window.studioInline) { window.studioInline(el, save); return; }   // click selects, double-click edits
       el.classList.add("studio-inline-edit");
       el.contentEditable = "true";
       el.spellcheck = true;
       el.addEventListener("keydown", (e) => {
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); el.blur(); }
       });
-      el.addEventListener("blur", () => {
-        const value = el.innerText.replace(/\u00a0/g, " ").trim();
-        window.parent.postMessage({ studio: "inline", mfPath: path, value }, "*");
-      });
+      el.addEventListener("blur", () => save(el.innerText.replace(/\u00a0/g, " ").trim()));
     }
     const pillT = document.querySelector(".pill .t");
     if (F.pill && pillT) bindEl(pillT, F.type === "definition" ? "term" : (F.type === "points" ? "title" : "pill.text"));

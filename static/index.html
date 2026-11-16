@@ -156,6 +156,16 @@ textarea#dlgJson{font-family:var(--mono);font-size:var(--text-sm);min-height:380
 .script-pdf-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:var(--s-6);align-items:start}
 @media (max-width:960px){.script-pdf-row{grid-template-columns:1fr}}
 .setup-panel{margin:0 0 var(--s-5);border:0}
+.kit-tag{font-size:var(--text-xs);color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:2px 10px;margin-left:var(--s-3);white-space:nowrap}
+.pdf-bar{display:flex;align-items:center;gap:var(--s-4);flex-wrap:wrap;padding:var(--s-4) var(--s-5);margin:0 0 var(--s-5)}
+.pdf-bar-info{flex:1;min-width:220px}
+.pdf-bar-title{display:flex;align-items:center;gap:var(--s-3);min-width:0}
+.pdf-bar-title b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pdf-bar-icon{font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--accent-text);border:1px solid currentColor;border-radius:4px;padding:2px 5px;flex:none}
+.pdf-bar-sub{font-size:var(--text-xs);margin-top:4px}
+.pdf-bar-actions{display:flex;gap:var(--s-3);margin:0}
+.pdf-bar-replace{cursor:pointer;display:inline-flex;align-items:center;font-family:var(--font);font-size:var(--text-sm);font-weight:500;line-height:20px;min-height:36px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);border-radius:var(--radius-sm);padding:var(--s-3) var(--s-4);box-sizing:border-box}
+.pdf-bar-replace:hover{background:var(--hover);border-color:var(--faint)}
 .setup-panel>summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-3) var(--s-4);font-size:var(--text-base);font-weight:600;color:var(--ink);margin:var(--s-6) 0 var(--s-4);padding:var(--s-3) var(--s-2) var(--s-3) 0;border-bottom:1px solid var(--line);user-select:none;border-radius:var(--s-2) var(--s-2) 0 0}
 .setup-panel>summary:hover{color:var(--accent-text)}
 .setup-panel>summary::-webkit-details-marker{display:none}
@@ -431,6 +441,26 @@ aside.edit-frame-strip{display:block;flex-direction:unset;gap:0;overflow-y:auto;
 .canvas-parent-chip .ca button{border:0;background:var(--on-dark-dim);color:var(--on-dark);width:32px;height:32px;min-height:32px;padding:0;border-radius:var(--s-2);cursor:pointer;font-size:var(--text-md);line-height:1}
 .canvas-parent-chip .ca button:hover:not(:disabled){background:var(--on-dark-hi)}
 .canvas-parent-chip .ca button[data-act="delete"]:hover:not(:disabled){background:var(--danger-hi)}
+.fchat-log{display:flex;flex-direction:column;gap:var(--s-3);max-height:280px;overflow:auto;margin:0 0 var(--s-3)}
+.fchat-log:empty{display:none}
+.fchat-msg{font-size:var(--text-sm);line-height:1.45;padding:8px 11px;border-radius:12px;max-width:92%;white-space:pre-wrap;word-break:break-word}
+.fchat-msg.you{align-self:flex-end;background:var(--accent);color:var(--accent-ink,#fff);border-bottom-right-radius:4px}
+.fchat-msg.claude{align-self:flex-start;background:var(--hover,#F0F0F2);color:var(--ink);border-bottom-left-radius:4px}
+.fchat-msg.err{background:#FFF0EF;color:#B3261E}
+.fchat-msg.pending{color:var(--mute)}
+.fchat-msg .fchat-file{display:block;font-size:var(--text-xs);opacity:.8;margin-top:2px}
+.fchat-msg button.fchat-undo{background:none;border:0;padding:0;margin-left:6px;color:var(--accent-text,#0066CC);font:inherit;cursor:pointer;text-decoration:underline}
+.fchat-box{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:8px}
+.fchat-box:focus-within{border-color:var(--accent)}
+.fchat-box textarea{width:100%;border:0;outline:0;resize:none;min-height:44px;font:var(--text-sm)/1.45 var(--font);background:transparent;padding:2px}
+.fchat-row{display:flex;align-items:center;gap:var(--s-3)}
+.fchat-row .spacer{flex:1}
+.fchat-row .ref-name{font-size:var(--text-xs);color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px}
+.fchat-attach{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;color:var(--mute);cursor:pointer}
+.fchat-attach:hover{background:var(--hover,#F0F0F2);color:var(--ink)}
+.fchat-row button.p{padding:6px 14px}
+.fchat-regen{display:block;background:none;border:0;padding:0;margin:var(--s-3) 0 0;color:var(--mute);font-size:var(--text-xs);text-decoration:underline;cursor:pointer}
+.fchat-regen:hover{color:var(--ink)}
 .edit-frame-actions{display:flex;flex-wrap:wrap;gap:var(--s-3);margin-top:var(--s-3)}
 .edit-ref-check{display:flex;align-items:center;gap:var(--s-3);margin:var(--s-3) 0;font-size:var(--text-sm);cursor:pointer}
 .edit-ref-check input[type=checkbox]{width:16px;height:16px;margin:0;accent-color:var(--accent);flex-shrink:0}
@@ -548,23 +578,26 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
     <input id="editLookLine" type="text" placeholder="Theme + fonts + accent…" style="width:100%;margin:6px 0 12px">
     <button type="button" class="btn-neutral block" onclick="applyLook()">Apply look to all frames</button>
    </div>
-   <h3>Layers</h3><div id="canvasLayerList"></div>
-   <h3>Frame changes</h3>
-   <textarea id="editFrameAsk" placeholder="Describe changes for the whole frame…" rows="4" style="min-height:88px;resize:vertical"></textarea>
-   <div class="edit-frame-actions">
-    <button type="button" class="btn-neutral" onclick="editApplyFrame()">Apply to frame</button>
-    <button type="button" class="btn-neutral" onclick="editRegenFrame()">Regenerate frame</button>
+   <h3>Layers</h3>
+   <p class="edit-side-hint">Click a layer to show <b>✎ ↻ ×</b>. Drag it to move, drag the <b>blue corner</b> to resize, double-click text to change the words.</p>
+   <div id="canvasLayerList"></div>
+   <h3>Change this frame</h3>
+   <p class="edit-side-hint">Ask in plain words. Claude changes the frame's layers; attach a picture to swap one in.</p>
+   <div class="fchat-log" id="frameChatLog" aria-live="polite"></div>
+   <div class="fchat-box">
+    <textarea id="editFrameAsk" rows="2" placeholder="e.g. make the title bigger, move the chart left, swap the picture for a laptop" onkeydown="frameChatKeyHandler(event)"></textarea>
+    <div class="fchat-row">
+     <label class="fchat-attach" title="Attach a picture"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.4 11.1l-9.2 9.2a6 6 0 01-8.5-8.5l9.2-9.2a4 4 0 015.7 5.7l-9.2 9.2a2 2 0 01-2.8-2.8l8.5-8.5"/></svg><input type="file" id="editRef" accept="image/png,image/jpeg,image/webp" hidden></label>
+     <span class="ref-name" id="editRefLabel"></span>
+     <span class="spacer"></span>
+     <button type="button" class="p" id="frameChatSend" onclick="sendFrameChat()">Send</button>
+    </div>
    </div>
-   <h3>Reference image</h3>
-   <p class="edit-side-hint">Click a dashed box on the canvas or a row in Layers to show <b>✎ ↻ ×</b> on the overlay. Drag the layer to move; drag the <b>blue corner</b> to resize. Click text in the frame to edit inline.</p>
-   <input type="file" id="editRef" accept="image/png,image/jpeg,image/webp">
-   <label class="edit-ref-check"><input type="checkbox" id="editRefReplace" checked> Smart replace (frame Apply)</label>
-   <label class="edit-ref-check"><input type="checkbox" id="editRefFlat"> Flat paste (whole frame)</label>
-   <span class="ref-name" id="editRefLabel"></span>
-   <h3>Anchor screen</h3>
-   <p class="edit-side-hint">Optional plate for anchor-side frames; applies look to all frames.</p>
-   <input type="file" id="editPlate" accept="image/*" onchange="upPlate(this)">
-   <button type="button" class="btn-neutral block" style="margin-top:8px" onclick="applyLook()">Apply look to all frames</button>
+   <button type="button" class="fchat-regen" onclick="editRegenFrame()">Make this frame again from scratch</button>
+   <input type="checkbox" id="editRefReplace" checked hidden><input type="checkbox" id="editRefFlat" hidden>
+   <div id="editAnchorBlock" hidden><!-- archived for now: anchor screen plate + look -->
+    <input type="file" id="editPlate" accept="image/*" onchange="upPlate(this)">
+   </div>
   </aside>
  </div>
 </div>
@@ -1015,6 +1048,7 @@ function syncReelLookLine(prefix){
 function populateEditLookBlock(){
  const block=$('#editLookBlock');
  if(!block)return;
+ block.hidden=true;return;   // Look is archived for now (all kits)
  if(!isReelChannel()){block.hidden=true;return}
  block.hidden=false;
  const l=normLook(P.look||{});
@@ -1195,6 +1229,27 @@ function humanPdfPanelInner({compact=false}={}){
    ${statusTag}
   </div>
   ${genBtns}</div>`;
+}
+/* After frames exist: the storyboard PDF as an always-open bar right above the frames (no Look section any more),
+   with the batch buttons where people look. Same ids as the panel (#pdfGenBtn, #pdfHumanActions, #sbPdfFile). */
+function pdfBarHtml(){
+  const n=studioFrames().length;
+  const name=storyboardPdfName()||'Storyboard PDF';
+  const onServer=hasPdfOnServer();
+  const prog=(P?.pdf_progress||'').toString();
+  const btns=onServer?`<div class="pdf-human-actions pdf-bar-actions" id="pdfHumanActions">
+     <button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">${n?'Next 5 frames':'First 5 frames'}</button>
+     ${n>=5?`<button type="button" class="btn-neutral" onclick="genPdfBatch(event,{finishAll:true})">All remaining</button>`:''}
+   </div>`:'';
+  return `<section class="pdf-bar card" aria-label="Storyboard PDF">
+   <div class="pdf-bar-info">
+    <div class="pdf-bar-title"><span class="pdf-bar-icon" aria-hidden="true">PDF</span><b>${esc(name)}</b></div>
+    <div class="pdf-bar-sub muted">${onServer?`${n} frame${n===1?'':'s'} made from the storyboard${prog?` · ${esc(prog)}`:''}`:'The PDF file is not on the server: replace it to continue'}</div>
+    <span id="pdfSbStatus" class="muted" hidden></span>
+   </div>
+   ${btns}
+   <label class="btn-neutral pdf-bar-replace" title="Upload a new version of the storyboard PDF">Replace PDF<input type="file" id="sbPdfFile" accept="application/pdf,.pdf" hidden onchange="uploadSbPdf()"></label>
+  </section>`;
 }
 function humanPdfSectionHtml(){
   const open=setupPanelOpen('pdf',!P?.spec||studioFrames().length===0);
@@ -1454,12 +1509,11 @@ function render(){
   P.look=normLook(P.look);
   const m=sbMode();
   const preSpec=preSpecSectionHtml();
-  const pdfBlock=P.spec&&pdfWorkflowActive()?humanPdfSectionHtml():'';
-  $('#main').innerHTML=`<div class="toolbar">${EMBED&&!LA.id?'<button type="button" class="ghost" onclick="goHome()">‹ All projects</button>':''}<h1 class="page-title">${esc(P.name)}</h1><span class="spacer"></span>
+  const pdfBlock=P.spec&&pdfWorkflowActive()?pdfBarHtml():'';
+  $('#main').innerHTML=`<div class="toolbar">${EMBED&&!LA.id?'<button type="button" class="ghost" onclick="goHome()">‹ All projects</button>':''}<h1 class="page-title">${esc(P.name)}</h1><span class="kit-tag" title="Kit">${esc(themeLabel(P.theme))}</span><span class="spacer"></span>
    ${P.spec?`<button type="button" onclick="undo()">Undo</button>${EMBED?`<button type="button" class="btn-neutral" onclick="exp()">Export All</button><button type="button" class="p" id="laSendBtn" onclick="laSend()" title="LA Studio turns every frame into a layered PSD">Make Layers</button>`:'<button type="button" class="p" onclick="exp()">Export All</button>'}`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    ${EMBED&&LA.id?'':`<button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button>`}</div>
-  ${lookSectionHtml()}
   ${P.spec?pdfBlock+framesStudio():preSpec}<div id="warns"></div>`;
   fit();
   updateFrameNavButtons();
@@ -2000,7 +2054,7 @@ async function gen(){
   }
   const look={...getLook(),sb_import:'script'};
   P=await api(`/api/projects/${P.id}/storyboard`,{method:'POST',body:JSON.stringify({script:getScriptValue(),look,notes:getNotesValue()})});P.look=normLook(P.look);frameVer={};selectedFrameId=null;render();list();if(P.background){watchBackground();return}const cr=P.critique||{};const fixed=Object.entries(cr.changed||{});let note=fixed.length?('Render review fixed '+fixed.length+' frame(s):\n'+fixed.map(([k,v])=>'• '+k+(v?' — '+v:'')).join('\n')):'';note+=assetsNote(P);if(P.spec_warnings?.length)note+=(note?'\n\n':'')+'Still to check:\n'+P.spec_warnings.join('\n');if(note)alert(note)}catch(e){alert(e.message)}finally{if(b)b.disabled=false;setWorkspaceLoading(false)}}
-async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null,refFile=null,clearLayerRef=false}={}){
+async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=false,mfPath=null,refFile=null,clearLayerRef=false,quiet=false}={}){
  const {ref,rep,flat,lb}=refControls();
  const upload=refFile||ref?.files?.[0];
  if(!regenerate&&!ask?.trim()&&!upload){alert(itemIndex!=null||mfPath?'Describe this layer and/or attach a reference image.':'Type a change and/or attach a reference image.');return}
@@ -2035,8 +2089,9 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
   bumpFrame(fid);
   if(editModeOpen){refreshEditCanvas();renderCanvasLayerList();syncIframeLayerBounds()}
   else render();
-  if(!regenerate){const ea=$('#editFrameAsk');if(ea)ea.value=''}
- }catch(e){alert(e.message||String(e))}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}}
+  if(!regenerate&&!quiet){const ea=$('#editFrameAsk');if(ea)ea.value=''}
+  return {ok:true};
+ }catch(e){if(quiet)return {ok:false,error:e.message||String(e)};alert(e.message||String(e))}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}}
 async function applyLook(){
  const look=getLook();
  P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({look,theme:P.theme,note:'look'})});
@@ -2056,6 +2111,59 @@ async function upPlate(i){
 function canvasEditUrl(){
  const v=frameVer[selectedFrameId]||0;
  return `/preview/${P.id}/${encodeURIComponent(selectedFrameId)}?edit=1&v=${v}`;
+}
+/* ZO hand-written frames (frame.html): layers are the named blocks. The editor sends a changed block's markup
+   (outer) with its path "html:<name>#<occurrence>"; decor moves land in frame.decor. */
+const STUDIO_ATTRS=['data-mf-tagged','data-spec-idx','data-layer-type','data-layer-label','data-mf-path','data-mf-drag','data-resize','data-x','data-y','data-studio-inline','data-inline-bound','contenteditable','spellcheck'];
+function cleanStudioMarkup(node){
+ [node,...node.querySelectorAll('*')].forEach(e=>{
+  const own=e.getAttribute('data-mf-path');   // the reel kit names its blocks with data-mf-path: keep those
+  STUDIO_ATTRS.forEach(a=>e.removeAttribute(a));
+  if(own&&!/^(html:|decor\.)/.test(own))e.setAttribute('data-mf-path',own);
+  if(e.classList){[...e.classList].filter(c=>c.startsWith('studio-')).forEach(c=>e.classList.remove(c));if(!e.classList.length)e.removeAttribute('class')}
+ });
+ return node;
+}
+function htmlLayerTarget(doc,mfPath){
+ const m=/^html:(.*)#(\d+)$/.exec(mfPath||'');
+ if(!m)return mfPath?[...doc.body.querySelectorAll('[data-mf-path]')].find(e=>e.getAttribute('data-mf-path')===mfPath)||null:null;
+ return [...doc.body.querySelectorAll('[data-name]')].filter(e=>e.getAttribute('data-name')===m[1])[+m[2]]||null;
+}
+function applyHtmlLayer(fr,mfPath,outer){
+ if(!fr.html||!outer)return false;
+ const doc=new DOMParser().parseFromString('<body>'+fr.html+'</body>','text/html');
+ const target=htmlLayerTarget(doc,mfPath);
+ if(!target)return false;
+ const tpl=doc.createElement('template');tpl.innerHTML=outer;
+ const node=tpl.content.firstElementChild;
+ if(!node)return false;
+ cleanStudioMarkup(node);
+ // a block whose children a script draws (pie labels...) keeps its own children: only its style changes
+ if(node.querySelectorAll('[data-name]').length>target.querySelectorAll('[data-name]').length){
+  const st=node.getAttribute('style');if(st)target.setAttribute('style',st);else target.removeAttribute('style');
+ }else target.replaceWith(node);
+ fr.html=doc.body.innerHTML;
+ return true;
+}
+function deleteHtmlLayer(fr,mfPath){
+ if(!fr.html)return false;
+ const doc=new DOMParser().parseFromString('<body>'+fr.html+'</body>','text/html');
+ const target=htmlLayerTarget(doc,mfPath);
+ if(!target)return false;
+ target.remove();fr.html=doc.body.innerHTML;return true;
+}
+function applyDecorMove(fr,mfPath,x,y){
+ const key=mfPath.slice(6);
+ const d=(fr.decor&&typeof fr.decor==='object')?{...fr.decor}:{};
+ d[key]={left:Math.round(x)+'px',top:Math.round(y)+'px'};
+ fr.decor=d;
+}
+function isHtmlLayerFrame(fr){return !!(fr&&fr.html&&(isZoProduct(P?.theme)||P?.theme==='zero1-reel-graphics'))}
+function htmlFrameLayerEntries(fr){
+ const seen=new Set();
+ return (lastCanvasLayers||[]).filter(L=>L.mfPath&&!seen.has(L.mfPath)&&seen.add(L.mfPath))
+  .sort((a,b)=>a.idx-b.idx)
+  .map(L=>({idx:L.idx,label:(L.mfPath.startsWith('decor.')?'decor · ':'')+(L.label||L.mfPath.replace(/^html:/,'').replace(/#\d+$/,'')),mfPath:L.mfPath}));
 }
 function mfLayerEntries(fr){
  const out=[];
@@ -2156,7 +2264,11 @@ function renderCanvasLayerList(){
  if(!fr){list.innerHTML='';return}
  if(isZ1Hindi(P.theme)){
   const rows=z1LayerEntries(fr);
-  list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">This ${esc(fr.type||'scene')} frame has no free layers. Use Frame changes below.</p>`;
+  list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">This ${esc(fr.type||'scene')} frame has no free layers. Ask for changes in the chat below.</p>`;
+  return}
+ if(isHtmlLayerFrame(fr)){
+  const rows=htmlFrameLayerEntries(fr);
+  list.innerHTML=rows.length?rows.map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">Loading layers…</p>`;
   return}
  if(isKitTheme(P.theme)){
   const rows=mfLayerEntries(fr);
@@ -2494,7 +2606,68 @@ function selectEditFrame(fid){
  $('#editModeTitle').textContent=(P.name||'Video')+' · '+frameLabel(fid);
  renderCanvasLayerList();
  renderFrameModeSwitch();
+ renderFrameChat();
  refreshEditCanvas();
+}
+/* ---------- frame chat: whole-frame changes in plain words (Claude edits the layers; a picture swaps one in) ---------- */
+const frameChats={};
+function frameChatKey(){return P?.id+':'+selectedFrameId}
+function frameChatLoad(){
+ const k=frameChatKey();
+ if(!frameChats[k]){try{frameChats[k]=JSON.parse(localStorage.getItem('gs.chat.'+k)||'[]').filter(m=>!m.pending)}catch(_){frameChats[k]=[]}}
+ return frameChats[k];
+}
+function frameChatSave(){
+ const k=frameChatKey();
+ try{localStorage.setItem('gs.chat.'+k,JSON.stringify((frameChats[k]||[]).filter(m=>!m.pending).slice(-30).map(({undo,...m})=>m)))}catch(_){}
+}
+function renderFrameChat(){
+ const host=$('#frameChatLog');
+ if(!host||!selectedFrameId)return;
+ const log=frameChatLoad();
+ host.innerHTML=log.map((m,i)=>`<div class="fchat-msg ${m.role}${m.err?' err':''}${m.pending?' pending':''}">${esc(m.text)}${m.file?`<span class="fchat-file">📎 ${esc(m.file)}</span>`:''}${m.undo&&!m.undone?`<button type="button" class="fchat-undo" onclick="undoFrameChat(${i})">Undo</button>`:''}</div>`).join('');
+ host.scrollTop=host.scrollHeight;
+}
+function frameChatKeyHandler(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendFrameChat()}}
+async function sendFrameChat(){
+ const fid=selectedFrameId;
+ if(!fid||!P?.spec)return;
+ const ta=$('#editFrameAsk');const ask=(ta?.value||'').trim();
+ const {ref,lb}=refControls();const file=ref?.files?.[0]||null;
+ if(!ask&&!file){ta?.focus();return}
+ const log=frameChatLoad();
+ const earlier=log.filter(m=>m.role==='you'&&!m.err).slice(-6).map(m=>'- '+m.text);
+ const fi=P.spec.frames.findIndex(f=>f.id===fid);
+ const before=fi>=0?JSON.parse(JSON.stringify(P.spec.frames[fi])):null;
+ log.push({role:'you',text:ask||'Use this picture.',file:file?.name});
+ const reply={role:'claude',text:file?'Working on it… (making the picture takes a minute)':'Working on it…',pending:true};
+ log.push(reply);
+ if(ta)ta.value='';
+ if(ref){ref.value='';if(lb)lb.textContent=''}
+ renderFrameChat();
+ const btn=$('#frameChatSend');if(btn)btn.disabled=true;
+ const full=earlier.length?`Earlier requests on this frame (already done, keep them):\n${earlier.join('\n')}\n\nNow: ${ask||'use the attached picture in this frame'}`:(ask||'use the attached picture in this frame');
+ const res=await askFrame(fid,full,{refFile:file,quiet:true});
+ if(btn)btn.disabled=false;
+ delete reply.pending;
+ if(res?.ok){reply.text='Done.';reply.undo=before}
+ else{reply.text='That didn’t work: '+(res?.error||'unknown error');reply.err=true}
+ frameChatSave();
+ if(selectedFrameId===fid)renderFrameChat();
+}
+async function undoFrameChat(i){
+ const log=frameChatLoad();const m=log[i];
+ if(!m?.undo||!P?.spec)return;
+ const fid=m.undo.id;const fi=P.spec.frames.findIndex(f=>f.id===fid);
+ if(fi<0)return;
+ P.spec.frames[fi]=m.undo;
+ setEditLoading(true);
+ try{
+  P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'chat undo '+fid})});P.look=normLook(P.look);
+  m.undone=true;m.text+=' (undone)';delete m.undo;
+  bumpFrame(fid);refreshEditCanvas();renderCanvasLayerList();
+ }catch(e){alert(e.message)}finally{setEditLoading(false)}
+ frameChatSave();renderFrameChat();
 }
 function editApplyFrame(){
  const ask=$('#editFrameAsk')?.value||'';
@@ -2585,7 +2758,8 @@ async function patchFrameInline(msg){
  const i=P.spec.frames.findIndex(f=>f.id===selectedFrameId);
  if(i<0)return;
  const fr=JSON.parse(JSON.stringify(P.spec.frames[i]));
- if(msg.mfPath!=null)setSpecPath(fr,msg.mfPath,msg.value??'');
+ if(msg.mfPath&&msg.outer&&fr.html){if(!applyHtmlLayer(fr,msg.mfPath,msg.outer))return}
+ else if(msg.mfPath!=null)setSpecPath(fr,msg.mfPath,msg.value??'');
  else{
   const idx=msg.idx;
   if(idx==null)return;
@@ -2604,13 +2778,14 @@ async function patchFrameInline(msg){
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'inline '+selectedFrameId})});
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
-async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
+async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath,outer}){
  if(!selectedFrameId||!P?.spec)return;
  const fi=P.spec.frames.findIndex(f=>f.id===selectedFrameId);
  if(fi<0)return;
  if(mfPath){
   const fr=JSON.parse(JSON.stringify(P.spec.frames[fi]));
-  if(mfPath==='table'){
+  if(outer&&fr.html){if(!applyHtmlLayer(fr,mfPath,outer))return}
+  else if(mfPath==='table'){
    fr.box={...(fr.box||{}),...(w!=null?{w:Math.round(w)}:{})};
    if(size!=null)fr.font=Math.round(size);
   }else if(mfPath==='hero'){
@@ -2675,14 +2850,17 @@ async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath}){
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'resize '+selectedFrameId+'#'+idx})});
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
-async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
+async function patchFrameItemMove(idx,x,y,cardIdx,mfPath,outer){
  if(!selectedFrameId||!P?.spec)return;
  const fid=selectedFrameId;
  const fi=P.spec.frames.findIndex(f=>f.id===fid);
  if(fi<0)return;
  const fr=JSON.parse(JSON.stringify(P.spec.frames[fi]));
  if(mfPath){
-  if(mfPath==='pill')fr.pill={...(fr.pill||{}),x:Math.round(x),y:Math.round(y)};
+  if(mfPath.startsWith('decor.'))applyDecorMove(fr,mfPath,x,y);
+  else if(outer&&fr.html){if(!applyHtmlLayer(fr,mfPath,outer))return}
+  else if(mfPath==='subtitle'&&fr.html)return;
+  else if(mfPath==='pill')fr.pill={...(fr.pill||{}),x:Math.round(x),y:Math.round(y)};
   else if(mfPath==='hero')fr.hero={...(fr.hero||{}),x:Math.round(x),y:Math.round(y)};
   else if(mfPath==='table')fr.box={...(fr.box||{}),x:Math.round(x),y:Math.round(y)};
   else if(/^cards\.\d+$/.test(mfPath)){
@@ -2729,6 +2907,9 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath){
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
 function applyMfPathDelete(fr,mfPath){
+ if(mfPath.startsWith('html:')||(isHtmlLayerFrame(fr)&&mfPath!=='subtitle'&&!mfPath.startsWith('decor.')))return deleteHtmlLayer(fr,mfPath);
+ if(mfPath==='decor.doodleAt'){fr.decor={...(typeof fr.decor==='object'?fr.decor:{}),doodle:false};return true}
+ if(mfPath==='decor.starAt'){fr.decor={...(typeof fr.decor==='object'?fr.decor:{}),star:false};return true}
  if(mfPath==='pill'){delete fr.pill;return true}
  if(mfPath==='hero'){delete fr.hero;return true}
  if(mfPath==='term'){delete fr.term;return true}
@@ -2753,7 +2934,7 @@ async function deleteMfPart(mfPath){
  const i=P.spec.frames.findIndex(f=>f.id===fid);
  if(i<0)return;
  const fr=JSON.parse(JSON.stringify(P.spec.frames[i]));
- if(!applyMfPathDelete(fr,mfPath)){alert('This layer cannot be removed directly — use Frame changes.');return}
+ if(!applyMfPathDelete(fr,mfPath)){alert('This layer cannot be removed directly — ask for it in the chat below.');return}
  P.spec.frames[i]=fr;
  if(editModeOpen)setEditLoading(true);else setFrameLoading(true);
  try{P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'delete mf '+fid+' '+mfPath})});bumpFrame(fid);if(editModeOpen){refreshEditCanvas();renderCanvasLayerList()}}catch(e){alert(e.message)}finally{if(editModeOpen)setEditLoading(false);else setFrameLoading(false)}
@@ -2910,8 +3091,8 @@ async function expFrame(fid){
 }
 window.addEventListener('message',e=>{
  if(e.data?.studio==='edit')handleStudioEdit(e.data);
- if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y,e.data.cardIdx,e.data.mfPath);
- if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx,mfPath:e.data.mfPath||null});
+ if(e.data?.studio==='move')patchFrameItemMove(e.data.idx,e.data.x,e.data.y,e.data.cardIdx,e.data.mfPath,e.data.outer);
+ if(e.data?.studio==='resize')patchFrameItemResize(e.data.idx,{w:e.data.w,h:e.data.h,size:e.data.size,cardIdx:e.data.cardIdx,mfPath:e.data.mfPath||null,outer:e.data.outer});
  if(e.data?.studio==='inline')patchFrameInline(e.data);
  if(e.data?.studio==='layers-ready'&&editModeOpen){
   try{$('#canvasEditFrame')?.contentWindow?.studioBootLayers?.()}catch(_){}
@@ -2929,7 +3110,10 @@ window.addEventListener('message',e=>{
   const incoming=normalizeOverlayLayers(e.data.layers||[]);
   canvasChipRenderT=setTimeout(()=>{
    if(incoming.length){
+    const htmlFrame=isHtmlLayerFrame(P?.spec?.frames?.find(f=>f.id===selectedFrameId));
+    const changed=htmlFrame&&JSON.stringify(incoming.map(L=>L.mfPath))!==JSON.stringify((lastCanvasLayers||[]).map(L=>L.mfPath));
     lastCanvasLayers=incoming;
+    if(changed)renderCanvasLayerList();
     stopBoundsPoll();
    }else if(!lastCanvasLayers.length)syncIframeLayerBounds();
    renderParentCanvasChips(lastCanvasLayers);
