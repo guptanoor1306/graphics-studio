@@ -85,3 +85,21 @@ def test_pdf_batch_cut_off_reply_retries_with_fewer_frames(monkeypatch):
                                        batch_size=5, page_images=[])
     assert len(calls) == 2 and calls[0][1] == c.PDF_BATCH_MAX_TOKENS
     assert "at most 3 frames" in calls[1][0] and out["frames_added"] == 2
+
+
+def test_all_remaining_ends_cleanly_when_claude_says_nothing_is_left(monkeypatch):
+    import pathlib
+    import claude_client as c
+    calls = []
+
+    def fake_call(theme_dir, msg, pdf_bytes, *, page_images=None, max_tokens=0, sb_tool=None):
+        calls.append(msg)
+        if len(calls) == 1:
+            return {"frames": [{"id": "08", "mode": "fss", "html": "<div class=abs>x</div>"}]}
+        raise c.NoToolCall("Claude did not call submit_graphic_batch (stop_reason=end_turn). Try again.")
+
+    monkeypatch.setattr(c, "_call_with_pdf", fake_call)
+    out = c._storyboard_pdf_finish_all(pathlib.Path("themes/zo-product-graphics"), b"%PDF", "", {}, "", batch_size=5,
+                                       existing_spec={"frames": [{"id": "01", "mode": "fss", "html": "<i>a</i>"}]},
+                                       existing_storyboard="SB", episode_transcript=None, page_images=[])
+    assert out["frames_added"] == 1 and [f["id"] for f in out["frames"]] == ["08"]
