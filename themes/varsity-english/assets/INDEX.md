@@ -75,4 +75,71 @@ Plates are full-frame backgrounds. Everything in setA/ and setB/ is a transparen
 | `setC/table_dark_glass_shell_empty.png` | 795×357 | empty dark-glass table shell with white header |
 | `setC/title_pill_dark_example.png` | 1130×111 | dark title pill example |
 
+
+## setD — Retirement episode (cut from the Retirement PSDs)
+
+Money, retirement and inflation pieces in the same doodle + 3D-cash style. Characters here are doodle props (not the chars6 cast); use them for scenes (beach retirement, kid with telescope), and the cast `person` for named people.
+
+| File | Size | What it is |
+|---|---|---|
+| `setD/money_notes_flying_large.png` | 629×669 | two big flying green ₹ notes (corner dressing, larger than setB) |
+| `setD/badge_retirement_umbrella.png` | 97×93 | red round badge with a beach chair + umbrella (retirement topic badge) |
+| `setD/rupee_bubble_green.png` | 117×93 | green speech bubble with ₹ (money callout / floating accent) |
+| `setD/telescope_money_roll.png` | 328×668 | telescope made of a rolled ₹ note on a tripod (looking ahead / future money) |
+| `setD/character_kid_yellow_wave.png` | 181×347 | doodle kid in a yellow dress, waving (young saver; pairs with the telescope) |
+| `setD/character_kid_yellow_phone.png` | 202×446 | doodle kid in a yellow dress holding a phone, thumbs-up (planning, using an app) |
+| `setD/character_man_relaxing.png` | 478×651 | doodle retired man with a hat, leaning back relaxed (retirement, leisure) |
+| `setD/beach_umbrella.png` | 750×889 | striped beach umbrella (retirement / holiday scene) |
+| `setD/beach_chair_empty.png` | 558×497 | empty striped deck chair (retirement / holiday scene) |
+| `setD/character_man_briefcase.png` | 364×743 | doodle working man with glasses and a briefcase (working years, salaried) |
+| `setD/character_man_glasses.png` | 270×743 | doodle man with glasses, thumbs-up (same person, no briefcase) |
+| `setD/cash_coins_tower.png` | 266×487 | tall gold coin tower with cash bundles at the base (big corpus, rising cost) |
+| `setD/cash_coins_stack_wide.png` | 266×415 | coin tower + wider pile of cash bundles (corpus / savings pile) |
+| `setD/cash_bundle.png` | 201×121 | one bundle of green ₹100 notes with a paper band |
+| `setD/cash_pile.png` | 305×327 | heap of cash bundles and a coin (lots of money) |
+| `setD/coin_stack_short.png` | 100×185 | short stack of gold coins (bar-chart unit, small amount) |
+| `setD/coin_stack_tall.png` | 101×258 | tall stack of gold coins (bar-chart unit, larger amount) |
+| `setD/coin_gold_plain.png` | 95×64 | single gold coin, plain |
+| `setD/jar_corpus_full.png` | 403×521 | glass jar with gold lid, full of cash and coins (retirement corpus, savings) |
+| `setD/jar_coins_few.png` | 403×521 | glass jar with gold lid, only a few coins (small corpus, starting out) |
+| `setD/dial_knob.png` | 445×396 | metal dial knob with tick marks (an assumption you can turn: return %, age, inflation); add labels as text |
+| `setD/icon_petrol_drop.png` | 55×80 | orange fuel drop icon (petrol price, inflation item) |
+| `setD/icon_onion.png` | 61×68 | purple onion icon (food price, inflation item) |
+| `setD/icon_rice_bowl.png` | 70×47 | bowl of rice icon (food price, inflation item) |
+| `setD/icon_target.png` | 54×56 | red target with arrow icon (goal, required corpus) |
+| `setD/icon_hand_rupee.png` | 58×61 | hand holding a ₹ coin icon (monthly cost, income) |
+| `setD/icon_calendar.png` | 50×49 | calendar icon (years, horizon, dates) |
+| `setD/icon_returns_growth.png` | 55×57 | coins with a rising arrow icon (returns, growth) |
+| `setD/icon_inflation_chart.png` | 52×50 | bar chart with % icon (inflation, rate) |
+
+
+## setE — ETF episode (cut from the ETF PSDs)
+
+Investing, fund-house and comparison pieces. Glossy coins here have no outline (setD coins are outlined): don't mix the two styles in one frame.
+
+| File | Size | What it is |
+|---|---|---|
+| `setE/character_investor_hat.png` | 192×443 | doodle investor with a hat and moustache, yellow outfit (the investor / retail buyer) |
+| `setE/building_amc_glass.png` | 793×755 | blue glass office tower (AMC, fund house, institution) |
+| `setE/coins_flow_dashed.png` | 657×293 | ₹ coins flowing along a dashed arc (money moving from investor to AMC/fund) |
+| `setE/character_boy_yellow_wave.png` | 490×802 | doodle boy with spiky hair in a yellow outfit, waving |
+| `setE/money_bag_cash_coins.png` | 194×146 | red ₹ money bag with cash and coin stacks (returns, wealth, fund value) |
+| `setE/money_bag_rupee.png` | 107×146 | red ₹ money bag on its own |
+| `setE/cash_coins_row.png` | 163×62 | low row of cash bundle and coin stacks (floor prop) |
+| `setE/rupee_notes_coin.png` | 230×160 | two ₹ notes with a gold ₹ coin (money accent) |
+| `setE/rupee_note_flat.png` | 161×89 | single green ₹ note, flat |
+| `setE/money_note_blur.png` | 185×157 | motion-blurred flying ₹ note (corner dressing) |
+| `setE/rupee_coin_shiny.png` | 86×86 | shiny gold ₹ coin |
+| `setE/rupee_coin_tilt.png` | 81×104 | gold ₹ coin, tilted (spinning / floating) |
+| `setE/coin_stack_glossy_tall.png` | 91×271 | tall glossy gold coin stack (no outline) |
+| `setE/coin_stack_glossy_short.png` | 83×77 | short glossy gold coin stack (no outline) |
+| `setE/folder_blue_card_blank.png` | 416×482 | blue folder with a blank white card (compare two options: put a label + value on the card as text) |
+| `setE/glass_folder_blank.png` | 1286×877 | large blank frosted-glass folder (list / summary background) |
+| `setE/certificate_verified.png` | 396×434 | certificate with a blue verified badge (NAV, official value, proof) |
+| `setE/gauge_bar_vertical.png` | 59×640 | vertical green→red level bar (cost, risk or expense meter) |
+| `setE/chart_area_yellow.png` | 914×663 | illustrative rising area chart, yellow (market / returns backdrop, no axes) |
+| `setE/chart_area_green.png` | 913×664 | illustrative rising area chart, green |
+| `setE/chart_area_blue.png` | 850×407 | illustrative area chart, blue (price drifting down then flat) |
+| `setE/logo_kite.png` | 85×58 | Kite (Zerodha) logo mark |
+
 Re-export refreshed character PNGs: `python3 themes/varsity-english/scripts/export_character_psds.py` (requires `psd-tools`; PSDs under `assets/_char_sources/`).
