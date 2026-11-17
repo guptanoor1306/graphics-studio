@@ -543,8 +543,14 @@ def frame_html(f, look=None, edit=False, all_frames=None):
     f.pop('_grounded', None); f.pop('_looks', None); f.pop('_htab_top', None)
     plate = f.get('plate') or PLATES.get(mode)
     if plate and '.' not in plate: plate += '.jpg'
+    plate_rel = "plates/" + plate if plate else None
+    # the project's own presenter shot (editor: Presenter shot) replaces the stock camera photo
+    _pres = (look or {}).get('presenter') if isinstance((look or {}).get('presenter'), dict) else {}
+    if plate and plate.split('.')[0] in ('maincam', 'sidecam'):
+        _slot = 'side' if plate.startswith('sidecam') else 'main'
+        if _pres.get(_slot): plate_rel = _pres[_slot]
     light = mode in ('fss', 'takeaways', 'scene')
-    body = [f'<img class="plate" src="{A("plates/" + plate)}" style="{"filter:blur(14px) brightness(.55);transform:scale(1.06)" if mode=="blur" else ""}">']
+    body = [f'<img class="plate" src="{A(plate_rel)}" style="{"filter:blur(14px) brightness(.55);transform:scale(1.06)" if mode=="blur" else ""}">']
     if mode == 'main':
         body.append('<div class="abs" style="inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.05) 35%,rgba(0,0,0,.78) 100%)"></div>')
     if mode == 'takeaways':

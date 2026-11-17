@@ -786,6 +786,15 @@ def episode_transcript_prompt_block(transcript: dict | None) -> str:
     )
 
 
+_SOURCE_ORDER = (
+    "ORDER OF AUTHORITY when sources overlap: (1) this storyboard PDF decides which graphics exist, their order "
+    "and what each shows. (2) The voice-over transcript, when given, sets each frame's timing: find where the VO "
+    "says each storyboard beat and use that time for the frame id. (3) The pasted script comes last: use it only "
+    "for exact numbers, names and spelling the PDF and transcript don't give. Never add, drop, merge or reorder "
+    "frames because of the script.\n"
+)
+
+
 def _inject_transcript(msg: str, transcript: dict | None) -> str:
     block = episode_transcript_prompt_block(transcript)
     if not block:
@@ -1642,6 +1651,7 @@ def _storyboard_pdf_batch_once(
             f"{rules}\n"
             f"{batch_line} Put transcribed storyboard lines in `storyboard` (all beats you can read, not only this batch).\n"
             "Each item in `frames` MUST have a unique string `id` (e.g. 01, 02). Use submit_graphic_batch only.\n"
+            f"{_SOURCE_ORDER}"
             "Voiceover script below is OPTIONAL — use it for exact numbers/wording when the PDF does not spell them out:\n\n"
             f"SCRIPT:\n{script.strip() or '(none — infer copy from PDF)'}"
         )
@@ -1654,7 +1664,8 @@ def _storyboard_pdf_batch_once(
             f"Existing storyboard text:\n{existing_storyboard[:12000]}\n\n"
             f"{batch_line} Return `frames` only (omit storyboard unless fixing a typo). Set pdf_progress. If every "
             "graphic in the PDF is already generated, call submit_graphic_batch with frames: [] and pdf_progress: done.\n"
-            f"Optional script:\n\n{script or '(none)'}"
+            f"{_SOURCE_ORDER}"
+            f"Optional script (last in the order above):\n\n{script or '(none)'}"
         )
     msg = _inject_transcript(msg, episode_transcript)
 

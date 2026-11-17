@@ -1437,6 +1437,52 @@ async def plate(pid: int, req: Request, file: UploadFile = File(...)):
     if p["spec"]: p["spec"]["look"]["plate"] = name; (await _db_call(save, pid, who(req), "plate on spec", spec=p["spec"]))
     return (await _db_call(load, pid))
 
+# ---- presenter shot behind anchor frames, changed once for the whole project (presenter.py) ----
+@app.get("/api/projects/{pid}/presenter")
+async def presenter_get(pid: int):
+    import presenter
+    p = await _db_call(load, pid)
+    return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p))}
+
+
+@app.post("/api/projects/{pid}/presenter")
+async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: UploadFile = File(...)):
+    """A still from this video's presenter replaces the stock photo in every frame that uses this slot."""
+    import io, presenter
+    from PIL import Image, ImageOps
+    p = await _db_call(load, pid)
+    if slot not in presenter.SLOTS.get(p["theme"], {}):
+        raise HTTPException(400, "this kit has no presenter shot called " + slot)
+    raw = await file.read()
+    try:
+        im = ImageOps.exif_transpose(Image.open(io.BytesIO(raw))).convert("RGB")
+    except Exception:
+        raise HTTPException(400, "that file is not a picture (use a PNG or JPG screenshot)")
+    cw, ch = theme_canvas.canvas_for_theme(p["theme"])
+    im = ImageOps.fit(im, (cw, ch), Image.LANCZOS)    # fill the frame, crop the edges if the ratio differs
+    buf = io.BytesIO(); im.save(buf, "JPEG", quality=90)
+    rel = await asyncio.to_thread(asset_gen.store, p["theme"], f"presenter {pid} {slot} {time.time()}",
+                                  buf.getvalue(), "jpg", "presenter")
+    look = dict(p.get("look") or {})
+    look["presenter"] = {**(look.get("presenter") if isinstance(look.get("presenter"), dict) else {}), slot: rel}
+    await _db_call(save, pid, who(req), f"presenter shot ({slot})", look=look)
+    p = await _db_call(load, pid)
+    return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
+
+
+@app.delete("/api/projects/{pid}/presenter")
+async def presenter_reset(pid: int, req: Request, slot: str):
+    import presenter
+    p = await _db_call(load, pid)
+    look = dict(p.get("look") or {})
+    pr = dict(look.get("presenter") or {}) if isinstance(look.get("presenter"), dict) else {}
+    pr.pop(slot, None)
+    look["presenter"] = pr
+    await _db_call(save, pid, who(req), f"presenter shot ({slot}) back to the kit's", look=look)
+    p = await _db_call(load, pid)
+    return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
+
+
 @app.get("/preview/{pid}/{fid}", response_class=HTMLResponse)
 def preview(pid: int, fid: str, edit: int = 0):
     p = load(pid)

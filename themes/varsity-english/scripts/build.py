@@ -276,6 +276,12 @@ def frame_html(f, look, edit=False, all_frames=None):
     _cast = _kit_module('cast').build_cast(all_frames if all_frames else [f])
     fss = mode == 'fss'; warm = look.get('fss', 'blue') == 'warm'
     plate = f.get('plate') or (('fss_sky_warm' if warm else 'fss_sky_blue') if fss else look.get('plate') or PLATES[side])
+    # the project's own presenter shot (editor: Presenter shot) replaces the stock anchor photo
+    _pres = look.get('presenter') if isinstance(look.get('presenter'), dict) else {}
+    if not fss and (not f.get('plate') or str(f.get('plate')).startswith('anchor_')):
+        _slot = ('left' if 'left' in str(f['plate']) else 'right') if f.get('plate') else ('left' if side == 'left' else 'right')
+        if _pres.get(_slot):
+            plate = '../' + _pres[_slot]
     body_cls = ('fss ' + ('warm' if warm else '')) if fss else ''
     if edit:
         body_cls = (body_cls + ' studio-edit-mode').strip()
@@ -532,7 +538,7 @@ def _page(f, plate, body_cls, mode, side, flow_html, absol, js, _f, look, fss, w
             js.append(f'V.asset("../assets/{src}",{json.dumps(o)});')
     return f'''<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../templates/varsity.css">
 <script src="../templates/components.js"></script></head><body class="{body_cls}" data-mode="{mode}" data-side="{side}">
-<img class="plate" src="../assets/plates/{plate}.png">
+<img class="plate" src="{('../assets/' + plate[3:]) if plate.startswith('../') else f'../assets/plates/{plate}.png'}">
 {flow_html}
 {"".join(absol)}
 <script>{"".join(js)}</script></body></html>'''

@@ -746,6 +746,13 @@ NEEDS_SVG = {"pill": el_pill, "pills": el_pills, "split": el_split, "coinflow": 
              "branch": el_branch, "arrow": el_arrow}
 
 # ---------------------------------------------------------------- frame
+_PRESENTER = {}   # the project's own presenter shots for this render: {"right"|"centre": "gen/<file>"}
+
+
+def presenter_src(slot):
+    return _PRESENTER.get(slot) or ("plates/anchor_right" if slot == "right" else "plates/anchor_center")
+
+
 def background(f):
     mode = f.get("mode", "fss")
     layers = []
@@ -765,9 +772,9 @@ def background(f):
     if f.get("floor", mode in ("fss",)):
         layers.append(f'<img class="floor" src="{asset("plates/floor")}">')
     if mode == "osa":
-        layers.append(f'<img class="anchor" src="{asset("plates/anchor_right")}">')
+        layers.append(f'<img class="anchor" src="{asset(presenter_src("right"))}">')
     if mode == "osa_center":
-        layers.append(f'<img class="anchor" src="{asset("plates/anchor_center")}">')
+        layers.append(f'<img class="anchor" src="{asset(presenter_src("centre"))}">')
     top_left_busy = any(e.get("y", 999) < 170 and e.get("x", 999) < 420 and e.get("align") not in ("center", "right")
                         for e in f.get("els", []) if e.get("type") in ("header", "text", "pill"))
     eye_right = f.get("eye") == "right" or (f.get("eye") is None and top_left_busy)
@@ -851,7 +858,10 @@ def _fa_wrap_edit(html, idx, e, edit):
 
 
 def frame_html(f, look=None, edit=False, all_frames=None, overlay=False):
-    _ = look, all_frames
+    _ = all_frames
+    _PRESENTER.clear()
+    if isinstance((look or {}).get("presenter"), dict):
+        _PRESENTER.update({k: v for k, v in look["presenter"].items() if v})
     fonts = font_css()
     fid = f["id"]
     FRAME_CHARS.clear(); FRAME_SRCS.clear()
@@ -890,7 +900,7 @@ def frame_html(f, look=None, edit=False, all_frames=None, overlay=False):
             warn(fid, f"{x} used {FRAME_SRCS.count(x)}x in one frame: different things need different assets/logos")
     anchor_front = ""
     if f.get("mode") in ("osa", "osa_center") and f.get("anchor_front"):
-        src = "plates/anchor_right" if f["mode"] == "osa" else "plates/anchor_center"
+        src = presenter_src("right" if f["mode"] == "osa" else "centre")
         anchor_front = f'<img class="anchor front" src="{asset(src)}">'
     bg = "" if overlay else background(f)
     ov = " overlay" if overlay else ""
