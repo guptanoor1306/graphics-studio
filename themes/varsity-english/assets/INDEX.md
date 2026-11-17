@@ -75,4 +75,41 @@ Plates are full-frame backgrounds. Everything in setA/ and setB/ is a transparen
 | `setC/table_dark_glass_shell_empty.png` | 795×357 | empty dark-glass table shell with white header |
 | `setC/title_pill_dark_example.png` | 1130×111 | dark title pill example |
 
+
+## setD — Retirement episode (cut from the Retirement PSDs)
+
+Money, retirement and inflation pieces in the same doodle + 3D-cash style. Characters here are doodle props (not the chars6 cast); use them for scenes (beach retirement, kid with telescope), and the cast `person` for named people.
+
+| File | Size | What it is |
+|---|---|---|
+| `setD/money_notes_flying_large.png` | 629×669 | two big flying green ₹ notes (corner dressing, larger than setB) |
+| `setD/badge_retirement_umbrella.png` | 97×93 | red round badge with a beach chair + umbrella (retirement topic badge) |
+| `setD/rupee_bubble_green.png` | 117×93 | green speech bubble with ₹ (money callout / floating accent) |
+| `setD/telescope_money_roll.png` | 328×668 | telescope made of a rolled ₹ note on a tripod (looking ahead / future money) |
+| `setD/character_kid_yellow_wave.png` | 181×347 | doodle kid in a yellow dress, waving (young saver; pairs with the telescope) |
+| `setD/character_kid_yellow_phone.png` | 202×446 | doodle kid in a yellow dress holding a phone, thumbs-up (planning, using an app) |
+| `setD/character_man_relaxing.png` | 478×651 | doodle retired man with a hat, leaning back relaxed (retirement, leisure) |
+| `setD/beach_umbrella.png` | 750×889 | striped beach umbrella (retirement / holiday scene) |
+| `setD/beach_chair_empty.png` | 558×497 | empty striped deck chair (retirement / holiday scene) |
+| `setD/character_man_briefcase.png` | 364×743 | doodle working man with glasses and a briefcase (working years, salaried) |
+| `setD/character_man_glasses.png` | 270×743 | doodle man with glasses, thumbs-up (same person, no briefcase) |
+| `setD/cash_coins_tower.png` | 266×487 | tall gold coin tower with cash bundles at the base (big corpus, rising cost) |
+| `setD/cash_coins_stack_wide.png` | 266×415 | coin tower + wider pile of cash bundles (corpus / savings pile) |
+| `setD/cash_bundle.png` | 201×121 | one bundle of green ₹100 notes with a paper band |
+| `setD/cash_pile.png` | 305×327 | heap of cash bundles and a coin (lots of money) |
+| `setD/coin_stack_short.png` | 100×185 | short stack of gold coins (bar-chart unit, small amount) |
+| `setD/coin_stack_tall.png` | 101×258 | tall stack of gold coins (bar-chart unit, larger amount) |
+| `setD/coin_gold_plain.png` | 95×64 | single gold coin, plain |
+| `setD/jar_corpus_full.png` | 403×521 | glass jar with gold lid, full of cash and coins (retirement corpus, savings) |
+| `setD/jar_coins_few.png` | 403×521 | glass jar with gold lid, only a few coins (small corpus, starting out) |
+| `setD/dial_knob.png` | 445×396 | metal dial knob with tick marks (an assumption you can turn: return %, age, inflation); add labels as text |
+| `setD/icon_petrol_drop.png` | 55×80 | orange fuel drop icon (petrol price, inflation item) |
+| `setD/icon_onion.png` | 61×68 | purple onion icon (food price, inflation item) |
+| `setD/icon_rice_bowl.png` | 70×47 | bowl of rice icon (food price, inflation item) |
+| `setD/icon_target.png` | 54×56 | red target with arrow icon (goal, required corpus) |
+| `setD/icon_hand_rupee.png` | 58×61 | hand holding a ₹ coin icon (monthly cost, income) |
+| `setD/icon_calendar.png` | 50×49 | calendar icon (years, horizon, dates) |
+| `setD/icon_returns_growth.png` | 55×57 | coins with a rising arrow icon (returns, growth) |
+| `setD/icon_inflation_chart.png` | 52×50 | bar chart with % icon (inflation, rate) |
+
 Re-export refreshed character PNGs: `python3 themes/varsity-english/scripts/export_character_psds.py` (requires `psd-tools`; PSDs under `assets/_char_sources/`).

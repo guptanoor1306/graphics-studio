@@ -1,7 +1,7 @@
 # spec.json format (read this once; it is all you need to build frames)
 
 ```json
-{"look": {"anchor": "right|left", "fss": "blue|warm", "props": ["coins","tax","house"], "plate": "<optional plate name>"},
+{"look": {"anchor": "right|left", "fss": "blue|warm", "props": ["coins","tax","house","retirement","inflation","savings"], "plate": "<optional plate name>"},
  "frames": [ {"id": "0.47", "mode": "anchor|fss", "items": [ {...}, {...} ]} ]}
 ```
 (`prop` as a single string still works; prefer **`props`**: multiple values stack corner props for richer dressing.)

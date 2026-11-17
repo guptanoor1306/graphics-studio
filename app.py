@@ -193,8 +193,8 @@ def load(pid):
 
 
 def effective_look(p: dict) -> dict:
-    """Merge project look with spec.look; UI props[] always wins over Claude's single prop."""
-    pl = p.get("look") or {}
+    """Merge project look with spec.look (topic props: the spec's, else the project default)."""
+    pl = {k: v for k, v in (p.get("look") or {}).items() if v not in ([], "", None)}   # empty project fields don't hide the spec's
     spec = p.get("spec") or {}
     sl = spec.get("look") if spec else {}
     if isinstance(sl, str):
@@ -203,7 +203,11 @@ def effective_look(p: dict) -> dict:
         out = {**sl, **pl}
     else:
         out = {**pl}
-    if pl.get("props"):
+    # Look is archived, so the project's props are only the default (coins): Claude's choice in the spec wins
+    spec_props = (sl.get("props") or ([sl["prop"]] if sl.get("prop") else None)) if isinstance(sl, dict) else None
+    if spec_props:
+        out["props"] = spec_props
+    elif pl.get("props"):
         out["props"] = pl["props"]
         out.pop("prop", None)
     if pl.get("look_line"):

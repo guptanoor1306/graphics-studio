@@ -217,7 +217,12 @@ R = dict(title=title, pill=pill, htab=htab, num=num, label=label, text=text, def
          result_pill=result_pill, nlist=nlist, folder=folder, cards=cards, bars=bars, points=points, html=raw)
 
 FLOOR = {'anchor': 1035, 'fss': 1040}           # review rule 4: visible bottoms sit on this line
-ROLE_H = [(('building', 'bank', 'tower'), 560), (('house',), 360), (('character', 'person', 'friend'), 315),
+ROLE_H = [  # setD (Retirement) pieces first: 'cash_coins_tower' is cash, not a building
+          (('cash_coins', 'cash_pile'), 270), (('coin_stack_tall',), 180), (('coin_stack_short',), 130),
+          (('cash_bundle', 'coin_gold_plain'), 100), (('icon_',), 90), (('badge_', 'rupee_bubble'), 90),
+          (('dial_knob',), 260), (('beach_umbrella',), 430), (('beach_chair',), 250), (('telescope',), 380),
+          (('money_notes_flying_large',), 230), (('jar_corpus', 'jar_coins'), 260),
+          (('building', 'bank', 'tower'), 560), (('house',), 360), (('character', 'person', 'friend'), 315),
           (('coin',), 100), (('calculator',), 150), (('jar',), 230), (('cash_stack',), 300)]   # rule 5: buildings >> characters
 _bbox_cache = {}
 def visible_box(src):
@@ -241,7 +246,9 @@ def floor_asset(src, mode, x, h=None, w=None, z=None, floor=None):
 
 PLATES = {'right': 'anchor_right_setA_clean', 'left': 'anchor_left_setB'}
 PROPS = {'coins': [('setA/coins_stack.png', 100)], 'tax': [('setC/calculator.png', 130), ('setA/coins_stack.png', 90)],
-         'jar': [('setB/jar_cash_coins.png', 200)], 'house': [('setC/house_home_loan_small.png', 230)],
+         'jar': [('setB/jar_cash_coins.png', 200)],
+         'retirement': [('setD/jar_corpus_full.png', 230)], 'inflation': [('setD/cash_coins_tower.png', 250)],
+         'savings': [('setD/coin_stack_tall.png', 150), ('setD/coin_stack_short.png', 110)], 'house': [('setC/house_home_loan_small.png', 230)],
          'bank': [('setC/bank_building_classic.png', 240)], 'broker': [('setA/building_company_3d.png', 200)],
          'document': [('setA/document_clipped_note_rule.png', 160)],
          'chart': [('setA/icon_browser_donut.png', 180)], 'magnifier': [('setA/magnifying_glass.png', 140)],
