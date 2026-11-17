@@ -112,4 +112,34 @@ Money, retirement and inflation pieces in the same doodle + 3D-cash style. Chara
 | `setD/icon_returns_growth.png` | 55×57 | coins with a rising arrow icon (returns, growth) |
 | `setD/icon_inflation_chart.png` | 52×50 | bar chart with % icon (inflation, rate) |
 
+
+## setE — ETF episode (cut from the ETF PSDs)
+
+Investing, fund-house and comparison pieces. Glossy coins here have no outline (setD coins are outlined): don't mix the two styles in one frame.
+
+| File | Size | What it is |
+|---|---|---|
+| `setE/character_investor_hat.png` | 192×443 | doodle investor with a hat and moustache, yellow outfit (the investor / retail buyer) |
+| `setE/building_amc_glass.png` | 793×755 | blue glass office tower (AMC, fund house, institution) |
+| `setE/coins_flow_dashed.png` | 657×293 | ₹ coins flowing along a dashed arc (money moving from investor to AMC/fund) |
+| `setE/character_boy_yellow_wave.png` | 490×802 | doodle boy with spiky hair in a yellow outfit, waving |
+| `setE/money_bag_cash_coins.png` | 194×146 | red ₹ money bag with cash and coin stacks (returns, wealth, fund value) |
+| `setE/money_bag_rupee.png` | 107×146 | red ₹ money bag on its own |
+| `setE/cash_coins_row.png` | 163×62 | low row of cash bundle and coin stacks (floor prop) |
+| `setE/rupee_notes_coin.png` | 230×160 | two ₹ notes with a gold ₹ coin (money accent) |
+| `setE/rupee_note_flat.png` | 161×89 | single green ₹ note, flat |
+| `setE/money_note_blur.png` | 185×157 | motion-blurred flying ₹ note (corner dressing) |
+| `setE/rupee_coin_shiny.png` | 86×86 | shiny gold ₹ coin |
+| `setE/rupee_coin_tilt.png` | 81×104 | gold ₹ coin, tilted (spinning / floating) |
+| `setE/coin_stack_glossy_tall.png` | 91×271 | tall glossy gold coin stack (no outline) |
+| `setE/coin_stack_glossy_short.png` | 83×77 | short glossy gold coin stack (no outline) |
+| `setE/folder_blue_card_blank.png` | 416×482 | blue folder with a blank white card (compare two options: put a label + value on the card as text) |
+| `setE/glass_folder_blank.png` | 1286×877 | large blank frosted-glass folder (list / summary background) |
+| `setE/certificate_verified.png` | 396×434 | certificate with a blue verified badge (NAV, official value, proof) |
+| `setE/gauge_bar_vertical.png` | 59×640 | vertical green→red level bar (cost, risk or expense meter) |
+| `setE/chart_area_yellow.png` | 914×663 | illustrative rising area chart, yellow (market / returns backdrop, no axes) |
+| `setE/chart_area_green.png` | 913×664 | illustrative rising area chart, green |
+| `setE/chart_area_blue.png` | 850×407 | illustrative area chart, blue (price drifting down then flat) |
+| `setE/logo_kite.png` | 85×58 | Kite (Zerodha) logo mark |
+
 Re-export refreshed character PNGs: `python3 themes/varsity-english/scripts/export_character_psds.py` (requires `psd-tools`; PSDs under `assets/_char_sources/`).
