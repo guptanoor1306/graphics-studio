@@ -786,6 +786,15 @@ def episode_transcript_prompt_block(transcript: dict | None) -> str:
     )
 
 
+_SOURCE_ORDER = (
+    "ORDER OF AUTHORITY when sources overlap: (1) this storyboard PDF decides which graphics exist, their order "
+    "and what each shows. (2) The voice-over transcript, when given, sets each frame's timing: find where the VO "
+    "says each storyboard beat and use that time for the frame id. (3) The pasted script comes last: use it only "
+    "for exact numbers, names and spelling the PDF and transcript don't give. Never add, drop, merge or reorder "
+    "frames because of the script.\n"
+)
+
+
 def _inject_transcript(msg: str, transcript: dict | None) -> str:
     block = episode_transcript_prompt_block(transcript)
     if not block:
@@ -833,7 +842,9 @@ def _z1h_issues(spec: dict) -> list[str]:
     return issues
 
 
-def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") -> list[str]:
+def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "", storyboard_led: bool = False) -> list[str]:
+    """storyboard_led: frames come from the team's storyboard PDF, which already decides anchor vs full screen,
+    so the mix checks (too many anchor frames, need more full-screen) don't apply."""
     if theme == "zero1-hindi-graphics":
         return _z1h_issues(spec)
     if theme == "varsity-hindi-fa-graphics":
@@ -930,6 +941,8 @@ def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") ->
             issues.append(f'Frame "{f.get("id")}": storyboard says OSA but spec has no asset/person/table visual.')
         if sb_line and re.search(r"\bFSS\b", sb_line, re.I) and mode != "fss":
             issues.append(f'Frame "{f.get("id")}": storyboard says FSS but mode is not fss.')
+    if storyboard_led:
+        return issues
     if len(frames) >= 2 and fss_n == 0:
         issues.append(
             "No mode:fss frames. Add full-screen (mode:fss) frames for tables, charts, comparisons, or long lists."
@@ -1400,6 +1413,7 @@ def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
             f"Look (use in frames): {json.dumps(look)}\n"
             f"Topic props: {json.dumps(props if props else [])}\n"
             "GRAPHICS STUDIO RULES (Varsity English, storyboard PDF given):\n"
+            "- Two cameras: anchor frames use `\"anchor\":\"right\"` (main camera, graphics on the left) by default; use `\"anchor\":\"left\"` (second camera, graphics on the right) for about one anchor beat in three, and whenever the storyboard row mentions the second camera, a side angle, a close-up or the presenter on the left, so consecutive anchor frames don't all look the same. Never switch camera inside one continuing beat (_b states keep their frame's side).\n"
             "- The PDF is the team's storyboard and decides every graphic: one frame per PDF row tagged FSS / OST / OSA, "
             "at that row's timestamp, in PDF order. Frame id = the row's timestamp (1:41 → \"1.41\"). Footage, screen "
             "capture and repeat rows stay in the storyboard text only.\n"
@@ -1642,6 +1656,7 @@ def _storyboard_pdf_batch_once(
             f"{rules}\n"
             f"{batch_line} Put transcribed storyboard lines in `storyboard` (all beats you can read, not only this batch).\n"
             "Each item in `frames` MUST have a unique string `id` (e.g. 01, 02). Use submit_graphic_batch only.\n"
+            f"{_SOURCE_ORDER}"
             "Voiceover script below is OPTIONAL — use it for exact numbers/wording when the PDF does not spell them out:\n\n"
             f"SCRIPT:\n{script.strip() or '(none — infer copy from PDF)'}"
         )
@@ -1654,7 +1669,8 @@ def _storyboard_pdf_batch_once(
             f"Existing storyboard text:\n{existing_storyboard[:12000]}\n\n"
             f"{batch_line} Return `frames` only (omit storyboard unless fixing a typo). Set pdf_progress. If every "
             "graphic in the PDF is already generated, call submit_graphic_batch with frames: [] and pdf_progress: done.\n"
-            f"Optional script:\n\n{script or '(none)'}"
+            f"{_SOURCE_ORDER}"
+            f"Optional script (last in the order above):\n\n{script or '(none)'}"
         )
     msg = _inject_transcript(msg, episode_transcript)
 

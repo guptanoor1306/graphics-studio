@@ -193,7 +193,16 @@ textarea#dlgJson{font-family:var(--mono);font-size:var(--text-sm);min-height:380
 .src-card-head p{margin:var(--s-1) 0 0;font-size:var(--text-sm);color:var(--mute)}
 .src-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s-4)}
 .src-item{display:flex;flex-direction:column;gap:var(--s-2);padding:var(--s-4) var(--s-5);border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper-2);min-width:0}
-.src-item.src-script{grid-column:1/-1}
+.src-item.src-script{grid-column:auto}
+.src-stack{display:flex;flex-direction:column;gap:var(--s-4);min-width:0}
+.src-item.src-script textarea#script{flex:1;min-height:220px}
+.src-rank{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--line);color:var(--ink-2);font-size:11px;font-weight:600;margin-right:8px;vertical-align:1px}
+.src-pick{display:flex;align-items:center;gap:var(--s-3);flex-wrap:wrap;margin-top:var(--s-2);padding:var(--s-3);border:1px dashed var(--line-strong);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer}
+.src-pick:hover{border-color:var(--accent)}
+.src-pick.done{border-style:solid}
+.src-pick-btn{font-size:var(--text-sm);font-weight:500;padding:6px 12px;border:1px solid var(--line-strong);border-radius:var(--radius-sm);background:var(--paper-2);color:var(--ink);white-space:nowrap}
+.src-pick-note{font-size:var(--text-xs);color:var(--mute);min-width:0;overflow-wrap:anywhere}
+.src-ok{color:#1F8A3B;font-weight:700}
 .src-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3)}
 .src-title{font-size:var(--text-sm);font-weight:600;color:var(--ink)}
 .src-hint{margin:0;font-size:var(--text-xs);color:var(--mute);line-height:1.45}
@@ -444,6 +453,17 @@ aside.edit-frame-strip{display:block;flex-direction:unset;gap:0;overflow-y:auto;
 .canvas-parent-chip .ca button:hover:not(:disabled){background:var(--on-dark-hi)}
 .canvas-parent-chip .ca button[data-act="delete"]:hover:not(:disabled){background:var(--danger-hi)}
 .canvas-layer-row.sub .cl-name{padding-left:12px;color:var(--ink-2)}
+.pres-scope{font-size:var(--text-xs);font-weight:500;color:var(--mute);margin-left:6px}
+.pres-slot{display:flex;gap:var(--s-3);align-items:flex-start;padding:var(--s-3) 0;border-top:1px solid var(--line)}
+.pres-slot:first-child{border-top:0}
+.pres-slot img{width:112px;height:63px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex:none;background:#111}
+.pres-meta{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:var(--text-xs);color:var(--mute)}
+.pres-meta b{font-size:var(--text-sm);color:var(--ink);font-weight:600}
+.pres-src{color:var(--faint)}
+.pres-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+.pres-btn{cursor:pointer;font-size:var(--text-xs);font-weight:500;border:1px solid var(--line-strong);border-radius:var(--radius-sm);padding:5px 10px;color:var(--ink);background:var(--surface)}
+.pres-btn:hover{background:var(--hover)}
+.pres-link{background:none;border:0;padding:0;font-size:var(--text-xs);color:var(--mute);text-decoration:underline;cursor:pointer}
 .fchat-log{display:flex;flex-direction:column;gap:var(--s-3);max-height:280px;overflow:auto;margin:0 0 var(--s-3)}
 .fchat-log:empty{display:none}
 .fchat-msg{font-size:var(--text-sm);line-height:1.45;padding:8px 11px;border-radius:12px;max-width:92%;white-space:pre-wrap;word-break:break-word}
@@ -484,6 +504,16 @@ aside.edit-frame-strip{display:block;flex-direction:unset;gap:0;overflow-y:auto;
 .edit-canvas-loader[hidden]{display:none!important}
 .edit-mode-side{border-left:1px solid var(--line);padding:var(--s-5) var(--s-5);overflow-y:auto;background:var(--surface)}
 .edit-mode-side h3{margin:var(--s-6) 0 var(--s-3);padding-top:var(--s-5);border-top:1px solid var(--line);font-size:var(--text-sm);font-weight:600;color:var(--ink)}
+.side-sec{border-bottom:1px solid var(--line)}
+.side-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:var(--s-4) 0;font-size:var(--text-sm);font-weight:600;color:var(--ink)}
+.side-sec>summary::-webkit-details-marker{display:none}
+.side-sec>summary::after{content:"";width:8px;height:8px;border-right:1.5px solid var(--mute);border-bottom:1.5px solid var(--mute);transform:rotate(45deg);margin-right:4px;transition:transform .15s}
+.side-sec[open]>summary::after{transform:rotate(-135deg)}
+.side-sec-body{padding:0 0 var(--s-5)}
+.side-sub{font-size:var(--text-sm);font-weight:600;color:var(--ink);margin:var(--s-4) 0 var(--s-2)}
+.side-sec-body>.side-sub:first-child,#anchorFrameCtl:empty+#presenterBlock .side-sub{margin-top:0}
+.side-cam .mode-switch{display:inline-flex}
+.edit-mode-side{padding-top:var(--s-2)}
 .edit-mode-side h3:first-child,.edit-mode-side #editLookBlock[hidden]+h3{margin-top:0;padding-top:0;border-top:0}
 .edit-side-hint{font-size:var(--text-xs);color:var(--mute);margin:0 0 var(--s-3);line-height:1.45}
 .canvas-layer-row{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) 0;border-bottom:1px solid var(--line);font-size:var(--text-sm)}
@@ -581,11 +611,17 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
     <input id="editLookLine" type="text" placeholder="Theme + fonts + accent…" style="width:100%;margin:6px 0 12px">
     <button type="button" class="btn-neutral block" onclick="applyLook()">Apply look to all frames</button>
    </div>
-   <h3>Layers</h3>
-   <p class="edit-side-hint">Click a layer to show <b>✎ ↻ ×</b>. Drag it to move, drag the <b>blue corner</b> to resize, double-click text to change the words.</p>
-   <div id="canvasLayerList"></div>
-   <h3>Change this frame</h3>
-   <p class="edit-side-hint">Ask in plain words. Claude changes the frame's layers; attach a picture to swap one in.</p>
+   <details class="side-sec" name="editSide" id="secLayers" open>
+    <summary>Layers</summary>
+    <div class="side-sec-body">
+     <p class="edit-side-hint">Click a layer to show <b>✎ ↻ ×</b>. Drag it to move, drag the <b>blue corner</b> to resize, double-click text to change the words.</p>
+     <div id="canvasLayerList"></div>
+    </div>
+   </details>
+   <details class="side-sec" name="editSide" id="secEdit">
+    <summary>Prompt and edit</summary>
+    <div class="side-sec-body">
+     <p class="edit-side-hint">Ask in plain words. Claude changes the frame's layers; attach a picture to swap one in.</p>
    <div class="fchat-log" id="frameChatLog" aria-live="polite"></div>
    <div class="fchat-box">
     <textarea id="editFrameAsk" rows="2" placeholder="e.g. make the title bigger, move the chart left, swap the picture for a laptop" onkeydown="frameChatKeyHandler(event)"></textarea>
@@ -597,6 +633,19 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
     </div>
    </div>
    <button type="button" class="fchat-regen" onclick="editRegenFrame()">Make this frame again from scratch</button>
+    </div>
+   </details>
+   <details class="side-sec" name="editSide" id="secAnchor" hidden>
+    <summary>Anchor frame</summary>
+    <div class="side-sec-body">
+     <div id="anchorFrameCtl"></div>
+     <div id="presenterBlock" hidden>
+      <div class="side-sub">Presenter shot <span class="pres-scope">whole project</span></div>
+      <p class="edit-side-hint">Swap the stock presenter photo for a still from this video. Every frame that uses it changes.</p>
+      <div id="presenterSlots"></div>
+     </div>
+    </div>
+   </details>
    <input type="checkbox" id="editRefReplace" checked hidden><input type="checkbox" id="editRefFlat" hidden>
    <div id="editAnchorBlock" hidden><!-- archived for now: anchor screen plate + look -->
     <input type="file" id="editPlate" accept="image/*" onchange="upPlate(this)">
@@ -1197,7 +1246,7 @@ async function refreshPdfSbStatus(){
     const el=$('#pdfSbStatus');
     const hint=document.querySelector('details[data-panel-key="pdf"] .setup-panel-hint');
     const t=pdfStatusText();
-    if(el&&!el.closest('.pdf-bar')){el.textContent=t;el.hidden=!t}
+    if(el&&!el.closest('.pdf-bar,#srcPdf')){el.textContent=t;el.hidden=!t}
     if(hint)hint.textContent=pdfSummaryHint();
   }catch(_){}
 }
@@ -1286,30 +1335,31 @@ function srcTag(on,text){return on?`<span class="src-tag on">${esc(text||'Added'
 function episodeAudioFieldHtml(){
   const s=srcState();
   return `<section class="src-item" id="srcAudio">
-   <div class="src-head"><span class="src-title">Voice-over audio</span>${srcTag(s.audio,'Transcribed')}</div>
-   <p class="src-hint">Times each beat to the real voice-over. mp3, m4a or wav.</p>
-   <div class="src-row"><input type="file" id="episodeAudioFile" accept="audio/*,.mp3,.m4a,.wav,.webm">
-    <button type="button" class="btn-neutral" id="episodeAudioBtn" onclick="uploadEpisodeAudio()">${s.audio?'Replace':'Transcribe'}</button></div>
+   <div class="src-head"><span class="src-title"><span class="src-rank">2</span>Voice-over audio</span>${srcTag(s.audio,'Transcribed')}</div>
+   <p class="src-hint">${s.pdf?'Times each storyboard frame to where the voice-over says it.':'Times each beat to the real voice-over.'} mp3, m4a or wav.</p>
+   <label class="src-pick${s.audio?' done':''}"><input type="file" id="episodeAudioFile" accept="audio/*,.mp3,.m4a,.wav,.webm" hidden onchange="uploadEpisodeAudio()">
+    <span class="src-pick-btn" id="episodeAudioBtn">${s.audio?'Replace audio':'Choose audio'}</span><span class="src-pick-note">${s.audio?'Transcribed. Pick another file to replace it.':'Transcribing starts as soon as you pick a file.'}</span></label>
    <div class="audio-card-status" id="episodeAudioStatus">${episodeAudioStatusHtml()}</div>
   </section>`;
 }
 function voSourceColumnHtml(){
   const s=srcState();
   return `<section class="src-item src-script" id="srcScript">
-   <div class="src-head"><label class="src-title" for="script">Script</label>${srcTag(s.script)}</div>
-   <p class="src-hint">The voice-over text. Copy and numbers come from here.</p>
+   <div class="src-head"><label class="src-title" for="script"><span class="src-rank">3</span>Script</label>${srcTag(s.script)}</div>
+   <p class="src-hint">${s.pdf||s.audio?'Used only for exact words and numbers the storyboard and audio don’t give.':'The voice-over text. Frames are planned from it when there is no storyboard.'}</p>
    <textarea id="script" placeholder="Paste the voice-over…" oninput="refreshSetupCta()">${esc(P.script||'')}</textarea>
   </section>`;
 }
 function pdfStoryboardColumnHtml(){
   const s=srcState(),name=storyboardPdfName();
   return `<section class="src-item" id="srcPdf">
-   <div class="src-head"><span class="src-title">Storyboard PDF</span>${srcTag(s.pdf,name?name.slice(0,28):'Saved')}</div>
-   <p class="src-hint">The team's storyboard. Frames follow its shots and styleframes.</p>
+   <div class="src-head"><span class="src-title"><span class="src-rank">1</span>Storyboard PDF</span>${srcTag(s.pdf,'Saved')}</div>
+   <p class="src-hint">The team's storyboard. When added, frames follow its shots and styleframes first.</p>
    ${pdfStaleNoticeHtml()}
-   <div class="src-row" id="pdfHumanTop"><input type="file" id="sbPdfFile" accept="application/pdf,.pdf">
-    <button type="button" class="btn-neutral" id="pdfSaveBtn" onclick="uploadSbPdf()">${s.pdf?'Replace':'Save'}</button></div>
-   <span id="pdfSbStatus" class="pdf-saved-tag" hidden></span>
+   <label class="src-pick${s.pdf?' done':''}" id="pdfHumanTop"><input type="file" id="sbPdfFile" accept="application/pdf,.pdf" hidden onchange="uploadSbPdf()">
+    <span class="src-pick-btn" id="pdfSaveBtn">${s.pdf?'Replace PDF':'Choose PDF'}</span>
+    <span class="src-pick-note">${s.pdf?`<span class="src-ok">✓</span> <b>${esc(name||'Storyboard PDF')}</b> is saved. Pick another file to replace it.`:'It is saved as soon as you pick it.'}</span></label>
+   <span id="pdfSbStatus" class="pdf-saved-tag" role="status" hidden></span>
   </section>`;
 }
 function setupCta(){
@@ -1327,7 +1377,7 @@ function setupGenerate(ev){return srcState().pdf?genPdfBatch(ev,{batchSize:5}):g
 function storyboardSetupBodyHtml(){
   const c=setupCta();
   return `<input type="hidden" id="notes" value="">
-   <div class="src-grid">${voSourceColumnHtml()}${episodeAudioFieldHtml()}${pdfStoryboardColumnHtml()}</div>
+   <div class="src-grid">${voSourceColumnHtml()}<div class="src-stack">${pdfStoryboardColumnHtml()}${episodeAudioFieldHtml()}</div></div>
    <div class="setup-actions">
     <button type="button" class="p" id="gen" onclick="setupGenerate(event)" ${c.ok?'':'disabled'}>${esc(c.label)}</button>
     <p class="setup-actions-hint muted" id="genHint">${esc(c.hint)}</p>
@@ -1357,7 +1407,7 @@ async function uploadEpisodeAudio(){
 }
 function preSpecSectionHtml(){
   return `<section class="src-card card" aria-labelledby="srcTitle">
-   <div class="src-card-head"><h2 id="srcTitle">Sources</h2><p>Add any one, two or all three. Claude uses everything you add.</p></div>
+   <div class="src-card-head"><h2 id="srcTitle">Sources</h2><p>Add any one, two or all three. When they overlap: <b>1</b> the storyboard PDF decides the frames, <b>2</b> the audio times them, <b>3</b> the script only fills exact words and numbers.</p></div>
    ${storyboardSetupBodyHtml()}
   </section>`;
 }
@@ -1379,8 +1429,8 @@ async function uploadSbPdf(){
   if(saveBtn)saveBtn.disabled=true;
   if(panel)panel.classList.add('pdf-save-busy');
   if(actions)actions.classList.add('pdf-save-busy');
-  if(status){status.hidden=false;status.textContent='Saving…';status.style.color='var(--mute)'}
-  setWorkspaceLoading(true,'Saving PDF…');
+  if(status){status.hidden=false;status.textContent=`Saving ${f.name}…`;status.style.color='var(--mute)'}
+  setWorkspaceLoading(true,'Saving the storyboard PDF…');
   try{
     const fd=new FormData();fd.append('file',f,f.name||'storyboard.pdf');
     const r=await fetch(`/api/projects/${P.id}/storyboard-pdf`,{method:'POST',body:fd});
@@ -1393,8 +1443,8 @@ async function uploadSbPdf(){
     await refreshPdfSbStatus();
     render();
   }catch(e){
-    if(status){status.textContent='Save failed';status.hidden=false;status.style.color='var(--bad)'}
-    alert(e.message||String(e));
+    if(status){status.textContent='Not saved: '+(e.message||String(e))+' Pick the file again to retry.';status.hidden=false;status.style.color='var(--bad)'}
+    const inp=$('#sbPdfFile');if(inp)inp.value='';
   }finally{
     if(saveBtn)saveBtn.disabled=false;
     if(panel)panel.classList.remove('pdf-save-busy');
@@ -1931,11 +1981,46 @@ function refControls(){
  return{ref:$('#editRef'),rep:$('#editRefReplace'),flat:$('#editRefFlat'),lb:$('#editRefLabel')};
 }
 function renderFrameModeSwitch(){
+ const top=$('#frameModeSwitch');if(top)top.innerHTML='';   // the Anchor / Full-screen switch is not shown
+ renderAnchorSection();
+}
+document.addEventListener('toggle',e=>{
+ const d=e.target;if(!(d instanceof HTMLDetailsElement)||!d.classList.contains('side-sec')||!d.open)return;
+ document.querySelectorAll('.side-sec[open]').forEach(o=>{if(o!==d)o.open=false});
+},true);
+function renderAnchorSection(){
+ const ctl=$('#anchorFrameCtl'),sec=$('#secAnchor');
+ const fr=P?.spec?.frames?.find(f=>f.id===selectedFrameId);
+ const cam=P?.theme==='varsity-english'&&fr&&(fr.mode||'anchor')!=='fss';
+ if(ctl)ctl.innerHTML=cam?`<div class="side-sub">This frame's camera</div><div class="side-cam">${veCameraSwitchHtml(fr)}</div>`:'';
+ if(sec)sec.hidden=!(cam||presenterSlots.length);
+}
+function renderFrameModeSwitchOld(){
  const host=$('#frameModeSwitch');
  if(!host||!P?.spec||!selectedFrameId||isChannelKit(P.theme)){if(host)host.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const mode=fr?.mode||'anchor';
- host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`;
+ host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`
+  ;
+}
+/* Varsity English: two cameras. Right = main camera (content on the left), left = second camera (content on the
+   right). Each side's photo is set once for the project under Presenter shot. */
+function veCameraSwitchHtml(fr){
+ const side=String(fr.plate||'').startsWith('anchor_')?(String(fr.plate).includes('left')?'left':'right'):(fr.anchor||P.look?.anchor||'right');
+ return `<div class="mode-switch" role="group" aria-label="Presenter camera"><button type="button" class="${side!=='left'?'on':''}" onclick="setVeCamera('right')" title="Presenter on the right, graphics on the left">Main</button><button type="button" class="${side==='left'?'on':''}" onclick="setVeCamera('left')" title="Presenter on the left, graphics on the right">Second</button></div><p class="edit-side-hint" style="margin-top:6px">Main: presenter on the right, graphics on the left. Second: the other way round.</p>`;
+}
+async function setVeCamera(side){
+ const fi=P?.spec?.frames?.findIndex(f=>f.id===selectedFrameId);
+ if(fi==null||fi<0)return;
+ const fr=JSON.parse(JSON.stringify(P.spec.frames[fi]));
+ fr.anchor=side;
+ if(String(fr.plate||'').startsWith('anchor_'))delete fr.plate;
+ P.spec.frames[fi]=fr;
+ setEditLoading(true);
+ try{
+  P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'camera '+side+' '+fr.id})});P.look=normLook(P.look);
+  bumpFrame(fr.id);refreshEditCanvas();renderFrameModeSwitch();loadPresenter();
+ }catch(e){alert(e.message||e)}finally{setEditLoading(false)}
 }
 function setSelectedFrameMode(mode){
  const fr=P?.spec?.frames?.find(f=>f.id===selectedFrameId);
@@ -2401,10 +2486,12 @@ function openEditMode(fid){
  else if(!selectedFrameId)selectedFrameId=studioFrames()[0]?.id;
  document.body.classList.add('edit-mode-on');
  $('#editModeApp').hidden=false;
+ document.querySelectorAll('.side-sec').forEach(d=>{d.open=d.id==='secLayers'});   // Layers open, the rest collapsed
  populateEditLookBlock();
  document.querySelector('.edit-mode-center')?.classList.toggle('reel-desk',isReelChannel());
  buildEditFrameStrip();
  selectEditFrame(selectedFrameId);
+ loadPresenter();
  renderFrameModeSwitch();
  requestAnimationFrame(()=>{fitCanvasEdit();document.querySelectorAll('.mini-thumb').forEach(t=>bindPreviewIframeFit(t))});
 }
@@ -2704,6 +2791,50 @@ async function undoFrameChat(i){
   bumpFrame(fid);refreshEditCanvas();renderCanvasLayerList();
  }catch(e){alert(e.message)}finally{setEditLoading(false)}
  frameChatSave();renderFrameChat();
+}
+/* ---------- presenter shot: one still from this video replaces the stock presenter photo in every anchor frame ---------- */
+let presenterSlots=[];
+async function loadPresenter(){
+ const block=$('#presenterBlock');if(!block||!P?.id)return;
+ try{presenterSlots=(await api(`/api/projects/${P.id}/presenter`)).slots||[]}catch(_){presenterSlots=[]}
+ renderPresenter();
+}
+function renderPresenter(){
+ const block=$('#presenterBlock'),host=$('#presenterSlots');if(!block||!host)return;
+ block.hidden=!presenterSlots.length;
+ renderAnchorSection();
+ host.innerHTML=presenterSlots.map(s=>{
+  const n=s.count,ost=s.ost||0;
+  const used=n?`${n} frame${n===1?'':'s'}`+(ost?` · ${ost} on-screen text (preview only)`:''):'Not used by any frame yet';
+  return `<div class="pres-slot">
+   <img src="${esc(s.src)}" alt="" loading="lazy">
+   <div class="pres-meta"><b>${esc(s.label)}</b><span>${esc(used)}</span><span class="pres-src">${s.custom?'This video':'Kit photo'}</span>
+    <div class="pres-actions">
+     <label class="pres-btn">${s.custom?'Change':'Use a still from this video'}<input type="file" accept="image/png,image/jpeg,image/webp" hidden onchange="uploadPresenter('${s.slot}',this)"></label>
+     ${s.custom?`<button type="button" class="pres-link" onclick="resetPresenter('${s.slot}')">Back to the kit photo</button>`:''}
+    </div></div></div>`}).join('');
+}
+function presenterRefreshAll(res){
+ if(res?.project){P=res.project;P.look=normLook(P.look)}
+ presenterSlots=res?.slots||presenterSlots;
+ renderPresenter();
+ (P?.spec?.frames||[]).forEach(f=>bumpFrame(f.id));
+ if(editModeOpen)refreshEditCanvas();
+}
+async function uploadPresenter(slot,input){
+ const file=input?.files?.[0];if(!file)return;
+ const fd=new FormData();fd.append('slot',slot);fd.append('file',file);
+ setEditLoading(true);
+ try{
+  const r=await fetch(`/api/projects/${P.id}/presenter`,{method:'POST',body:fd});
+  if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
+  presenterRefreshAll(await r.json());
+ }catch(e){alert('Could not use that picture: '+(e.message||e))}finally{setEditLoading(false);input.value=''}
+}
+async function resetPresenter(slot){
+ setEditLoading(true);
+ try{presenterRefreshAll(await api(`/api/projects/${P.id}/presenter?slot=${encodeURIComponent(slot)}`,{method:'DELETE'}))}
+ catch(e){alert(e.message||e)}finally{setEditLoading(false)}
 }
 function editApplyFrame(){
  const ask=$('#editFrameAsk')?.value||'';
