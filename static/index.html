@@ -1961,7 +1961,27 @@ function renderFrameModeSwitch(){
  if(!host||!P?.spec||!selectedFrameId||isChannelKit(P.theme)){if(host)host.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const mode=fr?.mode||'anchor';
- host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`;
+ host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`
+  + (P.theme==='varsity-english'&&mode!=='fss'?veCameraSwitchHtml(fr):'');
+}
+/* Varsity English: two cameras. Right = main camera (content on the left), left = second camera (content on the
+   right). Each side's photo is set once for the project under Presenter shot. */
+function veCameraSwitchHtml(fr){
+ const side=String(fr.plate||'').startsWith('anchor_')?(String(fr.plate).includes('left')?'left':'right'):(fr.anchor||P.look?.anchor||'right');
+ return `<span style="font-size:13px;color:var(--mute);margin:0 10px 0 16px">Camera</span><div class="mode-switch" role="group" aria-label="Presenter camera"><button type="button" class="${side!=='left'?'on':''}" onclick="setVeCamera('right')" title="Presenter on the right, graphics on the left">Main</button><button type="button" class="${side==='left'?'on':''}" onclick="setVeCamera('left')" title="Presenter on the left, graphics on the right">Second</button></div>`;
+}
+async function setVeCamera(side){
+ const fi=P?.spec?.frames?.findIndex(f=>f.id===selectedFrameId);
+ if(fi==null||fi<0)return;
+ const fr=JSON.parse(JSON.stringify(P.spec.frames[fi]));
+ fr.anchor=side;
+ if(String(fr.plate||'').startsWith('anchor_'))delete fr.plate;
+ P.spec.frames[fi]=fr;
+ setEditLoading(true);
+ try{
+  P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'camera '+side+' '+fr.id})});P.look=normLook(P.look);
+  bumpFrame(fr.id);refreshEditCanvas();renderFrameModeSwitch();loadPresenter();
+ }catch(e){alert(e.message||e)}finally{setEditLoading(false)}
 }
 function setSelectedFrameMode(mode){
  const fr=P?.spec?.frames?.find(f=>f.id===selectedFrameId);

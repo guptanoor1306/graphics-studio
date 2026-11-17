@@ -899,7 +899,8 @@ def frame_html(f, look=None, edit=False, all_frames=None, overlay=False):
         if x.startswith(("buildings/", "props/factory")) and FRAME_SRCS.count(x) > 1 and not f.get("allow_repeat"):
             warn(fid, f"{x} used {FRAME_SRCS.count(x)}x in one frame: different things need different assets/logos")
     anchor_front = ""
-    if f.get("mode") in ("osa", "osa_center") and f.get("anchor_front"):
+    if f.get("mode") in ("osa", "osa_center") and f.get("anchor_front") \
+            and not _PRESENTER.get("right" if f.get("mode") == "osa" else "centre"):   # a full photo can't sit in front
         src = presenter_src("right" if f["mode"] == "osa" else "centre")
         anchor_front = f'<img class="anchor front" src="{asset(src)}">'
     bg = "" if overlay else background(f)

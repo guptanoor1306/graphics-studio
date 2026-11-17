@@ -842,7 +842,9 @@ def _z1h_issues(spec: dict) -> list[str]:
     return issues
 
 
-def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") -> list[str]:
+def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "", storyboard_led: bool = False) -> list[str]:
+    """storyboard_led: frames come from the team's storyboard PDF, which already decides anchor vs full screen,
+    so the mix checks (too many anchor frames, need more full-screen) don't apply."""
     if theme == "zero1-hindi-graphics":
         return _z1h_issues(spec)
     if theme == "varsity-hindi-fa-graphics":
@@ -939,6 +941,8 @@ def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "") ->
             issues.append(f'Frame "{f.get("id")}": storyboard says OSA but spec has no asset/person/table visual.')
         if sb_line and re.search(r"\bFSS\b", sb_line, re.I) and mode != "fss":
             issues.append(f'Frame "{f.get("id")}": storyboard says FSS but mode is not fss.')
+    if storyboard_led:
+        return issues
     if len(frames) >= 2 and fss_n == 0:
         issues.append(
             "No mode:fss frames. Add full-screen (mode:fss) frames for tables, charts, comparisons, or long lists."
@@ -1409,6 +1413,7 @@ def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
             f"Look (use in frames): {json.dumps(look)}\n"
             f"Topic props: {json.dumps(props if props else [])}\n"
             "GRAPHICS STUDIO RULES (Varsity English, storyboard PDF given):\n"
+            "- Two cameras: anchor frames use `\"anchor\":\"right\"` (main camera, graphics on the left) by default; use `\"anchor\":\"left\"` (second camera, graphics on the right) for about one anchor beat in three, and whenever the storyboard row mentions the second camera, a side angle, a close-up or the presenter on the left, so consecutive anchor frames don't all look the same. Never switch camera inside one continuing beat (_b states keep their frame's side).\n"
             "- The PDF is the team's storyboard and decides every graphic: one frame per PDF row tagged FSS / OST / OSA, "
             "at that row's timestamp, in PDF order. Frame id = the row's timestamp (1:41 → \"1.41\"). Footage, screen "
             "capture and repeat rows stay in the storyboard text only.\n"

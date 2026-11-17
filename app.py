@@ -1192,7 +1192,7 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
         storyboard=storyboard,
         spec=spec,
     ))
-    warn = claude_client.spec_quality_issues(spec, storyboard, theme=p["theme"])
+    warn = claude_client.spec_quality_issues(spec, storyboard, theme=p["theme"], storyboard_led=True)
     warn += [f"layout: {w}" for w in critique_report.get("remaining") or []]
     warn += [f"asset not generated: {d} ({e})" for d, e in (asset_report.get("failed") or {}).items()]
     return {
@@ -1459,7 +1459,7 @@ async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: Upl
     except Exception:
         raise HTTPException(400, "that file is not a picture (use a PNG or JPG screenshot)")
     cw, ch = theme_canvas.canvas_for_theme(p["theme"])
-    im = ImageOps.fit(im, (cw, ch), Image.LANCZOS)    # fill the frame, crop the edges if the ratio differs
+    im = await asyncio.to_thread(presenter.fit_to_slot, im, p["theme"], slot, cw, ch)   # presenter on the slot's side
     buf = io.BytesIO(); im.save(buf, "JPEG", quality=90)
     rel = await asyncio.to_thread(asset_gen.store, p["theme"], f"presenter {pid} {slot} {time.time()}",
                                   buf.getvalue(), "jpg", "presenter")

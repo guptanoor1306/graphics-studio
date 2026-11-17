@@ -25,7 +25,7 @@ python3 -c "import playwright" 2>/dev/null || pip install playwright --break-sys
 (If Chromium can't be installed, set `CHROMIUM_PATH` to an existing Chromium binary.) Below, `$K` is the kit folder: `K=varsity-graphics`, or the installed skill's folder if it's loaded as a skill.
 
 ## Step 2: Settle the look (state it in one line)
-- **Anchor side:** right (default) or left. If the user attached a frame grab, save it as `assets/plates/user_anchor.png` (1920×1080) and set `"plate":"user_anchor"`.
+- **Anchor side = camera:** `"anchor":"right"` is the main camera (graphics on the left) and the default; `"anchor":"left"` is the second camera (graphics on the right). Use the second camera for about one anchor beat in three, and whenever the storyboard mentions a second camera, side angle, close-up or the presenter on the left, so consecutive anchor frames don't all look the same; a continuing beat (_b states) keeps its side. If the user attached a frame grab, save it as `assets/plates/user_anchor.png` (1920×1080) and set `"plate":"user_anchor"` (in Graphics Studio each camera's real still is set once for the project under Presenter shot).
 - **FSS accent:** blue (default), or warm for home/loan topics.
 - **Hero keyword:** e.g. ESOPs, HUF, ITR.
 - **Personas:** one colour each, used all video long.

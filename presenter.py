@@ -98,10 +98,81 @@ def summary(theme: str, spec: dict | None, look: dict | None) -> list[dict]:
             c[1] += 1 if is_ost(theme, f) else 0
     out = []
     for slot, (label, stock) in SLOTS[theme].items():
-        if slot not in counts and slot not in custom:
-            continue
+        if slot not in counts and slot not in custom and not (theme == "varsity-english" and counts):
+            continue   # Varsity English always shows both sides: the other side is the second camera
         rel = custom.get(slot) or stock
         out.append({"slot": slot, "label": label, "count": counts.get(slot, [0, 0])[0],
                     "ost": counts.get(slot, [0, 0])[1], "custom": bool(custom.get(slot)),
                     "src": f"/themes/{theme}/assets/{rel}"})
     return out
+
+
+# ---- fitting an uploaded still to a slot ----
+# Where the presenter's face should sit across the frame for each slot; content goes on the other side.
+# Varsity Hindi cameras keep their own framing (main/side are the real camera angles).
+_FACE_X = {"right": 0.70, "left": 0.30, "centre": 0.50}
+_REFRAME = {"varsity-english", "varsity-hindi-fa-graphics", "zo-product-graphics"}
+
+
+def _face_center(im):
+    """(x, y) of the largest face in pixels, or None. Uses OpenCV when installed."""
+    try:
+        import cv2, numpy as np
+    except Exception:
+        return None
+    small = im.copy(); small.thumbnail((960, 960))
+    k = im.width / small.width
+    gray = cv2.cvtColor(np.asarray(small.convert("RGB")), cv2.COLOR_RGB2GRAY)
+    try:
+        det = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        if det.empty():
+            return None
+        faces = det.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6, minSize=(40, 40))
+    except Exception:
+        return None
+    if len(faces) == 0:
+        return None
+    x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+    return ((x + w / 2) * k, (y + h / 2) * k)
+
+
+def fit_to_slot(im, theme: str, slot: str, cw: int, ch: int):
+    """Crop (and zoom a little if needed) so the presenter sits on the slot's side, then size to the canvas.
+    A centred front shot uploaded for "right" ends up with the presenter on the right half, clear of the content."""
+    from PIL import Image
+    W, H = im.size
+    ar = cw / ch
+    wc = min(W, H * ar)
+    target = _FACE_X.get(slot) if theme in _REFRAME else None
+    if target is not None:
+        face = _face_center(im)
+        fx, fy = face if face else (W / 2, H * 0.35)
+        need = None
+        if target > 0.5:                      # window starts at the left edge: face lands at fx / wc
+            need = fx / target
+        elif target < 0.5:                    # window ends at the right edge
+            need = (W - fx) / (1 - target)
+        if need:
+            wc = max(min(wc, need), min(W, H * ar) * 0.62)   # zoom in at most ~1.6x
+        x0 = min(max(fx - target * wc, 0), W - wc)
+        hc = wc / ar
+        y0 = min(max(fy - 0.33 * hc, 0), H - hc)
+    else:
+        hc = wc / ar
+        x0, y0 = (W - wc) / 2, (H - hc) / 2
+    out = im.crop((round(x0), round(y0), round(x0 + wc), round(y0 + wc / ar))).resize((cw, ch), Image.LANCZOS)
+    if theme == "varsity-english" and slot in ("left", "right"):
+        out = _fade(out, slot)                # like the kit's own plates: the content side fades to dark
+    return out
+
+
+def _fade(im, slot: str, strength: float = 0.72):
+    from PIL import Image
+    w, h = im.size
+    mask = Image.new("L", (w, 1))
+    for x in range(w):
+        f = x / w if slot == "left" else 1 - x / w        # 1 at the content edge
+        a = max(0.0, (f - 0.45) / 0.55)                  # fade over the content half only
+        mask.putpixel((x, 0), int(255 * strength * a ** 1.4))
+    mask = mask.resize((w, h))
+    return Image.composite(Image.new("RGB", (w, h), (8, 8, 10)), im, mask)
