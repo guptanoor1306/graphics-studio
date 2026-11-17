@@ -659,7 +659,8 @@ def export_frame_html(pid: int, fid: str):
     if not pages:
         raise HTTPException(404, "frame not found or not a graphic")
     with _INLINE_SLOTS:
-        return HTMLResponse(exporter.inline_assets(pages[0][1], THEMES / p["theme"]))
+        return HTMLResponse(exporter.frame_page_for_layers(pages[0][1], THEMES / p["theme"],
+                                                           theme_canvas.canvas_for_theme(p["theme"])))
 
 
 @app.delete("/api/projects/{pid}")

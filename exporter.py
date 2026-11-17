@@ -65,45 +65,105 @@ def _theme_css(base_dir: pathlib.Path) -> tuple[pathlib.Path, str]:
     raise FileNotFoundError(f"No theme CSS in {base_dir / 'templates'}")
 
 
+_CSS_URL = re.compile(r"""url\(\s*(['"]?)([^'")]+)\1\s*\)""")
+_CSS_IMPORT = re.compile(r"""@import\s+(?:url\(\s*)?(['"]?)([^'")\s;]+)\1\s*\)?\s*([^;]*);""")
+_LINK_CSS = re.compile(r"""<link\b[^>]*\brel=["']stylesheet["'][^>]*>""", re.I)
+
+
+def _clean(url: str) -> str:
+    return url.strip().split("?")[0].split("#")[0]
+
+
+def _css_inline(css: str, folder: pathlib.Path, fallback, depth: int = 0) -> str:
+    """A stylesheet with its @imports written in place and every url(...) as a data URI. Links start at the
+    stylesheet's own folder (how a browser reads them); `fallback` resolves the kit's older ../assets forms.
+    No @import url(data:...) is left: LA Studio's reader can't parse a data: import (its ';' ends the match)."""
+    def imp(m):
+        p = (folder / _clean(m.group(2))).resolve()
+        if depth < 6 and p.is_file() and p.suffix == ".css":
+            inner = _css_inline(p.read_text(), p.parent, fallback, depth + 1)
+            return f"@media {m.group(3).strip()} {{\n{inner}\n}}" if m.group(3).strip() else inner
+        return m.group(0)
+
+    def url(m):
+        u = m.group(2).strip()
+        if u.startswith(("data:", "http", "#", "//")):
+            return m.group(0)
+        p = (folder / _clean(u)).resolve()
+        if not p.is_file():
+            p = fallback(u)
+        return f"url('{_data_uri(p)}')" if p else m.group(0)
+    return _CSS_URL.sub(url, _CSS_IMPORT.sub(imp, css))
+
+
 def inline_assets(html: str, base_dir: pathlib.Path) -> str:
-    """Replace the stylesheet link with inline CSS (fonts embedded) and every relative src/url with data URIs."""
+    """A frame page made self-contained for LA Studio's Layers step: every stylesheet (the kit's and any extra
+    link) inlined with its fonts and pictures, and every relative src / SVG image href / url(...) as a data URI.
+    LA Studio refuses a page that still links a file (html_inline.check), so nothing relative may be left."""
     css_path, css_name = _theme_css(base_dir)
-    css = css_path.read_text()
-    css = re.sub(
-        r"url\((\.\./fonts/[^)]+)\)",
-        lambda m: f"url({_data_uri((base_dir / 'templates' / 'fonts' / pathlib.Path(m.group(1)).name).resolve())})"
-        if (base_dir / "templates" / "fonts").is_dir()
-        else m.group(0),
-        css,
-    )
-    css = re.sub(r"url\((\.\./fonts/[^)]+)\)", lambda m: f"url({_data_uri((base_dir / 'scenes' / m.group(1)).resolve())})", css)
-    html = re.sub(rf'<link rel="stylesheet" href="[^"]*{re.escape(css_name)}">', f"<style>{css}</style>", html)
 
     def resolve(url):
+        url = _clean(url)
         p = (base_dir / "scenes" / re.sub(r"^.*?/assets/", "../assets/", url)).resolve()
         if not p.exists():
             p = (base_dir / url.split('/kit/')[-1]).resolve()
         if not p.exists() and url.startswith("../"):
             p = (base_dir / url).resolve()
+        if not p.exists():
+            p = (base_dir / "templates" / url).resolve()
+        if not p.exists() and "fonts/" in url:
+            p = (base_dir / "templates" / "fonts" / pathlib.Path(url).name).resolve()
         return p if p.exists() and p.is_file() else None
 
+    def link(m):
+        tag = m.group(0)
+        href = re.search(r"""\bhref=["']([^"']+)["']""", tag)
+        if not href or href.group(1).startswith(("http", "data:", "//")):
+            return tag
+        h = href.group(1)
+        p = resolve(h) or (css_path if pathlib.Path(_clean(h)).name == css_name else None)   # ZO chat has its own zo.css
+        if not p or p.suffix != ".css":
+            return tag
+        return f"<style>{_css_inline(p.read_text(), p.parent, resolve)}</style>"
+    html = _LINK_CSS.sub(link, html)
+    html = re.sub(r"(<style\b[^>]*>)(.*?)(</style\s*>)",
+                  lambda m: m.group(1) + _css_inline(m.group(2), css_path.parent, resolve) + m.group(3), html, flags=re.S | re.I)
+
     def fix_src(m):
-        url = m.group(2)
-        if url.startswith(("data:", "http")):
+        url = m.group(3)
+        if url.startswith(("data:", "http", "#", "//", "${")):
             return m.group(0)
         p = resolve(url)
-        return f'{m.group(1)}="{_data_uri(p)}"' if p else m.group(0)
+        return f'{m.group(1)}{m.group(2)}="{_data_uri(p)}"' if p else m.group(0)
+    html = re.sub(r'(\s)(src)="([^"]+)"', fix_src, html)
+    # SVG pictures (<image href="../assets/chars6/c1.png">): inline the file, never a link (<a href>)
+    html = re.sub(r'(<image\b[^>]*?\s)((?:xlink:)?href)="([^"]+)"',
+                  lambda m: m.group(0) if m.group(3).startswith(("data:", "http", "#")) or not resolve(m.group(3))
+                  else f'{m.group(1)}{m.group(2)}="{_data_uri(resolve(m.group(3)))}"', html, flags=re.I)
 
-    def fix_url(m):  # pictures set in styles: url('../assets/…'), url("…") or url(…) unquoted
+    def fix_url(m):  # pictures set in style="" attributes: url('../assets/…')
         url = m.group(2).strip()
         if url.startswith(("data:", "http", "#")):
             return m.group(0)
         p = resolve(url)
         return f"url('{_data_uri(p)}')" if p else m.group(0)
-    html = re.sub(r'(src)="([^"]+)"', fix_src, html)
     html = re.sub(r"""url\(\s*(['"]?)([^'")]+)\1\s*\)""", fix_url, html)
     html = re.sub(r'<base [^>]*>', '', html)
     return html
+
+
+def frame_page_for_layers(html: str, theme_dir: pathlib.Path, viewport=(1920, 1080)) -> str:
+    """One frame as LA Studio's Layers step needs it: rendered once (the kit scripts build some picture paths
+    at run time, e.g. MF's ../assets/illus/…, Varsity English's V.asset(...)), flattened to static HTML like the
+    zip's html/ pages, then made self-contained. Falls back to inlining the source page if rendering fails."""
+    try:
+        files = asyncio.run(_render([(None, html, True, None)], False, viewport))
+        flat = next((v for k, v in files.items() if k.endswith(".html")), None)
+        if flat:
+            return inline_assets(flat, theme_dir)
+    except Exception as e:
+        print("frame_page_for_layers: rendering failed, inlining the source page:", e, flush=True)
+    return inline_assets(html, theme_dir)
 
 
 _CHROMIUM_ARGS = ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
