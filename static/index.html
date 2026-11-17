@@ -504,6 +504,16 @@ aside.edit-frame-strip{display:block;flex-direction:unset;gap:0;overflow-y:auto;
 .edit-canvas-loader[hidden]{display:none!important}
 .edit-mode-side{border-left:1px solid var(--line);padding:var(--s-5) var(--s-5);overflow-y:auto;background:var(--surface)}
 .edit-mode-side h3{margin:var(--s-6) 0 var(--s-3);padding-top:var(--s-5);border-top:1px solid var(--line);font-size:var(--text-sm);font-weight:600;color:var(--ink)}
+.side-sec{border-bottom:1px solid var(--line)}
+.side-sec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:var(--s-4) 0;font-size:var(--text-sm);font-weight:600;color:var(--ink)}
+.side-sec>summary::-webkit-details-marker{display:none}
+.side-sec>summary::after{content:"";width:8px;height:8px;border-right:1.5px solid var(--mute);border-bottom:1.5px solid var(--mute);transform:rotate(45deg);margin-right:4px;transition:transform .15s}
+.side-sec[open]>summary::after{transform:rotate(-135deg)}
+.side-sec-body{padding:0 0 var(--s-5)}
+.side-sub{font-size:var(--text-sm);font-weight:600;color:var(--ink);margin:var(--s-4) 0 var(--s-2)}
+.side-sec-body>.side-sub:first-child,#anchorFrameCtl:empty+#presenterBlock .side-sub{margin-top:0}
+.side-cam .mode-switch{display:inline-flex}
+.edit-mode-side{padding-top:var(--s-2)}
 .edit-mode-side h3:first-child,.edit-mode-side #editLookBlock[hidden]+h3{margin-top:0;padding-top:0;border-top:0}
 .edit-side-hint{font-size:var(--text-xs);color:var(--mute);margin:0 0 var(--s-3);line-height:1.45}
 .canvas-layer-row{display:flex;align-items:center;gap:var(--s-3);padding:var(--s-3) 0;border-bottom:1px solid var(--line);font-size:var(--text-sm)}
@@ -601,11 +611,17 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
     <input id="editLookLine" type="text" placeholder="Theme + fonts + accent…" style="width:100%;margin:6px 0 12px">
     <button type="button" class="btn-neutral block" onclick="applyLook()">Apply look to all frames</button>
    </div>
-   <h3>Layers</h3>
-   <p class="edit-side-hint">Click a layer to show <b>✎ ↻ ×</b>. Drag it to move, drag the <b>blue corner</b> to resize, double-click text to change the words.</p>
-   <div id="canvasLayerList"></div>
-   <h3>Change this frame</h3>
-   <p class="edit-side-hint">Ask in plain words. Claude changes the frame's layers; attach a picture to swap one in.</p>
+   <details class="side-sec" name="editSide" id="secLayers" open>
+    <summary>Layers</summary>
+    <div class="side-sec-body">
+     <p class="edit-side-hint">Click a layer to show <b>✎ ↻ ×</b>. Drag it to move, drag the <b>blue corner</b> to resize, double-click text to change the words.</p>
+     <div id="canvasLayerList"></div>
+    </div>
+   </details>
+   <details class="side-sec" name="editSide" id="secEdit">
+    <summary>Prompt and edit</summary>
+    <div class="side-sec-body">
+     <p class="edit-side-hint">Ask in plain words. Claude changes the frame's layers; attach a picture to swap one in.</p>
    <div class="fchat-log" id="frameChatLog" aria-live="polite"></div>
    <div class="fchat-box">
     <textarea id="editFrameAsk" rows="2" placeholder="e.g. make the title bigger, move the chart left, swap the picture for a laptop" onkeydown="frameChatKeyHandler(event)"></textarea>
@@ -617,11 +633,19 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
     </div>
    </div>
    <button type="button" class="fchat-regen" onclick="editRegenFrame()">Make this frame again from scratch</button>
-   <div id="presenterBlock" hidden>
-    <h3>Presenter shot <span class="pres-scope">whole project</span></h3>
-    <p class="edit-side-hint">Swap the stock presenter photo for a still from this video. Every frame that uses it changes.</p>
-    <div id="presenterSlots"></div>
-   </div>
+    </div>
+   </details>
+   <details class="side-sec" name="editSide" id="secAnchor" hidden>
+    <summary>Anchor frame</summary>
+    <div class="side-sec-body">
+     <div id="anchorFrameCtl"></div>
+     <div id="presenterBlock" hidden>
+      <div class="side-sub">Presenter shot <span class="pres-scope">whole project</span></div>
+      <p class="edit-side-hint">Swap the stock presenter photo for a still from this video. Every frame that uses it changes.</p>
+      <div id="presenterSlots"></div>
+     </div>
+    </div>
+   </details>
    <input type="checkbox" id="editRefReplace" checked hidden><input type="checkbox" id="editRefFlat" hidden>
    <div id="editAnchorBlock" hidden><!-- archived for now: anchor screen plate + look -->
     <input type="file" id="editPlate" accept="image/*" onchange="upPlate(this)">
@@ -1957,18 +1981,33 @@ function refControls(){
  return{ref:$('#editRef'),rep:$('#editRefReplace'),flat:$('#editRefFlat'),lb:$('#editRefLabel')};
 }
 function renderFrameModeSwitch(){
+ const top=$('#frameModeSwitch');if(top)top.innerHTML='';   // the Anchor / Full-screen switch is not shown
+ renderAnchorSection();
+}
+document.addEventListener('toggle',e=>{
+ const d=e.target;if(!(d instanceof HTMLDetailsElement)||!d.classList.contains('side-sec')||!d.open)return;
+ document.querySelectorAll('.side-sec[open]').forEach(o=>{if(o!==d)o.open=false});
+},true);
+function renderAnchorSection(){
+ const ctl=$('#anchorFrameCtl'),sec=$('#secAnchor');
+ const fr=P?.spec?.frames?.find(f=>f.id===selectedFrameId);
+ const cam=P?.theme==='varsity-english'&&fr&&(fr.mode||'anchor')!=='fss';
+ if(ctl)ctl.innerHTML=cam?`<div class="side-sub">This frame's camera</div><div class="side-cam">${veCameraSwitchHtml(fr)}</div>`:'';
+ if(sec)sec.hidden=!(cam||presenterSlots.length);
+}
+function renderFrameModeSwitchOld(){
  const host=$('#frameModeSwitch');
  if(!host||!P?.spec||!selectedFrameId||isChannelKit(P.theme)){if(host)host.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  const mode=fr?.mode||'anchor';
  host.innerHTML=`<span style="font-size:13px;color:var(--mute);margin-right:10px">Layout</span><div class="mode-switch" role="group" aria-label="Frame layout"><button type="button" class="${mode==='anchor'?'on':''}" onclick="setSelectedFrameMode('anchor')">Anchor</button><button type="button" class="${mode==='fss'?'on':''}" onclick="setSelectedFrameMode('fss')">Full-screen</button></div>`
-  + (P.theme==='varsity-english'&&mode!=='fss'?veCameraSwitchHtml(fr):'');
+  ;
 }
 /* Varsity English: two cameras. Right = main camera (content on the left), left = second camera (content on the
    right). Each side's photo is set once for the project under Presenter shot. */
 function veCameraSwitchHtml(fr){
  const side=String(fr.plate||'').startsWith('anchor_')?(String(fr.plate).includes('left')?'left':'right'):(fr.anchor||P.look?.anchor||'right');
- return `<span style="font-size:13px;color:var(--mute);margin:0 10px 0 16px">Camera</span><div class="mode-switch" role="group" aria-label="Presenter camera"><button type="button" class="${side!=='left'?'on':''}" onclick="setVeCamera('right')" title="Presenter on the right, graphics on the left">Main</button><button type="button" class="${side==='left'?'on':''}" onclick="setVeCamera('left')" title="Presenter on the left, graphics on the right">Second</button></div>`;
+ return `<div class="mode-switch" role="group" aria-label="Presenter camera"><button type="button" class="${side!=='left'?'on':''}" onclick="setVeCamera('right')" title="Presenter on the right, graphics on the left">Main</button><button type="button" class="${side==='left'?'on':''}" onclick="setVeCamera('left')" title="Presenter on the left, graphics on the right">Second</button></div><p class="edit-side-hint" style="margin-top:6px">Main: presenter on the right, graphics on the left. Second: the other way round.</p>`;
 }
 async function setVeCamera(side){
  const fi=P?.spec?.frames?.findIndex(f=>f.id===selectedFrameId);
@@ -2447,6 +2486,7 @@ function openEditMode(fid){
  else if(!selectedFrameId)selectedFrameId=studioFrames()[0]?.id;
  document.body.classList.add('edit-mode-on');
  $('#editModeApp').hidden=false;
+ document.querySelectorAll('.side-sec').forEach(d=>{d.open=d.id==='secLayers'});   // Layers open, the rest collapsed
  populateEditLookBlock();
  document.querySelector('.edit-mode-center')?.classList.toggle('reel-desk',isReelChannel());
  buildEditFrameStrip();
@@ -2762,6 +2802,7 @@ async function loadPresenter(){
 function renderPresenter(){
  const block=$('#presenterBlock'),host=$('#presenterSlots');if(!block||!host)return;
  block.hidden=!presenterSlots.length;
+ renderAnchorSection();
  host.innerHTML=presenterSlots.map(s=>{
   const n=s.count,ost=s.ost||0;
   const used=n?`${n} frame${n===1?'':'s'}`+(ost?` · ${ost} on-screen text (preview only)`:''):'Not used by any frame yet';
