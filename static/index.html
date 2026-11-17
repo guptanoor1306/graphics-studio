@@ -1105,8 +1105,11 @@ const getLook=()=>{
   if(isZoProduct())return {...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
   if(isHindiTheme()||isZ1Hindi())return {...sb};
   if(isKitTheme(P.theme))return {look_line:look_line||mainLine,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
-  const props=[...document.querySelectorAll('#propPick input:checked')].map(i=>i.value);
-  return {anchor:$('#lk_anchor').value,fss:$('#lk_fss').value,graphics_mix:$('#lk_graphics_mix')?.value||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
+  // Look is archived: when its fields are not on the page, keep the project's saved look
+  const saved=normLook(P.look||{});
+  const pick=$('#propPick');
+  const props=pick?[...pick.querySelectorAll('input:checked')].map(i=>i.value):(saved.props||[]);
+  return {...saved,anchor:$('#lk_anchor')?.value??saved.anchor,fss:$('#lk_fss')?.value??saved.fss,graphics_mix:$('#lk_graphics_mix')?.value||saved.graphics_mix||'balanced',props,...(P.look?.plate?{plate:P.look.plate}:{}),...sb};
 };
 function lookSummaryLine(l){
   l=normLook(l||{});
