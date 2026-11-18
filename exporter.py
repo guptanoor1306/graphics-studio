@@ -9,7 +9,8 @@ Each frame becomes ONE static, self-contained HTML file:
   - the plate (studio/anchor background) is its own named layer, or left out (overlay=True).
 Optionally also PNGs. Everything is returned as a zip.
 """
-import asyncio, base64, io, mimetypes, os, pathlib, re, zipfile
+import asyncio
+import threading, base64, io, mimetypes, os, pathlib, re, zipfile
 
 FLATTEN_JS = r"""(overlay) => {
   const name = (e) => {
@@ -152,12 +153,53 @@ def inline_assets(html: str, base_dir: pathlib.Path) -> str:
     return html
 
 
+class _SharedBrowser:
+    """One Chromium kept open for Make Layers: each frame gets a fresh page in it instead of launching a whole
+    browser per frame (that launch, times every frame, times everyone pressing Make Layers, slowed the server)."""
+    _lock = threading.Lock()
+    _loop = None
+    _browser = None
+    _pw = None
+    _alock = None
+
+    @classmethod
+    def loop(cls):
+        with cls._lock:
+            if cls._loop is None:
+                cls._loop = asyncio.new_event_loop()
+                threading.Thread(target=cls._loop.run_forever, name="layers-browser", daemon=True).start()
+        return cls._loop
+
+    @classmethod
+    async def browser(cls):
+        if cls._alock is None:
+            cls._alock = asyncio.Lock()
+        async with cls._alock:
+            if cls._browser is None or not cls._browser.is_connected():
+                from playwright.async_api import async_playwright
+                if cls._pw is None:
+                    cls._pw = await async_playwright().start()
+                cls._browser = await launch_chromium(cls._pw)
+            return cls._browser
+
+    @classmethod
+    def render(cls, pages, want_png, viewport, timeout=180):
+        async def go():
+            return await _render_with(await cls.browser(), pages, want_png, viewport)
+        return asyncio.run_coroutine_threadsafe(go(), cls.loop()).result(timeout=timeout)
+
+
 def frame_page_for_layers(html: str, theme_dir: pathlib.Path, viewport=(1920, 1080)) -> str:
     """One frame as LA Studio's Layers step needs it: rendered once (the kit scripts build some picture paths
     at run time, e.g. MF's ../assets/illus/…, Varsity English's V.asset(...)), flattened to static HTML like the
     zip's html/ pages, then made self-contained. Falls back to inlining the source page if rendering fails."""
     try:
-        files = asyncio.run(_render([(None, html, True, None)], False, viewport))
+        try:
+            files = _SharedBrowser.render([(None, html, True, None)], False, viewport)
+        except Exception as e:     # the shared browser died or hung: one fresh browser for this frame
+            print("frame_page_for_layers: shared browser failed, using a fresh one:", e, flush=True)
+            _SharedBrowser._browser = None
+            files = asyncio.run(_render([(None, html, True, None)], False, viewport))
         flat = next((v for k, v in files.items() if k.endswith(".html")), None)
         if flat:
             return inline_assets(flat, theme_dir)
@@ -285,6 +327,15 @@ async def _render_one(
 async def _render(pages, want_png, viewport=(1920, 1080)):
     from playwright.async_api import async_playwright
 
+    async with async_playwright() as p:
+        b = await launch_chromium(p)
+        try:
+            return await _render_with(b, pages, want_png, viewport)
+        finally:
+            await b.close()
+
+
+async def _render_with(b, pages, want_png, viewport=(1920, 1080)):
     registry_js = _layer_registry_js()
     vw, vh = viewport
     rows = [_page_row(r) for r in pages]
@@ -305,10 +356,7 @@ async def _render(pages, want_png, viewport=(1920, 1080)):
                 html_overlay,
             )
 
-    async with async_playwright() as p:
-        b = await launch_chromium(p)
-        parts = await asyncio.gather(*(work(r) for r in rows))
-        await b.close()
+    parts = await asyncio.gather(*(work(r) for r in rows))
     out: dict[str, bytes | str] = {}
     for part in parts:
         out.update(part)

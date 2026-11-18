@@ -1452,6 +1452,28 @@ async function uploadSbPdf(){
     setWorkspaceLoading(false);
   }
 }
+/* While a PDF batch runs, the server reports its stage (reading → writing frame N → pictures → checking) at
+   /progress; the loader shows it with frames ready, the time so far and how many other videos the server is making. */
+function pollPdfProgress(pid,head){
+ let stop=false;const t0=Date.now();
+ const fmt=s=>{const m=Math.floor(s/60),x=s%60;return m?`${m}m ${String(x).padStart(2,'0')}s`:`${x}s`};
+ (async function loop(){
+  while(!stop){
+   try{
+    const s=await api(`/api/projects/${pid}/progress`);
+    if(stop)break;
+    if(s&&s.kind==='pdf'&&s.state==='running'){
+     const ready=(s.ready||0)+(s.stage==='writing'?(s.written||0):0);
+     const bits=[head,s.msg,`${ready} frame${ready===1?'':'s'} ready`,fmt(Math.round((Date.now()-t0)/1000))];
+     if(s.others)bits.push(`${s.others} other video${s.others===1?' is':'s are'} being made right now, so this may be slower`);
+     setWorkspaceLoading(true,bits.filter(Boolean).join(' · '));
+    }
+   }catch(_){}
+   await new Promise(r=>setTimeout(r,2000));
+  }
+ })();
+ return()=>{stop=true};
+}
 async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   const btn=ev?.target?.closest?.('button');if(btn)btn.disabled=true;
   const st=await api(`/api/projects/${P.id}/storyboard-pdf`).catch(()=>({has_pdf:false}));
@@ -1478,8 +1500,11 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
     const maxRounds=finishAll?Math.min(48,Math.ceil((maxNewThisRun||240)/Math.max(1,batchSize))):1;
     for(let round=0;round<maxRounds;round++){
       if(finishAll&&maxNewThisRun>0&&totalAdded>=maxNewThisRun)break;
-      if(finishAll)setWorkspaceLoading(true,`PDF batch ${round+1}… (${totalAdded}${maxNewThisRun?`/${maxNewThisRun}`:''} added)`);
-      const r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(baseBody)});
+      const head=finishAll?`Batch ${round+1}${maxRounds>1&&maxNewThisRun?` of ~${Math.ceil(maxNewThisRun/Math.max(1,batchSize))}`:''} · ${totalAdded} added this run`:'';
+      if(finishAll)setWorkspaceLoading(true,`${head} · Reading the storyboard PDF…`);
+      const stopPoll=pollPdfProgress(P.id,head);
+      let r;
+      try{r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(baseBody)})}finally{stopPoll()}
       last=r;
       const added=r.frames_added??0;
       totalAdded+=added;
@@ -2044,6 +2069,7 @@ function newProject(){
     const p=await api('/api/projects',{method:'POST',body:JSON.stringify({name,theme,look})});
     navChannel=channelForTheme(theme);
     await open_(p.id);
+    if(EMBED)laEnsureProject(p).catch(()=>{});   // inside LA Studio: the same project appears under its Projects
     await list();
   }});
 }
@@ -3312,11 +3338,27 @@ const laOrigin=(()=>{try{const a=location.ancestorOrigins&&location.ancestorOrig
 let laSeq=0;const laWait=new Map();
 function laPost(op,data){return new Promise((res,rej)=>{if(!EMBED||!laOrigin||window.parent===window)return rej(new Error('Open this inside LA Studio to send frames.'));
  const id='g'+(++laSeq);laWait.set(id,{res,rej});window.parent.postMessage({zo:'graphics',op,id,data},laOrigin);
- setTimeout(()=>{if(laWait.has(id)){laWait.delete(id);rej(new Error('LA Studio did not answer.'))}},op==='frames'?15*60000:20000)})}
+ setTimeout(()=>{if(laWait.has(id)){laWait.delete(id);rej(new Error(op==='project'?'LA Studio did not answer. Update LA Studio (Check for updates in its sidebar), then try again.':'LA Studio did not answer.'))}},op==='frames'?15*60000:20000)})}
 window.addEventListener('message',e=>{if(e.origin!==laOrigin||e.source!==window.parent)return;const m=e.data||{};if(m.zo!=='graphics-host')return;
  const w=laWait.get(m.id);if(w){laWait.delete(m.id);m.ok?w.res(m.data):w.rej(new Error(m.error||'LA Studio said no'))}});
 const laChanged=(()=>{let t;return()=>{if(!EMBED||!laOrigin)return;clearTimeout(t);t=setTimeout(()=>laPost('changed',{project:P?{id:P.id,frames:(P.spec?.frames||[]).length,theme:P.theme}:null}).catch(()=>{}),800)}})();
 const _api0=api;api=async(u,o={})=>{const r=await _api0(u,o);if(o.method&&o.method!=='GET'&&/^\/api\/(projects|la)\b/.test(u))laChanged();return r};
+/* The LA Studio project for a Graphics Studio project on this computer. Opened as a project's step (?la=…) it is that
+   one. From LA Studio's Graphics tab, LA Studio is asked (op 'project'): it answers with the project it already has
+   for this one, or makes it (same name, channel, format), so Make Layers always has a project to land in and the
+   project shows under LA Studio's Projects. LA projects live on each computer, so LA Studio keeps that answer;
+   the link here is refreshed each time (it is what LA Studio's project cards read). */
+const LA_FORM=t=>/reel/.test(t||'')?'sf':'lf';
+async function laEnsureProject(proj){
+ proj=proj||P;if(!proj)throw new Error('Open a video first.');
+ if(LA.id)return LA.id;
+ const ch=CHANNELS.find(c=>c.themes.includes(proj.theme));
+ const r=await laPost('project',{gs_id:String(proj.id),name:proj.name||'Graphics',channel:ch?ch.label:'',channel_id:ch?ch.id:'',form:LA_FORM(proj.theme)});
+ const la=r&&r.la;if(!la)throw new Error('LA Studio could not make a project for this video.');
+ try{await _api0('/api/la/link',{method:'POST',body:JSON.stringify({la_project:la,la_name:r.name||proj.name,project_id:proj.id})})}catch(_){}
+ laPost('changed',{}).catch(()=>{});
+ return la;
+}
 const laSlug=s=>String(s||'graphics').normalize('NFKD').replace(/[^\w-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)||'graphics';
 async function laSend(){
  if(!P?.spec?.frames?.length){alert('No frames yet.');return}
@@ -3330,8 +3372,10 @@ async function laSend(){
    if(r.status===404||r.status===400)continue;if(!r.ok)throw new Error(`Frame ${ids[i]}: ${await r.text()}`);
    files.push(new File([await r.text()],`${stem}_${ids[i].replace(/[^\w.-]+/g,'_')}.html`,{type:'text/html'}))}
   let csv=null;try{const r=await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`);if(r.ok)csv=new File([await r.blob()],`${stem}_storyboard-instructions.csv`,{type:'text/csv'})}catch(_){}
+  label('Finding the LA Studio project…');
+  const la=await laEnsureProject(P);   // the Graphics tab has no project of its own: LA Studio finds or makes it
   label('Sending to LA Studio…');
-  const out=await laPost('frames',{project:{id:P.id,name:P.name,theme:P.theme},la:LA.id||null,files,csv});
+  const out=await laPost('frames',{project:{id:P.id,name:P.name,theme:P.theme},la,files,csv});
   label('Sent to Layers');setTimeout(()=>{label('Make Layers');if(btn)btn.disabled=false},2500);
   if(out&&out.message)alert(out.message);
  }catch(e){alert(e.message);label('Make Layers');if(btn)btn.disabled=false}

@@ -1331,6 +1331,7 @@ def _call_with_pdf(
         tools=[tool_schema],
         tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": content}],
+        on_partial=getattr(_PARTIAL, "fn", None),   # the page shows frames as they are written (same call)
     )
     if getattr(r, "stop_reason", "") == "max_tokens":
         raise ReplyCutOff(f"reply cut off at {max_tokens} tokens")

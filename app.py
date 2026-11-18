@@ -755,6 +755,9 @@ def _bump(pid: int, run: str):
 def project_progress(pid: int):
     cur = dict(PROGRESS.get(pid) or {"state": "idle", "rev": 0})
     cur.pop("run", None)
+    now = time.time()
+    cur["others"] = sum(1 for k, v in PROGRESS.items()
+                        if k != pid and v.get("state") == "running" and now - (v.get("ts") or v.get("started") or 0) < 900)
     if cur.get("started") and cur.get("state") == "running":
         cur["elapsed"] = round(time.time() - cur["started"])
     return cur
@@ -1128,9 +1131,27 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
     batch_size = min(10, max(1, int(b.get("batch_size", 5))))
     script = b.get("script", p.get("script") or "")
     transcript = _episode_transcript_for_project(pid)
-    try:
-        out = await asyncio.to_thread(
-            claude_client.storyboard_pdf_batch,
+    # progress for the page (polls /progress): reading → frames written so far → pictures → checking → done
+    run = uuid.uuid4().hex[:12]
+    t0 = time.time()
+    had = len((p.get("spec") or {}).get("frames") or [])
+    PROGRESS[pid] = {"run": run, "state": "running", "kind": "pdf", "stage": "reading", "started": t0, "rev": 0,
+                     "msg": "Reading the storyboard PDF…", "ready": had, "written": 0, "batch_size": batch_size}
+    seen = [0]
+
+    def on_partial(snap: dict):            # worker thread: frames Claude has finished writing in this batch
+        fr = [f for f in (snap.get("frames") or [])[:-1] if isinstance(f, dict) and f.get("id")]
+        if len(fr) == seen[0]:
+            return
+        seen[0] = len(fr)
+        last = fr[-1]
+        name = str(last.get("name") or last.get("title") or last.get("id"))[:48]
+        _progress(pid, run, stage="writing", written=len(fr),
+                  msg=f"Writing frame {len(fr) + 1}{'' if finish_all else f' of up to {batch_size}'}… (just wrote {last.get('id')}: {name})")
+
+    def call():
+        with claude_client.partial_hook(on_partial):
+            return claude_client.storyboard_pdf_batch(
             THEMES / p["theme"],
             pdf_bytes,
             script,
@@ -1142,8 +1163,20 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
             existing_storyboard=p.get("storyboard") or "",
             episode_transcript=transcript,
         )
-    except Exception as e:
-        _raise_claude_gateway(e)
+    try:
+        try:
+            out = await asyncio.to_thread(call)
+        except Exception as e:
+            _progress(pid, run, state="error", msg=f"Stopped: {e}")
+            _raise_claude_gateway(e)
+        print(f"pdf batch {pid}: Claude {time.time() - t0:.0f}s, +{out.get('frames_added')} frames", flush=True)
+        return await _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0)
+    finally:
+        if _live(pid, run) and (PROGRESS.get(pid) or {}).get("state") == "running":
+            _progress(pid, run, state="done", stage="done", msg="Done")
+
+
+async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0):
     if not out.get("frames_added"):
         raw = out.get("raw_frame_count", 0)
         existing_n = len((p.get("spec") or {}).get("frames") or [])
@@ -1167,6 +1200,8 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
+    _progress(pid, run, stage="pictures", written=out.get("frames_added") or 0,
+              msg=f"{out.get('frames_added')} frames written. Placing pictures…")
     lk = look if isinstance(look, dict) else {}
     asset_report: dict = {}
     finalize = _with_assets(
@@ -1182,12 +1217,15 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
     new_ids = {str(f.get("id")) for f in spec.get("frames") or [] if isinstance(f, dict)} - before
     critique_report: dict = {}
     if new_ids:
+        t1 = time.time()
+        _progress(pid, run, stage="checking", msg=f"Checking the {len(new_ids)} new frames for overlaps and cut-off text…")
         try:
             spec, critique_report = await asyncio.to_thread(
                 _critique_spec, {**p, "look": plook}, spec, storyboard, script, finalize, new_ids
             )
         except Exception as e:
             critique_report = {"error": str(e)}
+        print(f"pdf batch {pid}: check {time.time() - t1:.0f}s, total {time.time() - t0:.0f}s", flush=True)
     (await _db_call(save, 
         pid,
         user,
