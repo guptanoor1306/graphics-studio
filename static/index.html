@@ -1452,6 +1452,28 @@ async function uploadSbPdf(){
     setWorkspaceLoading(false);
   }
 }
+/* While a PDF batch runs, the server reports its stage (reading → writing frame N → pictures → checking) at
+   /progress; the loader shows it with frames ready, the time so far and how many other videos the server is making. */
+function pollPdfProgress(pid,head){
+ let stop=false;const t0=Date.now();
+ const fmt=s=>{const m=Math.floor(s/60),x=s%60;return m?`${m}m ${String(x).padStart(2,'0')}s`:`${x}s`};
+ (async function loop(){
+  while(!stop){
+   try{
+    const s=await api(`/api/projects/${pid}/progress`);
+    if(stop)break;
+    if(s&&s.kind==='pdf'&&s.state==='running'){
+     const ready=(s.ready||0)+(s.stage==='writing'?(s.written||0):0);
+     const bits=[head,s.msg,`${ready} frame${ready===1?'':'s'} ready`,fmt(Math.round((Date.now()-t0)/1000))];
+     if(s.others)bits.push(`${s.others} other video${s.others===1?' is':'s are'} being made right now, so this may be slower`);
+     setWorkspaceLoading(true,bits.filter(Boolean).join(' · '));
+    }
+   }catch(_){}
+   await new Promise(r=>setTimeout(r,2000));
+  }
+ })();
+ return()=>{stop=true};
+}
 async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
   const btn=ev?.target?.closest?.('button');if(btn)btn.disabled=true;
   const st=await api(`/api/projects/${P.id}/storyboard-pdf`).catch(()=>({has_pdf:false}));
@@ -1478,8 +1500,11 @@ async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
     const maxRounds=finishAll?Math.min(48,Math.ceil((maxNewThisRun||240)/Math.max(1,batchSize))):1;
     for(let round=0;round<maxRounds;round++){
       if(finishAll&&maxNewThisRun>0&&totalAdded>=maxNewThisRun)break;
-      if(finishAll)setWorkspaceLoading(true,`PDF batch ${round+1}… (${totalAdded}${maxNewThisRun?`/${maxNewThisRun}`:''} added)`);
-      const r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(baseBody)});
+      const head=finishAll?`Batch ${round+1}${maxRounds>1&&maxNewThisRun?` of ~${Math.ceil(maxNewThisRun/Math.max(1,batchSize))}`:''} · ${totalAdded} added this run`:'';
+      if(finishAll)setWorkspaceLoading(true,`${head} · Reading the storyboard PDF…`);
+      const stopPoll=pollPdfProgress(P.id,head);
+      let r;
+      try{r=await api(`/api/projects/${P.id}/storyboard-pdf/batch`,{method:'POST',body:JSON.stringify(baseBody)})}finally{stopPoll()}
       last=r;
       const added=r.frames_added??0;
       totalAdded+=added;
