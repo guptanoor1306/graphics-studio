@@ -33,6 +33,10 @@ def resolve_model(name: str | None = None) -> str:
 
 
 MODEL = resolve_model()
+# Opus plans the video (script storyboards, storyboard-PDF batches). The smaller jobs on one frame or one picture
+# (layout fixes after the check, frame edits, drawing/reviewing an asset) run on Sonnet: STUDIO_MODEL_LIGHT, or set it
+# to the same as STUDIO_MODEL to put everything back on one model.
+LIGHT_MODEL = resolve_model(os.environ.get("STUDIO_MODEL_LIGHT", "claude-sonnet-5-5"))
 # Anthropic rejects high max_tokens on non-streaming calls; studio uses stream only server-side.
 _MAX_TOKENS_NONSTREAM = 16384
 # PDF batches: storyboard + several frames in one reply. Hand-written frames (ZO) are long, so allow more (streamed).
@@ -408,7 +412,7 @@ def _edit_zo_html_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard
         content = [{"type": "image", "source": {"type": "base64", "media_type": media,
                                                 "data": base64.standard_b64encode(raw).decode()}},
                    {"type": "text", "text": msg + "\nThe attached image is a reference image (see SKILL.md)."}]
-    r = _messages_create(max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
+    r = _messages_create(label="edit-zo", model=LIGHT_MODEL, max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
                          tool_choice=_tool_choice(tool), messages=[{"role": "user", "content": content}])
     return _tool_input(r, tool)["frame"]
 
@@ -451,7 +455,7 @@ def _edit_z1_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line
                                                 "data": base64.standard_b64encode(raw).decode()}},
                    {"type": "text", "text": msg + "\nThe attached image is a reference for this shot: match what it "
                                                   "shows, in the kit's own look (redraw it, never paste it)."}]
-    r = _messages_create(max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
+    r = _messages_create(label="edit-z1", model=LIGHT_MODEL, max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
                          tool_choice=_tool_choice(tool), messages=[{"role": "user", "content": content}])
     return _tool_input(r, tool)["frame"]
 
@@ -665,17 +669,28 @@ def partial_hook(fn):
         _PARTIAL.fn = None
 
 
-def _messages_create(*, think: bool = False, on_partial=None, **kwargs):
+def _log_usage(label: str, model: str, r) -> None:
+    """One line per Claude call in the server log: which job, which model, tokens (incl. cache) and time."""
+    u = getattr(r, "usage", None)
+    if u is None:
+        return
+    g = lambda k: int(getattr(u, k, 0) or 0)
+    print(f"claude usage {label or '?'} {model}: in={g('input_tokens')} cache_read={g('cache_read_input_tokens')} "
+          f"cache_write={g('cache_creation_input_tokens')} out={g('output_tokens')}", flush=True)
+
+
+def _messages_create(*, think: bool = False, on_partial=None, model: str | None = None, label: str = "", **kwargs):
     """One Messages call. think=True adds adaptive thinking; large budgets stream (SDK requires it).
     on_partial(snapshot) receives the tool input as it is written (streamed calls only)."""
     client = _client()
+    use = model or MODEL
     extra = _thinking_kwargs() if think else {}
 
     def _go(kw: dict):
         kw = {**kw, "max_tokens": int(kw.get("max_tokens") or _MAX_TOKENS_NONSTREAM)}
 
         def _via_stream():
-            with client.messages.stream(model=MODEL, **kw) as s:
+            with client.messages.stream(model=use, **kw) as s:
                 if on_partial:
                     last = 0.0
                     for ev in s:
@@ -687,12 +702,16 @@ def _messages_create(*, think: bool = False, on_partial=None, **kwargs):
                                     on_partial(snap)
                                 except Exception as e:  # a preview problem never stops the storyboard
                                     print(f"partial preview skipped: {e}")
-                return s.get_final_message()
+                fm = s.get_final_message()
+                _log_usage(label, use, fm)
+                return fm
 
         if on_partial or kw["max_tokens"] > _MAX_TOKENS_NONSTREAM:
             return _via_stream()
         try:
-            return client.messages.create(model=MODEL, **kw)
+            r = client.messages.create(model=use, **kw)
+            _log_usage(label, use, r)
+            return r
         except Exception as exc:
             err = str(exc).lower()
             if "stream" in err and ("required" in err or "streaming" in err):
@@ -1031,7 +1050,7 @@ def _call_storyboard(
             )
     content.append({"type": "text", "text": msg})
     user_content: str | list = content if len(content) > 1 else msg
-    r = _messages_create(
+    r = _messages_create(label="storyboard", 
         think=True, on_partial=getattr(_PARTIAL, "fn", None),
         max_tokens=SB_MAX_TOKENS, system=_system(theme_dir),
         tools=[tool_schema], tool_choice=_tool_choice(tool),
@@ -1161,7 +1180,7 @@ def fix_frames(
     if _tool_choice(FIX_TOOL["name"])["type"] == "auto":
         msg += f"\n\nRespond only by calling the {FIX_TOOL['name']} tool."
     content.append({"type": "text", "text": msg})
-    r = _messages_create(
+    r = _messages_create(label="check-fix", model=LIGHT_MODEL, 
         think=True,
         max_tokens=int(os.environ.get("STUDIO_FIX_MAX_TOKENS", "32000")),
         system=_system(theme_dir),
@@ -1197,7 +1216,7 @@ def draw_asset_svg(theme_dir: pathlib.Path, description: str) -> str:
     if _tool_choice(SVG_TOOL["name"])["type"] == "auto":
         msg += f"\n\nRespond only by calling the {SVG_TOOL['name']} tool."
     content.append({"type": "text", "text": msg})
-    r = _messages_create(
+    r = _messages_create(label="asset-svg", model=LIGHT_MODEL, 
         think=True,
         max_tokens=20000,
         system=_system(theme_dir),
@@ -1247,7 +1266,7 @@ def review_asset(theme_dir: pathlib.Path, description: str, candidate_jpg: bytes
     if _tool_choice(REVIEW_TOOL["name"])["type"] == "auto":
         msg += f"\n\nRespond only by calling the {REVIEW_TOOL['name']} tool."
     content.append({"type": "text", "text": msg})
-    r = _messages_create(
+    r = _messages_create(label="asset-review", model=LIGHT_MODEL, 
         max_tokens=1500,
         tools=[REVIEW_TOOL],
         tool_choice=_tool_choice(REVIEW_TOOL["name"]),
@@ -1324,8 +1343,11 @@ def _call_with_pdf(
                 },
             }
         )
+    # the PDF and its page renders are the same in every batch of this storyboard: cache them (read back at a fraction
+    # of the price on the next batch; the text with what to do next stays uncached after them)
+    content[-1]["cache_control"] = {"type": "ephemeral"}
     content.append({"type": "text", "text": preface + msg})
-    r = _messages_create(
+    r = _messages_create(label="pdf-batch", 
         max_tokens=max_tokens,
         system=_system(theme_dir),
         tools=[tool_schema],
@@ -1931,7 +1953,7 @@ def edit_frame(
                 {"type": "image", "source": {"type": "base64", "media_type": media, "data": base64.standard_b64encode(raw).decode()}},
                 {"type": "text", "text": msg},
             ]
-        r = _messages_create(
+        r = _messages_create(label="edit", model=LIGHT_MODEL, 
             max_tokens=8000 if regenerate else 5000,
             system=_system(theme_dir),
             tools=[FRAME_TOOL],
@@ -2011,7 +2033,7 @@ def edit_frame(
         ]
     else:
         content = msg
-    r = _messages_create(
+    r = _messages_create(label="edit", model=LIGHT_MODEL, 
         max_tokens=8000 if regenerate else 5000,
         system=_system(theme_dir),
         tools=[FRAME_TOOL],
