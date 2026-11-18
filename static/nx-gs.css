@@ -477,3 +477,13 @@ body.nx .nx-etabs button[hidden]{display:none!important}
 .nx-menu label{justify-content:flex-start;text-align:left;white-space:nowrap;margin:0;font-weight:400;color:var(--ink)}
 .nx-menu input[type=checkbox],.nx-menu input[type=radio]{width:15px!important;height:15px!important;min-height:0;flex:none;padding:0;box-shadow:none}
 .picked .nx-ck,.picked .nx-ck:hover{background:var(--accent)!important;border-color:var(--accent)!important}
+
+.nx-chelp{margin:auto 0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:24px 28px;color:var(--mute);font-size:13px;line-height:1.5}
+.nx-chelp .ic{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent);margin-bottom:4px}
+.nx-chelp .ic svg.i{width:18px;height:18px}
+.nx-chelp b{color:var(--ink);font-size:14px;font-weight:600}
+.nx-chelp svg.i{width:13px;height:13px;vertical-align:-2px}
+body.nx #frameChatLog:has(.nx-chelp){justify-content:center}
+.nx-uc{position:absolute;top:2px;right:2px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:var(--accent);color:#fff;font-size:9.5px;font-weight:600;line-height:14px;text-align:center}
+.nx-tools .nx-ib{position:relative}
+.nx-tools .nx-tbtn{height:32px;font-size:12.5px}
