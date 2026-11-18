@@ -99,3 +99,15 @@ def delete_transcript(project_id: int) -> None:
     p = transcript_path(project_id)
     if p.is_file():
         p.unlink()
+
+
+def delete_audio(project_id: int) -> None:
+    """Remove the voice-over, its meta and its transcript (Sources: the voice-over card's trash)."""
+    a = audio_path(project_id)
+    for f in (a, _meta_path(project_id)):
+        try:
+            if f and f.is_file():
+                f.unlink()
+        except OSError:
+            pass
+    delete_transcript(project_id)

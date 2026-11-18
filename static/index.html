@@ -690,6 +690,7 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
     <button type="submit" class="p">Apply</button>
   </div>
 </form></dialog>
+<link rel="stylesheet" href="/static/nx-gs.css?v=__NXV__"><script src="/static/nx-gs.js?v=__NXV__"></script>
 <script>
 let P=null,themes=[],themeMeta={},frameVer={},selectedFrameId=null,toolModalFn=null,scriptAssign=null,editModeOpen=false,layerEditPending=null,episodeTranscript=null;
 let navChannel=null,allProjects=[],channelListSearch='',channelListKitFilter='';
@@ -2084,6 +2085,7 @@ async function open_(id){
  }
  episodeTranscript=null;
  P=await api('/api/projects/'+id+'?_='+Date.now());P.look=normLook(P.look);
+ frameHistInit();
  navChannel=channelForTheme(P.theme);
  channelListKitFilter=loadChannelKitFilter(navChannel);
  selectedFrameId=null;await list();render();
@@ -2505,7 +2507,7 @@ function buildEditFrameStrip(){
 function openEditMode(fid){
  if(!P?.spec){alert('Generate frames first.');return}
  editModeOpen=true;
- frameHistInit();
+ if(frameHistPid!==P.id)frameHistInit();
  stopBoundsPoll();
  api('/api/status?_='+Date.now()).then(st=>{if(st?.studio_ui)console.info('[Graphics Studio] UI build',st.studio_ui)}).catch(()=>{});
  document.querySelectorAll('.edit-mode-side h3,.edit-mode-side .edit-side-hint,.edit-mode-side input#editPlate,.edit-mode-side button[onclick="applyLook()"]').forEach(el=>{
@@ -2615,11 +2617,12 @@ function appendParentLayerActionChip(host,L,top,left,w,h){
  const ca=document.createElement('span');
  ca.className='ca';
  const mf=L.mfPath||'';
- [['edit','Edit','✎'],['replace','Replace','↻'],['delete','Remove','×']].forEach(([act,title,glyph])=>{
+ const NXI={edit:'<path d="M10.5 3.5l2 2L6 12H4v-2z"/>',replace:'<path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10"/>',delete:'<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/>'};
+ [['edit','Edit this layer with AI','✎'],['replace','Replace with an image','↻'],['delete','Delete this layer','×']].forEach(([act,title,glyph])=>{
   const b=document.createElement('button');
   b.type='button';b.title=title;b.dataset.act=act;b.dataset.idx=String(L.idx);
   if(mf)b.dataset.mfPath=mf;
-  b.textContent=glyph;
+  if(document.body.classList.contains('nx'))b.innerHTML=`<svg viewBox="0 0 16 16">${NXI[act]}</svg>`;else b.textContent=glyph;
   ca.appendChild(b);
  });
  chip.appendChild(ca);
@@ -2894,15 +2897,15 @@ function editApplyFrame(){
    version on its list. Undo restores the newest one; Reset frame restores the frame as it was when edit mode opened
    (and can itself be undone). The lists last while edit mode is open. */
 const FRAME_UNDO_MAX=5;
-let frameHist={},frameSaved={},frameBase={},frameHistBusy=false;
+let frameHist={},frameRedo={},frameSaved={},frameBase={},frameHistBusy=false,frameHistPid=null;
 const frameKey=f=>JSON.stringify(f);
 function frameHistInit(){
- frameHist={};frameSaved={};frameBase={};
+ frameHist={};frameRedo={};frameSaved={};frameBase={};frameHistPid=P?.id??null;
  (P?.spec?.frames||[]).forEach(f=>{if(f&&f.id!=null){frameSaved[f.id]=frameKey(f);frameBase[f.id]=frameSaved[f.id]}});
  renderUndoBar();
 }
 function frameHistNote(frames){
- if(!editModeOpen||frameHistBusy)return;
+ if(frameHistBusy||!P||frameHistPid!==P.id)return;
  (frames||[]).forEach(f=>{
   if(!f||f.id==null)return;
   const k=frameKey(f),old=frameSaved[f.id];
@@ -2910,15 +2913,16 @@ function frameHistNote(frames){
   if(old===k)return;
   const h=frameHist[f.id]=frameHist[f.id]||[];
   h.push(old);if(h.length>FRAME_UNDO_MAX)h.shift();
-  frameSaved[f.id]=k;
+  frameSaved[f.id]=k;delete frameRedo[f.id];
  });
  renderUndoBar();
 }
 function renderUndoBar(){
- const u=$('#editUndoBtn'),r=$('#editResetBtn');if(!u||!r)return;
+ const u=$('#editUndoBtn')||{},r=$('#editResetBtn')||{};
  const fid=selectedFrameId,n=(frameHist[fid]||[]).length;
- u.disabled=!n||frameHistBusy;u.textContent=n?`Undo (${n})`:'Undo';
+ if(u)u.disabled=!n||frameHistBusy;u.textContent=n?`Undo (${n})`:'Undo';
  r.disabled=frameHistBusy||!fid||frameBase[fid]===undefined||frameBase[fid]===frameSaved[fid];
+ try{window.nxUndoBar?.()}catch(_){}
 }
 async function restoreFrame(fid,fr,note){
  const fi=P?.spec?.frames?.findIndex(f=>f.id===fid);
@@ -2929,7 +2933,8 @@ async function restoreFrame(fid,fr,note){
   P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:sp,note:note+' '+fid})});P.look=normLook(P.look);
   const now=(P.spec.frames||[]).find(f=>f.id===fid);
   frameSaved[fid]=frameKey(now||fr);
-  bumpFrame(fid);refreshEditCanvas();renderCanvasLayerList();renderFrameModeSwitch();
+  bumpFrame(fid);
+  if(editModeOpen){refreshEditCanvas();renderCanvasLayerList();renderFrameModeSwitch()}else render();
   return true;
  }catch(e){alert(e.message||e);return false}
  finally{frameHistBusy=false;setEditLoading(false);renderUndoBar()}
@@ -2937,8 +2942,16 @@ async function restoreFrame(fid,fr,note){
 async function undoFrameEdit(){
  const fid=selectedFrameId,h=frameHist[fid];
  if(!h?.length||frameHistBusy)return;
- const prev=h.pop();
+ const prev=h.pop(),cur=frameSaved[fid];
  if(!await restoreFrame(fid,JSON.parse(prev),'undo'))h.push(prev);
+ else{(frameRedo[fid]=frameRedo[fid]||[]).push(cur);renderUndoBar()}
+}
+async function redoFrameEdit(){
+ const fid=selectedFrameId,r=frameRedo[fid];
+ if(!r?.length||frameHistBusy)return;
+ const next=r.pop(),cur=frameSaved[fid];
+ if(!await restoreFrame(fid,JSON.parse(next),'redo'))r.push(next);
+ else{const h=frameHist[fid]=frameHist[fid]||[];h.push(cur);if(h.length>FRAME_UNDO_MAX)h.shift();renderUndoBar()}
 }
 async function resetFrameEdit(){
  const fid=selectedFrameId;
@@ -2950,9 +2963,10 @@ async function resetFrameEdit(){
  }
 }
 document.addEventListener('keydown',e=>{
- if(!editModeOpen||!(e.metaKey||e.ctrlKey)||e.shiftKey||e.key.toLowerCase()!=='z')return;
+ if(!P||!(e.metaKey||e.ctrlKey)||e.key.toLowerCase()!=='z')return;
+ if(!editModeOpen&&!document.body.classList.contains('nx'))return;
  const a=document.activeElement;if(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;
- e.preventDefault();undoFrameEdit();
+ e.preventDefault();if(e.shiftKey)redoFrameEdit();else undoFrameEdit();
 });
 async function editRegenFrame(){
  if(!selectedFrameId||!P?.id){alert('Select a frame first.');return}
@@ -2995,7 +3009,7 @@ function fitCanvasEdit(){
   ifr.style.borderRadius='';ifr.classList.remove('reel-screen-bezel');
  }
  const boxW=vp.clientWidth,boxH=vp.clientHeight;
- const s=stageFitInBox(boxW,boxH,w,h);
+ const s=stageFitInBox(boxW,boxH,w,h)*(window.nxZoom||1);
  const dw=w*s,dh=h*s;
  stageView.s=s;
  stageView.ox=(boxW-dw)/2;
@@ -3533,5 +3547,5 @@ bindProjectList();
 bindFrameEdit();
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')list()});
 setInterval(()=>{if(document.visibilityState==='visible')list()},45000);
-if(EMBED)laBoot();else (async()=>{themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}await list();renderHomeMain()})();
+if(window.nxBoot)window.nxBoot();else if(EMBED)laBoot();else (async()=>{themes=await api('/api/themes');try{themeMeta=await api('/api/theme-meta')}catch(_){}await list();renderHomeMain()})();
 </script></body></html>

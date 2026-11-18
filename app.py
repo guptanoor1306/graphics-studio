@@ -167,7 +167,12 @@ def _apply_episode_audio_meta(d: dict) -> dict:
     d["has_episode_audio"] = episode_audio.has_audio(pid)
     d["has_episode_transcript"] = episode_audio.has_transcript(pid)
     tr = episode_audio.read_transcript(pid) if d["has_episode_transcript"] else None
-    d["episode_transcript_segments"] = len((tr or {}).get("segments") or [])
+    segs = (tr or {}).get("segments") or []
+    d["episode_transcript_segments"] = len(segs)
+    try:
+        d["episode_audio_seconds"] = round(float((tr or {}).get("duration") or max(float(s.get("end") or 0) for s in segs)), 1) if segs else None
+    except (TypeError, ValueError):
+        d["episode_audio_seconds"] = None
     meta = episode_audio.read_meta(pid) or {}
     d["episode_audio_name"] = meta.get("original_name") or ""
     return d
@@ -496,7 +501,19 @@ def frame_page(
 
 # ------------------------------------------------------------------ API
 @app.get("/", response_class=HTMLResponse)
-def index(): return (ROOT / "static" / "index.html").read_text()
+def index():
+    html = (ROOT / "static" / "index.html").read_text()
+    v = int(max((ROOT / "static" / f).stat().st_mtime for f in ("nx-gs.css", "nx-gs.js")))
+    return html.replace("__NXV__", str(v))
+
+
+@app.get("/static/{name}")
+def static_file(name: str):
+    """The redesign's own files (Make Graphics in LA Studio's design)."""
+    if name not in ("nx-gs.css", "nx-gs.js"):
+        raise HTTPException(404, "not found")
+    return FileResponse(ROOT / "static" / name, media_type="text/css" if name.endswith(".css") else "text/javascript",
+                        headers={"Cache-Control": "public, max-age=31536000"})
 
 @app.get("/api/claude-key")
 def claude_key_status():
@@ -560,6 +577,110 @@ def projects():
         return c.execute("select id,name,theme,updated_by,updated_at from projects order by updated_at desc").fetchall()
 
 _DEFAULT_LOOK = {"anchor": "right", "fss": "blue", "props": ["coins"]}
+
+
+@app.get("/api/projects/summary")
+def projects_summary():
+    """Everything the video lists show (cards and table) in one call: frames made, the first frame (for the card's
+    picture), the kit, the LA Studio project it is the Graphics step of, whether it was sent to Layers, and whether it
+    is being made right now. Sorting and filtering happen in the page."""
+    with connect() as c:
+        rows = c.execute("select id,name,theme,updated_by,updated_at,spec,look from projects order by updated_at desc").fetchall()
+    try:
+        la = {int(l["project_id"]): l for l in la_link.links()}
+    except Exception:
+        la = {}
+    now = time.time()
+    out = []
+    for r in rows:
+        r = dict(r)
+        try:
+            spec = json.loads(r.pop("spec") or "null") or {}
+        except ValueError:
+            spec = {}
+        try:
+            look = json.loads(r.pop("look") or "{}") or {}
+        except ValueError:
+            look = {}
+        frames = [f for f in (spec.get("frames") or []) if isinstance(f, dict)]
+        pr = PROGRESS.get(r["id"]) or {}
+        running = pr.get("state") == "running" and now - (pr.get("ts") or pr.get("started") or 0) < 900
+        l = la.get(r["id"]) or {}
+        sent = look.get("sent_layers") or 0
+        out.append({**r, "frames": len(frames), "first_fid": str(frames[0].get("id")) if frames else None,
+                    "making": bool(running), "pdf": look.get("sb_import") == "pdf",
+                    "pdf_done": bool(spec.get("pdf_done")), "la_project": l.get("la_project"),
+                    "la_name": l.get("la_name") or "", "in_layers": bool(sent and len(frames)),
+                    "sent_layers": sent, "channel": la_link.channel_of(r.get("theme") or "")})
+    return out
+
+
+@app.post("/api/projects/{pid}/sent-layers")
+def mark_sent_layers(pid: int):
+    """Make Layers sent this video's frames to LA Studio: the lists show it as "In Layers". No Undo step."""
+    with connect() as c:
+        row = c.execute("select look from projects where id=?", (pid,)).fetchone()
+        if not row:
+            raise HTTPException(404, "project not found")
+        try:
+            look = json.loads(row["look"] or "{}") or {}
+        except ValueError:
+            look = {}
+        look["sent_layers"] = time.time()
+        c.execute("update projects set look=? where id=?", (json.dumps(look, ensure_ascii=False), pid))
+        c.commit()
+    return {"ok": True, "sent_layers": look["sent_layers"]}
+
+
+_THUMB_DIR = pathlib.Path(tempfile.gettempdir()) / "graphics_studio_thumbs"
+_THUMB_SEM = threading.Semaphore(2)
+
+
+@app.get("/api/projects/{pid}/frames/{fid}/thumb.png")
+async def frame_thumb(pid: int, fid: str, w: int = 480):
+    """A small picture of one frame for the cards, filmstrip and lists. Cached on disk by the frame's content, so a
+    changed frame gets a new picture and an unchanged one is never rendered twice."""
+    import hashlib
+    p = (await _db_call(load, pid))
+    fr = next((f for f in ((p.get("spec") or {}).get("frames") or []) if str(f.get("id")) == fid), None)
+    if fr is None:
+        raise HTTPException(404, "frame not found")
+    w = max(120, min(int(w or 480), 960))
+    key = hashlib.sha1(json.dumps([p["theme"], fr, effective_look(p), (p.get("spec") or {}).get("gen"), w],
+                                  sort_keys=True, default=str).encode()).hexdigest()[:20]
+    path = _THUMB_DIR / f"{pid}_{key}.jpg"
+    hdr = {"Cache-Control": "public, max-age=86400"}
+    if path.exists():
+        return Response(path.read_bytes(), media_type="image/jpeg", headers=hdr)
+    pages = _export_pages(p, {fid})
+    if not pages:
+        raise HTTPException(404, "frame has nothing to draw yet")
+    cw, ch = theme_canvas.canvas_for_theme(p["theme"])
+
+    def render() -> bytes:
+        from PIL import Image
+        import io
+        with _THUMB_SEM:
+            try:
+                files = exporter._SharedBrowser.render(pages, True, (cw, ch), timeout=90)
+                png = files.get(f"png/{pages[0][0]}.png")
+            except Exception:
+                png = None
+            if not png:
+                png = exporter.export_png(pages, (cw, ch))
+        im = Image.open(io.BytesIO(png)).convert("RGB")
+        im.thumbnail((w, w * 2))
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=82)
+        return buf.getvalue()
+
+    try:
+        data = await asyncio.to_thread(render)
+    except Exception as e:
+        raise HTTPException(502, detail=f"thumbnail failed: {e}") from e
+    _THUMB_DIR.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return Response(data, media_type="image/jpeg", headers=hdr)
 
 @app.post("/api/projects")
 async def create(req: Request):
@@ -1074,6 +1195,21 @@ async def upload_episode_audio(pid: int, req: Request, file: UploadFile = File(.
     return {**(await _db_call(load, pid)), "ok": True}
 
 
+@app.get("/api/projects/{pid}/episode-audio/file")
+def episode_audio_file(pid: int):
+    a = episode_audio.audio_path(pid)
+    if not a:
+        raise HTTPException(404, "no voice-over")
+    return FileResponse(a)
+
+
+@app.delete("/api/projects/{pid}/episode-audio")
+async def delete_episode_audio(pid: int):
+    (await _db_call(load, pid))
+    episode_audio.delete_audio(pid)
+    return (await _db_call(load, pid))
+
+
 @app.get("/api/projects/{pid}/storyboard-pdf")
 def has_storyboard_pdf(pid: int):
     p = load(pid)
@@ -1103,8 +1239,19 @@ async def upload_storyboard_pdf(pid: int, req: Request, file: UploadFile = File(
         raise HTTPException(507, str(e)) from e
     p = (await _db_call(load, pid))
     orig = (file.filename or "storyboard.pdf").strip() or "storyboard.pdf"
-    look = {**(p.get("look") or {}), "sb_import": "pdf", "storyboard_pdf_name": orig}
-    (await _db_call(save, pid, who(req), "upload storyboard PDF", look=look))
+    pages = None
+    try:
+        import fitz  # pymupdf
+        with fitz.open(stream=raw, filetype="pdf") as doc:
+            pages = doc.page_count
+    except Exception:
+        pass
+    look = {**(p.get("look") or {}), "sb_import": "pdf", "storyboard_pdf_name": orig,
+            "storyboard_pdf_pages": pages, "storyboard_pdf_bytes": len(raw)}
+    extra = {}
+    if isinstance(p.get("spec"), dict) and p["spec"].get("pdf_done"):   # a new PDF may have more frames
+        extra["spec"] = {**p["spec"], "pdf_done": False}
+    (await _db_call(save, pid, who(req), "upload storyboard PDF", look=look, version=False, **extra))
     out = (await _db_call(load, pid))
     return {**out, "ok": True, "has_pdf": _storyboard_pdf_on_disk(pid)}
 
@@ -1176,11 +1323,27 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
             _progress(pid, run, state="done", stage="done", msg="Done")
 
 
+def _mark_pdf_done(pid: int, progress: str) -> None:
+    """The PDF has no more graphics: remembered on the spec (no Undo step) so the frames page says "All N frames made"."""
+    try:
+        with connect() as c:
+            row = c.execute("select spec from projects where id=?", (pid,)).fetchone()
+            spec = json.loads((row or {}).get("spec") or "null") if row else None
+            if isinstance(spec, dict) and not spec.get("pdf_done"):
+                spec["pdf_done"] = True
+                spec["pdf_progress"] = progress
+                c.execute("update projects set spec=? where id=?", (json.dumps(spec, ensure_ascii=False), pid))
+                c.commit()
+    except Exception as e:
+        print(f"pdf done mark skipped: {e}")
+
+
 async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0):
     if not out.get("frames_added"):
         raw = out.get("raw_frame_count", 0)
         existing_n = len((p.get("spec") or {}).get("frames") or [])
         if not raw and existing_n:
+            _mark_pdf_done(pid, out.get("pdf_progress") or "done")
             return {
                 **(await _db_call(load, pid)),
                 "pdf_progress": out.get("pdf_progress") or "No more graphic frames in the PDF.",
@@ -1200,6 +1363,9 @@ async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
+    prog = str(out.get("pdf_progress") or "")
+    spec["pdf_progress"] = prog
+    spec["pdf_done"] = prog.strip().lower() in ("done", "complete", "finished")
     _progress(pid, run, stage="pictures", written=out.get("frames_added") or 0,
               msg=f"{out.get('frames_added')} frames written. Placing pictures…")
     lk = look if isinstance(look, dict) else {}
