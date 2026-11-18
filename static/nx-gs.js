@@ -156,8 +156,8 @@ function shell() {
   if (!EMBED && !q1('#nxSide')) {
     const a = document.createElement('aside');
     a.id = 'nxSide';
-    a.innerHTML = `<div class="nx-brand"><span class="nx-logo">GS</span><div><b>Graphics Studio</b><small>Make Graphics</small></div></div>
-      <button class="nx-ri on" data-home><svg viewBox="0 0 16 16" class="i">${IC.scroll}</svg>Make Graphics</button>`;
+    a.innerHTML = `<div class="nx-brand"><span class="nx-logo">GS</span><div><b>Graphics Studio</b><small>Graphics</small></div></div>
+      <button class="nx-ri on" data-home><svg viewBox="0 0 16 16" class="i">${IC.scroll}</svg>Graphics</button>`;
     a.querySelector('[data-home]').onclick = () => goHomeNx();
     document.body.appendChild(a);
   }
@@ -252,7 +252,7 @@ function renderList() {
   syncShellNav?.();
   const m = main();
   if (S.err && !S.list) {
-    m.innerHTML = `<div class="nx-top"><h1>Make Graphics</h1></div><div class="nx-box"><div class="nx-empty"><b>Graphics can't be reached right now</b>Your videos are safe. Check the internet connection, then try again.<button class="nx-btn primary" data-retry>Try again</button></div></div>`;
+    m.innerHTML = `<div class="nx-top"><h1>Graphics</h1></div><div class="nx-box"><div class="nx-empty"><b>Graphics can't be reached right now</b>Your videos are safe. Check the internet connection, then try again.<button class="nx-btn primary" data-retry>Try again</button></div></div>`;
     m.querySelector('[data-retry]').onclick = async () => { S.err = null; renderList(); await loadList(); renderList(); };
     return;
   }
@@ -267,7 +267,7 @@ function renderList() {
   }
   const chs = loading ? Array.from({ length: 3 }, () => '<div class="nx-skel ch"><i style="width:64px;height:64px;border-radius:50%"></i><i style="height:18px;width:40%"></i><i style="height:12px;width:70%"></i></div>').join('')
     : CH.filter(c => kitsOf(c).length).map(c => `<button class="nx-ch" style="--c:${c.c}" data-ch="${c.id}" aria-label="Open ${c.name}"><span class="nx-logo-c">${LOGO[c.id]}</span><b>${c.name}</b><small>${E(c.line)}</small><span class="nx-go">${I('arrow')}</span></button>`).join('');
-  m.innerHTML = `<div class="nx-top"><h1>Make Graphics</h1><span class="nx-sp"></span>${searchHTML()}</div>
+  m.innerHTML = `<div class="nx-top"><h1>Graphics</h1><span class="nx-sp"></span>${searchHTML()}</div>
     <div class="nx-box${S.picked.size ? ' selmode' : ''}"><div class="nx-dash-h"><b>Welcome to LA Studio</b><button class="nx-btn primary lg" data-new>${I('plus')}New</button></div>
     <div class="nx-chs">${chs}</div>${res}</div>`;
   bindList(m, qs ? sorted(searchHits().filter(passes)) : []);
@@ -289,7 +289,7 @@ function renderChannel() {
   if (qs) empty = `<div class="nx-empty"><b>Nothing matches "${E(S.q.trim())}"</b><button class="nx-btn ghost" data-clearq>Clear search</button></div>`;
   else if (vs.length && !filtered.length) empty = `<div class="nx-empty"><b>No videos match these filters</b><button class="nx-btn ghost" data-clearf>Clear filters</button></div>`;
   else empty = `<div class="nx-empty"><b>No videos in ${E(where)} yet</b>Make one from a script, a voice-over or a storyboard.<button class="nx-btn primary" data-new>${I('plus')}New</button></div>`;
-  m.innerHTML = `<div class="nx-top"><div class="nx-crumb"><button data-home>Make Graphics</button>${I('chev')}<span class="nx-mark">${LOGO[c.id]}</span><b>${c.name}</b></div>${searchHTML()}</div>
+  m.innerHTML = `<div class="nx-top"><div class="nx-crumb"><button data-home>Graphics</button>${I('chev')}<span class="nx-mark">${LOGO[c.id]}</span><b>${c.name}</b></div>${searchHTML()}</div>
     <div class="nx-box${S.picked.size ? ' selmode' : ''}"><div class="nx-chrow">${tabs}<div class="nx-pright">${filterBtn()}${viewSwitch()}<button class="nx-btn primary lg" data-new>${I('plus')}New</button></div></div>
     ${loading ? skeleton() : videosBlock(filtered, { showKit: multi && !S.kit, emptyHTML: empty })}</div>`;
   bindList(m, filtered);
@@ -461,12 +461,13 @@ function chOfP() { return chOfTheme(P?.theme) || CH[0]; }
 function topLeftHTML() {
   if (inProject()) return projectSteps();
   const c = chOfP();
-  return `<div class="nx-crumb"><button data-home>Make Graphics</button>${I('chev')}<button data-chn class="nx-crch" style="display:inline-flex;align-items:center;gap:6px"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>${I('chev')}<span class="nx-title" data-title data-tip="Click to rename">${E(P.name)}</span></div>`;
+  return `<div class="nx-crumb"><button data-home>Graphics</button>${I('chev')}<button data-chn class="nx-crch" style="display:inline-flex;align-items:center;gap:6px"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>${I('chev')}<span class="nx-title" data-title data-tip="Click to rename">${E(P.name)}</span></div>`;
 }
 function projectSteps() {
   const made = studioFrames().length > 0;
   const st = [['graphics', 'Graphics'], ['psd', 'Layers'], ['animate', 'Animate'], ['video', 'Edit on video']];
-  return `<div class="nx-steps">${st.map(([k, l], i) => `<button class="nx-step${k === 'graphics' ? ' on' : ''}${k === 'graphics' && made ? ' done' : ''}" data-stage="${k}"><i>${k === 'graphics' && made ? '✓' : i + 1}</i>${l}</button>${i < 3 ? I('chev') : ''}`).join('')}</div>`;
+  const done = new Set((QS.get('done') || '').split(',').filter(Boolean)); if (made) done.add('graphics');
+  return `<div class="nx-steps">${st.map(([k, l], i) => `<button class="nx-step${k === 'graphics' ? ' on' : ''}${done.has(k) ? ' done' : ''}" data-stage="${k}"><i>${done.has(k) ? '✓' : i + 1}</i>${l}</button>${i < 3 ? I('chev') : ''}`).join('')}</div>`;
 }
 function bindTop(m) {
   m.querySelector('[data-home]')?.addEventListener('click', goHomeNx);
@@ -1107,8 +1108,8 @@ function editTopBar() {
   const i = studioFrames().findIndex(f => f.id === selectedFrameId);
   const c = chOfP();
   const crumb = inProject() ? `<div class="nx-crumb"><button data-eback2>Frames</button>${I('chev')}<b>Frame ${i + 1}</b></div>`
-    : `<div class="nx-crumb"><button data-ehome>Make Graphics</button>${I('chev')}<button data-ech style="display:inline-flex;align-items:center;gap:6px"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>${I('chev')}<button data-eback2>${E(P.name)}</button>${I('chev')}<b>Frame ${i + 1}</b></div>`;
-  ui.innerHTML = `<button class="nx-round" data-eback aria-label="Back to the frames" data-tip="Back to the frames">${I('back')}</button>${crumb}<span class="nx-sp"></span>${exportSplit()}`;
+    : `<div class="nx-crumb"><button data-ehome>Graphics</button>${I('chev')}<button data-ech style="display:inline-flex;align-items:center;gap:6px"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>${I('chev')}<button data-eback2>${E(P.name)}</button>${I('chev')}<b>Frame ${i + 1}</b></div>`;
+  ui.innerHTML = `<button class="nx-round" data-eback aria-label="Back to the frames" data-tip="Back to the frames">${I('back')}</button>${crumb}<span class="nx-sp"></span>${exportSplit()}<button class="nx-ib" data-emore aria-label="More" data-tip="More" class="tip-l">${I('more')}</button>`;
   ui.onclick = e => {
     const t = e.target;
     if (t.closest('[data-eback],[data-eback2]')) return exitEditMode();
@@ -1116,6 +1117,10 @@ function editTopBar() {
     if (t.closest('[data-ech]')) { const id = chOfP().id; exitEditMode().then(() => openChannel(id)); return; }
     if (t.closest('[data-expall]')) return exp();
     if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'download', run: () => expFrame() }, { label: 'Export all frames', icon: 'download', run: () => exp() }]);
+    if (t.closest('[data-emore]')) {
+      const fid = selectedFrameId, changed = frameBase[fid] !== undefined && frameBase[fid] !== frameSaved[fid];
+      return menu(t.closest('[data-emore]'), [{ label: 'Reset frame', icon: 'undo', disabled: !changed, run: () => resetFrameEdit() }, { label: 'Regenerate frame…', icon: 'regen', run: () => regenWin() }]);
+    }
   };
 }
 function editCaption() {

@@ -162,7 +162,7 @@ textarea.nx-field{height:auto;min-height:120px;padding:10px 12px;resize:vertical
 .nx-round:hover{background:var(--sunken)!important}
 /* LA project steps in the top bar */
 .nx-steps{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
-.nx-step{display:inline-flex!important;align-items:center;gap:8px;height:32px;padding:0 12px!important;border-radius:999px!important;font-size:13px;color:var(--mute)}
+.nx-step{white-space:nowrap;display:inline-flex!important;align-items:center;gap:8px;height:32px;padding:0 12px!important;border-radius:999px!important;font-size:13px;color:var(--mute)}
 .nx-step:hover{background:var(--sunken)!important;color:var(--ink)}
 .nx-step i{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;font-style:normal;font-size:11px;font-weight:600;box-shadow:inset 0 0 0 1px var(--line2);color:var(--mute)}
 .nx-step.on{background:var(--accent-soft)!important;color:var(--accent-text);font-weight:500}
@@ -474,3 +474,6 @@ body.nx .canvas-parent-layer-outline.sel{box-shadow:0 0 0 1.5px #5B5BD6!importan
 body.nx .canvas-parent-resize-handle{width:10px!important;height:10px!important;margin:0!important;border-radius:3px!important;background:#fff!important;border:1.5px solid #5B5BD6!important;box-shadow:none!important}
 body.nx .nx-lbar{z-index:7}
 body.nx .nx-etabs button[hidden]{display:none!important}
+.nx-menu label{justify-content:flex-start;text-align:left;white-space:nowrap;margin:0;font-weight:400;color:var(--ink)}
+.nx-menu input[type=checkbox],.nx-menu input[type=radio]{width:15px!important;height:15px!important;min-height:0;flex:none;padding:0;box-shadow:none}
+.picked .nx-ck,.picked .nx-ck:hover{background:var(--accent)!important;border-color:var(--accent)!important}
