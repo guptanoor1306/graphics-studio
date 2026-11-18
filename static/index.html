@@ -2203,6 +2203,7 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
   }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
+  laActivity(regenerate?'graphics.made':'graphics.edited',regenerate?'regenerate':upload?'picture':(itemIndex!=null||mfPath)?'layer':'chat',[fid]);laChanged();
   bumpFrame(fid);
   if(editModeOpen){refreshEditCanvas();renderCanvasLayerList();syncIframeLayerBounds()}
   else render();
@@ -2854,7 +2855,9 @@ async function uploadPresenter(slot,input){
  try{
   const r=await fetch(`/api/projects/${P.id}/presenter`,{method:'POST',body:fd});
   if(!r.ok){let m=await r.text();try{m=JSON.parse(m).detail||m}catch(_){}throw new Error(m)}
-  presenterRefreshAll(await r.json());
+  const res=await r.json();
+  presenterRefreshAll(res);
+  laActivity('graphics.edited','presenter',[],((res.slots||[]).find(s=>s.slot===slot)||{}).count||0);laChanged();
  }catch(e){alert('Could not use that picture: '+(e.message||e))}finally{setEditLoading(false);input.value=''}
 }
 async function resetPresenter(slot){
@@ -3341,8 +3344,53 @@ function laPost(op,data){return new Promise((res,rej)=>{if(!EMBED||!laOrigin||wi
  setTimeout(()=>{if(laWait.has(id)){laWait.delete(id);rej(new Error(op==='project'?'LA Studio did not answer. Update LA Studio (Check for updates in its sidebar), then try again.':'LA Studio did not answer.'))}},op==='frames'?15*60000:20000)})}
 window.addEventListener('message',e=>{if(e.origin!==laOrigin||e.source!==window.parent)return;const m=e.data||{};if(m.zo!=='graphics-host')return;
  const w=laWait.get(m.id);if(w){laWait.delete(m.id);m.ok?w.res(m.data):w.rej(new Error(m.error||'LA Studio said no'))}});
-const laChanged=(()=>{let t;return()=>{if(!EMBED||!laOrigin)return;clearTimeout(t);t=setTimeout(()=>laPost('changed',{project:P?{id:P.id,frames:(P.spec?.frames||[]).length,theme:P.theme}:null}).catch(()=>{}),800)}})();
-const _api0=api;api=async(u,o={})=>{const r=await _api0(u,o);if(o.method&&o.method!=='GET'&&/^\/api\/(projects|la)\b/.test(u))laChanged();return r};
+/* What was made or changed here, for LA Studio's work log (Activity / Overview in the admin console). Each write
+   adds one item; items made within the same moment go together with the 'changed' message LA Studio already gets:
+     activity: [{type: 'graphics.made' | 'graphics.edited', how, frames, ids}]
+       graphics.made    how: storyboard-pdf (a PDF batch) | script (a storyboard from the script) | regenerate (one frame
+                        made again); frames = how many new frames, ids = their ids
+       graphics.edited  how: chat (Prompt and edit) | layer (✎ on one layer) | picture (a picture swapped in) | layout
+                        (moved / resized / retyped in edit mode) | pictures (missing pictures filled) | presenter
+                        (presenter shot) | delete; frames = how many frames changed
+   LA Studio adds who, which computer and when. A version of LA Studio that doesn't log these simply ignores them. */
+const laActivityQueue=[];
+function laActivity(type,how,ids,n){
+ if(!EMBED||!laOrigin)return;
+ ids=(ids||[]).map(String).slice(0,50);
+ const frames=n!=null?n:ids.length;
+ if(!frames&&type!=='graphics.edited')return;
+ const last=laActivityQueue[laActivityQueue.length-1];
+ if(last&&last.type===type&&last.how===how){last.ids=[...new Set([...last.ids,...ids])].slice(0,50);last.frames=n!=null?last.frames+n:last.ids.length;return}
+ laActivityQueue.push({type,how,frames,ids});
+}
+const laChanged=(()=>{let t;return()=>{if(!EMBED||!laOrigin)return;clearTimeout(t);t=setTimeout(()=>{
+ const ch=P?CHANNELS.find(c=>c.themes.includes(P.theme)):null;
+ const activity=laActivityQueue.splice(0);
+ laPost('changed',{project:P?{id:P.id,name:P.name,frames:(P.spec?.frames||[]).length,theme:P.theme,channel:ch?ch.label:''}:null,la:LA.id||null,activity}).catch(()=>{});
+},800)}})();
+const frameIdsOf=p=>new Map(((p&&p.spec&&p.spec.frames)||[]).filter(f=>f&&f.id!=null).map(f=>[String(f.id),JSON.stringify(f)]));
+function laActivityForWrite(u,o,before,r){
+ const after=frameIdsOf(r&&r.spec?r:P);
+ const added=[...after.keys()].filter(k=>!before.has(k));
+ const changed=[...after.keys()].filter(k=>before.has(k)&&before.get(k)!==after.get(k));
+ const removed=[...before.keys()].filter(k=>!after.has(k));
+ if(/\/storyboard-pdf\/batch$/.test(u))return laActivity('graphics.made','storyboard-pdf',added);
+ if(/\/storyboard$/.test(u))return laActivity('graphics.made','script',added);
+ if(/\/fill-assets/.test(u))return laActivity('graphics.edited','pictures',changed);
+ if(/^\/api\/projects\/\d+$/.test(u)&&o.method==='PUT'){
+  if(removed.length)laActivity('graphics.edited','delete',removed);
+  if(changed.length)laActivity('graphics.edited','layout',changed);
+  else if(!removed.length&&/"spec"/.test(o.body||'')&&selectedFrameId)laActivity('graphics.edited','layout',[selectedFrameId]);   // edited in place before saving
+ }
+}
+const _api0=api;api=async(u,o={})=>{
+ const write=o.method&&o.method!=='GET'&&/^\/api\/(projects|la)\b/.test(u);
+ const logging=write&&EMBED&&!!laOrigin;   // outside LA Studio nothing is compared or sent
+ const before=logging?frameIdsOf(P):null;
+ const r=await _api0(u,o);
+ if(logging){try{laActivityForWrite(u,o,before,r)}catch(_){}}
+ if(write)laChanged();
+ return r};
 /* The LA Studio project for a Graphics Studio project on this computer. Opened as a project's step (?la=…) it is that
    one. From LA Studio's Graphics tab, LA Studio is asked (op 'project'): it answers with the project it already has
    for this one, or makes it (same name, channel, format), so Make Layers always has a project to land in and the
