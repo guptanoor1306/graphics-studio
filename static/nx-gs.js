@@ -458,8 +458,10 @@ async function openVideo(id) {
   try { await open_(id); } catch (e) { toast(e.message || String(e), { err: true }); }
 }
 function chOfP() { return chOfTheme(P?.theme) || CH[0]; }
+const gsSteps = () => inProject() && QS.get('bar') === 'gs';   // LA Studio v2.18+ hides its own steps on this step and asks for ours
 function topLeftHTML() {
-  if (inProject()) return projectSteps();
+  if (gsSteps()) return projectSteps();
+  if (inProject()) return `<div class="nx-crumb"><span class="nx-title" data-title data-tip="Click to rename">${E(P.name)}</span></div>`;
   const c = chOfP();
   return `<div class="nx-crumb"><button data-home>Graphics</button>${I('chev')}<button data-chn class="nx-crch" style="display:inline-flex;align-items:center;gap:6px"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>${I('chev')}<span class="nx-title" data-title data-tip="Click to rename">${E(P.name)}</span></div>`;
 }
@@ -514,7 +516,7 @@ function render2() {
 /* ---------------- Sources: "Add what you have" (B9) ---------------- */
 const pdfOn = () => !!P?.has_storyboard_pdf && P?.look?.sb_import !== 'script';
 const scriptOn = () => scriptHasContent(P?.script || '');
-const audioOn = () => !!(P?.has_episode_transcript || S.audioBusy);
+const audioOn = () => !!(P?.has_episode_transcript || P?.has_episode_audio || S.audioBusy);
 function estFrames() {
   const sec = P?.episode_audio_seconds || (words(P?.script) / 2.6);
   return sec ? Math.max(1, Math.round(sec / 9)) : 0;
@@ -541,12 +543,12 @@ function sourcesView() {
   let auBody;
   if (s.au) {
     const secs = P.episode_audio_seconds || S.audioSecs;
-    let st = S.audioBusy ? 'Transcribing…' : 'Transcribed';
+    let st = S.audioBusy ? 'Transcribing…' : P.has_episode_transcript ? 'Transcribed' : 'Not transcribed';
     if (!S.audioBusy && s.sc && P.episode_transcript_segments) {
       const ws = words(P.script), aw = S.trWords || 0;
       if (aw) { const ok = Math.abs(ws - aw) / Math.max(ws, aw) < 0.2; st = `<span class="nx-match${ok ? '' : ' warn'}" data-tip="Script: ${ws} words · voice-over: ${aw} words">${ok ? '✓ Matches script' : '⚠ Length differs'}</span>`; }
     }
-    auBody = `<div class="nx-eb done" style="flex-direction:column;align-items:stretch;justify-content:center;gap:0;padding:10px 12px 10px 16px"><div style="display:flex;align-items:center;gap:12px"><button class="nx-play" data-play data-tip="Play">${I(S.playing ? 'pause' : 'play')}</button><div class="tx" style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${E((P.episode_audio_name || S.audioBusy || 'Voice-over').replace(/\.(mp3|m4a|wav|webm|ogg|mp4)$/i, ''))}</b><small style="font-size:12px;color:var(--mute)">${[mmss(secs), st].filter(Boolean).join(' · ')}</small></div>${S.audioBusy ? '' : `<button class="nx-ib nx-trash" data-del="audio" data-tip="Remove the voice-over">${I('trash')}</button>`}</div><div class="nx-wave" data-wave>${waveBars()}</div></div>`;
+    auBody = `<div class="nx-eb done" style="flex-direction:column;align-items:stretch;justify-content:center;gap:0;padding:10px 12px 10px 16px"><div style="display:flex;align-items:center;gap:12px"><button class="nx-play" data-play data-tip="Play">${I(S.playing ? 'pause' : 'play')}</button><div class="tx" style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${E((P.episode_audio_name || S.audioBusy || 'Voice-over').replace(/\.(mp3|m4a|wav|webm|ogg|mp4)$/i, ''))}</b><small style="font-size:12px;color:var(--mute)">${[mmss(secs), st].filter(Boolean).join(' · ')}</small></div><button class="nx-ib nx-trash" data-del="audio" data-tip="${S.audioBusy ? 'Stop and remove this voice-over' : 'Remove the voice-over'}" class="tip-l">${I('trash')}</button></div><div class="nx-wave" data-wave>${waveBars()}</div></div>`;
   } else auBody = empty('audio', 'Upload or drop', 'MP3, M4A or WAV', 'upload');
   const card = (k, icon, title, body, on) => `<div class="nx-ec${on ? ' on' : ''}" data-card="${k}"><span class="nx-eic">${icon}</span><b>${title}</b>${body}</div>`;
   m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><button class="nx-ib" data-vmore aria-label="More" data-tip="More">${I('more')}</button></div>
@@ -640,6 +642,7 @@ async function addFile(f) {
       const r = await fetch(`/api/projects/${P.id}/episode-audio`, { method: 'POST', body: fd });
       if (!r.ok) throw new Error(parseApiErrorText(await r.text()));
       P = await r.json(); P.look = normLook(P.look); episodeTranscript = null; S.trWordsFor = null;
+      if (S.audioCancel) { S.audioCancel = false; P = await api(`/api/projects/${P.id}/episode-audio`, { method: 'DELETE' }); P.look = normLook(P.look); toast('Voice-over removed'); return; }
       toast(P.has_episode_transcript ? 'The voice-over is transcribed' : 'The voice-over is saved, but it could not be transcribed');
     } catch (e) { toast(e.message || String(e), { err: true }); } finally { S.audioBusy = null; render(); }
     return;
@@ -659,6 +662,7 @@ async function removeSource(k) {
     toast('Storyboard PDF removed', { undo: async () => { P = await api('/api/projects/' + P.id, { method: 'PUT', body: JSON.stringify({ look: { ...P.look, sb_import: 'pdf' }, note: 'storyboard PDF back' }) }); P.look = normLook(P.look); render(); } });
   } else if (k === 'audio') {
     if (audioEl) { audioEl.pause(); audioEl = null; S.playing = false; }
+    if (S.audioBusy) { S.audioCancel = true; S.audioBusy = null; }
     P = await api(`/api/projects/${P.id}/episode-audio`, { method: 'DELETE' }); P.look = normLook(P.look); S.peaks = null; episodeTranscript = null; render();
     toast('Voice-over removed');
   }
@@ -912,6 +916,10 @@ function nxUndoBar() {
   const eu = q1('#nxEUndo'), er = q1('#nxERedo');
   if (eu) eu.disabled = !(frameHist[fid] || []).length || frameHistBusy;
   if (er) er.disabled = !(frameRedo[fid] || []).length || frameHistBusy;
+  const nu = (frameHist[fid] || []).length, nr = (frameRedo[fid] || []).length;
+  [u, eu].forEach(b => { if (b) { b.dataset.tip = nu ? `Undo the last change (${nu} of 5 left) · ⌘Z` : 'Undo: nothing to undo on this frame yet'; b.querySelector('.nx-uc')?.remove(); if (nu) b.insertAdjacentHTML('beforeend', `<span class="nx-uc">${nu}</span>`); } });
+  [r, er].forEach(b => { if (b) b.dataset.tip = nr ? `Redo (${nr}) · ⇧⌘Z` : 'Redo'; });
+  const rs = q1('#nxEReset'); if (rs) rs.disabled = !(frameBase[fid] !== undefined && frameBase[fid] !== frameSaved[fid]) || frameHistBusy;
 }
 window.nxUndoBar = nxUndoBar;
 function editScriptWin() {
@@ -1008,7 +1016,7 @@ async function layerAsk(L, text, file) {
     nxLayerBusy++;
     try {
       const r = await askFrame(fid, text || (file ? 'Replace with reference image' : ''), { ...opts, ...(file ? { itemReplace: true, refFile: file } : {}), quiet: true });
-      if (r?.ok) { toast(file ? 'Layer replaced' : 'Layer changed'); if (file) { const f = repFiles[L.key]; if (f) URL.revokeObjectURL(f.url); delete repFiles[L.key]; renderCanvasLayerList(); } }
+      if (r?.ok) { toast(file ? 'Layer replaced' : 'Layer changed', { undo: () => undoFrameEdit() }); if (file) { const f = repFiles[L.key]; if (f) URL.revokeObjectURL(f.url); delete repFiles[L.key]; renderCanvasLayerList(); } }
       else if (r) toast(r.error || 'That did not work', { err: true });
     } finally { nxLayerBusy--; }
   });
@@ -1070,7 +1078,7 @@ function decorateEdit() {
   const center = app.querySelector('.edit-mode-center');
   if (!center.querySelector('.nx-etools')) {
     const tb = document.createElement('div'); tb.className = 'nx-etools nx-ui';
-    tb.innerHTML = `<div class="nx-tools"><button class="nx-ib" id="nxEUndo" data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxERedo" data-tip="Redo">${I('redo')}</button><span class="sep"></span><button class="nx-btn dark" id="nxERegen" data-tip="Make this frame again, optionally with a note">${I('regen')}Regenerate</button><span class="sep"></span><button class="nx-ib" data-ez="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-ez="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-ez="1" data-tip="Zoom in">${I('plus')}</button></div>`;
+    tb.innerHTML = `<div class="nx-tools"><button class="nx-ib" id="nxEUndo" data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxERedo" data-tip="Redo">${I('redo')}</button><button class="nx-tbtn" id="nxEReset" data-tip="Put this frame back the way it was when you opened it (can be undone)" disabled>Reset frame</button><span class="sep"></span><button class="nx-btn dark" id="nxERegen" data-tip="Make this frame again from scratch, optionally with a note">${I('regen')}Regenerate</button><span class="sep"></span><button class="nx-ib" data-ez="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-ez="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-ez="1" data-tip="Zoom in">${I('plus')}</button></div>`;
     center.insertBefore(tb, center.firstChild);
     const cap = document.createElement('div'); cap.className = 'nx-ecap nx-ui'; cap.id = 'nxECap';
     const hint = document.createElement('div'); hint.className = 'nx-ehint nx-ui'; hint.textContent = 'Drag to move · drag the corner to resize · double-click text to change it';
@@ -1079,13 +1087,14 @@ function decorateEdit() {
       if (e.target.closest('#nxEUndo')) return undoFrameEdit();
       if (e.target.closest('#nxERedo')) return redoFrameEdit();
       if (e.target.closest('#nxERegen')) return regenWin();
+      if (e.target.closest('#nxEReset')) return resetFrameEdit();
       const z = e.target.closest('[data-ez]'); if (z) { const d = +z.dataset.ez; window.nxZoom = d ? Math.max(0.4, Math.min(2.5, (window.nxZoom || 1) * (d > 0 ? 1.2 : 1 / 1.2))) : 1; fitCanvasEdit(); }
     };
   }
   const side = app.querySelector('.edit-mode-side');
   if (!side.querySelector('.nx-etabs')) {
     const tabs = document.createElement('div'); tabs.className = 'nx-etabs nx-ui';
-    tabs.innerHTML = `<button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="prompt">Prompt</button><button data-etab="anchor" id="nxTabAnc">Anchor frame</button>`;
+    tabs.innerHTML = `<button data-etab="prompt">Prompt</button><button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="anchor" id="nxTabAnc">Anchor frame</button>`;
     side.insertBefore(tabs, side.firstChild);
     tabs.onclick = e => { const b = e.target.closest('[data-etab]'); if (b) setTab(b.dataset.etab); };
     const look = q1('#editLookBlock'), body = q1('#secEdit .side-sec-body'); if (look && body) body.appendChild(look);
@@ -1100,7 +1109,9 @@ function decorateEdit() {
     }
   }
   bindLayerPanel();
-  setTab(S.etab && S.etab !== 'anchor' ? S.etab : 'layers');
+  const cf = q1('#canvasEditFrame');
+  if (cf && !cf._nx) { cf._nx = true; const inject = () => { try { const d = cf.contentDocument; if (!d || d.getElementById('nxEditCss')) return; const s = d.createElement('style'); s.id = 'nxEditCss'; s.textContent = '.studio-edit-mode [data-spec-idx],.studio-edit-mode [data-mf-path],.studio-edit-mode [data-mf-drag]{outline:0!important}.studio-edit-mode [data-spec-idx]:hover,.studio-edit-mode [data-mf-path]:hover,.studio-edit-mode [data-mf-drag]:hover{outline:1px solid rgba(91,91,214,.55)!important;outline-offset:2px}.studio-inline-edit{outline:0!important}.studio-inline-edit:focus{outline:1.5px solid #5B5BD6!important}'; d.head.appendChild(s); } catch (_) {} }; cf.addEventListener('load', inject); inject(); }
+  setTab(S.etab && S.etab !== 'anchor' ? S.etab : 'prompt');
   ancTabVisible();
 }
 function editTopBar() {
@@ -1143,11 +1154,11 @@ function stripDecor() {
 function regenWin() {
   const fs = studioFrames(), i = fs.findIndex(f => f.id === selectedFrameId), fid = selectedFrameId; if (i < 0) return;
   win({
-    title: `Regenerate frame ${i + 1}`, sub: 'optional', ok: 'Regenerate', text: 'Regenerating will replace all layers and discard your edits to this frame.',
+    title: `Regenerate frame ${i + 1}`, sub: 'optional', ok: 'Regenerate', text: 'Makes this frame again from scratch. Regenerating will replace all layers and discard your edits to this frame (you can undo it). Say what should change, or leave it empty.',
     body: `<textarea class="nx-field" id="nxRegen" data-enter="1" style="min-height:96px" aria-label="What should change"></textarea>`,
     onOk: async m => {
       const note = m.querySelector('#nxRegen').value.trim();
-      setTimeout(async () => { const r = await askFrame(fid, note, { regenerate: true, quiet: true }); if (r?.ok) toast(note ? `Frame ${i + 1} is regenerated with your note` : `Frame ${i + 1} is regenerated`); else if (r) toast(r.error || 'Regenerate did not work', { err: true }); }, 0);
+      setTimeout(async () => { const r = await askFrame(fid, note, { regenerate: true, quiet: true }); if (r?.ok) toast(note ? `Frame ${i + 1} is regenerated with your note` : `Frame ${i + 1} is regenerated`, { undo: () => undoFrameEdit() }); else if (r) toast(r.error || 'Regenerate did not work', { err: true }); }, 0);
     },
   });
 }
@@ -1155,6 +1166,7 @@ function regenWin() {
 const nxRFC = function () {
   const host = q1('#frameChatLog'); if (!host || !selectedFrameId) return;
   const log = frameChatLoad();
+  if (!log.length) { host.innerHTML = `<div class="nx-chelp"><span class="ic">${I('pencil')}</span><b>Chat with AI to change this frame</b><span>Describe a change in plain words: "make the title bigger", "move the chart left", "use a laptop instead of the phone".</span><span>Attach a reference picture (${I('attach')}) to swap one in.</span><span>Each change can be undone.</span></div>`; return; }
   host.innerHTML = log.map((m, i) => {
     if (m.role === 'you') return `<div class="fchat-msg you">${E(m.text)}${m.file ? ` <span class="nx-dim">· ${E(m.file)}</span>` : ''}</div>`;
     if (m.pending) return `<div class="fchat-msg claude"><span class="nx-dots"><i></i><i></i><i></i></span></div>`;
@@ -1172,7 +1184,7 @@ function ancTabVisible() {
   const cam = P?.theme === 'varsity-english' && fr && (fr.mode || 'anchor') !== 'fss';
   const show = cam || (presenterSlots || []).length > 0;
   const t = q1('#nxTabAnc'); if (t) t.hidden = !show;
-  if (!show && S.etab === 'anchor') setTab('layers');
+  if (!show && S.etab === 'anchor') setTab('prompt');
 }
 const nxRAS = function () {
   const ctl = q1('#anchorFrameCtl'), sec = q1('#secAnchor');
@@ -1223,7 +1235,7 @@ function laProjectStart() {
     const p = await api('/api/la/link', { method: 'POST', body: JSON.stringify({ la_project: LA.id, la_name: LA.name, name: LA.name || 'Graphics', theme }) });
     await open_(p.id);
   };
-  main().innerHTML = `<div class="nx-top">${projectStepsEmpty()}</div><div class="nx-box">${skeleton(0)}</div>`;
+  main().innerHTML = `<div class="nx-top">${gsSteps() ? projectStepsEmpty() : ''}</div><div class="nx-box">${skeleton(0)}</div>`;
   bindTop(main());
   if (ch && kitsOf(ch).length === 1) return create(kitsOf(ch)[0]).catch(e => toast(e.message, { err: true }));
   if (ch && formKit(ch) && kitsOf(ch).includes(formKit(ch))) return create(formKit(ch)).catch(e => toast(e.message, { err: true }));
@@ -1274,7 +1286,7 @@ window.nxBoot = async function () {
   const _list = list;
   list = async () => { await loadList(); allProjects = S.list || []; if (!P && !editModeOpen) renderList(); };
   const _open = openEditMode;
-  openEditMode = fid => { S.etab = 'layers'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
+  openEditMode = fid => { S.etab = 'prompt'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
   const _sel = selectEditFrame;
   selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); } };
   const _strip = buildEditFrameStrip;
@@ -1289,7 +1301,7 @@ window.nxBoot = async function () {
   if (EMBED && LA.id) {
     const done = () => document.documentElement.classList.remove('la-boot'); setTimeout(done, 10000);
     try {
-      main().innerHTML = `<div class="nx-top">${projectStepsEmpty()}</div><div class="nx-box">${skeleton(0)}</div>`;
+      main().innerHTML = `<div class="nx-top">${gsSteps() ? projectStepsEmpty() : ''}</div><div class="nx-box">${skeleton(0)}</div>`;
       document.documentElement.classList.remove('la-boot');
       const r = await api('/api/la/project/' + encodeURIComponent(LA.id)).catch(() => ({}));
       loadList();
