@@ -592,6 +592,8 @@ html.embed-la .home-landing,html.embed-la .home-channel-page{min-height:auto;pad
 <div id="editModeApp" hidden>
  <header class="edit-mode-top"><button type="button" class="brand-home brand-home-compact" onclick="goHome()" title="All channels" aria-label="Graphics Studio home"><span class="brand-mark">GS</span></button><button type="button" class="ghost" onclick="exitEditMode()">← Back to studio</button>
   <b id="editModeTitle">Edit frames</b><span class="spacer"></span>
+  <button type="button" class="btn-neutral" id="editUndoBtn" onclick="undoFrameEdit()" disabled title="Undo the last change to this frame (up to 5 steps). Ctrl/⌘ Z">Undo</button>
+  <button type="button" class="ghost" id="editResetBtn" onclick="resetFrameEdit()" disabled title="Put this frame back the way it was when you opened edit mode">Reset frame</button>
   <button type="button" class="btn-neutral" onclick="expFrame()">Export Frame</button>
   <button type="button" class="p" onclick="exp()">Export All</button>
   <div id="frameModeSwitch"></div></header>
@@ -1592,7 +1594,7 @@ function render(){
   const preSpec=preSpecSectionHtml();
   const pdfBlock=P.spec&&pdfWorkflowActive()?pdfBarHtml():'';
   $('#main').innerHTML=`<div class="toolbar">${EMBED&&!LA.id?'<button type="button" class="ghost" onclick="goHome()">‹ All projects</button>':''}<h1 class="page-title">${esc(P.name)}</h1><span class="kit-tag" title="Kit">${esc(themeLabel(P.theme))}</span><span class="spacer"></span>
-   ${P.spec?`<button type="button" onclick="undo()">Undo</button>${EMBED?`<button type="button" class="btn-neutral" onclick="exp()">Export All</button><button type="button" class="p" id="laSendBtn" onclick="laSend()" title="LA Studio turns every frame into a layered PSD">Make Layers</button>`:'<button type="button" class="p" onclick="exp()">Export All</button>'}`:''}
+   ${P.spec?`${EMBED?`<button type="button" class="btn-neutral" onclick="exp()">Export All</button><button type="button" class="p" id="laSendBtn" onclick="laSend()" title="LA Studio turns every frame into a layered PSD">Make Layers</button>`:'<button type="button" class="p" onclick="exp()">Export All</button>'}`:''}
    <button type="button" class="icon-btn ghost" onclick="renameProject()" title="Rename project" aria-label="Rename">${ICON_RENAME}</button>
    ${EMBED&&LA.id?'':`<button type="button" class="icon-btn ghost danger" onclick="deleteProject()" title="Delete project" aria-label="Delete">${ICON_DELETE}</button>`}</div>
   ${P.spec?pdfBlock+framesStudio():preSpec}<div id="warns"></div>`;
@@ -2203,6 +2205,7 @@ async function askFrame(fid,ask,{regenerate=false,itemIndex=null,itemReplace=fal
   }
   const i=P.spec.frames.findIndex(f=>f.id===fid);
   if(i>=0)P.spec.frames[i]=updated;
+  frameHistNote([updated]);
   laActivity(regenerate?'graphics.made':'graphics.edited',regenerate?'regenerate':upload?'picture':(itemIndex!=null||mfPath)?'layer':'chat',[fid]);laChanged();
   bumpFrame(fid);
   if(editModeOpen){refreshEditCanvas();renderCanvasLayerList();syncIframeLayerBounds()}
@@ -2502,6 +2505,7 @@ function buildEditFrameStrip(){
 function openEditMode(fid){
  if(!P?.spec){alert('Generate frames first.');return}
  editModeOpen=true;
+ frameHistInit();
  stopBoundsPoll();
  api('/api/status?_='+Date.now()).then(st=>{if(st?.studio_ui)console.info('[Graphics Studio] UI build',st.studio_ui)}).catch(()=>{});
  document.querySelectorAll('.edit-mode-side h3,.edit-mode-side .edit-side-hint,.edit-mode-side input#editPlate,.edit-mode-side button[onclick="applyLook()"]').forEach(el=>{
@@ -2757,6 +2761,7 @@ function selectEditFrame(fid){
  renderCanvasLayerList();
  renderFrameModeSwitch();
  renderFrameChat();
+ renderUndoBar();
  refreshEditCanvas();
 }
 /* ---------- frame chat: whole-frame changes in plain words (Claude edits the layers; a picture swaps one in) ---------- */
@@ -2884,6 +2889,71 @@ function editApplyFrame(){
  }
  askFrame(selectedFrameId,ask);
 }
+/* ---------- Undo in edit mode: per frame, the last 5 saved versions ----------
+   Every save that changes a frame (move, resize, words, ✎, chat, make again, camera) puts that frame's previous saved
+   version on its list. Undo restores the newest one; Reset frame restores the frame as it was when edit mode opened
+   (and can itself be undone). The lists last while edit mode is open. */
+const FRAME_UNDO_MAX=5;
+let frameHist={},frameSaved={},frameBase={},frameHistBusy=false;
+const frameKey=f=>JSON.stringify(f);
+function frameHistInit(){
+ frameHist={};frameSaved={};frameBase={};
+ (P?.spec?.frames||[]).forEach(f=>{if(f&&f.id!=null){frameSaved[f.id]=frameKey(f);frameBase[f.id]=frameSaved[f.id]}});
+ renderUndoBar();
+}
+function frameHistNote(frames){
+ if(!editModeOpen||frameHistBusy)return;
+ (frames||[]).forEach(f=>{
+  if(!f||f.id==null)return;
+  const k=frameKey(f),old=frameSaved[f.id];
+  if(old===undefined){frameSaved[f.id]=k;frameBase[f.id]=k;return}
+  if(old===k)return;
+  const h=frameHist[f.id]=frameHist[f.id]||[];
+  h.push(old);if(h.length>FRAME_UNDO_MAX)h.shift();
+  frameSaved[f.id]=k;
+ });
+ renderUndoBar();
+}
+function renderUndoBar(){
+ const u=$('#editUndoBtn'),r=$('#editResetBtn');if(!u||!r)return;
+ const fid=selectedFrameId,n=(frameHist[fid]||[]).length;
+ u.disabled=!n||frameHistBusy;u.textContent=n?`Undo (${n})`:'Undo';
+ r.disabled=frameHistBusy||!fid||frameBase[fid]===undefined||frameBase[fid]===frameSaved[fid];
+}
+async function restoreFrame(fid,fr,note){
+ const fi=P?.spec?.frames?.findIndex(f=>f.id===fid);
+ if(fi==null||fi<0)return false;
+ frameHistBusy=true;renderUndoBar();setEditLoading(true);
+ try{
+  const sp={...P.spec,frames:P.spec.frames.map((f,i)=>i===fi?fr:f)};
+  P=await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:sp,note:note+' '+fid})});P.look=normLook(P.look);
+  const now=(P.spec.frames||[]).find(f=>f.id===fid);
+  frameSaved[fid]=frameKey(now||fr);
+  bumpFrame(fid);refreshEditCanvas();renderCanvasLayerList();renderFrameModeSwitch();
+  return true;
+ }catch(e){alert(e.message||e);return false}
+ finally{frameHistBusy=false;setEditLoading(false);renderUndoBar()}
+}
+async function undoFrameEdit(){
+ const fid=selectedFrameId,h=frameHist[fid];
+ if(!h?.length||frameHistBusy)return;
+ const prev=h.pop();
+ if(!await restoreFrame(fid,JSON.parse(prev),'undo'))h.push(prev);
+}
+async function resetFrameEdit(){
+ const fid=selectedFrameId;
+ if(!fid||frameBase[fid]===undefined||frameBase[fid]===frameSaved[fid]||frameHistBusy)return;
+ if(!await uiConfirm('Put this frame back the way it was when you opened edit mode? You can undo this.',{title:'Reset frame',ok:'Reset'}))return;
+ const cur=frameSaved[fid];
+ if(await restoreFrame(fid,JSON.parse(frameBase[fid]),'reset')){
+  const h=frameHist[fid]=frameHist[fid]||[];h.push(cur);if(h.length>FRAME_UNDO_MAX)h.shift();renderUndoBar();
+ }
+}
+document.addEventListener('keydown',e=>{
+ if(!editModeOpen||!(e.metaKey||e.ctrlKey)||e.shiftKey||e.key.toLowerCase()!=='z')return;
+ const a=document.activeElement;if(a&&(a.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;
+ e.preventDefault();undoFrameEdit();
+});
 async function editRegenFrame(){
  if(!selectedFrameId||!P?.id){alert('Select a frame first.');return}
  await askFrame(selectedFrameId,'',{regenerate:true});
@@ -3389,6 +3459,7 @@ const _api0=api;api=async(u,o={})=>{
  const before=logging?frameIdsOf(P):null;
  const r=await _api0(u,o);
  if(logging){try{laActivityForWrite(u,o,before,r)}catch(_){}}
+ if(write&&r&&r.spec&&Array.isArray(r.spec.frames)){try{frameHistNote(r.spec.frames)}catch(_){}}
  if(write)laChanged();
  return r};
 /* The LA Studio project for a Graphics Studio project on this computer. Opened as a project's step (?la=…) it is that
