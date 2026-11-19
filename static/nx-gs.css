@@ -179,9 +179,9 @@ textarea.nx-field{height:auto;min-height:120px;padding:10px 12px;resize:vertical
 .nx-cnt{display:inline-grid;place-items:center;min-width:20px;height:18px;padding:0 6px;border-radius:999px;background:#EDEDF0;font-size:11px;font-weight:500;color:var(--ink-2)}
 .nx-allh{display:flex;align-items:center;gap:8px;height:40px;font-size:14px;font-weight:500}
 .nx-pright{display:flex;align-items:center;gap:12px;padding-bottom:4px}
-.nx-view{display:inline-flex;padding:2px;border-radius:9px;background:var(--sunken);gap:2px}
+.nx-view{display:inline-flex;padding:3px;border-radius:10px;background:#EFEFF2;gap:2px}
 .nx-view button{display:grid!important;place-items:center;width:32px;height:28px;border-radius:7px!important;color:var(--mute)}
-.nx-view button.on{background:#fff!important;color:var(--ink);box-shadow:0 0 0 .75px var(--line-strong),0 1px 2px rgba(20,20,40,.06)}
+.nx-view button.on{background:#fff!important;color:var(--ink);box-shadow:0 1px 3px rgba(20,20,40,.12)!important}
 .nx-fbtn.on{background:var(--accent-soft)!important;color:var(--accent-text);box-shadow:none}
 .nx-fbtn .nx-fc{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px}
 .nx-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
@@ -327,7 +327,9 @@ textarea.nx-field{height:auto;min-height:120px;padding:10px 12px;resize:vertical
 .nx-tools .nx-btn{height:36px}
 .nx-tools .fit{font-size:13px;color:var(--mute);padding:0 6px!important;height:36px;border-radius:8px!important}
 .nx-tools .fit:hover{color:var(--ink);background:var(--hover)!important}
-.nx-bigw{position:relative;width:100%;flex:1;min-height:0;display:grid;place-items:center}
+.nx-bigw{position:relative;width:100%;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.nx-col{display:flex;flex-direction:column;align-items:center;max-width:100%;max-height:100%}
+.nx-col>.nx-tools{margin-bottom:12px}.nx-col>.nx-banner{margin-bottom:12px}
 .nx-big{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 8px 24px rgba(20,20,40,.06);background:#fff}
 .nx-big iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;pointer-events:none}
 .nx-big .nx-ph0{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:#F7F7F9;color:var(--mute);font-size:13.5px;text-align:center;padding:20px}
@@ -352,7 +354,7 @@ textarea.nx-field{height:auto;min-height:120px;padding:10px 12px;resize:vertical
 .nx-gcard.on .im{box-shadow:0 0 0 2px var(--accent)}
 .nx-gcard b{color:var(--ink);font-weight:600}
 /* 9:16 */
-.reel .nx-thumb,.reel .nx-gth,.reel .nx-fth,.reel .nx-gcard .im{aspect-ratio:9/16}
+.reel .nx-gth,.reel .nx-fth,.reel .nx-gcard .im{aspect-ratio:9/16}
 .reel .nx-fth{width:62px}.reel .nx-gth{width:30px}
 .reel .nx-allg{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
 .nx-banner{margin:0 0 0;padding:10px 14px;border-radius:10px;background:var(--sunken);font-size:12.5px;white-space:pre-wrap;color:var(--ink-2);max-height:140px;overflow:auto;width:100%;max-width:760px}
@@ -374,7 +376,9 @@ body.nx #editModeApp .edit-frame-thumb.on{background:color-mix(in srgb,var(--acc
 body.nx #editModeApp .edit-frame-thumb .mini-thumb{border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px var(--line)}
 body.nx #editModeApp .edit-frame-thumb .mini-label{font-size:13px;color:var(--mute);margin-top:8px;text-align:left}
 body.nx #editModeApp .edit-mode-center{position:relative;background:#FAFAFB;border-radius:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:0}
-body.nx .nx-etools{flex:none;display:flex;justify-content:center;padding:18px 0 46px}
+body.nx .nx-etools{position:absolute;left:0;right:0;top:12px;z-index:8;display:flex;justify-content:center;padding:0;pointer-events:none}
+body.nx .nx-etools .nx-tools{pointer-events:auto}
+body.nx #editModeApp .edit-canvas-viewport{margin-top:62px!important}
 body.nx .nx-etools .nx-tools{margin:0}
 body.nx #editModeApp .edit-canvas-viewport{flex:1 1 auto;min-height:0;width:auto!important;max-width:none!important;aspect-ratio:auto!important;align-self:stretch;background:none!important;margin:0 24px;border-radius:0}
 body.nx #editModeApp .edit-mode-center{align-items:stretch;justify-content:flex-start}
@@ -392,7 +396,7 @@ body.nx .nx-etabs{position:sticky;top:0;z-index:3;display:flex;gap:4px;padding:0
 body.nx .nx-etabs button{display:inline-flex!important;align-items:center;gap:8px;height:52px;padding:0 10px!important;margin-bottom:-1px;font-size:14px;color:var(--mute);border-bottom:2px solid transparent!important}
 body.nx .nx-etabs button.on{color:var(--ink);font-weight:500;border-bottom-color:var(--ink)!important}
 body.nx .nx-etabs button:hover{color:var(--ink)}
-body.nx #secLayers .side-sec-body,body.nx #secEdit .side-sec-body,body.nx #secAnchor .side-sec-body{padding-top:20px!important}
+body.nx #secLayers .side-sec-body,body.nx #secEdit .side-sec-body,body.nx #secAnchor .side-sec-body{padding-top:4px!important}
 /* layer sections */
 .nx-ls{border-bottom:1px solid var(--line)}
 .nx-lsh{display:flex;align-items:center;gap:10px;min-height:62px;padding:8px 14px 8px 20px;cursor:pointer}
@@ -487,3 +491,29 @@ body.nx #frameChatLog:has(.nx-chelp){justify-content:center}
 .nx-uc{position:absolute;top:2px;right:2px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:var(--accent);color:#fff;font-size:9.5px;font-weight:600;line-height:14px;text-align:center}
 .nx-tools .nx-ib{position:relative}
 .nx-tools .nx-tbtn{height:32px;font-size:12.5px}
+
+/* feedback round 2026-11-19 */
+.nx-metar{display:flex;align-items:center;gap:8px}.nx-metar .nx-meta{flex:1;min-width:0}
+.nx-card .nx-ck{position:static;flex:none}
+.nx-selbar{position:fixed;bottom:22px;left:calc(var(--side) + (100vw - var(--side)) / 2);transform:translateX(-50%);margin:0;background:#fff;color:var(--ink);box-shadow:0 8px 28px rgba(0,0,0,.12),0 0 0 1px rgba(0,0,0,.04);padding:6px 6px 6px 18px;gap:4px;z-index:60}
+.nx-selbar .n{font-weight:500;color:var(--accent-text);margin-right:8px}
+.nx-sbb{display:inline-flex!important;align-items:center;gap:6px;height:32px;padding:0 12px!important;border-radius:999px!important;font-size:13px;font-weight:500;color:var(--ink)}
+.nx-sbb:hover{background:var(--hover)!important}
+.nx-sbb.red{color:var(--bad)}.nx-sbb.red:hover{background:var(--bad-soft)!important}
+.nx-sbb svg.i{width:14px;height:14px}
+.nx-loading{background:#F7F7F9!important;gap:10px!important}
+.nx-loading small{font-size:12px;color:var(--faint);max-width:340px}
+.nx-loading #nxGenMsg{font-size:13px;color:var(--mute)}
+.nx-spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(91,91,214,.16);border-top-color:var(--accent);animation:nxSpin .9s linear infinite;margin-bottom:6px}
+@keyframes nxSpin{to{transform:rotate(360deg)}}
+.nx-ttx{display:inline-flex!important;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px!important;border-radius:999px!important;font-size:13px;font-weight:500;color:var(--ink-2)}
+.nx-ttx:hover:not(:disabled){background:var(--hover)!important}.nx-ttx:disabled{color:var(--faint);cursor:default}
+.nx-ttx svg.i{width:15px;height:15px}
+.nx-radio{justify-content:flex-start;text-align:left;margin:0;font-weight:400;color:var(--ink);width:100%}
+.nx-radio input[type=radio]{width:16px!important;height:16px!important;min-height:0;flex:none;padding:0;margin:0;box-shadow:none;border:0}
+.nx-win{padding:20px 22px 18px}
+.nx-wf{margin-top:16px}
+.nx-allh{font-weight:500}
+#nxSide .nx-ri.on{color:var(--accent)}
+#nxSide .nx-ri.on{background:#EDEDF0}
+.nx-card.picked{border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent)}

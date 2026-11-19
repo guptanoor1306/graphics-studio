@@ -30,6 +30,8 @@ const IC = {
   text: '<path d="M3.5 4h9M8 4v8.5"/>', picture: '<rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M2.8 11l3.2-3 2.5 2.3 1.8-1.6 3 2.6"/><circle cx="10.5" cy="6" r="1"/>',
   table: '<rect x="2.5" y="3" width="11" height="10" rx="1.2"/><path d="M2.5 6.3h11M2.5 9.6h11M6.5 3v10"/>', chart: '<path d="M3 13V3M3 13h10"/><path d="M5 10.5l2.5-3 2 1.5L13 5"/>',
   shape: '<circle cx="8" cy="8" r="5"/>', person: '<circle cx="8" cy="5.5" r="2.5"/><path d="M3.5 13.5c0-2.6 2-4.3 4.5-4.3s4.5 1.7 4.5 4.3"/>', block: '<rect x="2.5" y="3.5" width="11" height="9" rx="1.5"/><path d="M5 6.5h6M5 9.5h4"/>',
+  frame: '<rect x="2.5" y="4" width="11" height="8" rx="1.5"/>', frames: '<rect x="2.5" y="5.5" width="9.5" height="7" rx="1.4"/><path d="M5 3.5h7.5a1 1 0 0 1 1 1V10"/>',
+  reset: '<path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5"/><path d="M4.6 2.2v2.4H7"/>',
   attach: '<path d="M13 7.5L8 12.5a3 3 0 0 1-4.2-4.2l5.3-5.3a2 2 0 0 1 2.8 2.8L6.6 11a1 1 0 0 1-1.4-1.4L10 4.8"/>', scroll: '<path d="M5.5 11.5V4.3A1.8 1.8 0 0 1 7.3 2.5H12a1.5 1.5 0 0 1 0 3h-1.2"/><path d="M10.8 4v7.7a1.8 1.8 0 0 1-1.8 1.8H4a1.5 1.5 0 0 1 0-3h4.8v1"/>',
 };
 const I = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 16 16">${IC[n] || ''}</svg>`;
@@ -214,10 +216,9 @@ function cardHTML(v, showKit, showCh) {
   const bar = s.k === 'make' ? `<span class="nx-bar"><i style="width:${S.gen?.total ? Math.round(100 * v.frames / S.gen.total) : 35}%"></i></span>` : '';
   const c = chOfTheme(v.theme);
   return `<div class="nx-card${pk ? ' picked' : ''}" data-v="${v.id}" tabindex="0"><div class="nx-cn">${showCh && c ? `<span class="nx-mark" style="width:18px;height:18px;vertical-align:-4px;margin-right:6px">${LOGO[c.id]}</span>` : ''}${E(v.name)}</div>
-    <button class="nx-ck" data-ck aria-label="Pick" data-tip="Pick">${I('check')}</button>
     <button class="nx-more" data-more aria-label="More" data-tip="More">${I('more')}</button>
     <div class="nx-thumb">${v.first_fid ? '' : '<span class="nx-nf"><i></i>No frames yet</span>'}${thumbHTML(v)}<span class="nx-pill ${s.k}"><i></i>${E(s.t)}</span>${bar}</div>
-    <div class="nx-meta">${E(meta)}</div></div>`;
+    <div class="nx-metar"><div class="nx-meta">${E(meta)}</div><button class="nx-ck" data-ck aria-label="Pick" data-tip="Pick" class="tip-up">${I('check')}</button></div></div>`;
 }
 function thHTML(k, label, icon, cls = '') {
   const on = S.sort.k === k, ar = on ? (S.sort.d > 0 ? '<path d="M8 12.5V3.5M4.5 7L8 3.5 11.5 7"/>' : '<path d="M8 3.5v9M4.5 9L8 12.5 11.5 9"/>') : '<path d="M5.5 6L8 3.5 10.5 6M5.5 10L8 12.5 10.5 10"/>';
@@ -239,7 +240,7 @@ function filterBtn() {
 function selbar(vs) {
   if (!S.picked.size) return '';
   const all = vs.length && vs.every(v => S.picked.has(v.id));
-  return `<div class="nx-selbar"><span>${S.picked.size} selected</span><button class="nx-tbtn" data-selall>${all ? 'Deselect all' : 'Select all'}</button><button class="nx-ib" data-seldel aria-label="Delete" data-tip="Delete">${I('trash')}</button></div>`;
+  return `<div class="nx-selbar"><span class="n">${S.picked.size} selected</span><button class="nx-sbb" data-selall>${all ? 'Deselect all' : 'Select all'}</button><button class="nx-sbb red" data-seldel>${I('trash')}Delete</button></div>`;
 }
 function videosBlock(vs, { showKit, showCh, emptyHTML }) {
   if (!vs.length) return emptyHTML;
@@ -249,6 +250,7 @@ function videosBlock(vs, { showKit, showCh, emptyHTML }) {
 function renderList() {
   if (P) return;
   shell();
+  document.body.classList.remove('reel');
   syncShellNav?.();
   const m = main();
   if (S.err && !S.list) {
@@ -281,9 +283,8 @@ function renderChannel() {
   const qs = S.q.trim().toLowerCase();
   if (qs) vs = vs.filter(v => String(v.name || '').toLowerCase().includes(qs));
   const filtered = sorted(vs.filter(passes));
-  const cnt = n => `<span class="nx-cnt">${n}</span>`;
-  const tabs = multi ? `<div class="nx-tabs">${[['', 'All'], ...kits.map(t => [t, kitName(t)])].map(([t, l]) => `<button class="nx-tab${S.kit === t ? ' on' : ''}" data-kit="${t}">${E(l)}${S.kit === t ? cnt(t ? all.filter(v => v.theme === t).length : all.length) : ''}</button>`).join('')}</div>`
-    : `<div class="nx-allh">All ${cnt(all.length)}</div>`;
+  const tabs = multi ? `<div class="nx-tabs">${[['', 'All videos'], ...kits.map(t => [t, kitName(t)])].map(([t, l]) => `<button class="nx-tab${S.kit === t ? ' on' : ''}" data-kit="${t}">${E(l)}${S.kit === t && !loading ? ` (${t ? all.filter(v => v.theme === t).length : all.length})` : ''}</button>`).join('')}</div>`
+    : `<div class="nx-allh">All videos${loading ? '' : ` (${all.length})`}</div>`;
   const where = c.name + (S.kit ? ' · ' + kitName(S.kit) : '');
   let empty;
   if (qs) empty = `<div class="nx-empty"><b>Nothing matches "${E(S.q.trim())}"</b><button class="nx-btn ghost" data-clearq>Clear search</button></div>`;
@@ -688,7 +689,7 @@ async function pollGen(pid) {
   while (S.gen && S.gen.pid === pid) {
     await new Promise(r => setTimeout(r, 2500));
     if (!S.gen || S.gen.pid !== pid) break;
-    try { const s = await _api0(`/api/projects/${pid}/progress`); if (s && s.state === 'running') { S.gen.msg = s.msg || S.gen.msg; S.gen.written = s.written || 0; if (P?.id === pid && !editModeOpen) updateDock(); } } catch (_) {}
+    try { const s = await _api0(`/api/projects/${pid}/progress`); if (s && s.state === 'running') { S.gen.msg = s.msg || S.gen.msg; S.gen.written = s.written || 0; if (P?.id === pid && !editModeOpen) { updateDock(); const gm = q1('#nxGenMsg'); if (gm) gm.textContent = S.gen.msg || ''; const gh = q1('#nxGenHead'); if (gh && S.gen.written) gh.textContent = `${S.gen.written} frame${S.gen.written === 1 ? '' : 's'} written…`; } } } catch (_) {}
   }
 }
 function lookPayload(sb) { let lk; try { lk = getLook(); } catch (_) { lk = null; } return { ...(P.look || {}), ...(lk || {}), sb_import: sb }; }
@@ -815,12 +816,12 @@ function framesView() {
   const pdfRow = pdfOn() ? `<div class="nx-src"><span class="nx-pdfic">${PDFIC}</span><div class="tx"><b>${E((P.storyboard_pdf_name || P.look?.storyboard_pdf_name || 'Storyboard').replace(/\.pdf$/i, ''))}</b><small>Storyboard PDF</small></div><button class="nx-ib" data-repdf data-tip="Replace the storyboard PDF" class="tip-l">${I('pencil')}</button></div>` : '';
   const leftOn = G.kind !== 'storyboard' || nLines || pdfOn();
   const cap = cur ? (() => { const tm = times[si] || {}; const range = tm.s != null ? `${mmss(tm.s)}${tm.e != null ? '–' + mmss(tm.e) : ''}` : ''; const note = cur.f ? sbForFrame(cur.f.id, P.storyboard) : ''; return `<b>Frame ${cur.i + 1}</b><span>${[range, cur.f ? frameType(cur.f) : 'To generate'].filter(Boolean).join(' · ')}</span>${note && !/^No storyboard line/.test(note) ? `<span class="nx-note" data-tip="${E(note.slice(0, 420))}">${I('info')}</span>` : ''}<span class="of">${si + 1} of ${its.length}</span>`; })() : '';
-  const bigInner = !cur ? '' : cur.ph ? `<div class="nx-ph0 nx-shim"><b>${genFor(P.id) ? 'This frame is being made' : "This frame isn't generated yet"}</b>${genFor(P.id) ? E(S.gen.msg || '') : 'Click <i>Generate next 5 frames</i> below to see it here.'}</div>` : `<iframe id="nxBigFr" title="Frame ${cur.i + 1}" src="/preview/${P.id}/${encodeURIComponent(cur.f.id)}?v=${ver(cur.f.id)}"></iframe>`;
+  const bigInner = !cur ? '' : cur.ph ? (genFor(P.id) ? `<div class="nx-ph0 nx-loading"><span class="nx-spin" aria-hidden="true"></span><b id="nxGenHead">${S.gen.kind === 'script' && !S.gen.written ? 'Writing the storyboard…' : `Making frame ${cur.i + 1}…`}</b><span id="nxGenMsg">${E(S.gen.msg || '')}</span><small>This can take a few minutes. You can keep working; frames appear here as they are ready.</small></div>` : `<div class="nx-ph0"><b>This frame isn't generated yet</b>Click <i>Generate next 5 frames</i> below to see it here.</div>`) : `<iframe id="nxBigFr" title="Frame ${cur.i + 1}" src="/preview/${P.id}/${encodeURIComponent(cur.f.id)}?v=${ver(cur.f.id)}"></iframe>`;
   const stage = S.strip === 'grid'
     ? `<div class="nx-allg">${its.map((x, i) => `<button class="nx-gcard${i === si ? ' on' : ''}" data-pick="${i}"><span class="im${x.ph ? ' nx-shim' : ''}">${thumb(x)}</span><span><b>Frame ${x.i + 1}</b> · ${x.f ? E(frameType(x.f)) : 'To generate'}</span></button>`).join('')}</div>`
-    : `<div class="nx-tools"><button class="nx-ib" id="nxUndo" data-undo data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxRedo" data-redo data-tip="Redo">${I('redo')}</button><span class="sep"></span><button class="nx-btn dark" data-edit ${cur?.f ? '' : 'disabled'} data-tip="${E(editTip())}">${I('pencil')}Edit layers</button><span class="sep"></span><button class="nx-ib" data-zoom="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-zoom="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-zoom="1" data-tip="Zoom in">${I('plus')}</button></div>
+    : `<div class="nx-bigw" id="nxBigW"><div class="nx-col"><div class="nx-tools" id="nxTools"><button class="nx-ib" id="nxUndo" data-undo data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxRedo" data-redo data-tip="Redo">${I('redo')}</button><span class="sep"></span><button class="nx-btn dark" data-edit ${cur?.f ? '' : 'disabled'} data-tip="${E(editTip())}">${I('pencil')}Edit layers</button><span class="sep"></span><button class="nx-ib" data-zoom="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-zoom="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-zoom="1" data-tip="Zoom in">${I('plus')}</button></div>
        ${S.banner ? `<div class="nx-banner ${S.banner.cls}">${E(S.banner.text)}</div>` : ''}
-       <div class="nx-bigw" id="nxBigW"><div class="nx-big" id="nxBig">${bigInner}</div></div><div class="nx-cap" id="nxCap">${cap}</div>
+       <div class="nx-big" id="nxBig">${bigInner}</div><div class="nx-cap" id="nxCap">${cap}</div></div></div>
        <button class="nx-nav l" data-step="-1" ${si > 0 ? '' : 'disabled'} aria-label="Previous frame" data-tip="Previous frame">${I('back')}</button><button class="nx-nav r" data-step="1" ${si < its.length - 1 ? '' : 'disabled'} aria-label="Next frame" data-tip="Next frame">${I('chev')}</button>`;
   m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><div class="nx-topr" style="display:flex;gap:8px;align-items:center">${exportSplit()}${EMBED ? `<button class="nx-btn primary" id="laSendBtn" data-layers ${studioFrames().length ? '' : 'disabled'} data-tip="LA Studio turns every frame into a layered PSD" class="tip-l">Make Layers</button>` : ''}<button class="nx-ib" data-vmore aria-label="More" data-tip="More" class="tip-l">${I('more')}</button></div></div>
   <div class="nx-row" style="--lw:${S.lw}px">
@@ -848,7 +849,7 @@ function framesView() {
     if (t.closest('[data-escript]')) return editScriptWin();
     if (t.closest('[data-repdf]')) return q1('#nxPdfIn').click();
     if (t.closest('[data-expall]')) return exp();
-    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'download', disabled: !cur?.f, run: () => expFrame() }, { label: 'Export all frames', icon: 'download', run: () => exp() }]);
+    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', disabled: !cur?.f, run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }]);
     if (t.closest('[data-layers]')) return makeLayers();
     if (t.closest('[data-vmore]')) return videoMenu(t.closest('[data-vmore]'));
   };
@@ -870,8 +871,9 @@ function framesView() {
 function fitBig() {
   const wrap = q1('#nxBigW'), big = q1('#nxBig'); if (!wrap || !big) return;
   const { w, h } = themeCanvas(P.theme);
-  const W = wrap.clientWidth, H = wrap.clientHeight;
-  if (!W || !H) return;
+  const extra = ['#nxTools', '.nx-banner', '#nxCap'].reduce((n, s) => { const el = wrap.querySelector(s); return n + (el ? el.offsetHeight + 12 : 0); }, 0);
+  const W = wrap.clientWidth, H = wrap.clientHeight - extra;
+  if (!W || H <= 0) return;
   const s = Math.min(W / w, H / h) * S.zoom;
   big.style.width = Math.round(w * s) + 'px'; big.style.height = Math.round(h * s) + 'px';
   const f = q1('#nxBigFr'); if (f) { f.style.width = w + 'px'; f.style.height = h + 'px'; f.style.transform = `scale(${s})`; }
@@ -920,12 +922,40 @@ function nxUndoBar() {
   [u, eu].forEach(b => { if (b) { b.dataset.tip = nu ? `Undo the last change (${nu} of 5 left) · ⌘Z` : 'Undo: nothing to undo on this frame yet'; b.querySelector('.nx-uc')?.remove(); if (nu) b.insertAdjacentHTML('beforeend', `<span class="nx-uc">${nu}</span>`); } });
   [r, er].forEach(b => { if (b) b.dataset.tip = nr ? `Redo (${nr}) · ⇧⌘Z` : 'Redo'; });
   const rs = q1('#nxEReset'); if (rs) rs.disabled = !(frameBase[fid] !== undefined && frameBase[fid] !== frameSaved[fid]) || frameHistBusy;
+  const ra = q1('[data-resetall]'); if (ra) ra.disabled = frameHistBusy || !changedFrames().length;
 }
 window.nxUndoBar = nxUndoBar;
+async function putFrames(map, note) {
+  frameHistBusy = true; renderUndoBar();
+  try {
+    const sp = { ...P.spec, frames: P.spec.frames.map(f => map[f.id] !== undefined ? map[f.id] : f) };
+    P = await api('/api/projects/' + P.id, { method: 'PUT', body: JSON.stringify({ spec: sp, note }) }); P.look = normLook(P.look);
+    Object.keys(map).forEach(id => { const now = P.spec.frames.find(f => String(f.id) === String(id)); if (now) frameSaved[now.id] = JSON.stringify(now); bumpFrame(now ? now.id : id); });
+    if (editModeOpen) { refreshEditCanvas(); renderCanvasLayerList(); buildEditFrameStrip(); renderFrameModeSwitch?.(); } else render();
+  } finally { frameHistBusy = false; renderUndoBar(); }
+}
+const changedFrames = () => (P?.spec?.frames || []).map(f => f.id).filter(id => frameBase[id] !== undefined && frameBase[id] !== frameSaved[id]);
+async function resetFrame() {
+  const fid = selectedFrameId; if (!fid || frameBase[fid] === undefined || frameBase[fid] === frameSaved[fid] || frameHistBusy) return;
+  const cur = frameSaved[fid];
+  try { await putFrames({ [fid]: JSON.parse(frameBase[fid]) }, 'reset ' + fid); } catch (e) { return toast(e.message || String(e), { err: true }); }
+  const h = frameHist[fid] = frameHist[fid] || []; h.push(cur); if (h.length > FRAME_UNDO_MAX) h.shift(); delete frameRedo[fid]; renderUndoBar();
+  toast('Frame reverted to its original state', { undo: () => undoFrameEdit() });
+}
+async function resetAll() {
+  if (frameHistBusy) return;
+  const ids = changedFrames();
+  if (!ids.length) return toast('Every frame is already in its original state');
+  const prev = Object.fromEntries(ids.map(id => [id, frameSaved[id]]));
+  try { await putFrames(Object.fromEntries(ids.map(id => [id, JSON.parse(frameBase[id])])), 'reset all frames'); } catch (e) { return toast(e.message || String(e), { err: true }); }
+  ids.forEach(id => { const h = frameHist[id] = frameHist[id] || []; h.push(prev[id]); if (h.length > FRAME_UNDO_MAX) h.shift(); delete frameRedo[id]; });
+  renderUndoBar();
+  toast(`${ids.length} frame${ids.length === 1 ? '' : 's'} reverted to the original state`, { undo: async () => { await putFrames(Object.fromEntries(ids.map(id => [id, JSON.parse(prev[id])])), 'undo reset all'); ids.forEach(id => frameHist[id]?.pop()); renderUndoBar(); } });
+}
 function editScriptWin() {
   win({
     title: 'Edit script', ok: 'Save', wide: true, text: 'Changes apply when you regenerate storyboard + frames.',
-    body: `<textarea class="nx-field" id="nxEsc" style="min-height:320px">${E(P.script || '')}</textarea>`,
+    body: `<textarea class="nx-field" id="nxEsc" style="min-height:180px;height:36vh;max-height:300px">${E(P.script || '')}</textarea>`,
     onOk: async m => { saveScriptSoon(m.querySelector('#nxEsc').value); await flushScript(); toast('Script is saved'); render(); },
   });
 }
@@ -1078,7 +1108,7 @@ function decorateEdit() {
   const center = app.querySelector('.edit-mode-center');
   if (!center.querySelector('.nx-etools')) {
     const tb = document.createElement('div'); tb.className = 'nx-etools nx-ui';
-    tb.innerHTML = `<div class="nx-tools"><button class="nx-ib" id="nxEUndo" data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxERedo" data-tip="Redo">${I('redo')}</button><button class="nx-tbtn" id="nxEReset" data-tip="Put this frame back the way it was when you opened it (can be undone)" disabled>Reset frame</button><span class="sep"></span><button class="nx-btn dark" id="nxERegen" data-tip="Make this frame again from scratch, optionally with a note">${I('regen')}Regenerate</button><span class="sep"></span><button class="nx-ib" data-ez="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-ez="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-ez="1" data-tip="Zoom in">${I('plus')}</button></div>`;
+    tb.innerHTML = `<div class="nx-tools"><button class="nx-ib" id="nxEUndo" data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxERedo" data-tip="Redo">${I('redo')}</button><button class="nx-ttx" id="nxEReset" data-tip="Frame will revert to its original state." disabled>${I('reset')}Reset</button><span class="sep"></span><button class="nx-btn dark" id="nxERegen" data-tip="Make this frame again from scratch, optionally with a note">${I('regen')}Regenerate</button><span class="sep"></span><button class="nx-ib" data-ez="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-ez="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-ez="1" data-tip="Zoom in">${I('plus')}</button></div>`;
     center.insertBefore(tb, center.firstChild);
     const cap = document.createElement('div'); cap.className = 'nx-ecap nx-ui'; cap.id = 'nxECap';
     const hint = document.createElement('div'); hint.className = 'nx-ehint nx-ui'; hint.textContent = 'Drag to move · drag the corner to resize · double-click text to change it';
@@ -1087,7 +1117,7 @@ function decorateEdit() {
       if (e.target.closest('#nxEUndo')) return undoFrameEdit();
       if (e.target.closest('#nxERedo')) return redoFrameEdit();
       if (e.target.closest('#nxERegen')) return regenWin();
-      if (e.target.closest('#nxEReset')) return resetFrameEdit();
+      if (e.target.closest('#nxEReset')) return resetFrame();
       const z = e.target.closest('[data-ez]'); if (z) { const d = +z.dataset.ez; window.nxZoom = d ? Math.max(0.4, Math.min(2.5, (window.nxZoom || 1) * (d > 0 ? 1.2 : 1 / 1.2))) : 1; fitCanvasEdit(); }
     };
   }
@@ -1120,18 +1150,15 @@ function editTopBar() {
   const c = chOfP();
   const crumb = inProject() ? `<div class="nx-crumb"><button data-eback2>Frames</button>${I('chev')}<b>Frame ${i + 1}</b></div>`
     : `<div class="nx-crumb"><button data-ehome>Graphics</button>${I('chev')}<button data-ech style="display:inline-flex;align-items:center;gap:6px"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>${I('chev')}<button data-eback2>${E(P.name)}</button>${I('chev')}<b>Frame ${i + 1}</b></div>`;
-  ui.innerHTML = `<button class="nx-round" data-eback aria-label="Back to the frames" data-tip="Back to the frames">${I('back')}</button>${crumb}<span class="nx-sp"></span>${exportSplit()}<button class="nx-ib" data-emore aria-label="More" data-tip="More" class="tip-l">${I('more')}</button>`;
+  ui.innerHTML = `<button class="nx-round" data-eback aria-label="Back to the frames" data-tip="Back to the frames">${I('back')}</button>${crumb}<span class="nx-sp"></span><button class="nx-btn ghost" data-resetall data-tip="Every frame will revert to its original state.">${I('reset')}Reset all</button>${exportSplit()}`;
   ui.onclick = e => {
     const t = e.target;
     if (t.closest('[data-eback],[data-eback2]')) return exitEditMode();
     if (t.closest('[data-ehome]')) return goHomeNx();
     if (t.closest('[data-ech]')) { const id = chOfP().id; exitEditMode().then(() => openChannel(id)); return; }
     if (t.closest('[data-expall]')) return exp();
-    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'download', run: () => expFrame() }, { label: 'Export all frames', icon: 'download', run: () => exp() }]);
-    if (t.closest('[data-emore]')) {
-      const fid = selectedFrameId, changed = frameBase[fid] !== undefined && frameBase[fid] !== frameSaved[fid];
-      return menu(t.closest('[data-emore]'), [{ label: 'Reset frame', icon: 'undo', disabled: !changed, run: () => resetFrameEdit() }, { label: 'Regenerate frame…', icon: 'regen', run: () => regenWin() }]);
-    }
+    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }]);
+    if (t.closest('[data-resetall]')) return resetAll();
   };
 }
 function editCaption() {
@@ -1166,7 +1193,7 @@ function regenWin() {
 const nxRFC = function () {
   const host = q1('#frameChatLog'); if (!host || !selectedFrameId) return;
   const log = frameChatLoad();
-  if (!log.length) { host.innerHTML = `<div class="nx-chelp"><span class="ic">${I('pencil')}</span><b>Chat with AI to change this frame</b><span>Describe a change in plain words: "make the title bigger", "move the chart left", "use a laptop instead of the phone".</span><span>Attach a reference picture (${I('attach')}) to swap one in.</span><span>Each change can be undone.</span></div>`; return; }
+  if (!log.length) { host.innerHTML = `<div class="nx-chelp"><span class="ic">${I('pencil')}</span><b>Chat with AI to edit anything in this frame</b></div>`; return; }
   host.innerHTML = log.map((m, i) => {
     if (m.role === 'you') return `<div class="fchat-msg you">${E(m.text)}${m.file ? ` <span class="nx-dim">· ${E(m.file)}</span>` : ''}</div>`;
     if (m.pending) return `<div class="fchat-msg claude"><span class="nx-dots"><i></i><i></i><i></i></span></div>`;
@@ -1294,7 +1321,12 @@ window.nxBoot = async function () {
   const _exit = exitEditMode;
   exitEditMode = async () => { window.nxZoom = 1; await _exit(); };
   const _fit = fitCanvasEdit;
-  void _fit; void _list;
+  fitCanvasEdit = function () {
+    _fit();
+    const tb = q1('#editModeApp .nx-etools'), vp = q1('#canvasEditViewport');
+    if (tb && vp) tb.style.top = Math.max(10, vp.offsetTop + stageView.oy - tb.offsetHeight - 12) + 'px';
+  };
+  void _list;
 
   try { themes = await api('/api/themes'); } catch (e) { S.err = e.message; }
   try { themeMeta = await api('/api/theme-meta'); } catch (_) {}
