@@ -517,3 +517,18 @@ body.nx #frameChatLog:has(.nx-chelp){justify-content:center}
 #nxSide .nx-ri.on{color:var(--accent)}
 #nxSide .nx-ri.on{background:#EDEDF0}
 .nx-card.picked{border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent)}
+
+/* Make layers for some frames */
+.nx-lpick-h{display:flex;align-items:center;gap:10px;margin:-4px 0 10px}
+.nx-lpick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;max-height:52vh;overflow:auto;padding:2px}
+.nx-lpk{display:flex!important;flex-direction:column;gap:6px;font-size:12.5px;color:var(--mute);text-align:left}
+.nx-lpk .im{position:relative;aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#F2F2F5;box-shadow:0 0 0 1px var(--line)}
+.nx-lpk .im img{width:100%;height:100%;object-fit:cover;display:block}
+.nx-lpk .nx-ck{position:absolute;top:6px;right:6px;opacity:1;cursor:pointer}
+.nx-lpk.on .im{box-shadow:0 0 0 2px var(--accent)}
+.nx-lpk.on .nx-ck{background:var(--accent);border-color:var(--accent)}
+.nx-lpk.on span:last-child{color:var(--ink);font-weight:500}
+.nx-split>.nx-btn.primary.car{box-shadow:inset 1px 0 0 rgba(255,255,255,.28)}
+/* loading a video or a project's step */
+.nx-ldc{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--mute);font-size:13.5px;background:#FAFAFB}
+.nx-pan.nx-skel{gap:2px}
