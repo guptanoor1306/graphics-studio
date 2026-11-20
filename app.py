@@ -129,8 +129,119 @@ async def _db_call(fn, *a, **kw):
 _GEN_PATH = re.compile(r"^/themes/([A-Za-z0-9_-]+)/assets/gen/([^/]+)$")
 
 
+# ---------- what each Claude call cost (Cost window) ----------
+import contextvars
+_CUR_PROJECT: contextvars.ContextVar = contextvars.ContextVar("gs_project", default=None)
+_PID_PATH = re.compile(r"^/api/projects/(\d+)/")
+_USAGE_SCHEMA = """CREATE TABLE IF NOT EXISTS usage_log (
+    ts DOUBLE PRECISION, label TEXT, model TEXT, project_id INTEGER, input_tokens INTEGER, cache_read INTEGER,
+    cache_write INTEGER, cache_write_1h INTEGER, output_tokens INTEGER, cost DOUBLE PRECISION)"""
+_SETTINGS_SCHEMA = "CREATE TABLE IF NOT EXISTS studio_settings (skey TEXT PRIMARY KEY, svalue TEXT)"
+SETTINGS_ALLOWED = {"sb_split": ("off", "on"), "pdf_light": ("off", "on")}
+_SETTINGS_CACHE: dict = {"at": 0.0, "v": {}}
+
+
+def _usage_ensure(c) -> None:
+    from db_store import once
+
+    def make(conn):
+        conn.execute(_USAGE_SCHEMA)
+        conn.execute(_SETTINGS_SCHEMA)
+        conn.commit()
+    once("usage_log", c, make)
+
+
+def _record_usage(label: str, model: str, u: dict) -> None:
+    with connect() as c:
+        _usage_ensure(c)
+        c.execute("insert into usage_log(ts,label,model,project_id,input_tokens,cache_read,cache_write,cache_write_1h,"
+                  "output_tokens,cost) values(?,?,?,?,?,?,?,?,?,?)",
+                  (time.time(), label[:40], model[:60], _CUR_PROJECT.get(), int(u.get("input") or 0), int(u.get("cache_read") or 0),
+                   int(u.get("cache_write") or 0), int(u.get("cache_write_1h") or 0), int(u.get("output") or 0),
+                   round(claude_client.cost_usd(model, u), 6)))
+        c.commit()
+
+
+def _settings() -> dict:
+    if time.time() - _SETTINGS_CACHE["at"] < 20:
+        return _SETTINGS_CACHE["v"]
+    try:
+        with connect() as c:
+            _usage_ensure(c)
+            v = {r["skey"]: r["svalue"] for r in c.execute("select skey,svalue from studio_settings").fetchall()}
+    except Exception:
+        v = _SETTINGS_CACHE["v"]
+    _SETTINGS_CACHE.update(at=time.time(), v=v)
+    return v
+
+
+claude_client.USAGE_SINK = _record_usage
+claude_client.SETTING = lambda k: _settings().get(k)
+
+
+@app.get("/api/usage")
+def usage(days: int = 30):
+    """Cost by job (storyboard, PDF batch, frame edit, pictures …) and by day, from the record of every Claude call."""
+    days = max(1, min(int(days or 30), 120))
+    since = time.time() - days * 86400
+    with connect() as c:
+        _usage_ensure(c)
+        rows = [dict(r) for r in c.execute("select ts,label,model,project_id,input_tokens,cache_read,cache_write,"
+                                           "output_tokens,cost from usage_log where ts>=? order by ts", (since,)).fetchall()]
+    jobs: dict = {}
+    by_day: dict = {}
+    projects: dict = {}
+    for r in rows:
+        k = (r["label"], r["model"])
+        j = jobs.setdefault(k, {"label": r["label"], "model": r["model"], "calls": 0, "input": 0, "cache_read": 0,
+                                "cache_write": 0, "output": 0, "cost": 0.0})
+        j["calls"] += 1
+        for a, b in (("input", "input_tokens"), ("cache_read", "cache_read"), ("cache_write", "cache_write"), ("output", "output_tokens")):
+            j[a] += int(r[b] or 0)
+        j["cost"] += float(r["cost"] or 0)
+        day = time.strftime("%Y-%m-%d", time.gmtime(r["ts"]))
+        d = by_day.setdefault(day, {"day": day, "cost": 0.0, "calls": 0, "jobs": {}})
+        d["cost"] += float(r["cost"] or 0); d["calls"] += 1
+        d["jobs"][r["label"]] = d["jobs"].get(r["label"], 0.0) + float(r["cost"] or 0)
+        if r["project_id"]:
+            projects[r["project_id"]] = projects.get(r["project_id"], 0.0) + float(r["cost"] or 0)
+    names = {}
+    if projects:
+        with connect() as c:
+            ids = list(projects)[:200]
+            q = ",".join("?" * len(ids))
+            names = {r["id"]: r["name"] for r in c.execute(f"select id,name from projects where id in ({q})", ids).fetchall()}
+    top = sorted(({"id": k, "name": names.get(k, f"#{k}"), "cost": round(v, 4)} for k, v in projects.items()),
+                 key=lambda x: -x["cost"])[:10]
+    return {"days": days, "since": since, "total": round(sum(j["cost"] for j in jobs.values()), 4), "calls": len(rows),
+            "jobs": sorted(({**j, "cost": round(j["cost"], 4)} for j in jobs.values()), key=lambda x: -x["cost"]),
+            "by_day": [{**d, "cost": round(d["cost"], 4)} for d in sorted(by_day.values(), key=lambda x: x["day"])],
+            "projects": top, "settings": {k: (_settings().get(k) or ("on" if claude_client.setting_on(k, {"sb_split": "STUDIO_SB_SPLIT"}.get(k, "")) else "off")) for k in SETTINGS_ALLOWED}}
+
+
+@app.put("/api/settings")
+async def put_setting(req: Request):
+    b = await req.json()
+    k, v = str(b.get("key") or ""), str(b.get("value") or "")
+    if k not in SETTINGS_ALLOWED or v not in SETTINGS_ALLOWED[k]:
+        raise HTTPException(400, "unknown setting")
+
+    def put():
+        with connect() as c:
+            _usage_ensure(c)
+            c.execute("delete from studio_settings where skey=?", (k,))
+            c.execute("insert into studio_settings(skey,svalue) values(?,?)", (k, v))
+            c.commit()
+    await _db_call(put)
+    _SETTINGS_CACHE["at"] = 0.0
+    return {"ok": True, "key": k, "value": v}
+
+
 @app.middleware("http")
 async def cache_headers(request, call_next):
+    pm = _PID_PATH.match(request.url.path)
+    if pm:
+        _CUR_PROJECT.set(int(pm.group(1)))   # the cost record knows which video a call was for
     m = _GEN_PATH.match(request.url.path)
     if m and not (THEMES / m.group(1) / "assets" / "gen" / m.group(2)).is_file():
         await asyncio.to_thread(asset_gen.restore_one, m.group(1), m.group(2))   # not restored yet after a deploy
