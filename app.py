@@ -1581,9 +1581,16 @@ def _save_frame_reference(theme: str, pid: int, fid: str, raw: bytes) -> tuple[s
     img = Image.open(io.BytesIO(raw))
     if img.mode not in ("RGB", "RGBA"):
         img = img.convert("RGBA")
-    img.save(path, "PNG")
-    rel = f"uploads/ref_{pid}_{safe}.png"
-    return rel, path.read_bytes()
+    # Claude takes pictures up to 5 MB and sees no more than ~1600 px anyway: a Retina screenshot pasted into the
+    # chat was well over that and the edit failed. Keep the long side at 1600 px and the file under ~3.5 MB.
+    img.thumbnail((1600, 1600), Image.LANCZOS)
+    img.save(path, "PNG", optimize=True)
+    data = path.read_bytes()
+    if len(data) > 3_500_000:   # photo-like: Claude gets a 256-colour copy (still PNG, the callers label it image/png)
+        buf = io.BytesIO()
+        img.convert("RGB").quantize(colors=256).save(buf, "PNG", optimize=True)
+        data = buf.getvalue()
+    return f"uploads/ref_{pid}_{safe}.png", data
 
 
 @app.post("/api/projects/{pid}/frames/{fid}/edit")
@@ -1719,8 +1726,19 @@ async def edit(pid: int, fid: str, req: Request):
                 ref_src=ref_src,
                 smart=smart_ref,
             )
+    except HTTPException:
+        raise
     except Exception as e:
-        _raise_claude_gateway(e)
+        try:
+            _raise_claude_gateway(e)
+        except HTTPException:
+            raise
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(500, detail=f"The edit failed ({type(e).__name__}: {str(e)[:200]}). Try again, or describe the change differently.") from e
+    if not isinstance(new, dict):
+        raise HTTPException(502, detail="Claude sent back no frame. Try again.")
     if is_zo_theme_name(p["theme"]) or not is_mf_theme_name(p["theme"]):
         new = normalize_cards_items(new)
     spec["frames"][i] = new
