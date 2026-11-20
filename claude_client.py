@@ -606,7 +606,7 @@ _Z1H_ROLE = (
 )
 
 
-def _system(theme_dir):
+def _system(theme_dir, ttl: str | None = None):
     if is_z1_hindi_theme(theme_dir):
         role = _Z1H_ROLE
     elif is_reel_theme(theme_dir):
@@ -622,7 +622,7 @@ def _system(theme_dir):
     else:
         role = _ROLE
     return [{"type": "text", "text": role},
-            {"type": "text", "text": theme_rules(theme_dir), "cache_control": {"type": "ephemeral"}}]
+            {"type": "text", "text": theme_rules(theme_dir), "cache_control": {"type": "ephemeral", "ttl": ttl} if ttl else {"type": "ephemeral"}}]
 
 
 def _tool_choice(tool_name: str) -> dict:
@@ -669,14 +669,54 @@ def partial_hook(fn):
         _PARTIAL.fn = None
 
 
+# $ per million tokens: (input, 5-minute cache write, 1-hour cache write, cache read, output). platform.claude.com/pricing
+PRICES = {
+    "claude-opus-5-5": (4.0, 5.0, 8.0, 0.20, 20.0),
+    "claude-sonnet-5-5": (2.0, 2.5, 4.0, 0.10, 10.0),
+    "claude-opus-4-6": (5.0, 6.25, 10.0, 0.50, 25.0),
+    "claude-sonnet-4-6": (3.0, 3.75, 6.0, 0.30, 15.0),
+    "claude-haiku-5-5": (1.0, 1.25, 2.0, 0.05, 5.0),
+}
+
+
+def price_of(model: str) -> tuple:
+    m = str(model or "")
+    for k, v in PRICES.items():
+        if m.startswith(k):
+            return v
+    return PRICES["claude-opus-5-5"] if "opus" in m else PRICES["claude-sonnet-5-5"]
+
+
+def cost_usd(model: str, u: dict) -> float:
+    """What one call cost, from its token counts."""
+    pi, pw5, pw1, pr, po = price_of(model)
+    w1 = int(u.get("cache_write_1h") or 0)
+    w5 = max(0, int(u.get("cache_write") or 0) - w1)
+    return (int(u.get("input") or 0) * pi + w5 * pw5 + w1 * pw1 + int(u.get("cache_read") or 0) * pr
+            + int(u.get("output") or 0) * po) / 1e6
+
+
+USAGE_SINK = None   # app.py sets this: called with (label, model, usage dict) after every call, to keep the cost record
+SETTING = None      # app.py sets this: SETTING(key) -> str | None, settings changed in the page (Cost window)
+
+
 def _log_usage(label: str, model: str, r) -> None:
-    """One line per Claude call in the server log: which job, which model, tokens (incl. cache) and time."""
+    """One line per Claude call in the server log (job, model, tokens incl. cache, $), and one row in the cost record."""
     u = getattr(r, "usage", None)
     if u is None:
         return
     g = lambda k: int(getattr(u, k, 0) or 0)
-    print(f"claude usage {label or '?'} {model}: in={g('input_tokens')} cache_read={g('cache_read_input_tokens')} "
-          f"cache_write={g('cache_creation_input_tokens')} out={g('output_tokens')}", flush=True)
+    cc = getattr(u, "cache_creation", None)
+    w1 = int(getattr(cc, "ephemeral_1h_input_tokens", 0) or 0) if cc is not None else 0
+    d = {"input": g("input_tokens"), "cache_read": g("cache_read_input_tokens"), "cache_write": g("cache_creation_input_tokens"),
+         "cache_write_1h": w1, "output": g("output_tokens")}
+    print(f"claude usage {label or '?'} {model}: in={d['input']} cache_read={d['cache_read']} "
+          f"cache_write={d['cache_write']} out={d['output']} ≈${cost_usd(model, d):.3f}", flush=True)
+    if USAGE_SINK:
+        try:
+            USAGE_SINK(label or "?", model, d)
+        except Exception as e:   # the record never stops a job
+            print(f"usage record skipped: {e}")
 
 
 def _messages_create(*, think: bool = False, on_partial=None, model: str | None = None, label: str = "", **kwargs):
@@ -1048,6 +1088,11 @@ def _call_storyboard(
                     },
                 }
             )
+    if sb_split_on():
+        try:
+            return _storyboard_split(theme_dir, content, msg, tool_schema)
+        except Exception as e:   # anything odd in the two-pass route: make it the usual way
+            print(f"storyboard split fell back to one Opus call: {e}", flush=True)
     content.append({"type": "text", "text": msg})
     user_content: str | list = content if len(content) > 1 else msg
     r = _messages_create(label="storyboard", 
@@ -1056,6 +1101,125 @@ def _call_storyboard(
         tools=[tool_schema], tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": user_content}])
     return _tool_input(r, tool)
+
+
+def setting_on(key: str, env: str = "", default: str = "off") -> bool:
+    """A switch from the Cost window (saved setting), else the environment, else the default."""
+    v = None
+    if SETTING:
+        try:
+            v = SETTING(key)
+        except Exception:
+            v = None
+    if v in (None, ""):
+        v = os.environ.get(env, default) if env else default
+    return str(v).strip().lower() in ("1", "on", "true", "yes", "split", "sonnet")
+
+
+def sb_split_on() -> bool:
+    """Storyboard in two passes? The Cost window's switch (saved setting) wins over STUDIO_SB_SPLIT (default off)."""
+    v = None
+    if SETTING:
+        try:
+            v = SETTING("sb_split")
+        except Exception:
+            v = None
+    if v in (None, ""):
+        v = os.environ.get("STUDIO_SB_SPLIT", "off")
+    return str(v).strip().lower() in ("1", "on", "true", "yes", "split")
+
+
+SB_SPLIT_CHUNK = int(os.environ.get("STUDIO_SB_SPLIT_CHUNK", "6"))
+_PLAN_NOTE = """
+
+PLANNING PASS (this call): make every decision now, exactly as you would for the full answer — which beats get a
+graphic, each frame's id, mode/type, layout, the exact on-screen words and numbers, which kit assets / plates /
+characters / props / gen keys it uses, its states — and write the full storyboard. Do NOT write the frames' build
+JSON: a second writer builds each frame from your brief alone, without your reasoning, so every brief must be
+complete and unambiguous (copy exact text and numbers; name exact asset paths and component types from the kit).
+Call submit_plan with:
+- storyboard: the complete storyboard text, exactly as you would submit it.
+- spec_extra: every spec field except frames (look, gen, arjun, episode, allow_words … whatever the kit's spec has).
+- frames: one entry per frame, in order: {id, brief}. Keep each brief compact (a few lines) but complete."""
+
+
+def _plan_tool(sb_tool: dict) -> dict:
+    sch = sb_tool["input_schema"]
+    props = {k: v for k, v in sch.get("properties", {}).items() if k != "spec"}
+    props["spec_extra"] = {"type": "object", "description": "every spec field except frames"}
+    props["frames"] = {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["id", "brief"],
+                       "properties": {"id": {"type": "string"}, "brief": {"type": "string"}}}}
+    req = [k for k in sch.get("required", []) if k != "spec"] + ["frames", "spec_extra"]
+    return {"name": "submit_plan", "description": "The storyboard, the spec fields other than frames, and a build brief per frame.",
+            "input_schema": {"type": "object", "properties": props, "required": req}}
+
+
+def _frames_tool(sb_tool: dict) -> dict:
+    fr = (((sb_tool["input_schema"].get("properties") or {}).get("spec") or {}).get("properties") or {}).get("frames") \
+        or {"type": "array", "items": {"type": "object"}}
+    return {"name": "submit_frames", "description": "The build JSON of exactly the frames asked for, in that order.",
+            "input_schema": {"type": "object", "properties": {"frames": fr}, "required": ["frames"]}}
+
+
+def _storyboard_split(theme_dir, content: list, msg: str, sb_tool: dict) -> dict:
+    """Two passes, same rules and kit: Opus (with thinking) writes the storyboard and a brief per frame; Sonnet turns
+    the briefs into each frame's build JSON, a few frames per call. Returns the same shape as the one-call route."""
+    import concurrent.futures as cf
+    plan_tool, fr_tool = _plan_tool(sb_tool), _frames_tool(sb_tool)
+    sysm = _system(theme_dir)
+    r = _messages_create(label="storyboard-plan", think=True, max_tokens=SB_MAX_TOKENS, system=sysm,
+                         tools=[plan_tool], tool_choice=_tool_choice(plan_tool["name"]),
+                         messages=[{"role": "user", "content": content + [{"type": "text", "text": msg + _PLAN_NOTE}]}])
+    plan = _tool_input(r, plan_tool["name"])
+    briefs = [b for b in (plan.get("frames") or []) if isinstance(b, dict) and str(b.get("id") or "").strip()]
+    if not briefs:
+        raise ValueError("the plan has no frames")
+    story = str(plan.get("storyboard") or "")
+    extra = plan.get("spec_extra") if isinstance(plan.get("spec_extra"), dict) else {}
+    top = {k: v for k, v in plan.items() if k not in ("frames", "spec_extra")}
+    shared = content + [{"type": "text", "text": msg + "\n\nSTORYBOARD (decided — follow it):\n" + story
+                         + "\n\nSPEC FIELDS OTHER THAN FRAMES:\n" + json.dumps(extra, ensure_ascii=False)[:20000],
+                         "cache_control": {"type": "ephemeral"}}]
+    chunks = [briefs[i:i + SB_SPLIT_CHUNK] for i in range(0, len(briefs), SB_SPLIT_CHUNK)]
+    partial = getattr(_PARTIAL, "fn", None)
+    done: dict[int, list] = {}
+
+    def draw(ix: int) -> list:
+        part = chunks[ix]
+        ask = ("BUILD PASS: write the build JSON for ONLY these frames, in this order, exactly as briefed (same ids; "
+               "full kit detail as in the examples — never a thinner frame than the brief describes):\n"
+               + "\n".join(f"- {b['id']}: {b.get('brief', '')}" for b in part)
+               + "\nCall submit_frames.")
+        rr = _messages_create(label="storyboard-frames", model=LIGHT_MODEL, max_tokens=16000, system=sysm,
+                              tools=[fr_tool], tool_choice=_tool_choice(fr_tool["name"]),
+                              messages=[{"role": "user", "content": shared + [{"type": "text", "text": ask}]}])
+        got = [f for f in (_tool_input(rr, fr_tool["name"]).get("frames") or []) if isinstance(f, dict)]
+        by = {str(f.get("id")): f for f in got}
+        out = []
+        for b in part:
+            f = by.get(str(b["id"]))
+            if f is None:
+                raise ValueError(f"frame {b['id']} missing from the build pass")
+            out.append(f)
+        return out
+
+    def show():
+        if partial:
+            try:
+                fs = [f for i in sorted(done) for f in done[i]]
+                partial({**top, "storyboard": story, "spec": {**extra, "frames": fs}})
+            except Exception:
+                pass
+    done[0] = draw(0)          # the first call writes the shared prompt to the cache; the rest read it back
+    show()
+    if len(chunks) > 1:
+        with cf.ThreadPoolExecutor(max_workers=3) as ex:
+            futs = {ex.submit(draw, i): i for i in range(1, len(chunks))}
+            for fu in cf.as_completed(futs):
+                done[futs[fu]] = fu.result()
+                show()
+    frames = [f for i in range(len(chunks)) for f in done[i]]
+    return {**top, "storyboard": story, "spec": {**extra, "frames": frames}}
 
 
 FIX_TOOL = {
@@ -1345,11 +1509,12 @@ def _call_with_pdf(
         )
     # the PDF and its page renders are the same in every batch of this storyboard: cache them (read back at a fraction
     # of the price on the next batch; the text with what to do next stays uncached after them)
-    content[-1]["cache_control"] = {"type": "ephemeral"}
+    ttl = os.environ.get("STUDIO_PDF_CACHE_TTL", "1h").strip()
+    content[-1]["cache_control"] = {"type": "ephemeral", "ttl": "1h"} if ttl == "1h" else {"type": "ephemeral"}
     content.append({"type": "text", "text": preface + msg})
-    r = _messages_create(label="pdf-batch", 
+    r = _messages_create(label="pdf-batch", model=LIGHT_MODEL if setting_on("pdf_light") else None,
         max_tokens=max_tokens,
-        system=_system(theme_dir),
+        system=_system(theme_dir, "1h" if ttl == "1h" else None),   # 1-hour entries must come first
         tools=[tool_schema],
         tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": content}],

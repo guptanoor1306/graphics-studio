@@ -32,6 +32,7 @@ const IC = {
   shape: '<circle cx="8" cy="8" r="5"/>', person: '<circle cx="8" cy="5.5" r="2.5"/><path d="M3.5 13.5c0-2.6 2-4.3 4.5-4.3s4.5 1.7 4.5 4.3"/>', block: '<rect x="2.5" y="3.5" width="11" height="9" rx="1.5"/><path d="M5 6.5h6M5 9.5h4"/>',
   frame: '<rect x="2.5" y="4" width="11" height="8" rx="1.5"/>', frames: '<rect x="2.5" y="5.5" width="9.5" height="7" rx="1.4"/><path d="M5 3.5h7.5a1 1 0 0 1 1 1V10"/>',
   reset: '<path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5"/><path d="M4.6 2.2v2.4H7"/>',
+  chart: '<path d="M3 13V3M3 13h10"/><path d="M5.5 10.5V8M8 10.5V5.5M10.5 10.5V7"/>',
   attach: '<path d="M13 7.5L8 12.5a3 3 0 0 1-4.2-4.2l5.3-5.3a2 2 0 0 1 2.8 2.8L6.6 11a1 1 0 0 1-1.4-1.4L10 4.8"/>', scroll: '<path d="M5.5 11.5V4.3A1.8 1.8 0 0 1 7.3 2.5H12a1.5 1.5 0 0 1 0 3h-1.2"/><path d="M10.8 4v7.7a1.8 1.8 0 0 1-1.8 1.8H4a1.5 1.5 0 0 1 0-3h4.8v1"/>',
 };
 const I = (n, cls = 'i') => `<svg class="${cls}" viewBox="0 0 16 16">${IC[n] || ''}</svg>`;
@@ -269,7 +270,7 @@ function renderList() {
   }
   const chs = loading ? Array.from({ length: 3 }, () => '<div class="nx-skel ch"><i style="width:64px;height:64px;border-radius:50%"></i><i style="height:18px;width:40%"></i><i style="height:12px;width:70%"></i></div>').join('')
     : CH.filter(c => kitsOf(c).length).map(c => `<button class="nx-ch" style="--c:${c.c}" data-ch="${c.id}" aria-label="Open ${c.name}"><span class="nx-logo-c">${LOGO[c.id]}</span><b>${c.name}</b><small>${E(c.line)}</small><span class="nx-go">${I('arrow')}</span></button>`).join('');
-  m.innerHTML = `<div class="nx-top"><h1>Graphics</h1><span class="nx-sp"></span>${searchHTML()}</div>
+  m.innerHTML = `<div class="nx-top"><h1>Graphics</h1><span class="nx-sp"></span><button class="nx-btn ghost" data-cost data-tip="What Claude cost, by job and by day">${I('chart')}Cost</button>${searchHTML()}</div>
     <div class="nx-box${S.picked.size ? ' selmode' : ''}"><div class="nx-dash-h"><b>Welcome to LA Studio</b><button class="nx-btn primary lg" data-new>${I('plus')}New</button></div>
     <div class="nx-chs">${chs}</div>${res}</div>`;
   bindList(m, qs ? sorted(searchHits().filter(passes)) : []);
@@ -303,6 +304,7 @@ function bindList(m, vs) {
     if (t.closest('[data-home]')) return goHomeNx();
     const ch = t.closest('[data-ch]'); if (ch) return openChannel(ch.dataset.ch);
     if (t.closest('[data-new]')) return newVideo();
+    if (t.closest('[data-cost]')) return costWin();
     if (t.closest('[data-clearq]')) { S.q = ''; return renderList(); }
     if (t.closest('[data-clearf]')) { S.fst.clear(); S.fpj = 'any'; return renderList(); }
     const kit = t.closest('[data-kit]'); if (kit) { S.kit = kit.dataset.kit; S.picked.clear(); return renderList(); }
@@ -340,6 +342,42 @@ function cardMenu(btn, v) {
   if (EMBED && laOrigin) items.push({ label: v.la_project ? 'Move to another project' : 'Add to project', icon: 'folder', run: () => addToProject(v) });
   items.push({ label: 'Rename', icon: 'pencil', run: () => renameVideo(v) }, { label: 'Delete', icon: 'trash', red: true, run: () => delVideos([v.id]) });
   menu(btn, items);
+}
+
+/* ---------------- Cost: what Claude cost, by job, by day and by video; the two cost switches ---------------- */
+const JOB = { 'storyboard': 'Storyboard from a script (one Opus call)', 'storyboard-plan': 'Storyboard plan', 'storyboard-frames': 'Frames drawn from the plan',
+  'pdf-batch': 'Frames from a storyboard PDF', 'edit': 'Frame edits, chat and Regenerate', 'edit-zo': 'Frame edits (ZO)', 'edit-z1': 'Frame edits (Zero1)',
+  'check-fix': 'Layout fixes', 'asset-svg': 'Pictures drawn', 'asset-review': 'Picture checks' };
+const money = v => v >= 100 ? '$' + Math.round(v) : '$' + (v || 0).toFixed(v >= 10 ? 1 : 2);
+const ktok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n || 0);
+const modelName = m => /opus/.test(m) ? 'Opus' : /sonnet/.test(m) ? 'Sonnet' : /haiku/.test(m) ? 'Haiku' : m;
+async function costWin(days = 30) {
+  let d;
+  try { d = await api('/api/usage?days=' + days); } catch (e) { return toast(e.message || String(e), { err: true }); }
+  const max = Math.max(0.0001, ...d.by_day.map(x => x.cost));
+  const seg = (k, val, a, b) => `<div class="nx-seg" role="group"><button class="${val !== 'on' ? 'on' : ''}" data-set="${k}" data-v="off">${a}</button><button class="${val === 'on' ? 'on' : ''}" data-set="${k}" data-v="on">${b}</button></div>`;
+  const body = `<div class="nx-cost">
+    <div class="nx-costh"><div><b>${money(d.total)}</b><span>${d.calls} Claude call${d.calls === 1 ? '' : 's'} in the last ${d.days} days</span></div>
+      <div class="nx-seg" role="group">${[7, 30, 90].map(n => `<button class="${n === d.days ? 'on' : ''}" data-days="${n}">${n} days</button>`).join('')}</div></div>
+    ${d.jobs.length ? `<table class="nx-ctab"><thead><tr><th>Job</th><th>Model</th><th class="r">Calls</th><th class="r">Tokens in / out</th><th class="r">Cost</th></tr></thead><tbody>
+      ${d.jobs.map(j => `<tr><td>${E(JOB[j.label] || j.label)}</td><td><span class="nx-chip">${E(modelName(j.model))}</span></td><td class="r">${j.calls}</td><td class="r">${ktok(j.input + j.cache_read + j.cache_write)} / ${ktok(j.output)}</td><td class="r"><b>${money(j.cost)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="nx-wp">No Claude calls recorded yet. The record starts with this update.</p>'}
+    ${d.by_day.length ? `<div class="nx-lab" style="margin-top:18px">By day</div><div class="nx-cdays">${d.by_day.map(x => `<div class="nx-cday" data-tip="${x.day}: ${money(x.cost)} · ${x.calls} calls"><i style="height:${Math.max(3, Math.round(64 * x.cost / max))}px"></i><span>${x.day.slice(8)}</span></div>`).join('')}</div>` : ''}
+    ${d.projects.length ? `<div class="nx-lab" style="margin-top:18px">Videos that cost the most</div><div class="nx-cproj">${d.projects.map(p => `<div><span>${E(p.name)}</span><b>${money(p.cost)}</b></div>`).join('')}</div>` : ''}
+    <div class="nx-lab" style="margin-top:20px">Saving switches</div>
+    <div class="nx-csw"><div><b>Storyboard from a script</b><small>Opus plans every frame; Sonnet (half the price) writes each frame's layout from that plan. Try it on a few videos and compare the frames before keeping it on.</small></div>${seg('sb_split', d.settings.sb_split, 'One Opus call', 'Opus plans, Sonnet draws')}</div>
+    <div class="nx-csw"><div><b>Frames from a storyboard PDF</b><small>The PDF already decides the frames; Sonnet can copy them into the house style.</small></div>${seg('pdf_light', d.settings.pdf_light, 'Opus', 'Sonnet')}</div>
+    <p class="nx-cnote">Prices: Opus 5.5 $4 in / $20 out, Sonnet 5.5 $2 / $10 per million tokens; cached input is billed at a small fraction. Picture generation outside Claude is not included.</p></div>`;
+  const w = win({ title: 'Cost', ok: 'Done', wide: true, body, onOk: () => {} });
+  w.el.querySelector('.nx-cost').onclick = async e => {
+    const dd = e.target.closest('[data-days]'); if (dd) { w.close(); return costWin(+dd.dataset.days); }
+    const s = e.target.closest('[data-set]');
+    if (s) {
+      try { await api('/api/settings', { method: 'PUT', body: JSON.stringify({ key: s.dataset.set, value: s.dataset.v }) }); }
+      catch (er) { return toast(er.message || String(er), { err: true }); }
+      s.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === s));
+      toast(s.dataset.set === 'sb_split' ? (s.dataset.v === 'on' ? 'New storyboards: Opus plans, Sonnet draws' : 'New storyboards: one Opus call') : (s.dataset.v === 'on' ? 'PDF frames: Sonnet' : 'PDF frames: Opus'));
+    }
+  };
 }
 
 /* ---------------- windows (B7, B8) ---------------- */
