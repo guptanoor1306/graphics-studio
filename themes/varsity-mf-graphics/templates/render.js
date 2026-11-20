@@ -455,6 +455,43 @@
     });
     const cap = document.querySelector(".caption");
     if (F.caption && cap) bindEl(cap, "caption");
+    // table cells: double-click a heading or a cell to change its words
+    const tbl = document.querySelector("table.tbl");
+    if (F.type === "table" && tbl) {
+      tbl.querySelectorAll("tr").forEach((tr, ri) => {
+        tr.querySelectorAll("th > span, td > span").forEach((sp, ci) => {
+          const path = ri === 0 ? "columns." + ci : "rows." + (ri - 1) + "." + ci;
+          if (sp.dataset.inlineBound || !window.studioInline) return;
+          sp.dataset.inlineBound = "1";
+          if (!sp.textContent.trim()) sp.style.minWidth = "40px", sp.style.display = "inline-block", sp.style.minHeight = "1em";
+          window.studioInline(sp, (value) => window.parent.postMessage({ studio: "inline", mfPath: path, value: value.replace(/\u2011/g, "-") }, "*"));
+        });
+      });
+    }
+  }
+  // Positions and text sizes set by dragging/resizing in the editor, for pieces whose place the frame type
+  // otherwise works out itself (title pill, points, definition box, caption…): F.pos / F.fsz, keyed by layer path.
+  function mfPathEl(path) {
+    let m;
+    if (path === "title" || path === "term") return document.querySelector('.pill[data-mf-studio-layer="' + path + '"]');
+    if (path === "text") return document.querySelector(".defbox");
+    if (path === "caption") return document.querySelector(".caption");
+    if ((m = /^items\.(\d+)$/.exec(path))) return document.querySelectorAll(".chip")[+m[1]] || null;
+    if ((m = /^questions\.(\d+)$/.exec(path))) return document.querySelectorAll(".qbox")[+m[1]] || null;
+    if ((m = /^steps\.(\d+)\.label$/.exec(path))) return document.querySelectorAll(".tile")[+m[1]] || null;
+    return null;
+  }
+  function applyMfPlaces() {
+    Object.entries(F.fsz || {}).forEach(([path, size]) => {
+      const e = mfPathEl(path); if (!e || !size) return;
+      const t = e.classList.contains("pill") ? e.querySelector(".t") : e;
+      if (t) t.style.fontSize = size + "px";
+    });
+    Object.entries(F.pos || {}).forEach(([path, p]) => {
+      const e = mfPathEl(path); if (!e || !p) return;
+      if (p.x != null) e.style.left = p.x + "px";
+      if (p.y != null) e.style.top = p.y + "px";
+    });
   }
   function mfResizeMode(type) {
     if (["pill", "definition", "label", "point", "tile"].includes(type)) return "font";
@@ -552,7 +589,7 @@
 
   const fn = T[F.type];
   if (!fn) { document.body.innerHTML = `<h1 style="color:red">Unknown type ${F.type}</h1>`; window.RENDER_ERROR = "unknown type " + F.type; }
-  else fn();
+  else { fn(); try { applyMfPlaces(); } catch (e) {} }
   if (O.studioEdit) notifyStudioLayers();
   else if (O.tagLayers) tagMfStudioLayers();
 

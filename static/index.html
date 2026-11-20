@@ -3068,6 +3068,7 @@ async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath,outer}){
   if(mfPath.includes('>')){if(!outer||!htmlChildPatch(fr,mfPath,outer))return}
   else if(/^els\.\d+\.header$/.test(mfPath))return;
   else if(outer&&fr.html){if(!applyHtmlLayer(fr,mfPath,outer))return}
+  else if(mfPlacePath(fr,mfPath)&&/^(title|caption|items\.\d+)$/.test(mfPath)){if(size==null)return;fr.fsz={...(fr.fsz||{}),[mfPath]:Math.round(size)}}
   else if(mfPath==='table'){
    fr.box={...(fr.box||{}),...(w!=null?{w:Math.round(w)}:{})};
    if(size!=null)fr.font=Math.round(size);
@@ -3133,6 +3134,17 @@ async function patchFrameItemResize(idx,{w,h,size,cardIdx,mfPath,outer}){
   await api('/api/projects/'+P.id,{method:'PUT',body:JSON.stringify({spec:P.spec,note:'resize '+selectedFrameId+'#'+idx})});
  }catch(e){alert(e.message);refreshEditCanvas()}
 }
+/* MF pieces whose place/size the frame type works out itself (points title and rows, definition box, caption, tiles):
+   a drag or resize is kept in fr.pos / fr.fsz by layer path (the MF renderer applies them). Before this the move
+   was lost (rows) or wrote the x into the title's words. */
+function mfPlacePath(fr,mfPath){
+ if(P?.theme!=='varsity-mf-graphics'||fr.html)return false;
+ if(/^(title|caption)$/.test(mfPath))return true;
+ if(mfPath==='term'||(mfPath==='text'&&fr.type==='definition'))return true;
+ if(/^questions\.\d+$/.test(mfPath)||/^steps\.\d+\.label$/.test(mfPath))return true;
+ const m=/^items\.(\d+)$/.exec(mfPath);
+ return !!(m&&Array.isArray(fr.items)&&typeof fr.items[+m[1]]==='string');
+}
 async function patchFrameItemMove(idx,x,y,cardIdx,mfPath,outer){
  if(!selectedFrameId||!P?.spec)return;
  const fid=selectedFrameId;
@@ -3144,6 +3156,7 @@ async function patchFrameItemMove(idx,x,y,cardIdx,mfPath,outer){
   else if(/^els\.\d+\.header$/.test(mfPath)){const b=mfPath.replace(/\.header$/,'');setSpecPath(fr,b+'.hx',Math.round(x));setSpecPath(fr,b+'.hy',Math.round(y))}
   else if(mfPath.startsWith('decor.'))applyDecorMove(fr,mfPath,x,y);
   else if(outer&&fr.html){if(!applyHtmlLayer(fr,mfPath,outer))return}
+  else if(mfPlacePath(fr,mfPath))fr.pos={...(fr.pos||{}),[mfPath]:{x:Math.round(x),y:Math.round(y)}};
   else if(mfPath==='subtitle'&&fr.html)return;
   else if(mfPath==='pill')fr.pill={...(fr.pill||{}),x:Math.round(x),y:Math.round(y)};
   else if(mfPath==='hero')fr.hero={...(fr.hero||{}),x:Math.round(x),y:Math.round(y)};
