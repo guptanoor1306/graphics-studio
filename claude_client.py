@@ -414,7 +414,7 @@ def _edit_zo_html_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard
                    {"type": "text", "text": msg + "\nThe attached image is a reference image (see SKILL.md)."}]
     r = _messages_create(label="edit-zo", model=LIGHT_MODEL, max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
                          tool_choice=_tool_choice(tool), messages=[{"role": "user", "content": content}])
-    return _tool_input(r, tool)["frame"]
+    return _frame_out(_tool_input(r, tool))
 
 
 def _edit_z1_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line, storyboard_full, gen_entries):
@@ -457,7 +457,7 @@ def _edit_z1_frame(theme_dir, frame, ask, ref_image, regenerate, storyboard_line
                                                   "shows, in the kit's own look (redraw it, never paste it)."}]
     r = _messages_create(label="edit-z1", model=LIGHT_MODEL, max_tokens=8000, system=_system(theme_dir), tools=[FRAME_TOOL],
                          tool_choice=_tool_choice(tool), messages=[{"role": "user", "content": content}])
-    return _tool_input(r, tool)["frame"]
+    return _frame_out(_tool_input(r, tool))
 
 
 FRAME_TOOL = {
@@ -629,6 +629,25 @@ def _tool_choice(tool_name: str) -> dict:
     if MODEL in _ADAPTIVE_TOOL_MODELS or MODEL.startswith(("claude-opus-5", "claude-sonnet-5", "claude-haiku-5")):
         return {"type": "auto"}
     return {"type": "tool", "name": tool_name}
+
+
+def _frame_out(inp) -> dict:
+    """The edited frame from a submit_frame reply. Models sometimes send the frame as a JSON string, or the frame's
+    fields without the "frame" wrapper; both are accepted. Anything else is a clear error, never a crash later."""
+    fr = inp.get("frame") if isinstance(inp, dict) and "frame" in inp else inp
+    if isinstance(fr, str):
+        s = fr.strip()
+        if s.startswith("```"):
+            s = s.strip("`").split("\n", 1)[-1]
+        try:
+            fr = json.loads(s)
+        except ValueError:
+            raise ValueError("Claude sent back a frame that could not be read. Try again.")
+    if isinstance(fr, dict) and isinstance(fr.get("frame"), (dict, str)) and "id" not in fr:
+        return _frame_out(fr)
+    if not isinstance(fr, dict) or not fr:
+        raise ValueError("Claude sent back no frame. Try again.")
+    return fr
 
 
 def _tool_input(response, tool_name: str) -> dict:
@@ -2125,7 +2144,7 @@ def edit_frame(
             tool_choice=_tool_choice(tool),
             messages=[{"role": "user", "content": content}],
         )
-        return _tool_input(r, tool)["frame"]
+        return _frame_out(_tool_input(r, tool))
 
     if regenerate:
         n_items = len(frame.get("items") or [])
@@ -2205,4 +2224,4 @@ def edit_frame(
         tool_choice=_tool_choice(tool),
         messages=[{"role": "user", "content": content}],
     )
-    return _tool_input(r, tool)["frame"]
+    return _frame_out(_tool_input(r, tool))

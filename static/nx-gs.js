@@ -33,6 +33,8 @@ const IC = {
   frame: '<rect x="2.5" y="4" width="11" height="8" rx="1.5"/>', frames: '<rect x="2.5" y="5.5" width="9.5" height="7" rx="1.4"/><path d="M5 3.5h7.5a1 1 0 0 1 1 1V10"/>',
   reset: '<path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5"/><path d="M4.6 2.2v2.4H7"/>',
   gear: '<g transform="scale(.6667)" stroke-width="2.4"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>',
+  copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5V3A1.5 1.5 0 0 0 9 1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h.5"/>',
+  paste: '<rect x="3" y="2.5" width="10" height="11.5" rx="1.5"/><path d="M6 2.5V2h4v.5M6 7h4M6 10h3"/>', addtext: '<path d="M3 4h7M6.5 4v8.5M11 9v5M8.5 11.5h5"/>',
   chart: '<path d="M3 13V3M3 13h10"/><path d="M5.5 10.5V8M8 10.5V5.5M10.5 10.5V7"/>',
   attach: '<path d="M13 7.5L8 12.5a3 3 0 0 1-4.2-4.2l5.3-5.3a2 2 0 0 1 2.8 2.8L6.6 11a1 1 0 0 1-1.4-1.4L10 4.8"/>', scroll: '<path d="M5.5 11.5V4.3A1.8 1.8 0 0 1 7.3 2.5H12a1.5 1.5 0 0 1 0 3h-1.2"/><path d="M10.8 4v7.7a1.8 1.8 0 0 1-1.8 1.8H4a1.5 1.5 0 0 1 0-3h4.8v1"/>',
 };
@@ -1094,15 +1096,16 @@ const nxRCL = function () {
     return mm ? { idx: +mm[1], mfPath: mm[2] ? mm[2].replace(/\\'/g, "'").replace(/\\\\/g, '\\') : null, label: r.querySelector('.cl-name')?.getAttribute('title') || r.textContent, on: r.classList.contains('on') } : null;
   }).filter(Boolean);
   const tabN = q1('[data-etab="layers"] .nx-cnt'); if (tabN) tabN.textContent = rows.length;
-  if (!rows.length) { list.innerHTML = `<div class="nx-lempty">${list.textContent.trim() ? E(list.textContent.trim()) : 'This frame has no layers to edit. Describe a change in Prompt, or regenerate it.'}</div>`; return; }
+  const tools = layerToolsHTML();
+  if (!rows.length) { list.innerHTML = tools + `<div class="nx-lempty">${list.textContent.trim() ? E(list.textContent.trim()) : 'This frame has no layers to edit. Describe a change in Prompt, or regenerate it.'}</div>`; return; }
   if (!rows.some(r => r.on) && !selectedCanvasLayer && !S.noAutoPick) {
     rendering = true; try { selectedCanvasLayer = { idx: rows[0].idx, mfPath: rows[0].mfPath }; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); } finally { rendering = false; }
     rows[0].on = true;
   }
-  list.innerHTML = rows.map(r => {
+  list.innerHTML = tools + rows.map(r => {
     const k = layerKind(r.label), key = r.idx + '|' + (r.mfPath || ''), f = repFiles[key];
     return `<div class="nx-ls${r.on ? ' open' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
-      <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
+      <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
       ${r.on ? `<div class="nx-lsb"><span class="lab">Edit with AI</span><div class="nx-ai"><textarea data-ai rows="2" aria-label="Edit with AI"></textarea><div class="row"><small>Enter to apply</small><button class="nx-tbtn off" data-aiapply>Apply</button></div></div>
         <span class="lab">Replace with an image</span><div class="nx-rep"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b><small>${f ? 'Click to choose another' : 'PNG, JPG or SVG'}</small></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin></div>
         <div class="nx-ai"><textarea data-repnote rows="2" placeholder="Note (optional)" aria-label="Note"></textarea><div class="row"><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Apply</button></div></div></div></div>` : ''}</div>`;
@@ -1131,6 +1134,7 @@ async function layerDelete(L) {
 }
 const nxCLA = function (idx, action, mfPath = null) {
   const key = idx + '|' + (mfPath || '');
+  if (action === 'copy') { const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); return copyLayer(s ? layerOf(s) : { idx, mfPath, key, label: 'layer' }); }
   if (action === 'delete') { const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); return layerDelete(s ? layerOf(s) : { idx, mfPath, key, label: 'layer' }); }
   selectCanvasLayer(idx, mfPath);
   setTab('layers');
@@ -1139,8 +1143,11 @@ const nxCLA = function (idx, action, mfPath = null) {
 function bindLayerPanel() {
   const list = q1('#canvasLayerList'); if (!list || list._nx) return; list._nx = true;
   list.addEventListener('click', e => {
+    if (e.target.closest('[data-addtext]')) return addTextWin();
+    if (e.target.closest('[data-lpaste]')) return pasteLayer();
     const t = e.target, L = layerOf(t); if (!L) return;
     if (t.closest('[data-ldel]')) { e.stopPropagation(); return layerDelete(L); }
+    if (t.closest('[data-lcopy]')) { e.stopPropagation(); return copyLayer(L); }
     if (t.closest('[data-open]')) { if (L.s.classList.contains('open')) { S.noAutoPick = true; selectedCanvasLayer = null; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); renderCanvasLayerList(); S.noAutoPick = false; } else selectCanvasLayer(L.idx, L.mfPath); return; }
     if (t.closest('[data-rmimg]')) { e.stopPropagation(); const f = repFiles[L.key]; if (f) URL.revokeObjectURL(f.url); delete repFiles[L.key]; return renderCanvasLayerList(); }
     if (t.closest('[data-upl]') && !t.closest('[data-repin]')) return L.s.querySelector('[data-repin]').click();
@@ -1152,6 +1159,11 @@ function bindLayerPanel() {
     if (e.target.matches('[data-ai]')) L.s.querySelector('[data-aiapply]').classList.toggle('off', !e.target.value.trim());
     if (e.target.matches('[data-repnote]')) L.s.querySelector('[data-repapply]').classList.toggle('off', !(repFiles[L.key] || e.target.value.trim()));
   });
+  list.addEventListener('paste', e => {
+    const L = layerOf(e.target); if (!L) return;
+    const f = [...(e.clipboardData?.files || [])].find(x => /^image\//.test(x.type)); if (!f) return;
+    e.preventDefault(); repFiles[L.key] = { file: namedPicture(f), url: URL.createObjectURL(f) }; renderCanvasLayerList(); toast('Picture added to Replace with an image');
+  });
   list.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ai]')) { e.preventDefault(); e.target.closest('.nx-ls').querySelector('[data-aiapply]').click(); } });
   list.addEventListener('change', e => {
     if (!e.target.matches('[data-repin]')) return;
@@ -1161,6 +1173,97 @@ function bindLayerPanel() {
   });
   list.addEventListener('dragover', e => { if (e.target.closest('[data-upl]')) e.preventDefault(); });
   list.addEventListener('drop', e => { const u = e.target.closest('[data-upl]'); if (!u) return; e.preventDefault(); e.stopPropagation(); const L = layerOf(u), f = e.dataTransfer.files[0]; if (f && L && /^image\//.test(f.type)) { repFiles[L.key] = { file: f, url: URL.createObjectURL(f) }; renderCanvasLayerList(); } });
+}
+/* ---- pictures into the chat ---- */
+function namedPicture(f) {
+  const ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  return (!f.name || /^image\.(png|jpe?g|webp|gif)$/i.test(f.name)) ? new File([f], `pasted-picture.${ext}`, { type: f.type || 'image/png' }) : f;
+}
+function attachToChat(f) {
+  const inp = q1('#editRef'); if (!inp || !f) return;
+  const dt = new DataTransfer(); dt.items.add(namedPicture(f)); inp.files = dt.files;
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+  setTab('prompt'); q1('#editFrameAsk')?.focus();
+}
+function refThumb() {
+  const lb = q1('#editRefLabel'), inp = q1('#editRef'), f = inp?.files?.[0];
+  if (!lb) return;
+  if (!f) { lb.innerHTML = ''; lb.classList.remove('has'); return; }
+  const url = URL.createObjectURL(f);
+  lb.classList.add('has');
+  lb.innerHTML = `<img src="${url}" alt=""><span>${E(f.name)}</span><button type="button" class="nx-refx" aria-label="Remove the picture" data-tip="Remove the picture">${I('x')}</button>`;
+  lb.querySelector('.nx-refx').onclick = () => { inp.value = ''; inp.dispatchEvent(new Event('change', { bubbles: true })); setTimeout(refThumb, 0); };
+}
+/* ---- copy a layer, paste it into any frame; add text ---- */
+const CLIP_KEY = 'gs.layerclip';
+const clipGet = () => { const c = ls.get(CLIP_KEY, null); return c && Date.now() - (c.ts || 0) < 6 * 3600e3 ? c : null; };
+function pathGet(obj, path) { return String(path || '').split('.').reduce((o, k) => (o == null ? undefined : o[/^\d+$/.test(k) ? +k : k]), obj); }
+function layerToolsHTML() {
+  const c = clipGet();
+  return `<div class="nx-ltools"><button class="nx-btn ghost" data-addtext data-tip="Add a new text layer to this frame">${I('addtext')}Add text</button>${c ? `<button class="nx-btn ghost" data-lpaste data-tip="Paste the copied layer into this frame (⌘V)">${I('paste')}Paste "${E(String(c.label).slice(0, 22))}"</button>` : ''}</div>`;
+}
+function copyLayer(L) {
+  const fr = P?.spec?.frames?.find(f => f.id === selectedFrameId); if (!fr || !L) return;
+  const fno = studioFrames().findIndex(f => f.id === fr.id) + 1;
+  let arr = null, value;
+  const m = /^(items|els|layers)\.(\d+)$/.exec(L.mfPath || '');
+  if (m && Array.isArray(fr[m[1]])) { arr = m[1]; value = fr[arr][+m[2]]; }
+  else if (!L.mfPath && L.idx >= 0) { arr = ['items', 'els', 'layers'].find(k => Array.isArray(fr[k])); value = arr ? fr[arr][L.idx] : undefined; }
+  else if (L.mfPath) value = pathGet(fr, L.mfPath);
+  let html = '', text = '';
+  try {
+    const d = q1('#canvasEditFrame')?.contentDocument;
+    const el = d && (L.mfPath ? d.querySelector(`[data-mf-path="${CSS.escape(L.mfPath)}"],[data-mf-drag="${CSS.escape(L.mfPath)}"]`) : d.querySelector(`[data-spec-idx="${L.idx}"]`));
+    if (el) { html = el.outerHTML.slice(0, 8000); text = (el.innerText || '').trim().slice(0, 600); }
+  } catch (_) {}
+  const label = (L.label || '').replace(/^[^·]*·\s*/, '').trim() || 'layer';
+  ls.set(CLIP_KEY, { theme: P.theme, pid: P.id, fid: fr.id, fno, label, arr, value: value === undefined ? null : JSON.parse(JSON.stringify(value)), html, text, ts: Date.now() });
+  try { navigator.clipboard?.writeText?.(`[Graphics layer] ${label}`).catch(() => {}); } catch (_) {}
+  renderCanvasLayerList();
+  toast(`Copied "${label.slice(0, 40)}". Open another frame and paste (⌘V).`);
+}
+async function pasteLayer() {
+  const c = clipGet(), fid = selectedFrameId; if (!c || !fid || !P?.spec) return;
+  const fi = P.spec.frames.findIndex(f => f.id === fid); if (fi < 0) return;
+  const target = P.spec.frames[fi], fno = fi + 1;
+  if (c.theme === P.theme && c.arr && c.value && Array.isArray(target[c.arr])) {   // same kit: an exact copy, instantly
+    const v = JSON.parse(JSON.stringify(c.value));
+    if (c.fid === fid && c.pid === P.id) ['x', 'y', 'cx', 'cy'].forEach(k => { if (typeof v[k] === 'number') v[k] += 30; });
+    const nf = { ...target, [c.arr]: [...target[c.arr], v] };
+    try { await putFrames({ [fid]: nf }, `paste ${c.label} into ${fid}`); } catch (e) { return toast(e.message || String(e), { err: true }); }
+    const h = frameHist[fid] = frameHist[fid] || []; h.push(JSON.stringify(target)); if (h.length > FRAME_UNDO_MAX) h.shift(); renderUndoBar();
+    return toast(`Pasted "${c.label.slice(0, 40)}" into frame ${fno}`, { undo: () => undoFrameEdit() });
+  }
+  // another kind of layer (or another kit): Claude adds it in this kit's style
+  const what = c.value != null ? JSON.stringify(c.value).slice(0, 6000) : c.html || c.text;
+  toast(`Pasting "${c.label.slice(0, 40)}" into frame ${fno}…`);
+  const r = await askFrame(fid, `Add this element, copied from frame ${c.fno}, to this frame. Keep its words, numbers and look exactly; place it where it fits without covering other content, at a similar position if there is room.\nElement: ${what}`, { quiet: true });
+  if (r?.ok) toast(`Pasted "${c.label.slice(0, 40)}" into frame ${fno}`, { undo: () => undoFrameEdit() }); else if (r) toast(r.error || 'Paste did not work', { err: true });
+}
+function addTextWin(prefill = '') {
+  const fid = selectedFrameId, fno = studioFrames().findIndex(f => f.id === fid) + 1; if (!fid) return;
+  let where = 'bottom', size = 'body';
+  const segs = (k, opts, v) => `<div class="nx-seg" data-g="${k}">${opts.map(([a, b]) => `<button type="button" class="${a === v ? 'on' : ''}" data-v="${a}">${b}</button>`).join('')}</div>`;
+  const w = win({
+    title: 'Add text', sub: `Frame ${fno}`, ok: 'Add text',
+    body: `<span class="nx-lab">Text</span><textarea class="nx-field" id="nxAddTx" style="min-height:84px">${E(prefill)}</textarea>
+      <div class="nx-addrow"><div><span class="nx-lab">Where</span>${segs('where', [['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']], where)}</div>
+      <div><span class="nx-lab">Style</span>${segs('size', [['heading', 'Heading'], ['body', 'Body'], ['small', 'Small note']], size)}</div></div>
+      <p class="nx-wp" style="margin:12px 0 0">The text is added in this kit's style; it can be moved, resized and edited like any layer.</p>`,
+    onOk: async m => {
+      const tx = m.querySelector('#nxAddTx').value.trim(); if (!tx) { m.querySelector('#nxAddTx').focus(); return false; }
+      setTimeout(async () => {
+        const st = { heading: 'as a heading (large, bold)', body: 'as body text', small: 'as a small note / caption' }[size];
+        const r = await askFrame(fid, `Add ONE new text layer with exactly this text: "${tx}". Put it at the ${where} of the frame, ${st}, in this kit's text style, without moving or covering the other layers. Change nothing else.`, { quiet: true });
+        if (r?.ok) toast(`Text added to frame ${fno}`, { undo: () => undoFrameEdit() }); else if (r) toast(r.error || 'Adding the text did not work', { err: true });
+      }, 0);
+    },
+  });
+  w.el.querySelector('.nx-wb').addEventListener('click', e => {
+    const b = e.target.closest('.nx-seg button'); if (!b) return;
+    const g = b.parentElement.dataset.g; b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    if (g === 'where') where = b.dataset.v; else size = b.dataset.v;
+  });
 }
 function setTab(k) {
   S.etab = k;
@@ -1206,6 +1309,13 @@ function decorateEdit() {
       q1('#editRef')?.addEventListener('change', grow);
       const at = q1('.fchat-attach'); if (at) { at.removeAttribute('title'); at.dataset.tip = 'Attach a picture to swap one in'; at.classList.add('tip-up'); }
       const sb = q1('#frameChatSend'); if (sb) { sb.setAttribute('aria-label', 'Send'); sb.dataset.tip = 'Send'; sb.classList.add('tip-up'); }
+      ask.placeholder = 'Ask for a change to this frame (paste or drop a picture too)';
+      ask.addEventListener('paste', e => { const f = [...(e.clipboardData?.files || [])].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); attachToChat(f); } });
+      const box = ask.closest('.fchat-box') || ask.parentElement;
+      box.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); box.classList.add('drag'); } });
+      box.addEventListener('dragleave', () => box.classList.remove('drag'));
+      box.addEventListener('drop', e => { box.classList.remove('drag'); const f = [...(e.dataTransfer?.files || [])].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); e.stopPropagation(); attachToChat(f); } });
+      q1('#editRef')?.addEventListener('change', () => setTimeout(refThumb, 0));
     }
   }
   bindLayerPanel();
@@ -1320,8 +1430,19 @@ addEventListener('keydown', e => {
   const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.tagName === 'IFRAME')) return;
   if (!selectedCanvasLayer) return;
   if (e.key === 'Escape') { selectedCanvasLayer = null; S.noAutoPick = true; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); renderCanvasLayerList(); S.noAutoPick = false; return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') { const s = q1('.nx-ls.open'); if (s) { e.preventDefault(); copyLayer(layerOf(s)); } return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); const s = q1('.nx-ls.open'); if (s) layerDelete(layerOf(s)); return; }
   if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) { setTab('layers'); const ta = q1('.nx-ls.open [data-ai]'); if (ta) { ta.focus(); } }
+});
+
+document.addEventListener('paste', async e => {
+  if (!editModeOpen || q1('.nx-modal')) return;
+  const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+  const f = [...(e.clipboardData?.files || [])].find(x => /^image\//.test(x.type));
+  if (f) { e.preventDefault(); attachToChat(f); return toast('Picture attached to the prompt'); }
+  const tx = (e.clipboardData?.getData('text') || '').trim(), c = clipGet();
+  if (c && (!tx || tx.startsWith('[Graphics layer]'))) { e.preventDefault(); return pasteLayer(); }
+  if (tx) { e.preventDefault(); addTextWin(tx.slice(0, 500)); }
 });
 
 /* ---------------- LA Studio project step (B16) ---------------- */
@@ -1361,7 +1482,7 @@ window.nxBoot = async function () {
     chip.className = 'canvas-parent-chip nx-lbar';
     const mf = L.mfPath ? ` data-mf-path="${E(L.mfPath)}"` : '';
     const B = (act, tip, icon) => `<button type="button" data-act="${act}" data-idx="${L.idx}"${mf} title="${tip}"><svg viewBox="0 0 16 16">${IC[icon]}</svg></button>`;
-    chip.innerHTML = `<span class="cl">${E(layerKind(L.label).name || 'Layer')}</span><span class="ca">${B('edit', 'Edit this layer with AI', 'pencil')}${B('replace', 'Replace with an image', 'regen')}${B('delete', 'Delete this layer', 'trash')}</span>`;
+    chip.innerHTML = `<span class="cl">${E(layerKind(L.label).name || 'Layer')}</span><span class="ca">${B('edit', 'Edit this layer with AI', 'pencil')}${B('replace', 'Replace with an image', 'regen')}${B('copy', 'Copy this layer (⌘C)', 'copy')}${B('delete', 'Delete this layer', 'trash')}</span>`;
     let y = top - 40; if (y < 4) y = top + Math.max(20, h) + 8;
     chip.style.top = y + 'px'; chip.style.left = Math.max(4, left) + 'px';
     host.appendChild(chip);
