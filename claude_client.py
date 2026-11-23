@@ -40,7 +40,7 @@ LIGHT_MODEL = resolve_model(os.environ.get("STUDIO_MODEL_LIGHT", "claude-sonnet-
 # Anthropic rejects high max_tokens on non-streaming calls; studio uses stream only server-side.
 _MAX_TOKENS_NONSTREAM = 16384
 # PDF batches: storyboard + several frames in one reply. Hand-written frames (ZO) are long, so allow more (streamed).
-PDF_BATCH_MAX_TOKENS = int(os.environ.get("STUDIO_PDF_BATCH_MAX_TOKENS", "32000"))
+PDF_BATCH_MAX_TOKENS = int(os.environ.get("STUDIO_PDF_BATCH_MAX_TOKENS", "64000"))   # room for 10 frames a batch
 
 
 class ReplyCutOff(RuntimeError):
@@ -1492,6 +1492,7 @@ def _call_with_pdf(
     sb_tool: dict | None = None,
     page_images: list[tuple[str, bytes]] | None = None,
     max_tokens: int = 16384,
+    fixed_text: str = "",
 ) -> dict:
     import base64
 
@@ -1502,8 +1503,8 @@ def _call_with_pdf(
     preface = ""
     if page_images:
         preface = (
-            "The storyboard PDF is attached below as a document, followed by JPEG renders of each page "
-            "(use these for timestamps, small type, and sketches).\n\n"
+            "The storyboard PDF is attached below as a document, followed by sharper JPEG renders of the pages that "
+            "have little selectable text (scans, sketches, screenshots).\n\n"
         )
     content: list[dict] = [
         {
@@ -1528,6 +1529,8 @@ def _call_with_pdf(
         )
     # the PDF and its page renders are the same in every batch of this storyboard: cache them (read back at a fraction
     # of the price on the next batch; the text with what to do next stays uncached after them)
+    if fixed_text.strip():   # script + transcript: the same in every batch, so stored with the PDF
+        content.append({"type": "text", "text": fixed_text})
     ttl = os.environ.get("STUDIO_PDF_CACHE_TTL", "1h").strip()
     content[-1]["cache_control"] = {"type": "ephemeral", "ttl": "1h"} if ttl == "1h" else {"type": "ephemeral"}
     content.append({"type": "text", "text": preface + msg})
@@ -1670,7 +1673,8 @@ def _normalize_pdf_batch_out(out: dict) -> dict:
 def _cap_new_pdf_frames(
     frames: list, done_ids: set[str] | list[str], batch_size: int
 ) -> tuple[list[dict], int, int]:
-    """Keep only new ids, hard-cap to batch_size (Claude often over-fills `frames`)."""
+    """Keep only new ids. Claude often writes more than batch_size: keep those too (up to twice the batch) instead of
+    throwing away frames that were already paid for and writing them again in the next batch."""
     done = set(done_ids)
     new: list[dict] = []
     for fr in frames:
@@ -1681,8 +1685,9 @@ def _cap_new_pdf_frames(
             continue
         new.append(fr)
         done.add(fid)
-    dropped = max(0, len(new) - batch_size)
-    capped = new[:batch_size]
+    keep = batch_size * 2
+    dropped = max(0, len(new) - keep)
+    capped = new[:keep]
     return capped, len(capped), dropped
 
 
@@ -1713,7 +1718,7 @@ def storyboard_pdf_batch(
     look: dict,
     notes: str = "",
     *,
-    batch_size: int = 5,
+    batch_size: int = 10,
     finish_all: bool = False,
     existing_spec: dict | None = None,
     existing_storyboard: str = "",
@@ -1722,7 +1727,7 @@ def storyboard_pdf_batch(
     """Read human SB PDF; return next batch of frames (+ storyboard on first batch)."""
     from storyboard_pdf import raster_pages
 
-    page_images = raster_pages(pdf_bytes)
+    page_images = raster_pages(pdf_bytes, only_thin=True)
     if finish_all:
         return _storyboard_pdf_finish_all(
             theme_dir,
@@ -1842,8 +1847,10 @@ def _storyboard_pdf_batch_once(
     first_batch = not done_ids
     batch_size = max(1, min(10, int(batch_size)))
     if page_images is None:
-        page_images = raster_pages(pdf_bytes)
+        page_images = raster_pages(pdf_bytes, only_thin=True)
     max_tokens = PDF_BATCH_MAX_TOKENS
+    fixed = _inject_transcript(
+        "\nSCRIPT:\n" + (script.strip() or "(none — infer copy from the PDF)"), episode_transcript).strip()
     rules = _pdf_batch_rules(theme_dir, look)
     if first_batch:
         batch_line = (
@@ -1864,8 +1871,8 @@ def _storyboard_pdf_batch_once(
             f"{batch_line} Put transcribed storyboard lines in `storyboard` (all beats you can read, not only this batch).\n"
             "Each item in `frames` MUST have a unique string `id` (e.g. 01, 02). Use submit_graphic_batch only.\n"
             f"{_SOURCE_ORDER}"
-            "Voiceover script below is OPTIONAL — use it for exact numbers/wording when the PDF does not spell them out:\n\n"
-            f"SCRIPT:\n{script.strip() or '(none — infer copy from PDF)'}"
+            "The voiceover script (and transcript, if any) attached above after the PDF is OPTIONAL — use it for exact "
+            "numbers/wording when the PDF does not spell them out."
         )
     else:
         msg = (
@@ -1877,9 +1884,8 @@ def _storyboard_pdf_batch_once(
             f"{batch_line} Return `frames` only (omit storyboard unless fixing a typo). Set pdf_progress. If every "
             "graphic in the PDF is already generated, call submit_graphic_batch with frames: [] and pdf_progress: done.\n"
             f"{_SOURCE_ORDER}"
-            f"Optional script (last in the order above):\n\n{script or '(none)'}"
+            "The optional script (last in the order above) is attached above after the PDF."
         )
-    msg = _inject_transcript(msg, episode_transcript)
 
     def _call(msg_text: str) -> dict:
         return _call_with_pdf(
@@ -1888,6 +1894,7 @@ def _storyboard_pdf_batch_once(
             pdf_bytes,
             page_images=page_images,
             max_tokens=max_tokens,
+            fixed_text=fixed,
         )
 
     try:

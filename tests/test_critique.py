@@ -57,6 +57,8 @@ def test_critique_loop_fixes_off_frame_asset(monkeypatch):
 
 def test_critique_reverts_fix_that_adds_warns(monkeypatch):
     import app
+    monkeypatch.setenv("STUDIO_FIX_LIGHT", "off")
+    monkeypatch.setattr(app.claude_client, "SETTING", None)
 
     spec = json.loads((app.THEMES / "varsity-english/scenes/example_spec.json").read_text())
     orig = copy.deepcopy(next(f for f in spec["frames"] if f["id"] == "11.05"))
@@ -72,3 +74,14 @@ def test_critique_reverts_fix_that_adds_warns(monkeypatch):
     assert "11.05" in report["reverted"]
     assert next(f for f in out["frames"] if f["id"] == "11.05") == orig
     assert "11.05" not in report["changed"]
+
+
+def test_fix_light_skips_clean_frames(monkeypatch):
+    import critique, claude_client
+    monkeypatch.setattr(claude_client, "SETTING", lambda k: "on" if k == "fix_light" else None)
+    monkeypatch.setattr(critique, "render_frames", lambda pages, *a, **k: {fid: (b"x", []) for fid, _, _ in pages})
+    called = []
+    monkeypatch.setattr(claude_client, "fix_frames", lambda *a, **k: called.append(1) or {"fixes": []})
+    spec = {"frames": [{"id": "01"}]}
+    out, rep = critique.run(theme_dir=None, spec=spec, storyboard="", render_html=lambda f, s: "<p>", renderable=lambda f: True, check_js="")
+    assert out is spec and not called and rep["rounds"] == 0

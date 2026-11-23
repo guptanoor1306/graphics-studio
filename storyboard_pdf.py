@@ -40,8 +40,18 @@ def save_pdf(project_id: int, raw: bytes) -> pathlib.Path:
     return p
 
 
-def raster_pages(pdf_bytes: bytes, *, max_pages: int = 20, scale: float = 1.75) -> list[tuple[str, bytes]]:
-    """JPEG renders of PDF pages so Claude can read dense timestamp tables and sketches."""
+THIN_PAGE_CHARS = 200   # fewer selectable characters than this: the page is mostly a picture
+
+
+def raster_pages(pdf_bytes: bytes, *, max_pages: int = 20, scale: float = 1.75, only_thin: bool = False) -> list[tuple[str, bytes]]:
+    """JPEG renders of PDF pages so Claude can read dense timestamp tables and sketches.
+
+    only_thin: Claude already gets every page of an attached PDF as its text plus a picture, so a page with a text
+    layer was being paid for twice. Render only pages with little selectable text (scans, sketches, screenshots).
+    STUDIO_PDF_PAGE_IMAGES=all brings back a render of every page."""
+    import os
+    if only_thin and os.environ.get("STUDIO_PDF_PAGE_IMAGES", "").strip().lower() == "all":
+        only_thin = False
     try:
         import fitz  # pymupdf
     except ImportError:
@@ -55,6 +65,8 @@ def raster_pages(pdf_bytes: bytes, *, max_pages: int = 20, scale: float = 1.75) 
     mat = fitz.Matrix(scale, scale)
     for i in range(n):
         try:
+            if only_thin and len((doc[i].get_text("text") or "").strip()) >= THIN_PAGE_CHARS:
+                continue
             pix = doc[i].get_pixmap(matrix=mat, alpha=False)
             out.append(("image/jpeg", pix.tobytes("jpeg")))
         except Exception:
