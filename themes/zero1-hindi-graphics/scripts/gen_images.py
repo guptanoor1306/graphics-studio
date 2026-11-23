@@ -29,12 +29,16 @@ KIT = HERE.parent
 sys.path.insert(0, str(HERE))
 import build  # noqa: E402  (kit's own prompt bible: build.prompt_text)
 
-DEFAULT_STYLE_REFS = ["asset:plates/v2_63-64.jpg", "asset:plates/v2_21.jpg", "asset:plates/v1_10-11.jpg"]
+# THE theme frames (locked by the team, 2026-11-18): every new plate must look like it belongs next to these.
+DEFAULT_STYLE_REFS = ["asset:theme/theme_01_office_deal.jpg", "asset:theme/theme_02_exterior_certificate.jpg",
+                      "asset:theme/theme_03_tv_screencapture.jpg"]
+ARJUN_SHEET = "asset:characters/arjun_canonical_sheet.jpg"   # head + neck + torso = ONE block, tall proportions
 ARJUN_REF = {"city": "asset:characters/arjun_city_neutral.png", "kerala": "asset:characters/arjun_kerala_neutral.png",
              "andhra": "asset:characters/arjun_andhra_neutral.png", "meghalaya": "asset:characters/arjun_meghalaya_neutral.png"}
-REF_NOTE = ("Reference images: the first images show the exact visual style to match (handcrafted paper/clay/wood miniature "
-            "diorama, stop-motion photo look, warm light, crumpled-paper sky). {arjun}Match their materials, lighting and "
-            "camera feel; do not copy their layout or any text in them. Create this new scene: ")
+REF_NOTE = ("Reference images: the first images show the exact visual style to match (handcrafted stop-motion paper-craft "
+            "diorama, matte textured paper surfaces, earthy muted colours, warm window light, shallow depth of field). "
+            "{arjun}Match their materials, palette, lighting and camera feel; do not copy their layout or any text in them. "
+            "Create this new scene: ")
 
 
 def resolve(ref):
@@ -66,10 +70,16 @@ def build_request(key, g, spec):
     prompt, aspect = build.prompt_text(key, g, spec.get("arjun", "city"))
     refs = list(g.get("refs") or DEFAULT_STYLE_REFS)
     has_arjun = g.get("arjun") is not None
+    if has_arjun or g.get("people"):
+        refs.append(ARJUN_SHEET)
     if has_arjun:
         refs.append(ARJUN_REF.get(g.get("arjun") or spec.get("arjun", "city"), ARJUN_REF["city"]))
     paths = [p for p in (resolve(r) for r in refs) if p]
-    note = REF_NOTE.format(arjun="The last image is the main character ARJUN: keep his face, block head, cut-paper hair and costume exactly. " if has_arjun else "")
+    note = REF_NOTE.format(arjun=("The character sheet shows the body every person must have: head, neck and torso are ONE "
+                                  "wooden block, no separate neck. The last image is the main character ARJUN: keep his "
+                                  "face, block body, cut-paper hair and costume exactly. ") if has_arjun else
+                           ("The character sheet shows the body every person must have: head, neck and torso are ONE "
+                            "wooden block, no separate neck. ") if g.get("people") else "")
     return {"key": key, "prompt": note + prompt, "aspect": aspect, "refs": [str(p) for p in paths], "cutout": bool(g.get("cutout"))}
 
 

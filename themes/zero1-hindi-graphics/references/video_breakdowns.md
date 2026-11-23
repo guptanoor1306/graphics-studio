@@ -1,3 +1,5 @@
+> **Colours and materials below describe the shipped V1–V3 files. They are superseded:** use only BLUE #447599, RED #A4403B, YELLOW #D7A742 (`style_guide.md`) and the paper-craft look of `theme.md`.
+
 # Zero1 Hindi IP — Video Breakdowns
 
 Source of truth for the Zero1 Hindi (faceless, 100% graphics) storyboard + graphics skill.

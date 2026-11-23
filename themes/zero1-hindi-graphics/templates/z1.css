@@ -17,23 +17,23 @@
 @font-face{font-family:"Anton";src:url(../fonts/anton-latin-ext-400-normal.woff2) format("woff2");font-weight:400;unicode-range:U+0100-02AF,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF}
 
 :root{
-  --red:#B23636;      /* the ONLY accent red: key numbers, emphasis words, alerts */
+  --red:#A4403B;      /* house RED: key numbers, emphasis words, alerts (palette = BLUE #447599, RED #A4403B, YELLOW #D7A742) */
   --ink:#1F1F1F;      /* body text / years */
   --black:#000000;
-  --gold:#E0A422;     /* numbers/keywords on dark frames */
+  --gold:#D7A742;     /* numbers/keywords on dark frames */
   --gold2:#D7A742;
   --blue:#447599;     /* contrast group (men vs women dots) */
-  --tblue:#30749B;    /* neutral table header */
-  --teal:#127FA6;     /* neutral value box (hub) */
-  --navy:#083061;     /* signboard frames */
-  --tagbrown:#592D25; /* ID-tag field labels */
-  --yellow:#F2C66D;   /* table sub-header */
+  --tblue:#447599;    /* neutral table header */
+  --teal:#447599;     /* neutral value box (hub) */
+  --navy:#447599;     /* signboard frames */
+  --tagbrown:#1F1F1F; /* ID-tag field labels (ink: only the 3 house colours are accents) */
+  --yellow:#D7A742;   /* table sub-header */
   --cream:#F7F1E5;    /* hanging boards / tags */
   --creamedge:#E2D3B8;
   --paper:#F2F2F2;
   --white:#FFFFFF;
   --dark:#191610;
-  --ok:#2E9D4A; --no:#D23B3B;  /* tick / cross marks only */
+  --ok:#447599; --no:#A4403B;  /* tick / cross marks only */
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:1920px;height:1080px;overflow:hidden;background:var(--paper)}
@@ -55,7 +55,7 @@ em{font-style:italic}
 .t{white-space:pre-line}
 /* placeholder for images still to be generated */
 .ph{position:absolute;border:4px dashed #9a9a9a;background:repeating-linear-gradient(45deg,rgba(0,0,0,.035) 0 18px,rgba(0,0,0,0) 18px 36px);display:flex;align-items:center;justify-content:center;text-align:center;color:#666;font:500 26px/1.25 "Bricolage";padding:24px}
-.ph b{display:block;color:#B23636;font-weight:700;margin-bottom:8px}
+.ph b{display:block;color:#A4403B;font-weight:700;margin-bottom:8px}
 /* hanging string + card */
 .hang{position:absolute;display:flex;flex-direction:column;align-items:center}
 .rope{width:16px;background:url(../assets/props/rope_segment.png) repeat-y center top/16px auto}
@@ -75,7 +75,7 @@ em{font-style:italic}
 .tbl th{color:#fff;font-weight:600;text-align:center}
 .tbl td{border-top:2px solid #d6d6d6;color:#111}
 .tbl td+td{border-left:2px solid #d6d6d6}
-.tbl tr.hl td{background:#FCEDEA;font-weight:600}
+.tbl tr.hl td{background:#F4E8E7;font-weight:600}
 .tbl tr.total td{font-weight:600}
 .tbl tr.hidden{display:none}
 .tbl .sub th{background:var(--yellow);color:#111;font-weight:600}
@@ -99,7 +99,7 @@ em{font-style:italic}
 .no{background:transparent;color:var(--no);font-size:46px} .no:before{content:"\2715"}
 /* article card */
 .article{position:absolute;background:#FBF8F1;border-radius:22px;border:10px solid #C9A67A;box-shadow:0 20px 30px rgba(0,0,0,.3);padding:46px 56px}
-.article .src{font:600 26px "Bricolage";color:#B23636;margin-bottom:22px;letter-spacing:.02em}
+.article .src{font:600 26px "Bricolage";color:#A4403B;margin-bottom:22px;letter-spacing:.02em}
 .article h2{font:600 52px/1.16 "Bricolage";color:#111;margin-bottom:24px}
 .article p{font:300 30px/1.42 "Bricolage";color:#111}
 .article mark{background:rgba(242,198,109,.75);padding:0 4px}

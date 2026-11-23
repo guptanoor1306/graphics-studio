@@ -126,7 +126,7 @@ def test_export_html_inlines_background_plate_and_adds_prompts():
     out = exporter.inline_assets(html, KIT)
     assert "url('../assets" not in out and "data:image/jpeg;base64" in out and "<link" not in out
     files = z1_plates.export_files(p)
-    assert "storyboard.md" in files and "## kirana" in files["image_prompts.md"] and "wooden toy" in files["image_prompts.md"]
+    assert "storyboard.md" in files and "## kirana" in files["image_prompts.md"] and "wooden-block toy" in files["image_prompts.md"] and "ONE single continuous" in files["image_prompts.md"]
 
 
 def _new_project(app, name="live"):

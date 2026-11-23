@@ -1041,6 +1041,14 @@ async function makeLayers(only) {
   if (btn) btn.disabled = true;
   const ids = (Array.isArray(only) && only.length ? only : P.spec.frames.map(f => String(f.id))), stem = laSlug(P.name);
   try {
+    if (P.theme === 'zero1-hindi-graphics') {   // characters in the scene plates get their own layer + a clean background
+      label('Separating characters…');
+      try {
+        const r = await api(`/api/projects/${P.id}/z1-split`, { method: 'POST', body: JSON.stringify({ ids }) });
+        const bad = Object.keys(r.failed || {}).length + Object.keys(r.kept || {}).length;
+        if (bad) toast(`${bad} picture${bad === 1 ? '' : 's'} could not be split; their characters stay part of the background layer.`);
+      } catch (e) { toast('Characters could not be separated this time; they stay part of the background layer.'); }
+    }
     const files = [];
     for (let i = 0; i < ids.length; i++) {
       label(`Preparing ${i + 1}/${ids.length}…`);

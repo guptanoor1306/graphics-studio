@@ -226,11 +226,21 @@ def fill(spec: dict, log: Callable[[str], None] | None = None, redo: bool = Fals
     return {**spec, "gen": gen}, report
 
 
-def attach(spec: dict, frame: dict) -> dict:
-    """Copy of frame with the spec.gen entries it uses under "_gen" (what the kit adapter reads)."""
+def attach(spec: dict, frame: dict, layers: bool = False) -> dict:
+    """Copy of frame with the spec.gen entries it uses under "_gen" (what the kit adapter reads).
+    layers=True (Make Layers): a plate split into background + characters (z1_split) is drawn as those two pictures,
+    so each becomes its own PSD layer. Everywhere else the plate stays the one original picture."""
     gen = (spec or {}).get("gen") or {}
     keys = set(GEN_RE.findall(json.dumps(frame, ensure_ascii=False)))
-    return {**frame, "_gen": {k: gen[k] for k in keys if isinstance(gen.get(k), dict)}}
+    out = {}
+    for k in keys:
+        g = gen.get(k)
+        if not isinstance(g, dict):
+            continue
+        s = g.get("split") or {}
+        ok = layers and s.get("of") == g.get("file") and s.get("bg") and s.get("char")
+        out[k] = g if ok else {kk: vv for kk, vv in g.items() if kk != "split"}
+    return {**frame, "_gen": out}
 
 
 def image_prompts_md(spec: dict) -> str:
