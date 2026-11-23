@@ -27,12 +27,17 @@ def test_mask_and_compose_keep_original_pixels():
     assert tuple(np.asarray(bg)[700, 900]) == (200, 180, 150) and tuple(np.asarray(bg)[100, 100]) == (200, 180, 150)
 
 
-def test_compose_refuses_a_moved_background():
+def test_compose_fills_from_surroundings_when_the_clean_plate_moved():
     orig = _plate()
     g = np.zeros((1080, 1920, 3), np.uint8); g[:] = (0, 255, 0); g[500:900, 800:1000] = 50
     m = z1_split.mask_from_green(Image.fromarray(g))
     moved = np.zeros((1080, 1920, 3), np.uint8); moved[:] = (40, 90, 200)
-    assert z1_split.compose(orig, m, Image.fromarray(moved))[2]
+    bg, char, why = z1_split.compose(orig, m, Image.fromarray(moved))
+    assert why == ""
+    px = np.asarray(bg)[700, 900].astype(int)
+    assert np.abs(px - (200, 180, 150)).max() < 12          # the set's colour, not the moved picture's blue
+    bg2, _, why2 = z1_split.compose(orig, m, None)           # no cleaned picture at all: same
+    assert why2 == "" and np.abs(np.asarray(bg2)[700, 900].astype(int) - (200, 180, 150)).max() < 12
 
 
 def test_split_used_only_for_layers(tmp_path):

@@ -46,10 +46,13 @@ def wanted(entry: dict) -> bool:
     return entry.get("arjun") is not None or bool(entry.get("people"))
 
 
+SPLIT_V = 2   # a plate that could not be split by an older version is tried again
+
+
 def done(entry: dict) -> bool:
     s = (entry or {}).get("split") or {}
     if s.get("none"):
-        return s.get("of") == entry.get("file")
+        return s.get("of") == entry.get("file") and s.get("v") == SPLIT_V
     return s.get("of") == entry.get("file") and all((z1_plates.KIT / "assets" / s.get(k, "")).is_file() for k in ("bg", "char"))
 
 
@@ -95,10 +98,19 @@ def compose(orig: Image.Image, mask: np.ndarray, clean: Image.Image) -> tuple[Im
     if frac > 0.55:
         return orig, orig, "outline covers most of the picture"
     o = np.asarray(orig.convert("RGB")).astype(np.float32)
-    c = np.asarray(clean.convert("RGB")).astype(np.float32)
+    c = np.asarray(clean.convert("RGB")).astype(np.float32) if clean is not None else None
     ring = cv2.dilate(mask, np.ones((61, 61), np.uint8)) & ~cv2.dilate(mask, np.ones((25, 25), np.uint8))
-    if ring.any() and np.abs(o - c)[ring > 0].mean() > 38:   # the clean plate moved/restyled the set around them
-        return orig, orig, "the cleaned background did not line up"
+    # does the model's cleaned picture line up with the original around the characters? Compared blurred: a detailed
+    # paper/wood texture redrawn a pixel off differs everywhere sharp, but its colours and shapes match.
+    if c is not None and ring.any():
+        ob, cb = cv2.GaussianBlur(o, (0, 0), 6), cv2.GaussianBlur(c, (0, 0), 6)
+        if np.abs(ob - cb)[ring > 0].mean() > 40:
+            c = None
+    if c is None:   # no usable cleaned picture: fill the space behind them from its surroundings (hidden unless moved)
+        hole = cv2.dilate(mask, np.ones((15, 15), np.uint8))
+        small = cv2.resize(o.astype(np.uint8), (W // 2, H // 2), interpolation=cv2.INTER_AREA)
+        hs = cv2.resize(hole, (W // 2, H // 2), interpolation=cv2.INTER_NEAREST)
+        c = cv2.resize(cv2.inpaint(small, hs, 9, cv2.INPAINT_TELEA), (o.shape[1], o.shape[0]), interpolation=cv2.INTER_CUBIC).astype(np.float32)
     soft = cv2.GaussianBlur(cv2.dilate(mask, np.ones((3, 3), np.uint8)), (0, 0), 1.0)
     char = np.dstack([o.astype(np.uint8), soft.astype(np.uint8)])
     take = cv2.GaussianBlur(cv2.dilate(mask, np.ones((21, 21), np.uint8)), (0, 0), 6).astype(np.float32)[..., None] / 255
@@ -123,10 +135,23 @@ def split_one(entry: dict) -> dict:
     orig = Image.open(src).convert("RGB")
     if orig.size != (W, H):
         orig = z1_plates._gen_images().cover(orig, W, H)
-    mask = mask_from_green(_edit(src, MASK_PROMPT))
-    bg, char, why = compose(orig, mask, _edit(src, CLEAN_PROMPT))
+    green = _edit(src, MASK_PROMPT)
+    mask = mask_from_green(green)
+    if (mask > 127).mean() > 0.004:   # the outline must sit on the characters: same picture there (blurred), else it moved
+        import cv2
+        ob = cv2.GaussianBlur(np.asarray(orig).astype(np.float32), (0, 0), 4)
+        gb = cv2.GaussianBlur(np.asarray(green.convert("RGB")).astype(np.float32), (0, 0), 4)
+        core = cv2.erode(mask, np.ones((9, 9), np.uint8))
+        if core.any() and np.abs(ob - gb)[core > 0].mean() > 45:
+            return {"of": rel, "none": "the characters' outline did not line up with the picture", "v": SPLIT_V}
+    try:
+        clean = _edit(src, CLEAN_PROMPT)
+    except Exception as e:   # the outline is what matters; the space behind can be filled without the model
+        print(f"z1_split: cleaned background failed for {rel} ({e}); filling it from the surroundings", flush=True)
+        clean = None
+    bg, char, why = compose(orig, mask, clean)
     if why:
-        return {"of": rel, "none": why}
+        return {"of": rel, "none": why, "v": SPLIT_V}
     return {"of": rel, "bg": asset_gen.store(THEME, d_bg, _png(bg), "png", "split"),
             "char": asset_gen.store(THEME, d_char, _png(char), "png", "split")}
 

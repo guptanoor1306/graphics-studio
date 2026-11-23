@@ -1045,8 +1045,8 @@ async function makeLayers(only) {
       label('Separating characters…');
       try {
         const r = await api(`/api/projects/${P.id}/z1-split`, { method: 'POST', body: JSON.stringify({ ids }) });
-        const bad = Object.keys(r.failed || {}).length + Object.keys(r.kept || {}).length;
-        if (bad) toast(`${bad} picture${bad === 1 ? '' : 's'} could not be split; their characters stay part of the background layer.`);
+        const why = [...Object.values(r.failed || {}), ...Object.values(r.kept || {})], bad = why.length;
+        if (bad) toast(`${bad} picture${bad === 1 ? '' : 's'} could not be split (${String(why[0]).slice(0, 90)}); their characters stay part of the background layer.`);
       } catch (e) { toast('Characters could not be separated this time; they stay part of the background layer.'); }
     }
     const files = [];
