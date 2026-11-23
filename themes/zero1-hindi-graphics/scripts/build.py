@@ -13,33 +13,51 @@ from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent
 CSS = KIT / "templates" / "z1.css"
-PALETTE = {"red": "#B23636", "ink": "#1F1F1F", "black": "#000000", "gold": "#E0A422", "blue": "#447599",
-           "tblue": "#30749B", "teal": "#127FA6", "navy": "#083061", "white": "#FFFFFF", "grey": "#777777",
-           "yellow": "#F2C66D", "tagbrown": "#592D25", "xblue": "#9EC3D6", "olive": "#A39E66", "sand": "#DAB08D"}
-PIE = ["#C0533F", "#317E76", "#1E404C", "#F5D8AE", "#E0A43A", "#CFE6DE"]
+# House palette (user rule): only BLUE #447599, RED #A4403B, YELLOW #D7A742, plus ink/black/white/grey for text.
+# The old names stay as aliases so earlier specs still draw, now in the house colours.
+PALETTE = {"red": "#A4403B", "ink": "#1F1F1F", "black": "#000000", "gold": "#D7A742", "blue": "#447599",
+           "tblue": "#447599", "teal": "#447599", "navy": "#447599", "white": "#FFFFFF", "grey": "#777777",
+           "yellow": "#D7A742", "tagbrown": "#1F1F1F", "xblue": "#A2BACC", "olive": "#D7A742", "sand": "#DAB08D"}
+# Off-palette colours from earlier episodes/specs, drawn as their house colour.
+LEGACY = {"#B23636": "#A4403B", "#B13535": "#A4403B", "#B23636": "#A4403B", "#CD0000": "#A4403B", "#911212": "#A4403B",
+          "#A03631": "#A4403B", "#992E2E": "#A4403B", "#E0A422": "#D7A742", "#F2C66D": "#D7A742", "#30749B": "#447599",
+          "#127FA6": "#447599", "#083061": "#447599"}
+PIE = ["#A4403B", "#447599", "#D7A742", "#C98A86", "#8FAEC4", "#E8CF8E"]   # the 3 house colours, then their tints
 BACKDROPS = {"sky": "asset:backdrops/sky_paper.jpg", "paper": "asset:backdrops/plain_paper.jpg",
              "desk": "asset:backdrops/desk_gridpaper.jpg"}
 WARN = []
 SPELL = {}
 
 # ---------------------------------------------------------------- image prompts (Magnific / any image model)
-WORLD = ("Handcrafted miniature diorama photographed in a studio, tactile stop-motion feel: buildings, props and "
-         "ground are clay, wood, card and fabric miniatures with soft rounded edges. Warm golden-hour light, soft shadows, "
-         "shallow depth of field, rich but natural colours, authentic Indian regional details. "
+WORLD = ("Handcrafted stop-motion paper-craft diorama, photographed like a film still. MATERIAL: the default for every "
+         "surface (walls, floor, furniture, upholstery, buildings, plants, clothes) is matte textured handmade PAPER with "
+         "visible fibres, speckles and fine grain: folded, cut and layered paper, not cardboard. Use other materials only "
+         "where the real object is made of them: kraft card or corrugated cardboard only for real cardboard things (boxes, "
+         "cartons, packaging), cork-like pressed paper for pin boards, light wood only for the characters' bodies and real "
+         "wooden props (shelves, desk tops). Exteriors stand on cracked paper ground; trees are crumpled-paper canopies. "
+         "Nothing glossy, plastic, metallic-shiny or photoreal (screens and cash bundles may look real). PALETTE: earthy "
+         "and muted (kraft beige, warm tan, sienna and walnut brown, off-white paper, charcoal-grey paper upholstery); "
+         "coloured accents ONLY in the three house colours brick red #A4403B, slate blue #447599 and mustard yellow "
+         "#D7A742, kept small; no bright green, purple, orange, pink or neon. Warm soft window daylight, gentle shadows, "
+         "slight haze, cinematic shallow depth of field, authentic Indian regional details. Screens in the scene are "
+         "switched on but EMPTY, evenly lit white, front-facing. "
          "No text, no letters, no numbers, no logos, no watermark.")
-FIGURES = ("Every person is a blocky wooden toy figure: rectangular light-wood block head with visible grain, two small "
-           "vertical black oval eyes, no nose, no mouth unless an expression is requested, hair of layered black "
-           "cut-paper/cardstock fringe (women: long black cut-paper hair, bun or braid), jointed wooden block arms with "
-           "mitten hands, grey-silver block shoes, clothes of real fabric and felt. Never Lego minifigures, never smooth "
-           "plastic faces, never realistic humans.")
+FIGURES = ("Every person is a handcrafted wooden-block toy. BODY RULE: head, neck and torso are ONE single continuous "
+           "tall rectangular light-wood block with visible grain: no separate neck, no neck joint, no separate head "
+           "piece, no gap or seam between head and body; the clothes are wrapped around that one block. Two small "
+           "vertical black oval eyes drawn on the wood, no nose, no ears, no mouth unless an expression is requested. "
+           "Hair is a cap of layered black cut-paper strips on top of the block (women: long black cut-paper hair, bun "
+           "or braid). Arms and legs are separate small wooden blocks with visible joints, chunky C-shaped wooden hands, "
+           "grey-silver metal shoe blocks. Tall proportions (head to shirt line about 40% of the block), never short or "
+           "squat. Clothes are textured paper. Never Lego minifigures, never smooth plastic faces, never realistic humans.")
 STYLE = WORLD
 CUTOUT = (" Isolated on a plain pure white background, full object visible with a small patch of ground under it, "
           "soft contact shadow, nothing else in frame (for cut-out).")
 ARJUN = {
-    "city": "ARJUN: 30-year-old salaried man, red short-sleeve t-shirt with a front kangaroo pouch pocket, wooden block legs.",
-    "kerala": "ARJUN (Kerala): red half-sleeve shirt, white mundu with thin gold kasavu border, wooden sandals.",
+    "city": "ARJUN: 30-year-old salaried man, brick-red #A4403B cut-paper V-neck shirt with a front pocket, worn like a tunic over his single head-and-body block, wooden block legs.",
+    "kerala": "ARJUN (Kerala): brick-red #A4403B half-sleeve shirt, white mundu with thin gold kasavu border, wooden sandals.",
     "andhra": "ARJUN (Andhra Pradesh): white shirt, cream angavastram with gold stripes over shoulders, white dhoti with gold border.",
-    "meghalaya": "ARJUN (Meghalaya, Khasi): red-and-yellow turban, black embroidered Khasi jacket, red dhoti-pants, red bead necklace, yellow sash.",
+    "meghalaya": "ARJUN (Meghalaya, Khasi): brick-red and mustard turban, black embroidered Khasi jacket, brick-red dhoti-pants, red bead necklace, mustard sash.",
 }
 EXPR = {"neutral": "", "worried": " Expression: raised worried eyebrows and a small down-turned mouth, one hand scratching his head.",
         "happy": " Expression: small curved smile, relaxed eyebrows.", "thinking": " Expression: one hand on chin, eyes looking up.",
@@ -79,6 +97,8 @@ def color(c, default="ink"):
     c = c or default
     if c in PALETTE:
         return PALETTE[c]
+    if isinstance(c, str) and c.upper() in LEGACY:
+        return LEGACY[c.upper()]
     if c.upper() in [v.upper() for v in PALETTE.values()] or c.upper() in [v.upper() for v in PIE]:
         return c
     WARN.append(f"colour {c} is outside the house palette")
@@ -155,6 +175,10 @@ class Ctx:
     def url(self, p):
         return Path(os.path.relpath(p, self.out_dir / "html")).as_posix()
 
+    def split(self, key):
+        """(background, characters) pictures of a plate split for Make Layers, or None (the CLI never splits)."""
+        return None
+
 
 def ph(key, x, y, w, h, gen):
     g = gen.get(key, {}) if key else {}
@@ -177,6 +201,10 @@ def img_layer(ctx, gen, l):
         st += f"z-index:{l['z']};"
     if p is None:
         return ph(key, x, y, w, l.get("h", int(w * 0.75)), gen)
+    sp = ctx.split(key) if key else None
+    if sp:   # Make Layers: background and characters as two pictures, so each becomes its own layer
+        return (f'<div class="{cls}" style="{st}"><img src="{ctx.url(sp[0])}" aria-label="Background">'
+                f'<img src="{ctx.url(sp[1])}" aria-label="Characters" style="position:absolute;left:0;top:0;width:100%"></div>')
     return f'<div class="{cls}" style="{st}"><img src="{ctx.url(p)}"></div>'
 
 
@@ -247,6 +275,10 @@ def background(ctx, gen, f):
             h = h.replace('class="ph"', 'class="ph" ').replace('style="', 'style="background:#2a2620;color:#8a8170;', 1)
         return h, dark
     cls = "bg" + (f" {look}" if look else "")
+    sp = ctx.split(key) if key else None
+    if sp:   # Make Layers: the plate's background and its characters as two pictures (two PSD layers)
+        return (f'<div class="{cls}" aria-label="Background" style="background-image:url(\'{ctx.url(sp[0])}\')"></div>'
+                f'<img class="{cls}" aria-label="Characters" alt="Characters" src="{ctx.url(sp[1])}" style="width:100%;height:100%;object-fit:cover">'), dark
     return f'<div class="{cls}" style="background-image:url(\'{ctx.url(p)}\')"></div>', dark
 
 
@@ -325,7 +357,7 @@ def t_timeline(ctx, gen, f, dark):
         out.append(f'<svg class="ov"><path d="{d}" fill="none" stroke="#111" stroke-width="4"/></svg>')
         if f["curve"].get("label"):
             lx, ly = pts[-1] if not f["curve"].get("label_at") else f["curve"]["label_at"]
-            out.append(f'<div class="L t br" style="left:{lx-105}px;top:{ly-105}px;width:210px;height:210px;border-radius:50%;background:#B23636;color:#fff;font-size:76px;font-weight:600;display:flex;align-items:center;justify-content:center">{esc(f["curve"]["label"])}</div>')
+            out.append(f'<div class="L t br" style="left:{lx-105}px;top:{ly-105}px;width:210px;height:210px;border-radius:50%;background:#A4403B;color:#fff;font-size:76px;font-weight:600;display:flex;align-items:center;justify-content:center">{esc(f["curve"]["label"])}</div>')
     out.append(f'<div class="tl-dot" style="top:{yy + size*0.45}px"></div>')
     if f.get("year"):
         out.append(f'<div class="L t imp" style="left:228px;top:{yy}px;font-size:{size}px;color:#1F1F1F">{md(f["year"])}</div>')
@@ -345,7 +377,7 @@ def t_table(ctx, gen, f, dark):
     desk = f.get("mount", "hung") == "desk"
     fs = f.get("font_size", 40 if desk else 44)
     pad = f.get("pad", int(fs * (1.05 if desk else 0.42)))
-    hc = {"blue": "#30749B", "red": "#B23636"}.get(f.get("header", "blue"), color(f.get("header")))
+    hc = {"blue": "#447599", "red": "#A4403B"}.get(f.get("header", "blue"), color(f.get("header")))
     upto = f.get("upto", len(f["rows"]))
     styles = {int(k): v for k, v in (f.get("row_styles") or {}).items()}
     ncol = max(len(r) for r in f["rows"])
@@ -382,10 +414,10 @@ def t_idtag(ctx, gen, f, dark):
         fields = tg["fields"]
         for i, (k, v) in enumerate(fields.items()):
             ly = top + (675 + 45 * i) * s
-            out.append(f'<div class="L t br" style="left:{x+49*s}px;top:{ly}px;font-size:{19*s:.0f}px;color:#592D25">{esc(k.upper())}</div>')
+            out.append(f'<div class="L t br" style="left:{x+49*s}px;top:{ly}px;font-size:{19*s:.0f}px;color:#1F1F1F">{esc(k.upper())}</div>')
             red = k in tg.get("highlight", [])
             vs = 28 if (red and v == "?") else 24
-            out.append(f'<div class="L t br" style="left:{x+153*s}px;top:{ly-11*s - (8*s if v=="?" else 0)}px;font-size:{(42 if v=="?" else vs)*s:.0f}px;font-weight:{800 if red else 500};color:{"#B23636" if red else "#000"}">{esc(v)}</div>')
+            out.append(f'<div class="L t br" style="left:{x+153*s}px;top:{ly-11*s - (8*s if v=="?" else 0)}px;font-size:{(42 if v=="?" else vs)*s:.0f}px;font-weight:{800 if red else 500};color:{"#A4403B" if red else "#000"}">{esc(v)}</div>')
     return "\n".join(out)
 
 
@@ -431,14 +463,14 @@ def t_checklist(ctx, gen, f, dark):
 
 def t_sop(ctx, gen, f, dark):
     out = []
-    frames = ["#E2B33C", "#3A79B0", "#C24A3A", "#2F8A5E"]
+    frames = ["#D7A742", "#447599", "#A4403B"]
     for i, it in enumerate(f["items"]):
         x, y = it["x"], it["y"]
         pw = it.get("w", 230)
         p, key = ctx.src(it.get("img"))
         inner = f'<img src="{ctx.url(p)}" style="width:{pw}px;height:{int(pw*.8)}px;object-fit:cover">' if p else \
             f'<div class="ph" style="position:relative;width:{pw}px;height:{int(pw*.8)}px;font-size:16px">{esc(key or "photo")}</div>'
-        out.append(f'<div class="pol" style="left:{x}px;top:{y}px;transform:rotate({it.get("rot", -5 if i%2==0 else 6)}deg);border:10px solid {frames[i%4]}">{inner}</div>')
+        out.append(f'<div class="pol" style="left:{x}px;top:{y}px;transform:rotate({it.get("rot", -5 if i%2==0 else 6)}deg);border:10px solid {frames[i%3]}">{inner}</div>')
         out.append(f'<div class="badge" style="left:{x-34}px;top:{y-34}px">{it.get("n", i+1)}.</div>')
         tx, ty = it.get("text_pos", [x + pw + 50, y + 40])
         out.append(f'<div class="L t br" style="left:{tx}px;top:{ty}px;font-size:33px;font-weight:300;color:#040404">{md(it.get("kicker",""))}</div>')
@@ -454,7 +486,7 @@ def t_news_wall(ctx, gen, f, dark):
         y = it.get("y", 120 + i * (860 // max(1, len(items))))
         w = it.get("w", 900)
         out.append(f'<div class="L t" style="left:{x}px;top:{y}px;width:{w}px">'
-                   f'<div class="br" style="font:700 28px \'Bricolage\';color:#B23636;letter-spacing:.02em;text-align:right;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:8px">{esc(it["source"])}</div>'
+                   f'<div class="br" style="font:700 28px \'Bricolage\';color:#A4403B;letter-spacing:.02em;text-align:right;border-bottom:2px solid #333;padding-bottom:4px;margin-bottom:8px">{esc(it["source"])}</div>'
                    f'<div class="br" style="font-size:{it.get("size",46)}px;font-weight:600;color:#000">{md(it["headline"])}</div></div>')
     return "\n".join(out)
 
@@ -526,8 +558,8 @@ def t_callouts(ctx, gen, f, dark):
         x, y = c["x"], c["y"]
         if c.get("to"):
             tx, ty = c["to"]
-            out.append(f'<svg class="ov"><line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{"#fff" if dark else "#7a2a22"}" stroke-width="3"/>'
-                       f'<circle cx="{tx}" cy="{ty}" r="8" fill="#7a2a22"/></svg>')
+            out.append(f'<svg class="ov"><line x1="{x}" y1="{y}" x2="{tx}" y2="{ty}" stroke="{"#fff" if dark else "#A4403B"}" stroke-width="3"/>'
+                       f'<circle cx="{tx}" cy="{ty}" r="8" fill="#A4403B"/></svg>')
         if st == "pill":
             out.append(f'<div class="pill t" style="left:{x}px;top:{y}px;transform:translate(-50%,-100%)">{md(c["text"])}</div>')
         elif st == "dpill":
@@ -564,7 +596,7 @@ def t_hub(ctx, gen, f, dark):
         out.append(f'<div class="L t br" style="left:{f.get("title_x",1056)}px;top:80px;font-size:45px;border-bottom:4px solid #1F1F1F;padding-bottom:2px">{md(f["title"])}</div>')
     c = f["center"]
     cx, cy = c.get("x", 1230), c.get("y", 560)
-    out.append(f'<div class="L t" style="left:{cx}px;top:{cy}px;transform:translate(-50%,-50%);background:#127FA6;padding:18px 34px;color:#fff;box-shadow:0 10px 18px rgba(0,0,0,.25)">'
+    out.append(f'<div class="L t" style="left:{cx}px;top:{cy}px;transform:translate(-50%,-50%);background:#447599;padding:18px 34px;color:#fff;box-shadow:0 10px 18px rgba(0,0,0,.25)">'
                f'<div class="br" style="font-size:28px">{md(c["label"])}</div><div class="imp" style="font-size:68px">{md(c["value"])}</div></div>')
     for it in f["items"]:
         if it.get("img"):
@@ -607,7 +639,7 @@ def t_pie(ctx, gen, f, dark):
             segs.append(f'<path d="M{cx},{cy} L{x0:.1f},{y0:.1f} A{r},{r} 0 {large} 1 {x1:.1f},{y1:.1f} Z" fill="{col}" stroke="#1d1d1d" stroke-width="3"/>')
             am = (a0 + a1) / 2
             lr = r * (0.62 if v >= 8 else 1.18)
-            tc = "#fff" if col in ("#C0533F", "#317E76", "#1E404C") and v >= 8 else "#111"
+            tc = "#fff" if col in ("#A4403B", "#447599") and v >= 8 else "#111"
             labels.append(f'<div class="L t br" style="left:{cx + lr*math.sin(am) - 60:.0f}px;top:{cy - lr*math.cos(am) - 30:.0f}px;width:120px;text-align:center;font-size:{56 if v>=8 else 28}px;font-weight:500;color:{tc}">{v}%</div>')
             acc += v
         out.append('<svg class="ov">' + "".join(segs) + "</svg>")
@@ -889,6 +921,14 @@ class StudioCtx(Ctx):
 
     def url(self, p):
         return Path(os.path.relpath(p, SCENES)).as_posix()
+
+    def split(self, key):
+        s = (self.gen.get(key) or {}).get("split") or {}
+        if s.get("bg") and s.get("char"):
+            b, c = KIT / "assets" / s["bg"], KIT / "assets" / s["char"]
+            if b.exists() and c.exists():
+                return b, c
+        return None
 
 
 def gen_keys(obj):

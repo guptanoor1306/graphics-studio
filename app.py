@@ -471,12 +471,12 @@ def _coerce_frame_for_studio(frame: dict, theme: str) -> dict:
     return f
 
 
-def frame_for_render(p: dict, frame: dict, *, enrich: bool = False) -> dict:
+def frame_for_render(p: dict, frame: dict, *, enrich: bool = False, layers: bool = False) -> dict:
     """Return frame JSON for preview/export. Enrich only at storyboard generation — not on render."""
     theme = p.get("theme") or ""
     f = _coerce_frame_for_studio(frame, theme)
     if z1_plates.is_theme(theme):  # Zero1 Hindi: hand the frame its gen: plates; the kit needs no enrichment
-        return z1_plates.attach(p.get("spec") or {}, f)
+        return z1_plates.attach(p.get("spec") or {}, f, layers)
     if enrich:
         spec_enrich.enrich_spec({"frames": [f], "look": effective_look(p)}, p.get("storyboard") or "", theme=theme)
     return f
@@ -888,12 +888,44 @@ def export_frame_html(pid: int, fid: str):
     into an exact layered PSD. At most STUDIO_INLINE_MAX (2) are built at once: each inlines megabytes of
     pictures, and a burst of them used to starve every other request."""
     p = load(pid)
-    pages = _export_pages(p, {fid})
+    pages = _export_pages(p, {fid}, layers=True)
     if not pages:
         raise HTTPException(404, "frame not found or not a graphic")
     with _INLINE_SLOTS:
         return HTMLResponse(exporter.frame_page_for_layers(pages[0][1], THEMES / p["theme"],
                                                            theme_canvas.canvas_for_theme(p["theme"])))
+
+
+@app.post("/api/projects/{pid}/z1-split")
+async def z1_split_route(pid: int, req: Request):
+    """Zero1 Hindi, before Make Layers: give the characters in the frames' scene plates their own picture (and a clean
+    background behind them), so each becomes its own PSD layer. Kept on the plate for next time."""
+    b = await req.json()
+    p = await _db_call(load, pid)
+    if not z1_plates.is_theme(p.get("theme") or ""):
+        return {"split": [], "kept": {}, "failed": {}, "already": 0}
+
+    async def job():
+        import z1_split
+        ids = {str(x) for x in (b.get("ids") or [f.get("id") for f in (p.get("spec") or {}).get("frames") or []])}
+        new_spec, rep = await asyncio.to_thread(z1_split.split_frames, p.get("spec") or {}, ids)
+        if rep["split"] or rep["kept"]:
+            def save():   # straight onto the stored spec (no Undo step): only the split records are added
+                with connect() as c:
+                    row = c.execute("select spec from projects where id=?", (pid,)).fetchone()
+                    cur = json.loads((row or {}).get("spec") or "null") if row else None
+                    if not isinstance(cur, dict):
+                        return
+                    gen = dict(cur.get("gen") or {})
+                    for k, v in (new_spec.get("gen") or {}).items():
+                        if isinstance(gen.get(k), dict) and isinstance(v, dict) and v.get("split") and v["split"].get("of") == gen[k].get("file"):
+                            gen[k] = {**gen[k], "split": v["split"]}
+                    cur["gen"] = gen
+                    c.execute("update projects set spec=? where id=?", (json.dumps(cur, ensure_ascii=False), pid))
+                    c.commit()
+            await _db_call(save)
+        return rep
+    return _stream_json(job())
 
 
 @app.delete("/api/projects/{pid}")
@@ -1922,7 +1954,7 @@ async def check(pid: int):
         raise HTTPException(502, detail=f"Layout check failed: {e}") from e
     return warns
 
-def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, str, bool, str | None]]:
+def _export_pages(p: dict, only_ids: set[str] | None = None, layers: bool = False) -> list[tuple[str, str, bool, str | None]]:
     if not p.get("spec"):
         raise HTTPException(400, "Project has no spec")
     base = f"{preview_base()}/themes/{p['theme']}/scenes/"
@@ -1940,7 +1972,7 @@ def _export_pages(p: dict, only_ids: set[str] | None = None) -> list[tuple[str, 
         try:
             html = frame_page(
                 p["theme"],
-                frame_for_render(p, f),
+                frame_for_render(p, f, layers=layers),
                 look,
                 base_href=base,
                 all_frames=all_frames,

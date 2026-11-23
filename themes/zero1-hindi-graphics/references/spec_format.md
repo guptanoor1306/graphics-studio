@@ -37,7 +37,7 @@
 **Sizing kit characters:** the PNGs come at different native sizes; always set `w` (full-height Arjun ≈ 300–420 px wide on a 1080 canvas) and don't upscale a small asset past ~1.5×. Use a `gen` plate for big close-ups.
 
 **Text markup:** `*word*` = accent (red, or gold on dark frames) · `_word_` = italic · `**word**` = bold · `\n` = line break.
-**Colours:** use names only: red, ink, black, white, gold, blue, tblue, teal, navy, yellow, tagbrown, xblue, olive, sand, grey.
+**Colours:** use names only: red, blue, yellow (= gold), ink, black, white, grey (+ sand for dirt ground, xblue for pale explode blocks). Only RED #A4403B, BLUE #447599 and YELLOW #D7A742 are accents; the older names tblue, teal, navy, olive and tagbrown still work and draw in those colours.
 
 ## Types
 | type | fields |

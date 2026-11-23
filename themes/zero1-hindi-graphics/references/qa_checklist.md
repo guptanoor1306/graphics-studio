@@ -18,8 +18,9 @@ Every issue below shipped in at least one of V1–V3. The build's `WARN` lines c
 - [ ] Real names researched where the doc asks (V1 left "Bank-1…Bank-4" for 1990s banks).
 
 **Look**
-- [ ] Only Impact + Bricolage; only palette colours; one red. *Build warns on off-palette colours.*
+- [ ] Only Impact + Bricolage; only BLUE #447599, RED #A4403B, YELLOW #D7A742 (+ ink/white). *Build warns on off-palette colours.*
 - [ ] No text off-frame or overflowing. *Build warns.*
-- [ ] All people are wooden-block figures with oval eyes, costume consistent per episode.
+- [ ] All people are wooden-block figures with oval eyes, costume consistent per episode, and **head + neck + torso one block** (no visible neck or separate head piece).
+- [ ] Plates read as matte paper craft like `assets/theme/`: no glossy/plastic/photoreal surfaces, no corrugated-cardboard look on things that aren't boxes, no saturated colours outside the three.
 - [ ] Generated plates contain no stray text/logos; before/after plates share the camera angle.
 - [ ] Pending `gen:` placeholders are listed in the final message (they are expected until images come back).

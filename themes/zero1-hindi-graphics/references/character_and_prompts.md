@@ -3,7 +3,7 @@
 The PSD layer names show the team generates Arjun plates in **Magnific (Freepik)** and composites them in Photoshop. The kit renders all typography, data, boards and tables itself. Only the **pictures** (dioramas, characters in new poses, objects) need an image model. The build writes ready-to-paste prompts to `out/_image_prompts.md`; this page explains how to write the `gen` entries well.
 
 ## The look (applies to every plate)
-- **Handcrafted miniature diorama photographed in a studio**: clay, wood, card and fabric miniatures, soft rounded edges, warm golden-hour light, soft shadows, shallow depth of field, stop-motion feel.
+- **Stop-motion paper-craft diorama** (`theme.md`): every surface matte textured paper with fibres and speckles, not cardboard (card/corrugated only for real cardboard things, cork-like paper for boards, wood for the figures and real wooden props); earthy muted palette with small accents only in RED #A4403B, BLUE #447599, YELLOW #D7A742; warm soft window light, shallow depth of field. The three `assets/theme/` frames are the look every plate must match (the generator sends them as references).
 - **Authentic regional detail** is non-negotiable (designer note in V1: "Is chapter ki sari chezein will be andhra style… do your research"). Use the right architecture, costume, shop signage style, vehicles (KSRTC bus in Kerala), trees, and decor (jasmine garlands, kolam, Khasi wooden houses).
 - **No text inside generated images.** All words are added by the kit, so signboards are generated blank and text goes on as a layer.
 - Real landmarks (malls, metro, statues, city sign) may be **real-photo cut-outs** for a city collage (V2), but people never are.
@@ -11,15 +11,15 @@ The PSD layer names show the team generates Arjun plates in **Magnific (Freepik)
 ## Arjun and every other person
 | Part | Spec |
 |---|---|
-| Head | tall rectangular **light-wood block** with visible grain |
+| Head + neck + torso | **ONE continuous tall rectangular light-wood block** with visible grain: no separate neck, no neck joint, no seam between head and body; clothes are wrapped around the block (`assets/characters/arjun_canonical_sheet.jpg`) |
 | Eyes | **two small vertical black ovals**. Not squares, not dots (V3 #52 shipped square eyes, an error) |
 | Nose / mouth | none by default. Add a mouth/brows **only** for an expression beat |
 | Hair | layered **black cut-paper / cardstock fringe**; women: long black cut-paper hair, bun or braids, flowers for festive |
-| Body | blocky; jointed wooden arms with mitten hands; wooden legs (city) or legs under cloth; **grey-silver block shoes** |
-| Clothes | real fabric/felt, regionally correct |
+| Limbs | separate small wooden blocks with visible joints; chunky C-shaped wooden hands; wooden legs (city) or legs under cloth; **grey-silver block shoes**; tall proportions (never short/squat) |
+| Clothes | textured paper, regionally correct |
 
 **Variants (keep costume fixed for the whole episode):**
-- `city`: red short-sleeve tee with a front kangaroo pouch pocket (V2 Noida)
+- `city`: brick-red #A4403B cut-paper V-neck shirt with a front pocket, worn like a tunic (canonical sheet)
 - `kerala`: red half-sleeve shirt + white mundu with thin gold kasavu border (V1, V3)
 - `andhra`: white shirt, cream angavastram with gold stripes, white dhoti with gold border (V1)
 - `meghalaya`: red-yellow turban, black embroidered Khasi jacket, red dhoti-pants, red bead necklace, yellow sash (V1)

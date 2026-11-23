@@ -6,7 +6,7 @@
 | Chapter title | Impact | 139, 2 lines, x 139 | #070707 |
 | Chapter kicker "Chapter-N" | Bricolage Grotesque Light, italic | 54 | #070707 |
 | Year on timeline | Impact | 133–215 | #1F1F1F |
-| Big number / stat | Impact | 110–240 | red #B23636 (gold #E0A422 on dark) |
+| Big number / stat | Impact | 110–240 | RED #A4403B (YELLOW #D7A742 on dark) |
 | Emphasis word / question | Impact | 95–256 | red |
 | Pivot word ("Lekin!") | Impact, or Bricolage italic | 300+ | red |
 | Label under/over a number | Bricolage Regular | 40–64 | #000 (white on dark) |
@@ -21,25 +21,20 @@
 - The kit renders the "Impact" role with **Anton** (bundled, open licence, has ₹), and the HTML lists Anton first so the PNG and the HTML look identical everywhere. Designers rebuilding a frame in Photoshop may swap in true Impact (set any ₹ in Bricolage Bold, since Impact lacks it).
 - No other fonts. No emoji except ✅/❌ tick marks (rendered as kit marks).
 
-## Colour
+## Colour: three colours only (team rule, 2026-11-18)
 | Token | Hex | Use |
 |---|---|---|
-| red | #B23636 | THE accent: key numbers, emphasis words, alerts, verdict table headers, women dots. **Only red**: don't drift to #A03631/#992E2E |
-| ink | #1F1F1F | years, body |
-| gold | #E0A422 | numbers/keywords on dark frames, gold-topic accents |
-| blue | #447599 | contrast group (men) |
-| tblue | #30749B | neutral table header |
-| teal | #127FA6 | neutral value box (HUB) |
-| navy | #083061 | signboard frames on buildings |
-| yellow | #F2C66D | table column sub-header |
-| tagbrown | #592D25 | ID-tag field labels |
-| olive | #A39E66 | focus state on the wooden map |
-| sand | #DAB08D | dirt ground |
-| xblue | #9EC3D6 @ 55% | explode-diagram blocks |
-| pie set | #C0533F #317E76 #1E404C #F5D8AE #E0A43A #CFE6DE | pie/donut slices only |
+| red | **#A4403B** | main accent: key numbers, emphasis words, alerts, stamps, "spent"/negative, verdict headers, highlighted state |
+| blue | **#447599** | second accent: neutral table headers, label boxes, info cards, value boxes, contrast group |
+| yellow (gold) | **#D7A742** | third accent: tags, stickers, "saving"/positive highlight, numbers/keywords on dark frames |
+| ink | #1F1F1F | years, body text (white on dark) |
+
+- Nothing else in type, boxes, bars, charts, stamps or highlights: no green, coral, orange, plum, navy, teal or the old reds (#B23636, #B13535, #CD0000, #911212, #A03631, #992E2E). The spec's older names still work and draw in these colours: `gold`/`yellow`/`olive` → YELLOW, `blue`/`tblue`/`teal`/`navy` → BLUE, `tagbrown` → ink.
+- Pies/charts with more than three parts use the three colours, then their pale tints (#C98A86, #8FAEC4, #E8CF8E).
+- Natural colours of the diorama world (paper, wood, sky, plants) stay natural and muted; generated props are steered to the three colours ("a red #A4403B stamp", "a mustard #D7A742 tag", "a slate-blue #447599 card").
 
 ## Materials and props language
-- Everything is **physical and handmade**: paper, card, twine, wood, clay, fabric. Boards, tags, tables and articles **hang on twine from the top edge**. Placards are planted on wooden stakes. Documents are aged paper with rubber stamps held by a suited hand.
+- Everything is **physical and handmade, and the default material is matte textured paper** (see `theme.md` for when card, cork or wood are right instead). Boards, tags, tables and articles **hang on twine from the top edge**. Placards are planted on wooden stakes. Documents are aged paper with rubber stamps held by a suited hand.
 - Arrows are thin, hand-drawn, slightly curved, with small solid heads (ink), or dashed for travel paths.
 - Shadows are soft, falling lower-right. Cut-outs get a contact shadow.
 - **Grades:** greyscale for focus/past, sepia for history, darkened ~70% for gold reveals, red multiply for crisis.

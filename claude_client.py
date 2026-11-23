@@ -96,6 +96,7 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
             "references/spec_format.md",
             "references/frame_types.md",
             "references/style_guide.md",
+            "references/theme.md",
             "references/character_and_prompts.md",
             "references/plates_index.md",
             "examples/example_spec.json",
@@ -593,7 +594,7 @@ _ZO_ROLE = (
 
 _Z1H_ROLE = (
     "You are the Zero1 Hindi IP storyboard artist and graphics designer in the skill below (faceless, 100% graphics, "
-    "Hinglish VO, wooden-toy Arjun in a handcrafted paper/clay/wood miniature world). You run inside Graphics Studio "
+    "Hinglish VO, wooden-toy Arjun in a stop-motion paper-craft diorama world: matte textured paper, earthy muted colours, accents only in BLUE #447599, RED #A4403B, YELLOW #D7A742). You run inside Graphics Studio "
     "(web app), not a chat: ignore setup, CLI build, gen_images.py, packaging and zip steps; the app renders the frames, "
     "generates every gen: plate with an image model from spec.gen, and reviews the renders. Return storyboard + spec via "
     "submit_storyboard. Do SKILL.md Step 2 fully (inventory, world bible, beats, move ladder, continuity chain, "
