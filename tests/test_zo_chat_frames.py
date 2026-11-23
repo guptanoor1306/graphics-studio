@@ -73,7 +73,7 @@ def test_pdf_batch_cut_off_reply_retries_with_fewer_frames(monkeypatch):
     import claude_client as c
     calls = []
 
-    def fake_call(theme_dir, msg, pdf_bytes, *, page_images=None, max_tokens=0, sb_tool=None):
+    def fake_call(theme_dir, msg, pdf_bytes, *, page_images=None, max_tokens=0, sb_tool=None, fixed_text=""):
         calls.append((msg, max_tokens))
         if len(calls) == 1:
             raise c.ReplyCutOff("cut")
@@ -92,7 +92,7 @@ def test_all_remaining_ends_cleanly_when_claude_says_nothing_is_left(monkeypatch
     import claude_client as c
     calls = []
 
-    def fake_call(theme_dir, msg, pdf_bytes, *, page_images=None, max_tokens=0, sb_tool=None):
+    def fake_call(theme_dir, msg, pdf_bytes, *, page_images=None, max_tokens=0, sb_tool=None, fixed_text=""):
         calls.append(msg)
         if len(calls) == 1:
             return {"frames": [{"id": "08", "mode": "fss", "html": "<div class=abs>x</div>"}]}
@@ -103,3 +103,18 @@ def test_all_remaining_ends_cleanly_when_claude_says_nothing_is_left(monkeypatch
                                        existing_spec={"frames": [{"id": "01", "mode": "fss", "html": "<i>a</i>"}]},
                                        existing_storyboard="SB", episode_transcript=None, page_images=[])
     assert out["frames_added"] == 1 and [f["id"] for f in out["frames"]] == ["08"]
+
+
+def test_pdf_batch_keeps_overfilled_frames_and_caches_script(monkeypatch):
+    import pathlib
+    import claude_client as c
+    seen = {}
+
+    def fake_call(theme_dir, msg, pdf_bytes, *, page_images=None, max_tokens=0, sb_tool=None, fixed_text=""):
+        seen["fixed"], seen["msg"] = fixed_text, msg
+        return {"storyboard": "SB", "frames": [{"id": f"{i:02d}", "mode": "fss", "html": "<div class=abs>x</div>"} for i in range(1, 8)]}
+    monkeypatch.setattr(c, "_call_with_pdf", fake_call)
+    out = c._storyboard_pdf_batch_once(pathlib.Path("themes/zo-product-graphics"), b"%PDF", "The script 42%", {}, "",
+                                       batch_size=5, page_images=[])
+    assert out["frames_added"] == 7 and out["frames_dropped"] == 0
+    assert "The script 42%" in seen["fixed"] and "The script 42%" not in seen["msg"]

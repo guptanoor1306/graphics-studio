@@ -137,7 +137,8 @@ _USAGE_SCHEMA = """CREATE TABLE IF NOT EXISTS usage_log (
     ts DOUBLE PRECISION, label TEXT, model TEXT, project_id INTEGER, input_tokens INTEGER, cache_read INTEGER,
     cache_write INTEGER, cache_write_1h INTEGER, output_tokens INTEGER, cost DOUBLE PRECISION)"""
 _SETTINGS_SCHEMA = "CREATE TABLE IF NOT EXISTS studio_settings (skey TEXT PRIMARY KEY, svalue TEXT)"
-SETTINGS_ALLOWED = {"sb_split": ("off", "on"), "pdf_light": ("off", "on")}
+SETTING_DEFAULTS = {"fix_light": "on"}   # cheaper layout fixes unless switched back in Settings
+SETTINGS_ALLOWED = {"sb_split": ("off", "on"), "pdf_light": ("off", "on"), "fix_light": ("off", "on")}
 _SETTINGS_CACHE: dict = {"at": 0.0, "v": {}}
 
 
@@ -216,7 +217,7 @@ def usage(days: int = 30):
     return {"days": days, "since": since, "total": round(sum(j["cost"] for j in jobs.values()), 4), "calls": len(rows),
             "jobs": sorted(({**j, "cost": round(j["cost"], 4)} for j in jobs.values()), key=lambda x: -x["cost"]),
             "by_day": [{**d, "cost": round(d["cost"], 4)} for d in sorted(by_day.values(), key=lambda x: x["day"])],
-            "projects": top, "settings": {k: (_settings().get(k) or ("on" if claude_client.setting_on(k, {"sb_split": "STUDIO_SB_SPLIT"}.get(k, "")) else "off")) for k in SETTINGS_ALLOWED}}
+            "projects": top, "settings": {k: (_settings().get(k) or ("on" if claude_client.setting_on(k, {"sb_split": "STUDIO_SB_SPLIT", "fix_light": "STUDIO_FIX_LIGHT"}.get(k, ""), SETTING_DEFAULTS.get(k, "off")) else "off")) for k in SETTINGS_ALLOWED}}
 
 
 @app.put("/api/settings")
@@ -1386,7 +1387,7 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
     if isinstance(look, dict):
         look = {**look, "sb_import": "pdf"}
     finish_all = bool(b.get("finish_all"))
-    batch_size = min(10, max(1, int(b.get("batch_size", 5))))
+    batch_size = min(10, max(1, int(b.get("batch_size", 10))))
     script = b.get("script", p.get("script") or "")
     transcript = _episode_transcript_for_project(pid)
     # progress for the page (polls /progress): reading → frames written so far → pictures → checking → done

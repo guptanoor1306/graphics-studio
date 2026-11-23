@@ -245,6 +245,12 @@ def run(
     order = [str(f.get("id")) for f in spec.get("frames") or [] if isinstance(f, dict)]
     report["warns_before"] = sum(len(w) for _, w in renders.values())
     focus: set[str] | None = set(only_ids) if only_ids else None  # round 1 = every frame (or only_ids)
+    # Settings switch "Layout fixes: only when the check flags something": skip clean batches, one round only
+    if claude_client.setting_on("fix_light", "STUDIO_FIX_LIGHT", "on"):
+        rounds = min(rounds, 1)
+        if not report["warns_before"]:
+            say("critique: layout check found nothing, skipping (fix_light)")
+            return spec, report
 
     for n in range(1, rounds + 1):
         shown = [fid for fid in order if fid in renders and (focus is None or fid in focus)]

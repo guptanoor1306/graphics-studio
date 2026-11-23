@@ -1223,9 +1223,9 @@ function pdfStaleNoticeHtml(){
   if(hasPdfOnServer())return '';
   const name=storyboardPdfName();
   if(name||(P?.look?.sb_import==='pdf'))
-    return `<p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.45">The project remembers ${name?`“${esc(name)}”`:'a PDF name'}, but the <b>file is not on the server</b> (typical after deploy). Choose the PDF below and click <b>Save PDF</b>, then use Next 5.</p>`;
+    return `<p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.45">The project remembers ${name?`“${esc(name)}”`:'a PDF name'}, but the <b>file is not on the server</b> (typical after deploy). Choose the PDF below and click <b>Save PDF</b>, then use Next 10.</p>`;
   if(P?.spec&&studioFrames().length)
-    return `<p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.45">Add a human storyboard PDF below, then generate more frames with <b>First 5</b> / <b>Next 5</b> (keeps existing frames).</p>`;
+    return `<p class="muted" style="font-size:13px;margin:0 0 10px;line-height:1.45">Add a human storyboard PDF below, then generate more frames with <b>First 10</b> / <b>Next 10</b> (keeps existing frames).</p>`;
   return '';
 }
 function pdfSavedStatusHtml(){
@@ -1266,8 +1266,8 @@ function humanPdfPanelInner({compact=false}={}){
   const first=n===0;
   const showAll=n>=5;
   const genBtns=`<div class="pdf-human-actions" id="pdfHumanActions">
-   ${first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">First 5</button>`:''}
-   ${!first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">Next 5</button>`:''}
+   ${first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:10})">First 10</button>`:''}
+   ${!first?`<button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:10})">Next 10</button>`:''}
    ${showAll?`<button type="button" class="btn-neutral" onclick="genPdfBatch(event,{finishAll:true})">All remaining</button>`:''}
   </div>`;
   const statusTag=pdfSavedStatusHtml();
@@ -1296,7 +1296,7 @@ function pdfBarHtml(){
   const onServer=hasPdfOnServer();
   const prog=(P?.pdf_progress||'').toString();
   const btns=onServer?`<div class="pdf-human-actions pdf-bar-actions" id="pdfHumanActions">
-     <button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:5})">${n?'Next 5 frames':'First 5 frames'}</button>
+     <button type="button" class="p" id="pdfGenBtn" onclick="genPdfBatch(event,{batchSize:10})">${n?'Next 10 frames':'First 10 frames'}</button>
      ${n>=5?`<button type="button" class="btn-neutral" onclick="genPdfBatch(event,{finishAll:true})">All remaining</button>`:''}
    </div>`:'';
   return `<section class="pdf-bar card" aria-label="Storyboard PDF">
@@ -1376,7 +1376,7 @@ function refreshSetupCta(){
   b.textContent=c.label;b.disabled=!c.ok;if(h)h.textContent=c.hint;
   const tag=document.querySelector('#srcScript .src-tag');if(tag){const on=srcState().script;tag.className='src-tag'+(on?' on':'');tag.textContent=on?'Added':'Optional'}
 }
-function setupGenerate(ev){return srcState().pdf?genPdfBatch(ev,{batchSize:5}):gen()}
+function setupGenerate(ev){return srcState().pdf?genPdfBatch(ev,{batchSize:10}):gen()}
 function storyboardSetupBodyHtml(){
   const c=setupCta();
   return `<input type="hidden" id="notes" value="">
@@ -1477,7 +1477,7 @@ function pollPdfProgress(pid,head){
  })();
  return()=>{stop=true};
 }
-async function genPdfBatch(ev,{batchSize=5,finishAll=false}={}){
+async function genPdfBatch(ev,{batchSize=10,finishAll=false}={}){
   const btn=ev?.target?.closest?.('button');if(btn)btn.disabled=true;
   const st=await api(`/api/projects/${P.id}/storyboard-pdf`).catch(()=>({has_pdf:false}));
   if(!st.has_pdf){

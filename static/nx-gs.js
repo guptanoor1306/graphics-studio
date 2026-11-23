@@ -347,7 +347,7 @@ function cardMenu(btn, v) {
   menu(btn, items);
 }
 
-/* ---------------- Cost: what Claude cost, by job, by day and by video; the two cost switches ---------------- */
+/* ---------------- Cost: what Claude cost, by job, by day and by video; the cost switches ---------------- */
 const JOB = { 'storyboard': 'Storyboard from a script (one Opus call)', 'storyboard-plan': 'Storyboard plan', 'storyboard-frames': 'Frames drawn from the plan',
   'pdf-batch': 'Frames from a storyboard PDF', 'edit': 'Frame edits, chat and Regenerate', 'edit-zo': 'Frame edits (ZO)', 'edit-z1': 'Frame edits (Zero1)',
   'check-fix': 'Layout fixes', 'asset-svg': 'Pictures drawn', 'asset-review': 'Picture checks' };
@@ -362,6 +362,7 @@ async function costWin(days = 30) {
   const switches = `<div class="nx-lab">Models</div>
     <div class="nx-csw"><div><b>Storyboard from a script</b><small>Opus plans every frame; Sonnet (half the price) writes each frame's layout from that plan. Try it on a few videos and compare the frames before keeping it on.</small></div>${seg('sb_split', d.settings.sb_split, 'One Opus call', 'Opus plans, Sonnet draws')}</div>
     <div class="nx-csw"><div><b>Frames from a storyboard PDF</b><small>The PDF already decides the frames; Sonnet can copy them into the house style.</small></div>${seg('pdf_light', d.settings.pdf_light, 'Opus', 'Sonnet')}</div>
+    <div class="nx-csw"><div><b>Layout fixes</b><small>After frames are made, Claude looks at them and fixes problems. "Only flagged" skips batches the layout check finds clean and does one pass, for less than half the cost; a frame that looks off without breaking a check rule won't get a second look.</small></div>${seg('fix_light', d.settings.fix_light, 'Always, 2 passes', 'Only flagged, 1 pass')}</div>
     <div class="nx-lab" style="margin-top:22px">Cost</div>`;
   const body = `<div class="nx-cost">${switches}
     <div class="nx-costh"><div><b>${money(d.total)}</b><span>${d.calls} Claude call${d.calls === 1 ? '' : 's'} in the last ${d.days} days</span></div>
@@ -379,7 +380,9 @@ async function costWin(days = 30) {
       try { await api('/api/settings', { method: 'PUT', body: JSON.stringify({ key: s.dataset.set, value: s.dataset.v }) }); }
       catch (er) { return toast(er.message || String(er), { err: true }); }
       s.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === s));
-      toast(s.dataset.set === 'sb_split' ? (s.dataset.v === 'on' ? 'New storyboards: Opus plans, Sonnet draws' : 'New storyboards: one Opus call') : (s.dataset.v === 'on' ? 'PDF frames: Sonnet' : 'PDF frames: Opus'));
+      const on = s.dataset.v === 'on';
+      toast({ sb_split: on ? 'New storyboards: Opus plans, Sonnet draws' : 'New storyboards: one Opus call', pdf_light: on ? 'PDF frames: Sonnet' : 'PDF frames: Opus',
+        fix_light: on ? 'Layout fixes: only when the check flags something, 1 pass' : 'Layout fixes: always, 2 passes' }[s.dataset.set] || 'Saved');
     }
   };
 }
@@ -767,11 +770,11 @@ async function genPdf(all) {
   let total = 0, last = null;
   for (let round = 0; round < (all ? 48 : 1); round++) {
     const n0 = (P?.id === pid ? studioFrames().length : 0);
-    S.gen = { pid, kind: 'pdf', n0, count: 5, msg: 'Reading the storyboard PDF…', all };
+    S.gen = { pid, kind: 'pdf', n0, count: 10, msg: 'Reading the storyboard PDF…', all };
     if (P?.id === pid && !editModeOpen) { if (!selectedFrameId) S.phSel = 0; render(); }
     pollGen(pid);
     try {
-      last = await api(`/api/projects/${pid}/storyboard-pdf/batch`, { method: 'POST', body: JSON.stringify({ script: P?.id === pid ? (P.script || '') : '', look: lookPayload('pdf'), notes: '', batch_size: 5, finish_all: false }) });
+      last = await api(`/api/projects/${pid}/storyboard-pdf/batch`, { method: 'POST', body: JSON.stringify({ script: P?.id === pid ? (P.script || '') : '', look: lookPayload('pdf'), notes: '', batch_size: 10, finish_all: false }) });
     } catch (e) { S.gen = null; if (P?.id === pid) render(); toast(e.message || String(e), { err: true }); loadList(); return; }
     const added = last.frames_added || 0; total += added;
     S.gen = null;
@@ -867,7 +870,7 @@ function framesView() {
   const pdfRow = pdfOn() ? `<div class="nx-src"><span class="nx-pdfic">${PDFIC}</span><div class="tx"><b>${E((P.storyboard_pdf_name || P.look?.storyboard_pdf_name || 'Storyboard').replace(/\.pdf$/i, ''))}</b><small>Storyboard PDF</small></div><button class="nx-ib" data-repdf data-tip="Replace the storyboard PDF" class="tip-l">${I('pencil')}</button></div>` : '';
   const leftOn = G.kind !== 'storyboard' || nLines || pdfOn();
   const cap = cur ? (() => { const tm = times[si] || {}; const range = tm.s != null ? `${mmss(tm.s)}${tm.e != null ? '–' + mmss(tm.e) : ''}` : ''; const note = cur.f ? sbForFrame(cur.f.id, P.storyboard) : ''; return `<b>Frame ${cur.i + 1}</b><span>${[range, cur.f ? frameType(cur.f) : 'To generate'].filter(Boolean).join(' · ')}</span>${note && !/^No storyboard line/.test(note) ? `<span class="nx-note" data-tip="${E(note.slice(0, 420))}">${I('info')}</span>` : ''}<span class="of">${si + 1} of ${its.length}</span>`; })() : '';
-  const bigInner = !cur ? '' : cur.ph ? (genFor(P.id) ? `<div class="nx-ph0 nx-loading"><span class="nx-spin" aria-hidden="true"></span><b id="nxGenHead">${S.gen.kind === 'script' && !S.gen.written ? 'Writing the storyboard…' : `Making frame ${cur.i + 1}…`}</b><span id="nxGenMsg">${E(S.gen.msg || '')}</span><small>This can take a few minutes. You can keep working; frames appear here as they are ready.</small></div>` : `<div class="nx-ph0"><b>This frame isn't generated yet</b>Click <i>Generate next 5 frames</i> below to see it here.</div>`) : `<iframe id="nxBigFr" title="Frame ${cur.i + 1}" src="/preview/${P.id}/${encodeURIComponent(cur.f.id)}?v=${ver(cur.f.id)}"></iframe>`;
+  const bigInner = !cur ? '' : cur.ph ? (genFor(P.id) ? `<div class="nx-ph0 nx-loading"><span class="nx-spin" aria-hidden="true"></span><b id="nxGenHead">${S.gen.kind === 'script' && !S.gen.written ? 'Writing the storyboard…' : `Making frame ${cur.i + 1}…`}</b><span id="nxGenMsg">${E(S.gen.msg || '')}</span><small>This can take a few minutes. You can keep working; frames appear here as they are ready.</small></div>` : `<div class="nx-ph0"><b>This frame isn't generated yet</b>Click <i>Generate next 10 frames</i> below to see it here.</div>`) : `<iframe id="nxBigFr" title="Frame ${cur.i + 1}" src="/preview/${P.id}/${encodeURIComponent(cur.f.id)}?v=${ver(cur.f.id)}"></iframe>`;
   const stage = S.strip === 'grid'
     ? `<div class="nx-allg">${its.map((x, i) => `<button class="nx-gcard${i === si ? ' on' : ''}" data-pick="${i}"><span class="im${x.ph ? ' nx-shim' : ''}">${thumb(x)}</span><span><b>Frame ${x.i + 1}</b> · ${x.f ? E(frameType(x.f)) : 'To generate'}</span></button>`).join('')}</div>`
     : `<div class="nx-bigw" id="nxBigW"><div class="nx-col"><div class="nx-tools" id="nxTools"><button class="nx-ib" id="nxUndo" data-undo data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxRedo" data-redo data-tip="Redo">${I('redo')}</button><span class="sep"></span><button class="nx-btn dark" data-edit ${cur?.f ? '' : 'disabled'} data-tip="${E(editTip())}">${I('pencil')}Edit layers</button><span class="sep"></span><button class="nx-ib" data-zoom="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-zoom="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-zoom="1" data-tip="Zoom in">${I('plus')}</button></div>
@@ -950,7 +953,7 @@ function updateDock() {
   if (!g) {
     if (todo) btns += `<button class="nx-btn plain" data-fill>${z1 ? `Generate ${todo} picture${todo > 1 ? 's' : ''}` : `Make ${todo} missing picture${todo > 1 ? 's' : ''}`}</button>`;
     else if (gens) btns += `<button class="nx-btn plain" data-redo-pics>${z1 ? `Redo ${gens} generated frame${gens > 1 ? 's' : ''}` : `Redo ${gens} generated picture${gens > 1 ? 's' : ''}`}</button>`;
-    if (pdf && pdfOn() && !P.spec?.pdf_done) btns += `<button class="nx-btn ghost" data-genall>Generate all</button><button class="nx-btn primary" data-gennext>Generate next 5 frames</button>`;
+    if (pdf && pdfOn() && !P.spec?.pdf_done) btns += `<button class="nx-btn ghost" data-genall>Generate all</button><button class="nx-btn primary" data-gennext>Generate next 10 frames</button>`;
     else if (!pdf) btns += `<button class="nx-btn ghost" data-regenall>Regenerate all</button>`;
   }
   d.innerHTML = `<span class="tx">${tx}</span>${btns}`;
