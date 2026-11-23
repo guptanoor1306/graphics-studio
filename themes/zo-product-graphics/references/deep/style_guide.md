@@ -5,13 +5,13 @@ All frames are 1920×1080 (anchor PSDs are sometimes 4K; scale ÷2). Font: **Int
 ## Colour tokens
 | Token | Hex | Used for |
 |---|---|---|
-| yellow | #FFC02E (V2 used #FFB949 — normalise to #FFC02E) | keywords/numbers over the anchor; option card; value pills; 25% bar |
-| light blue (on dark) | #81BBFF | alternate keyword colour over the anchor ("mistake", "holdings", "my money?") |
-| blue | #4993E9 | futures card, cash-settled pill, chart line, UI headers, chips, "Company A", passive breach, long |
+| yellow | #FFC02E (V2 used #FFC02E — normalise to #FFC02E) | keywords/numbers over the anchor; option card; value pills; 25% bar |
+| light blue (on dark) | #74A5DF | alternate keyword colour over the anchor ("mistake", "holdings", "my money?") |
+| blue | #387ED1 | futures card, cash-settled pill, chart line, UI headers, chips, "Company A", passive breach, long |
 | zerodha blue | #387ED1 | ₹ values on FSS (strike price), calendar tile |
 | green | #4CAF52 | call / above-strike zone, ✓, "Settled in cash", physically settled, "Company B", interval, active breach |
 | orange | #F07339 | put / short / below-strike, "Requires margin", ✕, Important note box, falling line, risk tags |
-| purple | #9B7BEA | third category pill (Open-ended SIF, SEBI hub) |
+| purple | #A984FF | third category pill (Open-ended SIF, SEBI hub) |
 | ink | #222222 | FSS headings, card titles |
 | deep grey | #424242 | FSS labels, axes |
 | mute | #888888 | parentheticals, faded list items |

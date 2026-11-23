@@ -9,7 +9,8 @@ Writes <out>/_html/<id>.html, <out>/<id>.png,
 off-palette, "~", mixed digit grouping).
 Spec format: references/spec_format.md · working example: scenes/example_spec.json
 """
-import json, os, sys, html, re, math, random, asyncio
+import json
+import re, os, sys, html, re, math, random, asyncio
 KIT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CANVAS_W, CANVAS_H = 1920, 1080
 CANVAS = (CANVAS_W, CANVAS_H)
@@ -220,8 +221,8 @@ def hub2(i):
         im = f'<div style="display:flex;gap:40px">{"".join(asset(x) for x in a["imgs"])}</div>' if a.get('imgs') else ''
         arms += f'<div class="arm" style="{"opacity:.3" if act is not None and act != n_ else ""}"><div class="bigpill {a.get("color","green")}">{md(a["label"])}{sub}</div>{facts}{bl}{im}</div>'
     svg = ('<svg width="100%" height="110" viewBox="0 0 1300 110" preserveAspectRatio="none" style="position:absolute;left:0;top:-115px">'
-           '<path d="M330 105 C 420 10, 560 0, 650 0 C 740 0, 880 10, 970 105" fill="none" stroke="#4993E9" stroke-width="4"/>'
-           '<circle cx="420" cy="38" r="9" fill="#fff" stroke="#4993E9" stroke-width="4"/><circle cx="880" cy="38" r="9" fill="#fff" stroke="#4CAF52" stroke-width="4"/></svg>')
+           '<path d="M330 105 C 420 10, 560 0, 650 0 C 740 0, 880 10, 970 105" fill="none" stroke="#387ED1" stroke-width="4"/>'
+           '<circle cx="420" cy="38" r="9" fill="#fff" stroke="#387ED1" stroke-width="4"/><circle cx="880" cy="38" r="9" fill="#fff" stroke="#4CAF52" stroke-width="4"/></svg>')
     return f'<div class="hub2">{hub}<div class="arms">{svg}{arms}</div></div>'
 
 def hub_fan(i):
@@ -237,11 +238,11 @@ def hub_fan(i):
     svg = [f'<svg width="{W}" height="{H}">']
     for (x, y) in pos:
         if style == 'fan':
-            svg.append(f'<path d="M{hx + (x - hx) * 0.18} {hy - d/2 + 20} Q {x} {hy - 60}, {x} {y + 130}" fill="none" stroke="#B5B5B5" stroke-width="4" marker-end="url(#ah)"/>')
+            svg.append(f'<path d="M{hx + (x - hx) * 0.18} {hy - d/2 + 20} Q {x} {hy - 60}, {x} {y + 130}" fill="none" stroke="#CCCCCC" stroke-width="4" marker-end="url(#ah)"/>')
         else:
             sx, sy = hx + (x - hx) * 0.32, hy + (y - hy) * 0.32; ex, ey = hx + (x - hx) * 0.62, hy + (y - hy) * 0.62
-            svg.append(f'<line x1="{sx}" y1="{sy}" x2="{ex}" y2="{ey}" stroke="#4993E9" stroke-width="4"/>')
-    svg.append('<defs><marker id="ah" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto"><path d="M0 0 L12 6 L0 12 z" fill="#B5B5B5"/></marker></defs></svg>')
+            svg.append(f'<line x1="{sx}" y1="{sy}" x2="{ex}" y2="{ey}" stroke="#387ED1" stroke-width="4"/>')
+    svg.append('<defs><marker id="ah" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto"><path d="M0 0 L12 6 L0 12 z" fill="#CCCCCC"/></marker></defs></svg>')
     nodes = ''
     for (x, y), it in zip(pos, items):
         if style == 'fan':
@@ -319,9 +320,9 @@ def chart(i):
         if i.get('strike_label'):
             lw = 27 * len(i['strike_label']) * .58 + 40; pos = i.get('strike_label_pos', 'right')
             lx = {'right': W - Rr - lw, 'left': L + 10, 'centre': L + (W - L - Rr - lw) / 2, 'center': L + (W - L - Rr - lw) / 2}[pos]
-            s.append(f'<rect x="{lx}" y="{sy-22}" width="{lw}" height="44" rx="6" fill="#4993E9"/><text x="{lx+lw/2}" y="{sy+10}" text-anchor="middle" font-size="27" font-weight="600" fill="#fff">{E(i["strike_label"])}</text>')
+            s.append(f'<rect x="{lx}" y="{sy-22}" width="{lw}" height="44" rx="6" fill="#387ED1"/><text x="{lx+lw/2}" y="{sy+10}" text-anchor="middle" font-size="27" font-weight="600" fill="#fff">{E(i["strike_label"])}</text>')
     for lv in i.get('levels', []):
-        ly = py(lv['value']); col = {'green': '#4CAF52', 'orange': '#F07339', 'blue': '#4993E9', 'purple': '#9B7BEA', 'grey': '#424242'}.get(lv.get('color', 'green'), '#4CAF52')
+        ly = py(lv['value']); col = {'green': '#4CAF52', 'orange': '#F07339', 'blue': '#387ED1', 'purple': '#A984FF', 'grey': '#424242'}.get(lv.get('color', 'green'), '#4CAF52')
         s.append(f'<line x1="{L}" y1="{ly}" x2="{W-Rr}" y2="{ly}" stroke="{col}" stroke-width="3" stroke-dasharray="10 8"/>')
         if lv.get('label'):
             lw = 27 * len(lv['label']) * .58 + 40; lx = W - Rr - lw if lv.get('pos', 'right') == 'right' else L + 10
@@ -329,9 +330,9 @@ def chart(i):
     if split:
         a = ' '.join(f'{px(k):.1f},{py(v):.1f}' for k, v in enumerate(vals[:split + 1]))
         b = ' '.join(f'{px(k):.1f},{py(v):.1f}' for k, v in enumerate(vals) if k >= split)
-        s.append(f'<polyline points="{a}" fill="none" stroke="#4993E9" stroke-width="4"/><polyline points="{b}" fill="none" stroke="#F07339" stroke-width="4"/>')
+        s.append(f'<polyline points="{a}" fill="none" stroke="#387ED1" stroke-width="4"/><polyline points="{b}" fill="none" stroke="#F07339" stroke-width="4"/>')
     else:
-        s.append(f'<polyline points="{pts}" fill="none" stroke="#4993E9" stroke-width="4"/>')
+        s.append(f'<polyline points="{pts}" fill="none" stroke="#387ED1" stroke-width="4"/>')
     for t in i.get('tags', []):
         k = t.get('at', len(vals) - 1)
         if k == 'strike' and 'strike' in i:
@@ -340,7 +341,7 @@ def chart(i):
         w = 27 * len(max(lines, key=len)) * .58 + 50
         x, y = px(k), py(vals[k]) + t.get('dy', -70)
         x = min(max(x, L + w / 2), W - w / 2 - 4) - t.get('dx', 0); y = min(max(y, h / 2 + 2), H - B - h / 2)
-        col = {'green': '#4CAF52', 'orange': '#F07339', 'blue': '#4993E9', 'purple': '#9B7BEA', 'yellow': '#E0A21B', 'grey': '#424242'}.get(t.get('color', 'orange'), '#4993E9')
+        col = {'green': '#4CAF52', 'orange': '#F07339', 'blue': '#387ED1', 'purple': '#A984FF', 'yellow': '#E0A21B', 'grey': '#424242'}.get(t.get('color', 'orange'), '#387ED1')
         s.append(f'<rect x="{x-w/2+t.get("dx",0)}" y="{y-h/2}" width="{w}" height="{h}" rx="{min(23,h/2)}" fill="{col}"/>')
         for n, ln in enumerate(lines):
             s.append(f'<text x="{x+t.get("dx",0)}" y="{y-h/2+34+n*42}" text-anchor="middle" font-size="27" font-weight="600" fill="#fff">{E(ln)}</text>')
@@ -360,7 +361,7 @@ def bars(i):
     s = [f'<svg width="{W}" height="{H}">', f'<line x1="40" y1="{base}" x2="{W-40}" y2="{base}" stroke="#222" stroke-width="4"/>']
     for k, b in enumerate(items):
         x = 50 + gap * k + (gap - bw) / 2; h = max(14, (base - 170) * b['value'] / mx)
-        col = {'blue': '#4993E9', 'orange': '#F07339', 'green': '#4CAF52', 'yellow': '#FFC02E'}[b.get('color', 'blue')]
+        col = {'blue': '#387ED1', 'orange': '#F07339', 'green': '#4CAF52', 'yellow': '#FFC02E'}[b.get('color', 'blue')]
         s.append(f'<rect x="{x}" y="{base-h}" width="{bw}" height="{h}" fill="{col}"/>')
         ty = base - h - 70
         s.append(f'<line x1="{x+bw/2}" y1="{ty+8}" x2="{x+bw/2}" y2="{base-h}" stroke="{col}" stroke-width="3" stroke-dasharray="6 6"/><circle cx="{x+bw/2}" cy="{ty+8}" r="9" fill="{col}"/>')
@@ -413,7 +414,7 @@ def exchange(i):
     def av(x): return f'<div class="avatar"><div class="c">{asset(x.get("img"))}</div>{md(x["label"])}</div>'
     arc = ('<svg width="420" height="250"><path d="M30 90 C 120 0, 300 0, 390 90" fill="none" stroke="#333" stroke-width="3" marker-end="url(#a1)"/>'
            '<path d="M390 160 C 300 250, 120 250, 30 160" fill="none" stroke="#333" stroke-width="3" marker-end="url(#a1)"/>'
-           '<defs><marker id="a1" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto"><path d="M0 0 L12 6 L0 12 z" fill="#4993E9"/></marker></defs>'
+           '<defs><marker id="a1" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto"><path d="M0 0 L12 6 L0 12 z" fill="#387ED1"/></marker></defs>'
            f'<text x="210" y="142" text-anchor="middle" font-size="62" font-weight="600" fill="#222">{E(i.get("action","BUY / SELL"))}</text></svg>')
     return f'<div class="flowrow">{av(i["left"])}{arc}{av(i["right"])}</div>'
 
@@ -470,7 +471,7 @@ def kite_chart(i):
     return (f'<div class="kwin" style="width:{W+40}px"><div class="kbar"></div><div class="knav"><b class="klogo"></b><span>{E(i.get("watchlist","Default"))}</span><div style="flex:1"></div>{nav}</div>'
             f'<div class="ktabs"><span class="on">Chart</span><span>Option chain</span><span>Fundamentals</span></div>'
             f'<div class="ktool"><b>{E(i.get("name","XYZ"))} · NSE</b><span class="b">BUY</span><span class="s">SELL</span></div>'
-            f'<svg width="{W}" height="{H}" style="margin:0 20px">{ticks}<polyline points="{pts}" fill="none" stroke="#4993E9" stroke-width="3"/>{dots}{xs}</svg></div>')
+            f'<svg width="{W}" height="{H}" style="margin:0 20px">{ticks}<polyline points="{pts}" fill="none" stroke="#387ED1" stroke-width="3"/>{dots}{xs}</svg></div>')
 
 def auction(i):
     """Buyers (green, left) and sellers (orange, right) with price chips meeting in the middle."""
@@ -496,9 +497,9 @@ R = dict(lower=lower, punch=punch, bignum=bignum, side_list=side_list, scroll_li
 
 # ======================================================================= v2 recipes (zo-graphic-maker skill)
 # Learned from 78 shipped frames (Family Portfolio, Life Cycle Fund, MTF, Charges, Physical delivery PSDs).
-INK = '#1D2228'
-COL = {'blue': '#387FD1', 'orange': '#F07339', 'yellow': '#FEC02D', 'green': '#4DAB4D', 'purple': '#A77BF3',
-       'ink': INK, 'grey': '#C9CBCF', 'red': '#D23C3C'}
+INK = '#222222'
+COL = {'blue': '#387ED1', 'orange': '#F07339', 'yellow': '#FFC02E', 'green': '#4CAF52', 'purple': '#A984FF',
+       'ink': INK, 'grey': '#CCCCCC', 'red': '#F07339'}
 CYCLE = ['blue', 'orange', 'yellow', 'green', 'purple']
 
 
@@ -512,35 +513,35 @@ def _txt_on(col):
 
 
 # simple inline line-art icons (2–6px ink strokes, flat blue/orange/yellow fills) — no emoji, no logos
-_S = 'fill="none" stroke="#1D2228" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"'
+_S = 'fill="none" stroke="#222222" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"'
 ICONS = {
-    'wallet': f'<rect x="10" y="26" width="80" height="58" rx="10" fill="#387FD1" {_S}/><path d="M18 26 L64 10 L72 26" {_S}/><rect x="60" y="44" width="30" height="22" rx="6" fill="#FEC02D" {_S}/>',
-    'moneybag': f'<path d="M36 22 C30 12 70 12 64 22 L60 30 C82 42 88 86 50 88 C12 86 18 42 40 30Z" fill="#FEC02D" {_S}/><path d="M40 52 H60 M40 62 H60 M46 52 C58 52 58 66 46 66 L58 78" {_S}/>',
-    'calendar': f'<rect x="12" y="20" width="76" height="68" rx="10" fill="#fff" {_S}/><path d="M12 40 H88" {_S}/><rect x="12" y="20" width="76" height="20" rx="8" fill="#387FD1" {_S}/><path d="M32 12 V28 M68 12 V28" {_S}/><circle cx="34" cy="58" r="4" fill="#1D2228"/><circle cx="50" cy="58" r="4" fill="#1D2228"/><circle cx="66" cy="58" r="4" fill="#F07339"/><circle cx="34" cy="74" r="4" fill="#1D2228"/><circle cx="50" cy="74" r="4" fill="#1D2228"/>',
-    'coins': f'<ellipse cx="50" cy="76" rx="32" ry="10" fill="#FEC02D" {_S}/><path d="M18 76 V62 M82 76 V62" {_S}/><ellipse cx="50" cy="62" rx="32" ry="10" fill="#FEC02D" {_S}/><path d="M18 62 V48 M82 62 V48" {_S}/><ellipse cx="50" cy="48" rx="32" ry="10" fill="#FEC02D" {_S}/>',
+    'wallet': f'<rect x="10" y="26" width="80" height="58" rx="10" fill="#387ED1" {_S}/><path d="M18 26 L64 10 L72 26" {_S}/><rect x="60" y="44" width="30" height="22" rx="6" fill="#FFC02E" {_S}/>',
+    'moneybag': f'<path d="M36 22 C30 12 70 12 64 22 L60 30 C82 42 88 86 50 88 C12 86 18 42 40 30Z" fill="#FFC02E" {_S}/><path d="M40 52 H60 M40 62 H60 M46 52 C58 52 58 66 46 66 L58 78" {_S}/>',
+    'calendar': f'<rect x="12" y="20" width="76" height="68" rx="10" fill="#fff" {_S}/><path d="M12 40 H88" {_S}/><rect x="12" y="20" width="76" height="20" rx="8" fill="#387ED1" {_S}/><path d="M32 12 V28 M68 12 V28" {_S}/><circle cx="34" cy="58" r="4" fill="#222222"/><circle cx="50" cy="58" r="4" fill="#222222"/><circle cx="66" cy="58" r="4" fill="#F07339"/><circle cx="34" cy="74" r="4" fill="#222222"/><circle cx="50" cy="74" r="4" fill="#222222"/>',
+    'coins': f'<ellipse cx="50" cy="76" rx="32" ry="10" fill="#FFC02E" {_S}/><path d="M18 76 V62 M82 76 V62" {_S}/><ellipse cx="50" cy="62" rx="32" ry="10" fill="#FFC02E" {_S}/><path d="M18 62 V48 M82 62 V48" {_S}/><ellipse cx="50" cy="48" rx="32" ry="10" fill="#FFC02E" {_S}/>',
     'parcel': f'<path d="M50 10 L88 28 V72 L50 90 L12 72 V28Z" fill="#F7C98B" {_S}/><path d="M12 28 L50 46 L88 28 M50 46 V90" {_S}/><path d="M31 19 L69 37" {_S}/>',
     'tag': f'<path d="M12 50 L50 12 H86 V48 L48 86Z" fill="#F07339" {_S}/><circle cx="70" cy="30" r="7" fill="#fff" {_S}/>',
-    'gift': f'<rect x="14" y="40" width="72" height="48" rx="6" fill="#A77BF3" {_S}/><rect x="10" y="28" width="80" height="16" rx="5" fill="#A77BF3" {_S}/><path d="M50 28 V88 M50 28 C40 10 22 18 34 28 M50 28 C60 10 78 18 66 28" {_S}/>',
-    'scale': f'<path d="M50 14 V84 M28 84 H72 M18 30 H82" {_S}/><path d="M18 30 L6 60 H30Z" fill="#FEC02D" {_S}/><path d="M82 30 L70 60 H94Z" fill="#387FD1" {_S}/>',
-    'growth': f'<path d="M10 88 H90" {_S}/><rect x="16" y="60" width="16" height="28" fill="#FEC02D" {_S}/><rect x="42" y="44" width="16" height="44" fill="#F07339" {_S}/><rect x="68" y="26" width="16" height="62" fill="#387FD1" {_S}/><path d="M14 46 L40 30 L58 38 L86 12 M72 12 H86 V26" {_S}/>',
-    'warning': f'<path d="M50 10 L92 86 H8Z" fill="#FEC02D" {_S}/><path d="M50 38 V60" {_S}/><circle cx="50" cy="72" r="4" fill="#1D2228"/>',
+    'gift': f'<rect x="14" y="40" width="72" height="48" rx="6" fill="#A984FF" {_S}/><rect x="10" y="28" width="80" height="16" rx="5" fill="#A984FF" {_S}/><path d="M50 28 V88 M50 28 C40 10 22 18 34 28 M50 28 C60 10 78 18 66 28" {_S}/>',
+    'scale': f'<path d="M50 14 V84 M28 84 H72 M18 30 H82" {_S}/><path d="M18 30 L6 60 H30Z" fill="#FFC02E" {_S}/><path d="M82 30 L70 60 H94Z" fill="#387ED1" {_S}/>',
+    'growth': f'<path d="M10 88 H90" {_S}/><rect x="16" y="60" width="16" height="28" fill="#FFC02E" {_S}/><rect x="42" y="44" width="16" height="44" fill="#F07339" {_S}/><rect x="68" y="26" width="16" height="62" fill="#387ED1" {_S}/><path d="M14 46 L40 30 L58 38 L86 12 M72 12 H86 V26" {_S}/>',
+    'warning': f'<path d="M50 10 L92 86 H8Z" fill="#FFC02E" {_S}/><path d="M50 38 V60" {_S}/><circle cx="50" cy="72" r="4" fill="#222222"/>',
     'down': f'<circle cx="50" cy="50" r="40" fill="#F07339" {_S}/><path d="M50 28 V70 M32 54 L50 72 L68 54" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
-    'up': f'<circle cx="50" cy="50" r="40" fill="#4DAB4D" {_S}/><path d="M50 72 V30 M32 46 L50 28 L68 46" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
-    'tick': '<circle cx="50" cy="50" r="44" fill="#387FD1"/><path d="M28 52 L44 68 L74 36" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>',
-    'cross': '<circle cx="50" cy="50" r="44" fill="#D23C3C"/><path d="M34 34 L66 66 M66 34 L34 66" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>',
-    'phone': f'<rect x="28" y="8" width="44" height="84" rx="9" fill="#fff" {_S}/><rect x="34" y="20" width="32" height="54" rx="3" fill="#387FD1"/><circle cx="50" cy="83" r="3.5" fill="#1D2228"/>',
+    'up': f'<circle cx="50" cy="50" r="40" fill="#4CAF52" {_S}/><path d="M50 72 V30 M32 46 L50 28 L68 46" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
+    'tick': '<circle cx="50" cy="50" r="44" fill="#387ED1"/><path d="M28 52 L44 68 L74 36" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>',
+    'cross': '<circle cx="50" cy="50" r="44" fill="#F07339"/><path d="M34 34 L66 66 M66 34 L34 66" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>',
+    'phone': f'<rect x="28" y="8" width="44" height="84" rx="9" fill="#fff" {_S}/><rect x="34" y="20" width="32" height="54" rx="3" fill="#387ED1"/><circle cx="50" cy="83" r="3.5" fill="#222222"/>',
     'doc': f'<path d="M22 8 H62 L80 26 V92 H22Z" fill="#fff" {_S}/><path d="M62 8 V26 H80 M34 44 H68 M34 58 H68 M34 72 H56" {_S}/>',
-    'bank': f'<path d="M10 36 L50 12 L90 36Z" fill="#387FD1" {_S}/><path d="M22 42 V76 M40 42 V76 M60 42 V76 M78 42 V76 M12 84 H88" {_S}/>',
+    'bank': f'<path d="M10 36 L50 12 L90 36Z" fill="#387ED1" {_S}/><path d="M22 42 V76 M40 42 V76 M60 42 V76 M78 42 V76 M12 84 H88" {_S}/>',
     'clock': f'<circle cx="50" cy="50" r="40" fill="#fff" {_S}/><path d="M50 26 V50 L66 60" {_S}/>',
-    'cart': f'<path d="M8 16 H22 L32 66 H80 L88 32 H26" fill="none" {_S}/><circle cx="38" cy="80" r="6" fill="#FEC02D" {_S}/><circle cx="74" cy="80" r="6" fill="#FEC02D" {_S}/>',
-    'shield': f'<path d="M50 8 L86 20 V48 C86 72 68 86 50 92 C32 86 14 72 14 48 V20Z" fill="#4DAB4D" {_S}/><path d="M34 50 L46 62 L68 38" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
-    'rupee': f'<circle cx="50" cy="50" r="40" fill="#FEC02D" {_S}/><path d="M36 30 H66 M36 42 H66 M42 30 C64 30 64 54 42 54 L62 74" {_S}/>',
+    'cart': f'<path d="M8 16 H22 L32 66 H80 L88 32 H26" fill="none" {_S}/><circle cx="38" cy="80" r="6" fill="#FFC02E" {_S}/><circle cx="74" cy="80" r="6" fill="#FFC02E" {_S}/>',
+    'shield': f'<path d="M50 8 L86 20 V48 C86 72 68 86 50 92 C32 86 14 72 14 48 V20Z" fill="#4CAF52" {_S}/><path d="M34 50 L46 62 L68 38" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
+    'rupee': f'<circle cx="50" cy="50" r="40" fill="#FFC02E" {_S}/><path d="M36 30 H66 M36 42 H66 M42 30 C64 30 64 54 42 54 L62 74" {_S}/>',
     'chevron': '<path d="M38 26 L62 50 L38 74" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>',
     # line faces for people cards (Family Portfolio style)
-    'man': f'<circle cx="50" cy="52" r="26" fill="#fff" {_S}/><path d="M26 44 C28 22 72 22 74 44 C66 36 46 34 26 44Z" fill="#1D2228"/><circle cx="41" cy="54" r="3" fill="#1D2228"/><circle cx="59" cy="54" r="3" fill="#1D2228"/><path d="M42 66 C46 70 54 70 58 66" {_S}/>',
-    'woman': f'<path d="M22 70 C14 30 30 20 50 20 C70 20 86 30 78 70Z" fill="#1D2228"/><circle cx="50" cy="52" r="24" fill="#fff" {_S}/><path d="M28 48 C36 30 64 30 72 48 C60 42 40 42 28 48Z" fill="#1D2228"/><circle cx="42" cy="54" r="3" fill="#1D2228"/><circle cx="58" cy="54" r="3" fill="#1D2228"/><path d="M43 65 C47 69 53 69 57 65" {_S}/>',
-    'child': f'<circle cx="50" cy="56" r="24" fill="#fff" {_S}/><path d="M36 34 C40 26 46 30 50 26 C54 30 60 26 64 34" {_S}/><circle cx="42" cy="58" r="3" fill="#1D2228"/><circle cx="58" cy="58" r="3" fill="#1D2228"/><path d="M43 68 C47 72 53 72 57 68" {_S}/>',
-    'elder': f'<circle cx="50" cy="52" r="26" fill="#fff" {_S}/><path d="M26 46 C24 30 34 22 50 22 C66 22 76 30 74 46" fill="none" stroke="#C9CBCF" stroke-width="9"/><rect x="36" y="50" width="12" height="9" rx="3" {_S}/><rect x="52" y="50" width="12" height="9" rx="3" {_S}/><path d="M48 54 H52 M42 68 C47 72 53 72 58 68" {_S}/>',
+    'man': f'<circle cx="50" cy="52" r="26" fill="#fff" {_S}/><path d="M26 44 C28 22 72 22 74 44 C66 36 46 34 26 44Z" fill="#222222"/><circle cx="41" cy="54" r="3" fill="#222222"/><circle cx="59" cy="54" r="3" fill="#222222"/><path d="M42 66 C46 70 54 70 58 66" {_S}/>',
+    'woman': f'<path d="M22 70 C14 30 30 20 50 20 C70 20 86 30 78 70Z" fill="#222222"/><circle cx="50" cy="52" r="24" fill="#fff" {_S}/><path d="M28 48 C36 30 64 30 72 48 C60 42 40 42 28 48Z" fill="#222222"/><circle cx="42" cy="54" r="3" fill="#222222"/><circle cx="58" cy="54" r="3" fill="#222222"/><path d="M43 65 C47 69 53 69 57 65" {_S}/>',
+    'child': f'<circle cx="50" cy="56" r="24" fill="#fff" {_S}/><path d="M36 34 C40 26 46 30 50 26 C54 30 60 26 64 34" {_S}/><circle cx="42" cy="58" r="3" fill="#222222"/><circle cx="58" cy="58" r="3" fill="#222222"/><path d="M43 68 C47 72 53 72 57 68" {_S}/>',
+    'elder': f'<circle cx="50" cy="52" r="26" fill="#fff" {_S}/><path d="M26 46 C24 30 34 22 50 22 C66 22 76 30 74 46" fill="none" stroke="#CCCCCC" stroke-width="9"/><rect x="36" y="50" width="12" height="9" rx="3" {_S}/><rect x="52" y="50" width="12" height="9" rx="3" {_S}/><path d="M48 54 H52 M42 68 C47 72 53 72 58 68" {_S}/>',
 }
 
 
@@ -605,7 +606,7 @@ def split_bar(i):
              f'{f"<span class=tagx>{E(i[chr(116)+chr(97)+chr(103)])}</span>" if i.get("tag") else ""}</div>') if i.get('stock') else ''
     itag = f'<div class="itag">{md(i["interest"])}</div>' if i.get('interest') else ''
     br = ('<svg width="1300" height="46" viewBox="0 0 1300 46"><path d="M6 4 V16 Q6 26 30 26 H620 Q650 26 650 44 Q650 26 680 26 H1270 Q1294 26 1294 16 V4" '
-          'fill="none" stroke="#1D2228" stroke-width="4" stroke-linecap="round"/></svg>') if i.get('total') else ''
+          'fill="none" stroke="#222222" stroke-width="4" stroke-linecap="round"/></svg>') if i.get('total') else ''
     tot_l = f'<div class="total">{md(i["total"])}</div>' if i.get('total') else ''
     return f'<div class="v2-split">{stock}{itag}<div class="bar">{bar}</div><div class="labs">{labs}</div>{br}{tot_l}</div>'
 
@@ -714,7 +715,7 @@ def checklist(i):
     return f'<div class="v2-check">{ill}<div class="v2-card plain"><div class="v2-dots"><i></i><i></i><i></i></div><div class="rows">{rows}</div></div></div>'
 
 
-_ARROW = '<svg class="v2-arrow" viewBox="0 0 120 40"><path d="M4 20 H104 M88 6 L108 20 L88 34" fill="none" stroke="#1D2228" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+_ARROW = '<svg class="v2-arrow" viewBox="0 0 120 40"><path d="M4 20 H104 M88 6 L108 20 L88 34" fill="none" stroke="#222222" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
 
 def options(i):
@@ -783,8 +784,8 @@ def bubble(i):
 
 
 def caption(i):
-    ic = ('<svg width="76" height="76" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#FEC02D"/>'
-          '<path d="M30 50 H70 M54 32 L72 50 L54 68" fill="none" stroke="#1D2228" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+    ic = ('<svg width="76" height="76" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#FFC02E"/>'
+          '<path d="M30 50 H70 M54 32 L72 50 L54 68" fill="none" stroke="#222222" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></svg>')
     l2 = f'<div class="l2">{md(i["follow"])}</div>' if i.get('follow') else ''
     return f'<div class="v2-ov v2-cap"><div class="l1">{ic}<span>{md(i["text"])}</span></div>{l2}</div>'
 
@@ -820,7 +821,7 @@ def _tri(c, rot, sz):
             f'stroke-linejoin="round" transform="rotate({rot} 20 20)"/></svg>')
 
 
-_STAR = ('<svg width="70" height="70" viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16Z" fill="#C9CBCF" '
+_STAR = ('<svg width="70" height="70" viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16Z" fill="#CCCCCC" '
          'transform="rotate(20 20 20)"/></svg>')
 
 
@@ -842,26 +843,26 @@ def fss_decor(seed, f=None):
     plus optional f["blob"] {x,y,w,h} (grey blob behind a hero) and f["glow"] {x,y,d} (pale yellow circle)."""
     o = (f or {}).get('decor') if isinstance((f or {}).get('decor'), dict) else {}
     rnd = random.Random(seed)
-    cols = ['#A77BF3', '#4DAB4D', '#F07339', '#FEC02D']
+    cols = ['#A984FF', '#4CAF52', '#F07339', '#FFC02E']
     c1 = cols[rnd.randrange(4)]; c2 = cols[(cols.index(c1) + 1 + rnd.randrange(3)) % 4]
     add = lambda html_, pos: f'<div class="decor" style="{_pos(pos)}">{html_}</div>'
     out = []
     if f and f.get('blob'):
         b = f['blob']
         out.append(f'<div class="decor" style="left:{b.get("x", 760)}px;top:{b.get("y", 300)}px;width:{b.get("w", 420)}px;height:{b.get("h", 420)}px;'
-                   f'background:#F2F2F2;border-radius:46% 54% 60% 40%/50% 42% 58% 50%;z-index:1"></div>')
+                   f'background:#F5F5F7;border-radius:46% 54% 60% 40%/50% 42% 58% 50%;z-index:1"></div>')
     if f and f.get('glow'):
         g = f['glow']; d = g.get('d', 520)
         out.append(f'<div class="decor" style="left:{g.get("x", 1100)}px;top:{g.get("y", 280)}px;width:{d}px;height:{d}px;border-radius:50%;background:#FFF6D6;z-index:1"></div>')
     has_note = any(isinstance(it, dict) and it.get('t') == 'note' for it in (f or {}).get('items') or [])
-    if o.get('doodle', True) is not False and not has_note:
-        out.append(add(_DOODLE.format(c='#1D2228'), o.get('doodleAt') or {'left': 40 + rnd.randint(0, 30), 'top': 60 + rnd.randint(0, 30)}))
+    if False:   # the squiggle doodle was taken out of the kit (team feedback, 2026-11-23)
+        out.append(add(_DOODLE.format(c='#222222'), o.get('doodleAt') or {'left': 40 + rnd.randint(0, 30), 'top': 60 + rnd.randint(0, 30)}))
     out.append(add(_tri(c1, rnd.randrange(360), 56), o.get('tri1') or {'right': 70 + rnd.randint(0, 60), 'top': 110 + rnd.randint(0, 60)}))
     out.append(add(_tri(c2, rnd.randrange(360), 80), o.get('tri2') or {'left': 60 + rnd.randint(0, 60), 'bottom': 90 + rnd.randint(0, 60)}))
     if o.get('star', True) is not False:
         out.append(add(_STAR, o.get('starAt') or {'right': 70 + rnd.randint(0, 60), 'bottom': 70 + rnd.randint(0, 40)}))
     out.append(add('<div style="width:64px;height:10px;border-radius:10px;background:#F07339"></div>', o.get('dash1') or {'left': 40, 'top': f'{40 + rnd.randint(0, 20)}%'}))
-    out.append(add('<div style="width:58px;height:6px;border-radius:6px;background:#4DAB4D"></div>', o.get('dash2') or {'right': 40, 'top': f'{28 + rnd.randint(0, 10)}%'}))
+    out.append(add('<div style="width:58px;height:6px;border-radius:6px;background:#4CAF52"></div>', o.get('dash2') or {'right': 40, 'top': f'{28 + rnd.randint(0, 10)}%'}))
     return ''.join(out)
 
 
@@ -871,9 +872,8 @@ def anchor_decor(zone, f=None):
     x, y, w, h = zone['x'], zone['y'], zone['w'], zone['h']
     add = lambda html_, pos: f'<div class="decor" style="{_pos(pos)};z-index:8">{html_}</div>'
     return (add(_tri('#F07339', 20, 60), o.get('tri1') or {'left': max(20, x - 70), 'top': max(20, y + 10)})
-            + add(_tri('#A77BF3', 200, 64), o.get('tri2') or {'left': min(1840, x + w - 20), 'top': min(1000, y + h - 40)})
-            + (add(_DOODLE.format(c='#FFFFFF'), o.get('doodleAt') or {'left': min(1760, x + w - 160), 'top': max(20, y - 70)})
-               if o.get('doodle', True) is not False else ''))
+            + add(_tri('#A984FF', 200, 64), o.get('tri2') or {'left': min(1840, x + w - 20), 'top': min(1000, y + h - 40)})
+            + '')   # (no squiggle doodle any more)
 
 
 # ======================================================================= frame
@@ -969,8 +969,21 @@ CHAT_SHADES = {   # the chat skill's shade per plate (text zone left / right / b
 }
 
 
+# Zerodha brand colours (design guide, 2026-11): primary Zerodha Blue #387ED1, Sunshine Yellow #FFA412, White, Deep Grey
+# #424242; secondary green #4CAF52, yellow #FFC02E, orange #F07339, purple #A984FF; text #222222/#424242 (headings),
+# #666666/#888888 (body), #9B9B9B/#CCCCCC (labels); cards stroke #E7E7E7, fills #FFFFFF/#FAFAFB/#F5F5F7.
+# Frames written before (or by Claude from memory) with the old near-miss colours draw in the brand ones.
+BRAND_HEX = {'387FD1': '387ED1', '4993E9': '387ED1', '4184F3': '387ED1', 'FEC02D': 'FFC02E', 'FFD064': 'FFC02E', 'FFB949': 'FFC02E', '4DAB4D': '4CAF52', '1F8A4C': '4CAF52', 'A77BF3': 'A984FF', '9B7BEA': 'A984FF', 'F2552C': 'F07339', 'C4521F': 'F07339', 'D23C3C': 'F07339', '1D2228': '222222', '15181C': '222222', '5B6168': '666666', '8A8F96': '888888', 'CFD2D6': 'CCCCCC', 'C9CBCF': 'CCCCCC', 'B5B5B5': 'CCCCCC', 'ECECEC': 'E7E7E7', 'E3E3E3': 'E7E7E7', 'D9D9D9': 'E7E7E7', 'F1F1F1': 'E7E7E7', 'F2F2F2': 'F5F5F7', 'F4F5F7': 'F5F5F7', 'EEF0F2': 'F5F5F7', '6FA3E0': '74A5DF', '81BBFF': '74A5DF', 'FDE6E6': 'FDE3D6', 'F6F7F9': 'FAFAFB'}
+_BRAND_RE = re.compile(r"#(" + "|".join(BRAND_HEX) + r")\b", re.I)
+
+
+def brand_hex(s):
+    return _BRAND_RE.sub(lambda m: "#" + BRAND_HEX[m.group(1).upper()], s) if isinstance(s, str) else s
+
+
 def html_frame(f, look=None, edit=False):
     look = look or {}
+    f = {**f, "html": brand_hex(f.get("html"))}
     mode = str(f.get('mode') or 'fss').lower()
     decor = f.get('decor', {})
     if decor is True:
@@ -1029,8 +1042,10 @@ CHECK_JS = r'''() => {
  if (window.FRAME && window.FRAME.html && window.QA) return window.QA();   // hand-written frame: its own checks
  const _st=document.getElementById('stage'); const W=[], mode=(_st&&_st.dataset.mode)||document.body.dataset.mode, face=JSON.parse((_st&&_st.dataset.face)||document.body.dataset.face||'null');
  const els=[...document.querySelectorAll('.z *')].filter(e=>e.children.length===0||e.matches('.obj,.ticket,.note .box,.icard,.pcard,.status,.phone,.notepad,.mtable'));
- const ok=new Set(['rgb(255, 255, 255)','rgb(34, 34, 34)','rgb(66, 66, 66)','rgb(136, 136, 136)','rgb(255, 192, 46)','rgb(73, 147, 233)','rgb(56, 126, 209)',
-   'rgb(129, 187, 255)','rgb(76, 175, 82)','rgb(240, 115, 57)','rgb(155, 123, 234)','rgb(178, 178, 178)','rgb(0, 0, 0)','rgb(29, 34, 40)','rgb(56, 127, 209)','rgb(254, 192, 45)','rgb(77, 171, 77)','rgb(167, 123, 243)','rgb(138, 143, 150)','rgb(91, 97, 104)','rgb(210, 60, 60)','rgb(196, 82, 31)','rgb(227, 237, 249)','rgb(132, 150, 188)']);
+ const ok=new Set([   // the Zerodha design guide's colours (+ the brand tints used on pale fills)
+   'rgb(255, 255, 255)','rgb(34, 34, 34)','rgb(66, 66, 66)','rgb(102, 102, 102)','rgb(136, 136, 136)','rgb(155, 155, 155)','rgb(204, 204, 204)',
+   'rgb(56, 126, 209)','rgb(255, 164, 18)','rgb(255, 192, 46)','rgb(76, 175, 82)','rgb(240, 115, 57)','rgb(169, 132, 255)',
+   'rgb(116, 165, 223)','rgb(227, 237, 249)','rgb(0, 0, 0)']);
  for(const e of els){ const r=e.getBoundingClientRect(); if(!r.width||!r.height) continue;
    const t=(e.innerText||e.className||'').toString().slice(0,40).replace(/\n/g,' ');
    if(r.left<-2||r.top<-2||r.right>1922||r.bottom>1082) W.push(`off-frame: "${t}" (${r.left|0},${r.top|0},${r.right|0},${r.bottom|0})`);
