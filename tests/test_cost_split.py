@@ -85,3 +85,25 @@ def test_usage_record_and_endpoint(monkeypatch):
     assert c.sb_split_on()
     cl.put("/api/settings", json={"key": "sb_split", "value": "off"})
     assert cl.put("/api/settings", json={"key": "nope", "value": "on"}).status_code == 400
+
+
+def test_split_cut_off_reply_is_written_in_halves_and_zo_uses_small_chunks(monkeypatch):
+    asks = []
+
+    def fake(**kw):
+        tool = kw["tools"][0]["name"]
+        if tool == "submit_plan":
+            return _resp(tool, {"storyboard": "s", "spec_extra": {}, "frames": [{"id": f"f{i}", "brief": "b"} for i in range(1, 7)]})
+        ask = kw["messages"][0]["content"][-1]["text"]
+        ids = [ln.split(":")[0][2:] for ln in ask.splitlines() if ln.startswith("- ")]
+        asks.append(len(ids))
+        r = _resp(tool, {"frames": [{"id": i, "mode": "fss", "html": "<div>x</div>"} for i in ids]})
+        if len(ids) > 2:          # three ZO frames don't fit: cut off
+            r.stop_reason = "max_tokens"
+        return r
+
+    monkeypatch.setattr(c, "_messages_create", fake)
+    monkeypatch.setattr(c, "SETTING", lambda k: "on" if k == "sb_split" else None)
+    out = c._call_storyboard(pathlib.Path("themes/zo-product-graphics"), "SCRIPT")
+    assert [f["id"] for f in out["spec"]["frames"]] == [f"f{i}" for i in range(1, 7)]
+    assert asks.count(3) == 2 and max(asks) == 3      # chunks of 3 for ZO, each cut-off one redone as 2 + 1

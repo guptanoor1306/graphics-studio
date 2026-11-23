@@ -1150,6 +1150,10 @@ def sb_split_on() -> bool:
 
 
 SB_SPLIT_CHUNK = int(os.environ.get("STUDIO_SB_SPLIT_CHUNK", "6"))
+# Kits whose frames are hand-written HTML (ZO Product) are several times longer: fewer frames a call, so the first
+# frames show up sooner and a call never runs into its length limit.
+SB_SPLIT_CHUNK_HTML = int(os.environ.get("STUDIO_SB_SPLIT_CHUNK_HTML", "3"))
+SB_SPLIT_MAX_TOKENS = int(os.environ.get("STUDIO_SB_SPLIT_MAX_TOKENS", "48000"))
 _PLAN_NOTE = """
 
 PLANNING PASS (this call): make every decision now, exactly as you would for the full answer — which beats get a
@@ -1200,19 +1204,36 @@ def _storyboard_split(theme_dir, content: list, msg: str, sb_tool: dict) -> dict
     shared = content + [{"type": "text", "text": msg + "\n\nSTORYBOARD (decided — follow it):\n" + story
                          + "\n\nSPEC FIELDS OTHER THAN FRAMES:\n" + json.dumps(extra, ensure_ascii=False)[:20000],
                          "cache_control": {"type": "ephemeral"}}]
-    chunks = [briefs[i:i + SB_SPLIT_CHUNK] for i in range(0, len(briefs), SB_SPLIT_CHUNK)]
+    n = SB_SPLIT_CHUNK_HTML if is_zo_product_theme(theme_dir) else SB_SPLIT_CHUNK
+    chunks = [briefs[i:i + n] for i in range(0, len(briefs), n)]
     partial = getattr(_PARTIAL, "fn", None)
     done: dict[int, list] = {}
 
     def draw(ix: int) -> list:
-        part = chunks[ix]
+        return draw_part(chunks[ix])
+
+    def draw_part(part: list) -> list:
+        try:
+            return draw_once(part)
+        except ReplyCutOff:
+            # the frames didn't fit in one reply (it used to fall back to redoing the whole storyboard on Opus,
+            # 10+ minutes with no frame on screen): write them in two smaller calls instead
+            if len(part) == 1:
+                raise
+            h = (len(part) + 1) // 2
+            print(f"storyboard build pass: {len(part)} frames ran out of room; writing them {h} + {len(part) - h}", flush=True)
+            return draw_part(part[:h]) + draw_part(part[h:])
+
+    def draw_once(part: list) -> list:
         ask = ("BUILD PASS: write the build JSON for ONLY these frames, in this order, exactly as briefed (same ids; "
                "full kit detail as in the examples — never a thinner frame than the brief describes):\n"
                + "\n".join(f"- {b['id']}: {b.get('brief', '')}" for b in part)
                + "\nCall submit_frames.")
-        rr = _messages_create(label="storyboard-frames", model=LIGHT_MODEL, max_tokens=16000, system=sysm,
+        rr = _messages_create(label="storyboard-frames", model=LIGHT_MODEL, max_tokens=SB_SPLIT_MAX_TOKENS, system=sysm,
                               tools=[fr_tool], tool_choice=_tool_choice(fr_tool["name"]),
                               messages=[{"role": "user", "content": shared + [{"type": "text", "text": ask}]}])
+        if getattr(rr, "stop_reason", "") == "max_tokens":
+            raise ReplyCutOff(f"build pass cut off at {SB_SPLIT_MAX_TOKENS} tokens")
         got = [f for f in (_tool_input(rr, fr_tool["name"]).get("frames") or []) if isinstance(f, dict)]
         by = {str(f.get("id")): f for f in got}
         out = []
