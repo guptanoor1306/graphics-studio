@@ -73,7 +73,7 @@ Colours are names (`blue`, `orange`, `yellow`, `green`, `purple`, `ink`) or hex.
 | `timeline` | items:[{label, caption, color?}] | things over time (folders on an axis) |
 | `bigphrase` | word, phrase, img?, blob (true), align | big number/word + ink phrase |
 
-Frame-level (FSS): `decor:{doodleAt, tri1, tri2, starAt, dash1, dash2:{left|right|top|bottom}, doodle:false, star:false}` or `decor:false`; `blob:{x,y,w,h}`; `glow:{x,y,d}`.
+Frame-level (FSS): `decor:{tri1, tri2, starAt, dash1, dash2:{left|right|top|bottom}, star:false}` (no doodle any more) or `decor:false`; `blob:{x,y,w,h}`; `glow:{x,y,d}`.
 
 ## Items — anchor (osa / ost / tos)
 | t | keys | use for |

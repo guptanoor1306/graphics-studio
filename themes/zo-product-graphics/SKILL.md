@@ -1,6 +1,6 @@
 ---
 name: "zo-graphic-maker"
-description: "Make Zerodha Online explainer graphics (1920x1080, white grid + doodle look, or text over the presenter) from a short brief or a storyboard PDF, in batches, delivered in the layered Bulletin format."
+description: "Make Zerodha Online explainer graphics (1920x1080, white grid look in the Zerodha brand colours, or text over the presenter) from a short brief or a storyboard PDF, in batches, delivered in the layered Bulletin format."
 ---
 
 # ZO graphic maker: storyboard or brief → layered 1920×1080 graphics (Family Portfolio / Life cycle fund look)
@@ -28,7 +28,6 @@ Output: a zipped `<Video>_layers/` folder in the team's layered Bulletin format 
 
 ## The look (learned from 37 shipped frames, refined over 41 more)
 **Full-screen (FSS):** white background with a light 52px grid. Decor sits around the edges and never touches text:
-- a black hand-drawn loop doodle (often just left of the heading/hero)
 - two solid rounded triangles (purple / green / orange / yellow)
 - a grey 4-point star
 - an orange dash on the left and a short green dash on the right
@@ -36,27 +35,35 @@ Output: a zipped `<Video>_layers/` folder in the team's layered Bulletin format 
 Optional: a soft grey blob behind a hero object, or a pale yellow glow circle (#fff6d6) behind title text.
 
 **Type:** Inter, **weights 400/500/600/700 only**. 800 isn't embedded, so the export falls back and fails the diff.
-- Heading: 72px semibold, dark ink #1d2228, ≤6 words, **one** coloured keyword or number (blue or orange).
+- Heading: 72px semibold, dark ink #222222, ≤6 words, **one** coloured keyword or number (blue or orange).
 - Optional short thick underline bar (yellow, or purple) under centred headings. Only use it under short centred headings; under a long heading it lands mid-word.
 - Labels ≥34px, nothing under 26px.
 
-**Colours:** blue #387fd1 · orange #f07339 · yellow #fec02d · green #4dab4d · purple #a77bf3 · table highlight #ffd064 · loss rows #fde6e6 with #d23c3c text · interest/cost notes #fde3d6 with #c4521f text.
+**Colours: the Zerodha design guide only** (use these exact hex codes, never near-misses):
+- Primary: Zerodha Blue **#387ED1**, Sunshine Yellow **#FFA412**, White **#FFFFFF**, Deep Grey **#424242**. Blue (and white) carry most of every frame.
+- Secondary, used minimally to support the primary: green **#4CAF52**, yellow **#FFC02E**, orange **#F07339**, purple **#A984FF**.
+- Text: headings **#222222** (or #424242), body **#666666** / **#888888**, labels and micro text **#9B9B9B** / **#CCCCCC**. On dark or blue backgrounds: headings and body **#FFFFFF**, labels **#888888**.
+- Cards: fill #FFFFFF / #FAFAFB / #F5F5F7, stroke **#E7E7E7** 1px, radius 8 / 16 / 32px; shadows only on cards/backgrounds, darker than the background (#D5D5D5 or #2A64A9), at most 40% opacity and blur 16.
+- Subtle tints of these colours are fine (pale fills such as #E6F0FC, #FFF4D6, #FDE3D6); no darker shades, no other colours (no red: losses use orange), no gradients in illustrations.
+- Table highlight row #FFC02E; loss / interest / cost notes on #FDE3D6 with #F07339 text.
 - Pick 2–3 colours per frame.
 - Same thing = same colour across a video (e.g. "you pay" = blue/orange, "Zerodha funds" = yellow, interest = blue, brokerage = yellow).
 
 **Over the presenter (anchor):**
-- No panels and no lower-third bars. White text with a soft shadow, key words **yellow**, placed in the plate's text zone (never over the face).
+- No panels and no lower-third bars. White text (no text shadow: the plate shade keeps it readable, and Photoshop layers stay real text), key words **yellow**, placed in the plate's text zone (never over the face).
 - Formats: big title + thin underline (blue segment at left); white lead line + yellow fact; yellow box with dark bold text; pills; speech bubble; pill rail; one-line caption across the bottom.
-- Decor: only one orange triangle, one purple triangle and a white doodle (`zoDecor({dark:true,…})`).
+- Decor: only one orange triangle and one purple triangle (`zoDecor({dark:true,…})`). No squiggle doodle (taken out of the kit).
+- **No hard offset shadows** (`box-shadow:0 10px 0 <colour>`, the coloured "lip" under a card): it comes out of Make Layers as a Photoshop Drop Shadow, and the brand allows only soft card shadows (≤40% opacity, blur ≤16). Give the card a stroke (`border:3px solid <colour>`) instead. The app also strips them when it draws a frame.
+- A box with a see-through fill AND an outline becomes two Photoshop shapes merged into a Smart Object; for a plain shape layer give a box either a solid fill (with or without outline) or an outline only.
 
 ## Pattern → recipe
 | Beat | Recipe |
 |---|---|
-| Title / acronym card | small grey kicker ("MTF stands for") + yellow box (4px ink border, `box-shadow:0 12px 0 #1d2228`) with initials bold 700 and the rest 400 |
+| Title / acronym card | small grey kicker ("MTF stands for") + yellow box (4px ink border) with initials bold 700 and the rest 400 |
 | Question title ("1. Do I understand…") | 240px number + ".", two 84px lines with the key phrase blue, pale yellow glow circle behind the right half, short green dash below (`qtitle()` helper) |
 | Numbered 2–4 steps | `.step.blue/.orange/.yellow` (straight; no rotation on boxes holding text) |
 | Slab / schedule table | `.card` + `.dots` + `table.zt`, highlighted row `tr.hl`; left-aligned heading with coloured keyword + `.sub` line; ≤5 cols × 6 rows; cells 44px with 30px padding |
-| Chart + table example | left `.card` with an SVG line chart (gradient area fill, end-point circles), HTML axis labels, ₹ price tags with ink border, a "falls 10%" pill; right: stacked table rows (alternating #f6f7f9), loss rows red. Put the chart title above the top axis label so they don't collide |
+| Chart + table example | left `.card` with an SVG line chart (gradient area fill, end-point circles), HTML axis labels, ₹ price tags with ink border, a "falls 10%" pill; right: stacked table rows (alternating #FAFAFB), loss rows red. Put the chart title above the top axis label so they don't collide |
 | Split / funding bar | stock row (XYZ Ltd + outlined MTF tag) → two-colour bar with 4px ink border → icons + labels under each part → bracket SVG + "Total … ₹1,00,000"; optional interest tag sitting on the funded part |
 | Cost comparison over time | one row per option: name + "Lower" tag, sub-label with the pricing, stacked horizontal bar (interest blue + brokerage yellow) scaled to the max, total at the bar end, legend at the bottom |
 | Up vs down outcome | two panels split by a light divider; green bars rising from a baseline (left), orange bars hanging below one (right); value + caption above/below each bar, axis labels 34px and nowrap |
@@ -64,7 +71,7 @@ Optional: a soft grey blob behind a hero object, or a pale yellow glow circle (#
 | Allocation % | `zoPie(el,{size,pad,slices})` + centred heading + `.bar`; must sum to 100 |
 | One number to remember | `.fbox.hero` (blue card, 220px ₹0) beside an illustration on a `.blob`; "before" values as faded `.fbox` with an orange strike bar |
 | People / holders | two cards with a line-face icon in a coloured circle, label, big coloured value, grey note |
-| Category / list of items | white cards with coloured bottom shadow (`box-shadow:0 10px 0 -2px <colour>`) + icon circle + 52px label, 2×2 grid |
+| Category / list of items | white cards with a 3px coloured stroke (`border:3px solid <colour>`) + icon circle + 52px label, 2×2 grid |
 | Checklist of charges | `.card` with rows of blue tick-circle SVG + 46px label, illustration on the left |
 | Decision options | source card (orange border) → arrow → "Decide before you enter" + 2×2 numbered option boxes (badge `flex-shrink:0`, label 34px nowrap, box ≥450px) |
 | Build list ("Will you…") | items stacked, the active one 84px with a blue chevron circle, the others 64px at .35 opacity |
@@ -72,7 +79,7 @@ Optional: a soft grey blob behind a hero object, or a pale yellow glow circle (#
 | Options / categories | stacked `.pill` (active colour, next yellow, rest `.faded`) |
 | Things over time | `.axis` line, `.folder`s on it, captions below |
 | Important note | `.note-tab` + `.note-body` (orange) |
-| Big phrase | huge blue word + doodle + illustration + ink phrase |
+| Big phrase | huge blue word + illustration + ink phrase |
 | Over presenter | see Over-presenter recipes below |
 
 Draw icons as simple inline SVG line art (2–6px ink strokes, flat blue/orange/yellow fills): wallet, money bag with ₹, calendar, coin stack, parcel, price tag, gift, balance scale, growth bars, warning triangle, down arrow, chevron, tick. No emoji, no real logos (Zerodha/Kite/Coin names in text are fine).
@@ -91,7 +98,7 @@ The shade is a real named div (`Plate shade`), never `::after`.
 - **Speech bubble:** a white rounded rect (radius 40, shadow), an SVG tail and a white `?` beside it. Small grey line ("How do I use it?") over a 92px blue bold line ("Should I use it?").
 - **Big word:** 64px lead ("So"), a 240px yellow 700 word ("MTF"), then a 72px two-line ending, with green up-arrows above.
 - **Caption line:** a yellow arrow-circle icon + 72px yellow sentence, with a 52px white follow-up line below, centred in the bottom zone.
-- **Pill rail:** a white lead line, a thin white vertical rail with a blue active segment, and pills in a flex column (gap 34). The active pill is filled blue; the others have a #6fa3e0 outline on rgba(0,0,0,.25).
+- **Pill rail:** a white lead line, a thin white vertical rail with a blue active segment, and pills in a flex column (gap 34). The active pill is filled blue; the others have a #74A5DF outline on rgba(0,0,0,.25).
 - **Title + relation:** a 96px title with a yellow keyword, a thin underline, then a pill → arrow → orange pill ("Longer hold → More interest"), with a 48px note below.
 
 Plates are always **stand-ins** unless the user gives a still. Say so, and note it in `spec.json` notes.
@@ -102,7 +109,7 @@ Plates are always **stand-ins** unless the user gives a still. Say so, and note 
 - Never use `line-height:0` or `<br>` to stack inline-block pills. Use a flex column with `gap`.
 - A chart's top axis label collides with the chart title. Put the title ≥40px above the plot.
 - Table row labels wrap ("Borrowed amount owed"). Use nowrap at 36px and widen the table.
-- Decor: always pass explicit `doodleAt/tri1/tri2/starAt/dash1/dash2` per frame, and recheck that the doodle and dashes don't touch the heading, cards or table.
+- Decor: always pass explicit `tri1/tri2/starAt/dash1/dash2` per frame, and recheck that the dashes don't touch the heading, cards or table. No doodle.
 - Big numbers inside donuts/cards: size them to fit (e.g. 116px inside a 400px donut hole).
 
 ## Step 1: set up the kit (once per session)
@@ -115,8 +122,8 @@ Plates are always **stand-ins** unless the user gives a still. Say so, and note 
 ### zo.css
 ```css
 /* ZO graphics kit — v2 white-grid look. 1920x1080. */
-:root{--blue:#387fd1;--orange:#f07339;--yellow:#fec02d;--green:#4dab4d;--purple:#a77bf3;
---ink:#1d2228;--grey:#8a8f96;--line:#ececec;--blob:#f2f2f2;--hl:#ffd064;--tint:#fff3d6;}
+:root{--blue:#387ED1;--orange:#f07339;--yellow:#FFC02E;--green:#4CAF52;--purple:#A984FF;
+--ink:#222222;--grey:#888888;--line:#E7E7E7;--blob:#F5F5F7;--hl:#FFC02E;--tint:#fff3d6;}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:1920px;height:1080px;overflow:hidden}
 body{font-family:Inter,'Inter Display',sans-serif;color:var(--ink);position:relative;background:#fff}
@@ -145,12 +152,12 @@ body{font-family:Inter,'Inter Display',sans-serif;color:var(--ink);position:rela
 .blob{position:absolute;background:var(--blob);border-radius:46% 54% 60% 40%/50% 42% 58% 50%;z-index:0}
 /* steps (tilted stickers) */
 .step{position:relative;width:740px;min-height:150px;border-radius:30px;display:flex;align-items:center;gap:34px;
- padding:20px 60px 20px 36px;font-size:34px;line-height:1.3;border:3px solid var(--ink);box-shadow:0 8px 0 var(--ink)}
+ padding:20px 60px 20px 36px;font-size:34px;line-height:1.3;border:3px solid var(--ink);}
 .step .n{font-size:96px;font-weight:500;min-width:60px}
 .step::after{content:"";position:absolute;right:22px;top:50%;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--ink)}
 .step.blue{background:var(--blue);color:#fff}.step.orange{background:var(--orange);color:#fff}.step.yellow{background:var(--yellow)}
 /* card / window */
-.card{background:#fff;border:2px solid #cfd2d6;border-radius:18px;box-shadow:0 10px 0 -2px var(--yellow)}
+.card{background:#fff;border:2px solid #CCCCCC;border-radius:18px;}
 .card.plain{box-shadow:none}
 .dots{position:absolute;top:16px;left:22px;display:flex;gap:7px}
 .dots i{width:11px;height:11px;border-radius:50%;background:var(--orange)} .dots i:nth-child(n+2){background:var(--yellow)}
@@ -159,7 +166,7 @@ table.zt{border-collapse:collapse;width:100%;font-size:30px}
 .zt th{font-size:38px;font-weight:600;padding:26px 20px 10px;text-align:center}
 .zt th small{display:block;font-size:20px;font-weight:400;color:#444;margin-top:8px}
 .zt td{padding:16px 20px;text-align:center}
-.zt td+td,.zt th+th{border-left:2px solid #e3e3e3}
+.zt td+td,.zt th+th{border-left:2px solid #E7E7E7}
 .zt tr.hl td{background:var(--hl);font-weight:600;font-size:34px}
 .zt.left td:first-child,.zt.left th:first-child{text-align:left}
 /* note */
@@ -184,7 +191,7 @@ table.zt{border-collapse:collapse;width:100%;font-size:30px}
 .ring::before{content:"";position:absolute;inset:0;border:3px solid var(--orange);border-radius:50%;transform:rotate(-3deg)}
 .ring::after{content:"";position:absolute;inset:-6px 4px 6px -4px;border-top:3px solid var(--orange);border-radius:50%;transform:rotate(2deg)}
 /* presenter overlay text */
-.ov{color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.45);font-weight:600}
+.ov{color:#fff;font-weight:600}
 .ov .y{color:var(--yellow)}
 .ov-title{font-size:150px;letter-spacing:-2px;line-height:1}
 .ov-line{height:4px;background:linear-gradient(90deg,var(--blue) 0 18%,rgba(255,255,255,.8) 18%);border-radius:4px;margin-top:14px;position:relative}
@@ -192,10 +199,10 @@ table.zt{border-collapse:collapse;width:100%;font-size:30px}
 /* coin-style fund card */
 .fund{width:600px;background:#fff;border-radius:28px;padding:36px;font-size:24px;color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.25)}
 .fund .tag{position:absolute;top:-56px;left:0;background:var(--yellow);border-radius:10px 10px 0 0;padding:8px 18px;font-size:30px;font-weight:600}
-.fund .stats{background:#f4f5f7;border-radius:16px;padding:22px 24px;display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px 0}
+.fund .stats{background:#F5F5F7;border-radius:16px;padding:22px 24px;display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px 0}
 .fund .stats span{display:block;color:#777;font-size:19px}.fund .stats b{font-size:28px}
-.fund .btn{background:#15181c;color:#fff;border-radius:12px;text-align:center;padding:20px;font-weight:600;font-size:24px}
-.chip{display:inline-block;background:#e4f6ea;color:#1f8a4c;border-radius:20px;padding:4px 14px;font-size:18px}
+.fund .btn{background:#222222;color:#fff;border-radius:12px;text-align:center;padding:20px;font-weight:600;font-size:24px}
+.chip{display:inline-block;background:#e4f6ea;color:#4CAF52;border-radius:20px;padding:4px 14px;font-size:18px}
 /* layered-export overrides: plain grid like the Bulletin files */
 .grid{background-color:#fff;background-image:linear-gradient(rgb(242,242,242) 1.5px,transparent 1.5px),linear-gradient(90deg,rgb(242,242,242) 1.5px,transparent 1.5px);background-size:52px 52px;background-position:-6px -6px}
 #decor,#content{position:absolute;inset:0}
@@ -212,16 +219,15 @@ function zoDecor(o={}){
  const add=(name,html,css)=>{const d=document.createElement('div');d.setAttribute('data-name',name);d.style.position='absolute';d.innerHTML=html;Object.assign(d.style,css);host.appendChild(d)};
  const doodle=c=>`<svg width="150" height="90" viewBox="0 0 150 90"><path d="M6 40c18-26 26-36 18-34-8 2-12 34 6 34s20-24 12-22-6 26 12 26 18-22 12-20-4 26 14 26 18-18 12-16-2 22 18 30" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round"/></svg>`;
  const tri=(c,rot,sz)=>`<svg width="${sz}" height="${sz}" viewBox="0 0 40 40"><path d="M8 6 L36 20 L8 34 Z" fill="${c}" stroke="${c}" stroke-width="5" stroke-linejoin="round" transform="rotate(${rot} 20 20)"/></svg>`;
- const star=`<svg width="70" height="70" viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16Z" fill="#c9cbcf" transform="rotate(20 20 20)"/></svg>`;
- const cols=['#a77bf3','#4dab4d','#f07339','#fec02d'];
- if(o.doodle!==false) add('Squiggle',doodle(dark?'#fff':'#1d2228'),o.doodleAt||{left:'210px',top:'110px'});
+ const star=`<svg width="70" height="70" viewBox="0 0 40 40"><path d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16Z" fill="#CCCCCC" transform="rotate(20 20 20)"/></svg>`;
+ const cols=['#A984FF','#4CAF52','#f07339','#FFC02E'];
  const c1=cols[Math.floor(r(1)*4)], c2=cols[(Math.floor(r(1)*4)+1+Math.floor(r(2)*3))%4];
  add('Triangle',tri(dark?'#f07339':c1,Math.floor(r(3)*360),dark?60:56),o.tri1||{right:'250px',top:'150px'});
- add('Triangle',tri(dark?'#a77bf3':c2,Math.floor(r(4)*360),dark?64:80),o.tri2||{left:'230px',bottom:'170px'});
+ add('Triangle',tri(dark?'#A984FF':c2,Math.floor(r(4)*360),dark?64:80),o.tri2||{left:'230px',bottom:'170px'});
  if(!dark){
   if(o.star!==false) add('Sparkle',star,o.starAt||{right:'230px',bottom:'130px'});
   add('Dash','<div style="width:64px;height:10px;border-radius:10px;background:#f07339"></div>',o.dash1||{left:'180px',top:'46%'});
-  add('Dash','<div style="width:58px;height:6px;border-radius:6px;background:#4dab4d"></div>',o.dash2||{right:'170px',top:'20%'});
+  add('Dash','<div style="width:58px;height:6px;border-radius:6px;background:#4CAF52"></div>',o.dash2||{right:'170px',top:'20%'});
  }
 }
 // Pie: zoPie(el,{size,pad,slices:[{v,color,label,stroke,text}]}) — SVG slices + HTML % and labels (exporter-safe).
@@ -233,7 +239,7 @@ function zoPie(el,o){const R=o.size/2,cx=R+o.pad,cy=R+o.pad,W=o.size+2*o.pad;let
   svg+=`<path d="M${cx} ${cy}L${x1} ${y1}A${R} ${R} 0 ${sw>180?1:0} 1 ${x2} ${y2}Z" fill="${s.color}" stroke="${s.stroke||'#fff'}" stroke-width="2"/>`;
   const big=s.v>=30,sm=s.v<8,[tx,ty]=P(m,R*(big?.55:sm?.8:.66));
   lab+=T(tx,ty,s.v+'%',big?110:sm?40:56,s.text||'#fff','middle','Value / '+(s.label||i+1));
-  if(s.label){const[lx,ly]=P(m,R+50),c=Math.cos(m*Math.PI/180);lab+=T(lx,ly,s.label,44,'#1d2228',c>0.2?'start':c<-0.2?'end':'middle','Label / '+s.label)}
+  if(s.label){const[lx,ly]=P(m,R+50),c=Math.cos(m*Math.PI/180);lab+=T(lx,ly,s.label,44,'#222222',c>0.2?'start':c<-0.2?'end':'middle','Label / '+s.label)}
   a+=sw});
  el.style.width=W+'px';el.style.height=W+'px';
  el.innerHTML=`<svg data-name="Slices" style="position:absolute;left:0;top:0" width="${W}" height="${W}" viewBox="0 0 ${W} ${W}">${svg}</svg>`+lab}
@@ -241,23 +247,23 @@ function zoPie(el,o){const R=o.size/2,cx=R+o.pad,cy=R+o.pad,W=o.size+2*o.pad;let
 
 ### extra.css
 ```css
-.pos{background:#fff;border:3px solid var(--blue);border-radius:22px;padding:30px 40px;box-shadow:0 10px 0 -2px var(--blue)}
+.pos{background:#fff;border:3px solid var(--blue);border-radius:22px;padding:30px 40px;}
 .row{display:flex;align-items:center;justify-content:space-between;gap:30px}
 .tk{display:flex;align-items:center;gap:18px;font-weight:700;font-size:44px;letter-spacing:.5px}
 .ic{width:56px;height:56px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center}
-.lbl{font-size:36px;color:#5b6168}
+.lbl{font-size:36px;color:#666666}
 .up{color:var(--green);font-weight:600}
 .tagc{display:inline-block;border-radius:12px;padding:8px 22px;font-size:34px;font-weight:600}
-.watch{background:#fff;border:2px solid #cfd2d6;border-radius:18px;padding:30px 40px}
+.watch{background:#fff;border:2px solid #CCCCCC;border-radius:18px;padding:30px 40px}
 .cursor{position:absolute;width:60px}
-.fbox{border-radius:24px;padding:30px 40px;text-align:center;background:#fff;border:3px solid #cfd2d6;min-width:300px}
+.fbox{border-radius:24px;padding:30px 40px;text-align:center;background:#fff;border:3px solid #CCCCCC;min-width:300px}
 .fbox b{display:block;font-size:72px;font-weight:700;letter-spacing:-1px}
-.fbox span{font-size:36px;color:#5b6168}
+.fbox span{font-size:36px;color:#666666}
 .fbox.hero{background:var(--blue);border-color:var(--blue);color:#fff}.fbox.hero span{color:#e3edf9}
 .op{font-size:76px;font-weight:500;color:var(--ink)}
 .barrow{margin:40px 0}
 .barrow .row{font-size:44px;font-weight:600;margin-bottom:18px}
-.track{height:64px;border-radius:40px;background:#eef0f2;position:relative;overflow:hidden}
+.track{height:64px;border-radius:40px;background:#F5F5F7;position:relative;overflow:hidden}
 .fill{position:absolute;left:0;top:0;bottom:0;border-radius:40px}
 ```
 
@@ -286,10 +292,10 @@ def heading(parts,top=120,center=True,bar=True):   # parts=[('text ',''),('keywo
     if center: return f'<div class="center" data-name="Heading" style="top:{top}px;text-align:center"><div class="h" data-name="Heading text">{spans}</div>{b}</div>'
     return f'<div class="abs" data-name="Heading" style="left:300px;top:{top}px"><div class="h" data-name="Heading text">{spans}</div></div>'
 DOTS='<div class="dots" data-name="Window dots"><div data-name="Dot"></div><div data-name="Dot"></div><div data-name="Dot"></div></div>'
-def tick(s=56,c='#387fd1'):
+def tick(s=56,c='#387ED1'):
     return f'<svg data-name="Tick" width="{s}" height="{s}" viewBox="0 0 60 60"><circle cx="30" cy="30" r="30" fill="{c}"/><path d="M17 31 L26 40 L44 21" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 ```
-Decor call example: `"{seed:4,doodleAt:{left:'200px',top:'280px'},tri1:{right:'130px',top:'170px'},tri2:{left:'170px',bottom:'110px'},starAt:{right:'130px',bottom:'90px'},dash1:{left:'120px',top:'60%'},dash2:{right:'130px',top:'45%'}}"`. Over the presenter: `"{seed:1,dark:true,doodleAt:{...},tri1:{...},tri2:{...}}"`.
+Decor call example: `"{seed:4,tri1:{right:'130px',top:'170px'},tri2:{left:'170px',bottom:'110px'},starAt:{right:'130px',bottom:'90px'},dash1:{left:'120px',top:'60%'},dash2:{right:'130px',top:'45%'}}"`. Over the presenter: `"{seed:1,dark:true,tri1:{...},tri2:{...}}"`.
 
 Source rules (the exporter depends on them):
 - Body = grid + `#decor` + `#content` + the `zoDecor(...)` script, or the plate + shade + `#content` + `#decor` over the presenter.
