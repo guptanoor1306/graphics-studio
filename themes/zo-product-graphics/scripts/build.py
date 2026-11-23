@@ -702,7 +702,7 @@ def people(i):
 
 def catgrid(i):
     items = i['items']; c3 = ' c3' if len(items) in (3, 6) else ''
-    out = ''.join(f'<div class="c" style="box-shadow:0 10px 0 -2px {_c(it.get("color"), CYCLE[k % 5])}">'
+    out = ''.join(f'<div class="c" style="border:3px solid {_c(it.get("color"), CYCLE[k % 5])}">'
                   f'<div class="ic" style="background:{TINT.get(it.get("color", CYCLE[k % 5]), "#EEF3FB")}">{any_img(it.get("icon"), 78)}</div>{md(it["label"])}</div>'
                   for k, it in enumerate(items))
     return f'<div class="v2-cat{c3}">{out}</div>'
@@ -977,8 +977,15 @@ BRAND_HEX = {'387FD1': '387ED1', '4993E9': '387ED1', '4184F3': '387ED1', 'FEC02D
 _BRAND_RE = re.compile(r"#(" + "|".join(BRAND_HEX) + r")\b", re.I)
 
 
+_HARD_SHADOW = re.compile(r"box-shadow\s*:\s*0(?:px)?\s+[1-9]\d*(?:px)?\s+0(?:px)?(?:\s+-?\d+px)?\s+(var\([^)]*\)|#[0-9A-Fa-f]{3,8}|rgba?\([^)]*\))\s*;?", re.I)
+
+
 def brand_hex(s):
-    return _BRAND_RE.sub(lambda m: "#" + BRAND_HEX[m.group(1).upper()], s) if isinstance(s, str) else s
+    """Brand colours, and no hard offset shadows: a card's coloured "lip" (box-shadow:0 10px 0 colour) came out of
+    Make Layers as a Photoshop Drop Shadow effect; the brand allows only soft card shadows, so the card keeps its stroke."""
+    if not isinstance(s, str):
+        return s
+    return _HARD_SHADOW.sub("", _BRAND_RE.sub(lambda m: "#" + BRAND_HEX[m.group(1).upper()], s))
 
 
 def html_frame(f, look=None, edit=False):

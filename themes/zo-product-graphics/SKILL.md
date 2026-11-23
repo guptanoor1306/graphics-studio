@@ -53,12 +53,13 @@ Optional: a soft grey blob behind a hero object, or a pale yellow glow circle (#
 - No panels and no lower-third bars. White text (no text shadow: the plate shade keeps it readable, and Photoshop layers stay real text), key words **yellow**, placed in the plate's text zone (never over the face).
 - Formats: big title + thin underline (blue segment at left); white lead line + yellow fact; yellow box with dark bold text; pills; speech bubble; pill rail; one-line caption across the bottom.
 - Decor: only one orange triangle and one purple triangle (`zoDecor({dark:true,…})`). No squiggle doodle (taken out of the kit).
+- **No hard offset shadows** (`box-shadow:0 10px 0 <colour>`, the coloured "lip" under a card): it comes out of Make Layers as a Photoshop Drop Shadow, and the brand allows only soft card shadows (≤40% opacity, blur ≤16). Give the card a stroke (`border:3px solid <colour>`) instead. The app also strips them when it draws a frame.
 - A box with a see-through fill AND an outline becomes two Photoshop shapes merged into a Smart Object; for a plain shape layer give a box either a solid fill (with or without outline) or an outline only.
 
 ## Pattern → recipe
 | Beat | Recipe |
 |---|---|
-| Title / acronym card | small grey kicker ("MTF stands for") + yellow box (4px ink border, `box-shadow:0 12px 0 #222222`) with initials bold 700 and the rest 400 |
+| Title / acronym card | small grey kicker ("MTF stands for") + yellow box (4px ink border) with initials bold 700 and the rest 400 |
 | Question title ("1. Do I understand…") | 240px number + ".", two 84px lines with the key phrase blue, pale yellow glow circle behind the right half, short green dash below (`qtitle()` helper) |
 | Numbered 2–4 steps | `.step.blue/.orange/.yellow` (straight; no rotation on boxes holding text) |
 | Slab / schedule table | `.card` + `.dots` + `table.zt`, highlighted row `tr.hl`; left-aligned heading with coloured keyword + `.sub` line; ≤5 cols × 6 rows; cells 44px with 30px padding |
@@ -70,7 +71,7 @@ Optional: a soft grey blob behind a hero object, or a pale yellow glow circle (#
 | Allocation % | `zoPie(el,{size,pad,slices})` + centred heading + `.bar`; must sum to 100 |
 | One number to remember | `.fbox.hero` (blue card, 220px ₹0) beside an illustration on a `.blob`; "before" values as faded `.fbox` with an orange strike bar |
 | People / holders | two cards with a line-face icon in a coloured circle, label, big coloured value, grey note |
-| Category / list of items | white cards with coloured bottom shadow (`box-shadow:0 10px 0 -2px <colour>`) + icon circle + 52px label, 2×2 grid |
+| Category / list of items | white cards with a 3px coloured stroke (`border:3px solid <colour>`) + icon circle + 52px label, 2×2 grid |
 | Checklist of charges | `.card` with rows of blue tick-circle SVG + 46px label, illustration on the left |
 | Decision options | source card (orange border) → arrow → "Decide before you enter" + 2×2 numbered option boxes (badge `flex-shrink:0`, label 34px nowrap, box ≥450px) |
 | Build list ("Will you…") | items stacked, the active one 84px with a blue chevron circle, the others 64px at .35 opacity |
@@ -151,12 +152,12 @@ body{font-family:Inter,'Inter Display',sans-serif;color:var(--ink);position:rela
 .blob{position:absolute;background:var(--blob);border-radius:46% 54% 60% 40%/50% 42% 58% 50%;z-index:0}
 /* steps (tilted stickers) */
 .step{position:relative;width:740px;min-height:150px;border-radius:30px;display:flex;align-items:center;gap:34px;
- padding:20px 60px 20px 36px;font-size:34px;line-height:1.3;border:3px solid var(--ink);box-shadow:0 8px 0 var(--ink)}
+ padding:20px 60px 20px 36px;font-size:34px;line-height:1.3;border:3px solid var(--ink);}
 .step .n{font-size:96px;font-weight:500;min-width:60px}
 .step::after{content:"";position:absolute;right:22px;top:50%;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--ink)}
 .step.blue{background:var(--blue);color:#fff}.step.orange{background:var(--orange);color:#fff}.step.yellow{background:var(--yellow)}
 /* card / window */
-.card{background:#fff;border:2px solid #CCCCCC;border-radius:18px;box-shadow:0 10px 0 -2px var(--yellow)}
+.card{background:#fff;border:2px solid #CCCCCC;border-radius:18px;}
 .card.plain{box-shadow:none}
 .dots{position:absolute;top:16px;left:22px;display:flex;gap:7px}
 .dots i{width:11px;height:11px;border-radius:50%;background:var(--orange)} .dots i:nth-child(n+2){background:var(--yellow)}
@@ -246,7 +247,7 @@ function zoPie(el,o){const R=o.size/2,cx=R+o.pad,cy=R+o.pad,W=o.size+2*o.pad;let
 
 ### extra.css
 ```css
-.pos{background:#fff;border:3px solid var(--blue);border-radius:22px;padding:30px 40px;box-shadow:0 10px 0 -2px var(--blue)}
+.pos{background:#fff;border:3px solid var(--blue);border-radius:22px;padding:30px 40px;}
 .row{display:flex;align-items:center;justify-content:space-between;gap:30px}
 .tk{display:flex;align-items:center;gap:18px;font-weight:700;font-size:44px;letter-spacing:.5px}
 .ic{width:56px;height:56px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center}

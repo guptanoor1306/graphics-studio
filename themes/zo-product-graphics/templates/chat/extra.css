@@ -1,4 +1,4 @@
-.pos{background:#fff;border:3px solid var(--blue);border-radius:22px;padding:30px 40px;box-shadow:0 10px 0 -2px var(--blue)}
+.pos{background:#fff;border:3px solid var(--blue);border-radius:22px;padding:30px 40px;}
 .row{display:flex;align-items:center;justify-content:space-between;gap:30px}
 .tk{display:flex;align-items:center;gap:18px;font-weight:700;font-size:44px;letter-spacing:.5px}
 .ic{width:56px;height:56px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center}
