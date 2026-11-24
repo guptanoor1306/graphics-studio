@@ -1507,6 +1507,10 @@ async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
+    if is_mf_theme_name(p["theme"]) and claude_client.mf_picture_issues(spec):
+        _progress(pid, run, stage="checking", msg="Redrawing charts as kit graphics…")
+        spec = (await asyncio.to_thread(
+            claude_client.mf_fix_pictures, THEMES / p["theme"], {"spec": spec, "storyboard": storyboard}, script))["spec"]
     prog = str(out.get("pdf_progress") or "")
     spec["pdf_progress"] = prog
     spec["pdf_done"] = prog.strip().lower() in ("done", "complete", "finished")

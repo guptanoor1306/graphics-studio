@@ -531,6 +531,10 @@ def _qa_on() -> bool:
 def make_one(theme: str, desc: str, force: bool = False) -> tuple[str, str, str]:
     """(path, source, note) for one description: library → Gemini (+ Claude style check, one retry)
     → Claude SVG. Raises if all fail."""
+    if theme == "varsity-mf-graphics":
+        from claude_client import _DATAVIZ_RE
+        if _DATAVIZ_RE.search(desc):
+            raise RuntimeError("charts and numbers are drawn as kit graphics (html), not pictures — regenerate this frame")
     if not force:
         hit = lookup(theme, desc)
         if hit:
