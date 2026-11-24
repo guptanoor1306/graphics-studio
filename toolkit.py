@@ -192,80 +192,105 @@ def pdf_lines(raw: bytes) -> list[str]:
 
 
 # ---------------------------------------------------------------- PSD -> template
+# Imported as is: every layer that is not text is the PSD's own pixels (rendered by psd-tools, effects included) at
+# its exact place, so shapes, icons, cursors and strokes look exactly like Photoshop. Only text layers are rebuilt as
+# live text (font, size, weight, colour, tracking, coloured words) so their words can be changed.
+INTER_ASC, INTER_H = 0.96875, 1.2109375          # Inter's ascent and content height (em): baseline placement
+WEIGHTS = (("thin", 100), ("extralight", 200), ("ultralight", 200), ("light", 300), ("regular", 400), ("book", 400),
+           ("medium", 500), ("semibold", 600), ("demibold", 600), ("extrabold", 800), ("ultrabold", 800),
+           ("bold", 700), ("black", 900), ("heavy", 900))
+
+
+def _font_css(ps_name: str) -> tuple[str, int, bool]:
+    n = str(ps_name or "").strip("'\"\x00")
+    fam, _, style = n.partition("-")
+    st = style.lower().replace(" ", "")
+    w = next((v for k, v in WEIGHTS if k in st), 400)
+    fam = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", fam)
+    fam = re.sub(r"\s*(PSMT|PS|MT|Std|Pro)$", "", fam).strip() or "Inter"
+    return fam, w, "italic" in st or "oblique" in st
+
+
 def psd_to_template(raw: bytes, theme: str, tk_frames: list, store) -> dict:
-    """A template from a layered PSD: the biggest picture layer at the bottom is the presenter photo; text layers
-    become editable text; shape layers become boxes; other picture layers become pictures. `store(desc, bytes, ext)`
-    saves a picture and returns its asset path."""
+    """A template from a layered PSD. `store(desc, bytes, ext)` saves a picture and returns its asset path."""
     import io
+    from PIL import Image
     from psd_tools import PSDImage
     psd = PSDImage.open(io.BytesIO(raw))
     W, H = psd.width, psd.height
     sx, sy = 1920 / W, 1080 / H
-    layers = [l for l in psd.descendants() if l.is_visible() and not l.is_group()]
+    full = (0, 0, W, H)
+    layers = [l for l in psd.descendants() if not l.is_group() and l.is_visible()]
     if not layers:
         raise ValueError("the PSD has no visible layers")
-    area = lambda l: max(0, (l.bbox[2] - l.bbox[0])) * max(0, (l.bbox[3] - l.bbox[1]))
-    from PIL import Image
-    # the photo: the full-frame picture layers at the bottom (background colour, presenter photo, a shade over it)
+    area = lambda l: max(0, l.bbox[2] - l.bbox[0]) * max(0, l.bbox[3] - l.bbox[1])
+
+    def render(l):
+        """The layer alone on a transparent canvas the size of the PSD, effects included."""
+        im = None
+        try:
+            im = l.composite(viewport=full)
+        except Exception:
+            im = None
+        if im is None:
+            try:
+                px = l.topil()
+                if px is not None:
+                    im = Image.new("RGBA", (W, H), (0, 0, 0, 0)); im.paste(px.convert("RGBA"), l.offset)
+            except Exception:
+                im = None
+        return im.convert("RGBA") if im is not None else None
+
     base = []
-    for l in layers:                          # bottom to top
-        if l.kind in ("pixel", "smartobject", "solidcolorfill", "gradientfill", "patternfill") and area(l) >= 0.6 * W * H:
+    for l in layers:                          # bottom to top: the full-frame background layers
+        if l.kind != "type" and area(l) >= 0.6 * W * H:
             base.append(l)
         else:
             break
-    photo = base[-1] if base else None
     photo_rel = None
     if base:
         canvas = Image.new("RGBA", (W, H), (17, 17, 17, 255))
         for l in base:
-            im = (l.composite() if hasattr(l, "composite") else l.topil()).convert("RGBA")
-            layer = Image.new("RGBA", (W, H), (0, 0, 0, 0)); layer.paste(im, (l.bbox[0], l.bbox[1]))
-            canvas = Image.alpha_composite(canvas, layer)
-        canvas = canvas.convert("RGB").resize((1920, 1080))
-        b = io.BytesIO(); canvas.save(b, "JPEG", quality=90)
-        photo_rel = store(f"toolkit psd photo {len(raw)} {photo.name}", b.getvalue(), "jpg")
+            im = render(l)
+            if im is not None:
+                canvas = Image.alpha_composite(canvas, im)
+        canvas = canvas.convert("RGB").resize((1920, 1080), Image.LANCZOS)
+        b = io.BytesIO(); canvas.save(b, "JPEG", quality=92)
+        photo_rel = store(f"toolkit psd photo {len(raw)} {base[-1].name}", b.getvalue(), "jpg")
     parts, ink = [], []
-    for l in layers:
+    for n, l in enumerate(layers):
         if l in base:
             continue
-        x0, y0, x1, y1 = l.bbox
-        if x1 <= x0 or y1 <= y0:
-            continue
-        L, T, Wd, Ht = round(x0 * sx), round(y0 * sy), round((x1 - x0) * sx), round((y1 - y0) * sy)
         raw_name = re.sub(r"[<>]", "", (l.name or "").replace("'", "’")).strip()
-        kind = "Text" if l.kind == "type" else "Shape" if l.kind == "shape" else "Picture"
-        name = f"{kind}: {raw_name or kind}"[:60]   # the editor's layer list shows the kind and the PSD layer's name
         if l.kind == "type":
-            t = _type_info(l)
-            txt = (t["text"] or "").replace("\r", "\n").strip()
-            if not txt:
-                continue
-            body = "<br>".join(_esc(s) for s in txt.split("\n"))
-            parts.append(f"<div class='abs' data-name='{name}' style='left:{L}px;top:{T}px;font-size:{round(t['size'] * sy)}px;"
-                         f"font-weight:{t['weight']};color:{t['color']};line-height:1.15;white-space:nowrap'>{body}</div>")
-            ink.append((L, Wd))
-        elif l.kind == "shape":
-            fill, stroke, sw = _shape_info(l)
-            r = min(Ht // 2, 24)
-            st = f"left:{L}px;top:{T}px;width:{Wd}px;height:{Ht}px;border-radius:{r}px;background:{fill or 'transparent'}"
-            if stroke:
-                st += f";border:{max(1, round(sw * sx))}px solid {stroke};box-sizing:border-box"
-            parts.append(f"<div class='abs' data-name='{name}' style='{st}'></div>")
-        else:
-            im = l.composite() if hasattr(l, "composite") else l.topil()
-            if im is None:
-                continue
-            b = io.BytesIO(); im.save(b, "PNG")
-            rel = store(f"toolkit psd layer {len(raw)} {l.name} {x0},{y0}", b.getvalue(), "png")
-            parts.append(f"<img class='abs' data-name='{name}' src='../assets/{rel}' style='left:{L}px;top:{T}px;width:{Wd}px;height:{Ht}px'>")
-            ink.append((L, Wd))
-    # which side is the presenter on? words on the left -> presenter on the right
-    mid = sum(x + w / 2 for x, w in ink) / len(ink) if ink else 400
+            h, x = _text_html(l, sx, sy, raw_name)
+            if h:
+                parts.append(h); ink.append(x)
+            continue
+        im = render(l)
+        if im is None:
+            continue
+        bb = im.getbbox()
+        if not bb:
+            continue
+        crop = im.crop(bb)
+        L, T = round(bb[0] * sx), round(bb[1] * sy)
+        Wd, Ht = max(1, round((bb[2] - bb[0]) * sx)), max(1, round((bb[3] - bb[1]) * sy))
+        if (sx, sy) != (1, 1):
+            crop = crop.resize((Wd, Ht), Image.LANCZOS)
+        b = io.BytesIO(); crop.save(b, "PNG", optimize=True)
+        rel = store(f"toolkit psd layer {len(raw)} {n} {l.name}", b.getvalue(), "png")
+        kind = "Shape" if l.kind == "shape" else "Picture"
+        name = f"{kind}: {raw_name or kind}"[:60]
+        parts.append(f"<img class='abs' data-name='{name}' src='../assets/{rel}' style='left:{L}px;top:{T}px;width:{Wd}px;height:{Ht}px'>")
+        ink.append(L + Wd / 2)
+    mid = sum(ink) / len(ink) if ink else 400
     plate = "m2_right" if mid < 960 else "m2_left"
-    f = {"id": next_id(tk_frames, "t"), "name": "", "mode": "osa" if photo_rel else "fss", "decor": False,
+    f = {"id": next_id(tk_frames, "t"), "name": "", "mode": "osa" if photo_rel else "fss", "decor": False, "as_is": True,
          "html": "".join(parts)}
     if photo_rel:
         f["plate"], f["plate_img"] = plate, photo_rel
+        f["shade"] = "display:none"      # the PSD's own look: no extra shade over its background
     return f
 
 
@@ -285,50 +310,96 @@ def _rgb(c) -> str | None:
         return None
 
 
-def _type_info(l) -> dict:
-    out = {"text": getattr(l, "text", "") or "", "size": 48.0, "color": "#FFFFFF", "weight": 600}
+def _text_html(l, sx, sy, raw_name):
+    """A PSD text layer as live text: runs keep their own colour/size/weight; placed on the PSD's baseline."""
     try:
         ed = l.engine_dict
-        rs = ed["StyleRun"]["RunArray"][0]["StyleSheet"]["StyleSheetData"]
-        size = float(rs.get("FontSize", 48))
-        try:
-            t = l.transform     # (xx, xy, yx, yy, tx, ty): text scaled by its transform
-            size *= abs(float(t[3])) or 1.0
-        except Exception:
-            pass
-        out["size"] = size
-        fc = rs.get("FillColor", {}).get("Values")
-        if fc is not None:
-            out["color"] = _rgb(list(fc)) or out["color"]
+        tv = ed["Editor"]["Text"]
+        text = str(getattr(tv, "value", tv)).replace("\r", "\n").rstrip("\n")
+        runs = ed["StyleRun"]
+        lens = [int(x) for x in runs["RunLengthArray"]]
+        sheets = [r["StyleSheet"]["StyleSheetData"] for r in runs["RunArray"]]
         fonts = l.resource_dict["FontSet"]
-        fi = int(rs.get("Font", 0))
-        fname = str(fonts[fi]["Name"]).strip("'\"\x00").lower()
-        out["weight"] = 800 if "extrabold" in fname or "black" in fname else 700 if "bold" in fname and "semi" not in fname \
-            else 600 if "semibold" in fname or "medium" in fname else 400
+        try:
+            just = int(ed["ParagraphRun"]["RunArray"][0]["ParagraphSheet"]["Properties"].get("Justification", 0))
+        except Exception:
+            just = 0
+        try:
+            shp = ed["Rendered"]["Shapes"]["Children"][0]
+            box = int(shp["ShapeType"]) == 1
+            bounds = [float(v) for v in shp["Cookie"]["Photoshop"]["BoxBounds"]] if box else None
+        except Exception:
+            box, bounds = False, None
     except Exception:
-        pass
-    return out
-
-
-def _shape_info(l):
-    fill = stroke = None
-    sw = 0.0
+        text, lens, sheets, fonts, just, box, bounds = (getattr(l, "text", "") or ""), [], [], [], 0, False, None
+    if not text.strip():
+        return None, 0
     try:
-        sc = l.tagged_blocks.get_data(b"SoCo")
-        if sc:
-            c = sc.get(b"Clr ")
-            fill = _rgb([c.get(b"Rd  ", 0), c.get(b"Grn ", 0), c.get(b"Bl  ", 0)])
+        t = l.transform
+        scale, xscale = abs(float(t[3])) or 1.0, abs(float(t[0])) or 1.0
+        tx, ty = float(t[4]), float(t[5])
     except Exception:
-        pass
-    try:
-        st = l.stroke
-        if st and st.enabled:
-            sw = float(st.line_width)
-            c = st.content.get(b"Clr ") if hasattr(st.content, "get") else None
-            if c is not None:
-                stroke = _rgb([c.get(b"Rd  ", 0), c.get(b"Grn ", 0), c.get(b"Bl  ", 0)])
-    except Exception:
-        pass
-    if fill is None and stroke is None:
-        fill = "#FFFFFF"
-    return fill, stroke, sw
+        scale, xscale, tx, ty, box, bounds = 1.0, 1.0, float(l.bbox[0]), float(l.bbox[1]), True, None
+
+    def style(sh):
+        size = float(sh.get("FontSize", 48)) * scale * sy
+        fn = fonts[int(sh.get("Font", 0))]["Name"] if fonts else "Inter-Regular"
+        fam, w, it = _font_css(str(getattr(fn, "value", fn)))
+        if sh.get("FauxBold"):
+            w = max(w, 700)
+        col = _rgb(list(sh.get("FillColor", {}).get("Values", [1, 1, 1, 1]))) or "#FFFFFF"
+        tr = float(sh.get("Tracking", 0) or 0) / 1000
+        lead = None if sh.get("AutoLeading", True) else float(sh.get("Leading", 0) or 0) * scale * sy
+        caps = int(sh.get("FontCaps", 0) or 0)
+        return {"size": size, "fam": fam, "w": w, "it": it, "col": col, "tr": tr, "lead": lead, "caps": caps}
+
+    sts = [style(sh) for sh in sheets] or [style({})]
+    first = sts[0]
+    fs = first["size"]
+    lh = (first["lead"] / fs) if first["lead"] else 1.2
+    # the text, run by run (a coloured word is a span inside the one text layer)
+    body, pos = [], 0
+    for ln, st in zip(lens or [len(text)], sts):
+        seg = text[pos:pos + ln]; pos += ln
+        if not seg:
+            continue
+        h = _esc(seg).replace("\n", "<br>")
+        diff = []
+        if st["col"] != first["col"]:
+            diff.append(f"color:{st['col']}")
+        if abs(st["size"] - fs) > 0.5:
+            diff.append(f"font-size:{round(st['size'])}px")
+        if st["w"] != first["w"]:
+            diff.append(f"font-weight:{st['w']}")
+        body.append(f"<span style='{';'.join(diff)}'>{h}</span>" if diff else h)
+    html_text = "".join(body).replace("\n", "<br>")
+    # where: point text sits on its baseline (tx, ty); a text box fills its box, aligned as in Photoshop
+    ascent = ((lh - INTER_H) / 2 + INTER_ASC) * fs
+    align = {1: "right", 2: "center"}.get(just, "left")
+    width = ""
+    if box and bounds:
+        # BoxBounds is [left, top, right, bottom] in the text's own units
+        left = (tx + bounds[0] * xscale) * sx
+        top = (ty + bounds[1] * scale) * sy
+        squeeze = xscale / scale
+        bw = (bounds[2] - bounds[0]) * xscale * sx
+        if abs(squeeze - 1) > 0.02:            # horizontally scaled type: draw it narrower, not reflowed
+            width = (f"width:{round(bw / squeeze)}px;text-align:{align};"
+                     f"transform:scaleX({squeeze:.3f});transform-origin:0 0;")
+        else:
+            width = f"width:{round(bw)}px;text-align:{align};"
+    else:
+        left = l.bbox[0] * sx - 0.04 * fs
+        top = ty * sy - ascent if not box else l.bbox[1] * sy
+    css = (f"left:{round(left)}px;top:{round(top)}px;{width}font-family:&quot;{first['fam']}&quot;,Inter,sans-serif;font-size:{round(fs)}px;"
+           f"font-weight:{first['w']};color:{first['col']};line-height:{lh:.3f};white-space:" + ("pre-wrap" if width else "pre"))
+    if first["it"]:
+        css += ";font-style:italic"
+    if first["caps"] == 1:
+        css += ";font-variant:small-caps"
+    elif first["caps"] == 2:
+        css += ";text-transform:uppercase"
+    if first["tr"]:
+        css += f";letter-spacing:{first['tr']:.3f}em"
+    name = f"Text: {raw_name or text.strip()[:40]}"[:60]
+    return f"<div class='abs' data-name='{name}' style='{css}'>{html_text}</div>", (l.bbox[0] + l.bbox[2]) / 2 * sx

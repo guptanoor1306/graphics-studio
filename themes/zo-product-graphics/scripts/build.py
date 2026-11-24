@@ -993,7 +993,8 @@ def brand_hex(s):
 
 def html_frame(f, look=None, edit=False):
     look = look or {}
-    f = {**f, "html": brand_hex(f.get("html"))}
+    if not f.get("as_is"):                     # a PSD import keeps its own colours and shadows
+        f = {**f, "html": brand_hex(f.get("html"))}
     mode = str(f.get('mode') or 'fss').lower()
     decor = f.get('decor', {})
     if decor is True:
