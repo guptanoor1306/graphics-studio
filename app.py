@@ -980,6 +980,16 @@ async def toolkit_psd(req: Request, theme: str = Form(...), file: UploadFile = F
     return {"pid": tk["id"], "template": toolkit.template_view(t)}
 
 
+@app.get("/api/projects/{pid}/pdf-lines")
+async def pdf_lines(pid: int):
+    """The storyboard PDF's text, line by line: what a toolkit frame can be picked for when there is no script."""
+    try:
+        raw = storyboard_pdf.read_pdf(pid)
+    except (FileNotFoundError, ValueError):
+        return {"lines": []}
+    return {"lines": await asyncio.to_thread(toolkit.pdf_lines, raw)}
+
+
 @app.post("/api/projects/{pid}/toolkit-frame")
 async def toolkit_frame(pid: int, req: Request):
     """Put a copy of a template into this video for the chosen script lines."""
@@ -1118,6 +1128,23 @@ def _bump(pid: int, run: str):
         PROGRESS[pid]["rev"] = int(PROGRESS[pid].get("rev") or 0) + 1
 
 
+STOP: dict[int, float] = {}   # pid -> when someone pressed Stop: a run that started before is not saved
+
+
+def _stopped(pid: int, since: float) -> bool:
+    return STOP.get(pid, 0) > since
+
+
+@app.post("/api/projects/{pid}/stop")
+def stop_generating(pid: int):
+    """Stop: whatever is being written for this video is thrown away when it comes back (the call already running
+    with Claude finishes, but nothing more is spent on it: no pictures, no layout check, nothing saved)."""
+    STOP[pid] = time.time()
+    if (PROGRESS.get(pid) or {}).get("state") == "running":
+        PROGRESS[pid] = {**PROGRESS[pid], "run": "stopped", "state": "error", "msg": "Stopped", "ts": time.time()}
+    return {"stopped": True}
+
+
 @app.get("/api/projects/{pid}/progress")
 def project_progress(pid: int):
     cur = dict(PROGRESS.get(pid) or {"state": "idle", "rev": 0})
@@ -1234,6 +1261,7 @@ async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: st
 
 
 async def _make_storyboard(pid: int, b: dict, user: str):
+    t_start = time.time()
     p = (await _db_call(load, pid))
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
     rest = b.get("rest") if isinstance(b.get("rest"), dict) and toolkit.enabled(p["theme"]) else None
@@ -1270,6 +1298,8 @@ async def _make_storyboard(pid: int, b: dict, user: str):
         )
     except Exception as e:
         _raise_claude_gateway(e)
+    if _stopped(pid, t_start):
+        return {**(await _db_call(load, pid)), "stopped": True}
     theme = p["theme"]
     sb = out.get("storyboard") or ""
     plook = look
@@ -1304,6 +1334,8 @@ async def _make_storyboard(pid: int, b: dict, user: str):
     asset_report: dict = {}
     finalize = _with_assets(theme, finalize, asset_report)
     spec = await asyncio.to_thread(finalize, spec)
+    if _stopped(pid, t_start):
+        return {**(await _db_call(load, pid)), "stopped": True}
     # Render → look → fix (the skill's build/WARN/contact-sheet step) before anyone sees the frames.
     critique_report: dict = {}
     try:
@@ -1581,6 +1613,8 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
             _progress(pid, run, state="error", msg=f"Stopped: {e}")
             _raise_claude_gateway(e)
         print(f"pdf batch {pid}: Claude {time.time() - t0:.0f}s, +{out.get('frames_added')} frames", flush=True)
+        if _stopped(pid, t0):
+            return {**(await _db_call(load, pid)), "stopped": True, "frames_added": 0}
         return await _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0)
     finally:
         if _live(pid, run) and (PROGRESS.get(pid) or {}).get("state") == "running":
@@ -1627,6 +1661,14 @@ async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
+    tkf = [f for f in spec.get("frames") or [] if isinstance(f, dict) and f.get("tk_from") and f.get("lines_src") == "pdf"
+           and isinstance(f.get("lines"), list) and len(f["lines"]) == 2]
+    if tkf and toolkit.enabled(p["theme"]):
+        try:
+            others = [f for f in spec["frames"] if isinstance(f, dict) and f not in tkf]
+            spec["frames"] = toolkit.merge_rest(tkf, others, toolkit.pdf_lines(storyboard_pdf.read_pdf(pid)), "pdf")
+        except Exception as e:
+            print(f"toolkit order after pdf batch skipped: {e}")
     prog = str(out.get("pdf_progress") or "")
     spec["pdf_progress"] = prog
     spec["pdf_done"] = prog.strip().lower() in ("done", "complete", "finished")

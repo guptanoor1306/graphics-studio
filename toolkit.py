@@ -175,6 +175,22 @@ def merge_rest(kept: list[dict], new: list[dict], lines: list[str], src: str) ->
     return out
 
 
+def pdf_lines(raw: bytes) -> list[str]:
+    """A storyboard PDF's text as lines (page headers repeated on every page and very short bits dropped)."""
+    import collections
+    import fitz
+    doc = fitz.open(stream=raw, filetype="pdf")
+    pages = [[ln.strip() for ln in (pg.get_text("text") or "").splitlines()] for pg in doc]
+    count = collections.Counter(ln for pl in pages for ln in set(pl) if ln)
+    rep = {ln for ln, n in count.items() if len(pages) > 2 and n >= max(3, len(pages) * 0.6)}
+    out = []
+    for pl in pages:
+        for ln in pl:
+            if len(ln) >= 3 and ln not in rep and not re.fullmatch(r"[\d\s:.\-–|/]+", ln):
+                out.append(ln)
+    return out[:1500]
+
+
 # ---------------------------------------------------------------- PSD -> template
 def psd_to_template(raw: bytes, theme: str, tk_frames: list, store) -> dict:
     """A template from a layered PSD: the biggest picture layer at the bottom is the presenter photo; text layers

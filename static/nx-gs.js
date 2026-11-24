@@ -585,7 +585,7 @@ function srcDock() {
   const s = { sc: scriptOn(), pdf: pdfOn(), au: audioOn() };
   const added = [s.sc && 'Script', s.pdf && 'Storyboard PDF', s.au && 'Voice-over'].filter(Boolean);
   const n = estFrames();
-  const tkb = tkKit() && (s.sc || s.au) ? `<button class="nx-btn ghost lg" data-tkpick ${S.audioBusy ? 'disabled' : ''}>${I('frames')}Pick from toolkit</button>` : '';
+  const tkb = tkKit() && (s.sc || s.au || s.pdf) ? `<button class="nx-btn ghost lg" data-tkpick ${S.audioBusy ? 'disabled' : ''}>${I('frames')}Pick from toolkit</button>` : '';
   return `<span class="tx">${E(added.length ? `${added.join(' + ')} added${n ? ` · about ${n} frame${n === 1 ? '' : 's'}` : ''}` : 'Add at least one to start')}</span>${tkb}<button class="nx-btn primary lg" data-gen ${added.length && !S.audioBusy && !S.pdfBusy ? '' : 'disabled'}>${s.pdf ? 'Generate frames' : 'Generate storyboard + frames'}</button>`;
 }
 function srcLive() {
@@ -759,28 +759,30 @@ async function startGen() {
 }
 async function genScript(again = false) {
   const pid = P.id, n0 = 0;
-  S.gen = { pid, kind: 'script', n0, count: Math.max(3, estFrames() || 6), msg: 'Writing the storyboard…', again };
+  const tok = S.gen = { pid, kind: 'script', n0, count: Math.max(3, estFrames() || 6), msg: 'Writing the storyboard…', again };
   selectedFrameId = null; S.phSel = 0; render(); pollGen(pid);
   try {
     const r = await api(`/api/projects/${pid}/storyboard`, { method: 'POST', body: JSON.stringify({ script: P.script || '', look: lookPayload('script'), notes: '' }) });
+    if (tok.stopped || r.stopped) return;
     S.gen = null;
     if (P?.id === pid) { P = r; P.look = normLook(P.look); frameVer = {}; frameHistInit(); selectedFrameId = studioFrames()[0]?.id || null; S.phSel = null; render(); }
     loadList();
     if (r.background) { if (P?.id === pid) watchBackground(); toast('The storyboard is written. Frames finish one by one.'); }
     else toast(`All ${(r.spec?.frames || []).length} frames are generated`);
-  } catch (e) { S.gen = null; if (P?.id === pid) render(); toast(e.message || String(e), { err: true }); }
+  } catch (e) { if (tok.stopped) return; S.gen = null; if (P?.id === pid) render(); toast(e.message || String(e), { err: true }); }
 }
 async function genPdf(all) {
   const pid = P.id;
   let total = 0, last = null;
   for (let round = 0; round < (all ? 48 : 1); round++) {
     const n0 = (P?.id === pid ? studioFrames().length : 0);
-    S.gen = { pid, kind: 'pdf', n0, count: 10, msg: 'Reading the storyboard PDF…', all };
+    const tok = S.gen = { pid, kind: 'pdf', n0, count: 10, msg: 'Reading the storyboard PDF…', all };
     if (P?.id === pid && !editModeOpen) { if (!selectedFrameId) S.phSel = 0; render(); }
     pollGen(pid);
     try {
-      last = await api(`/api/projects/${pid}/storyboard-pdf/batch`, { method: 'POST', body: JSON.stringify({ script: P?.id === pid ? (P.script || '') : '', look: lookPayload('pdf'), notes: '', batch_size: 10, finish_all: false }) });
-    } catch (e) { S.gen = null; if (P?.id === pid) render(); toast(e.message || String(e), { err: true }); loadList(); return; }
+      last = await api(`/api/projects/${pid}/storyboard-pdf/batch`, { method: 'POST', body: JSON.stringify({ script: P?.id === pid ? (P.script || '') : '', look: lookPayload('pdf'), notes: P?.id === pid ? tkPdfNote() : '', batch_size: 10, finish_all: false }) });
+    } catch (e) { if (tok.stopped) return; S.gen = null; if (P?.id === pid) render(); toast(e.message || String(e), { err: true }); loadList(); return; }
+    if (tok.stopped || last.stopped) return;
     const added = last.frames_added || 0; total += added;
     S.gen = null;
     if (P?.id === pid) { const wasEmpty = !studioFrames().length; P = last; P.look = normLook(P.look); frameVer = {}; frameHistInit(); if (wasEmpty || !selectedFrameId) selectedFrameId = studioFrames()[n0]?.id || studioFrames()[0]?.id; S.phSel = null; if (!editModeOpen) render(); }
@@ -828,7 +830,10 @@ function items() {
 }
 function groups(its) {
   const frames = studioFrames();
-  if (tkKit() && frames.some(f => Array.isArray(f.lines)) && tkLines().list.length) return tkGroups(its);
+  if (tkKit() && frames.some(f => Array.isArray(f.lines))) {
+    if (!scriptOn() && pdfOn() && S.pdfLines?.pid !== P.id) tkPdfLoad().then(() => { if (P && !editModeOpen) render(); });
+    if (tkLines().list.length) return tkGroups(its);
+  }
   const out = new Map(its.map(x => [x.ph ? 'ph' + x.k : x.f.id, { x, lines: [] }]));
   const ids = frames.map(f => f.id);
   const segs = episodeTranscript?.segments;
@@ -876,7 +881,7 @@ function framesView() {
   const pdfRow = pdfOn() ? `<div class="nx-src"><span class="nx-pdfic">${PDFIC}</span><div class="tx"><b>${E((P.storyboard_pdf_name || P.look?.storyboard_pdf_name || 'Storyboard').replace(/\.pdf$/i, ''))}</b><small>Storyboard PDF</small></div><button class="nx-ib" data-repdf data-tip="Replace the storyboard PDF" class="tip-l">${I('pencil')}</button></div>` : '';
   const leftOn = G.kind !== 'storyboard' || nLines || pdfOn();
   const cap = cur ? (() => { const tm = times[si] || {}; const range = tm.s != null ? `${mmss(tm.s)}${tm.e != null ? '–' + mmss(tm.e) : ''}` : ''; const note = cur.f ? sbForFrame(cur.f.id, P.storyboard) : ''; return `<b>Frame ${cur.i + 1}</b><span>${[range, cur.f ? frameType(cur.f) : 'To generate'].filter(Boolean).join(' · ')}</span>${note && !/^No storyboard line/.test(note) ? `<span class="nx-note" data-tip="${E(note.slice(0, 420))}">${I('info')}</span>` : ''}<span class="of">${si + 1} of ${its.length}</span>`; })() : '';
-  const bigInner = !cur ? '' : cur.ph ? (genFor(P.id) ? `<div class="nx-ph0 nx-loading"><span class="nx-spin" aria-hidden="true"></span><b id="nxGenHead">${S.gen.kind === 'script' && !S.gen.written ? 'Writing the storyboard…' : `Making frame ${cur.i + 1}…`}</b><span id="nxGenMsg">${E(S.gen.msg || '')}</span><small>This can take a few minutes. You can keep working; frames appear here as they are ready.</small></div>` : `<div class="nx-ph0"><b>This frame isn't generated yet</b>Click <i>Generate next 10 frames</i> below to see it here.</div>`) : `<iframe id="nxBigFr" title="Frame ${cur.i + 1}" src="/preview/${P.id}/${encodeURIComponent(cur.f.id)}?v=${ver(cur.f.id)}"></iframe>`;
+  const bigInner = !cur ? '' : cur.ph ? (genFor(P.id) ? `<div class="nx-ph0 nx-loading"><span class="nx-spin" aria-hidden="true"></span><b id="nxGenHead">${S.gen.kind === 'script' && !S.gen.written ? 'Writing the storyboard…' : `Making frame ${cur.i + 1}…`}</b><span id="nxGenMsg">${E(S.gen.msg || '')}</span><small>This can take a few minutes. You can keep working; frames appear here as they are ready.</small><button class="nx-btn ghost" data-stopgen style="margin-top:6px">${I('x')}Stop generating</button></div>` : `<div class="nx-ph0"><b>This frame isn't generated yet</b>Click <i>Generate next 10 frames</i> below to see it here.</div>`) : `<iframe id="nxBigFr" title="Frame ${cur.i + 1}" src="/preview/${P.id}/${encodeURIComponent(cur.f.id)}?v=${ver(cur.f.id)}"></iframe>`;
   const stage = S.strip === 'grid'
     ? `<div class="nx-allg">${its.map((x, i) => `<button class="nx-gcard${i === si ? ' on' : ''}" data-pick="${i}"><span class="im${x.ph ? ' nx-shim' : ''}">${thumb(x)}</span><span><b>Frame ${x.i + 1}</b> · ${x.f ? E(frameType(x.f)) : 'To generate'}</span></button>`).join('')}</div>`
     : `<div class="nx-bigw" id="nxBigW"><div class="nx-col"><div class="nx-tools" id="nxTools"><button class="nx-ib" id="nxUndo" data-undo data-tip="Undo">${I('undo')}</button><button class="nx-ib" id="nxRedo" data-redo data-tip="Redo">${I('redo')}</button><span class="sep"></span><button class="nx-btn dark" data-edit ${cur?.f ? '' : 'disabled'} data-tip="${E(editTip())}">${I('pencil')}Edit layers</button><span class="sep"></span><button class="nx-ib" data-zoom="-1" data-tip="Zoom out">${I('minus')}</button><button class="fit" data-zoom="0" data-tip="Fit the frame">Fit</button><button class="nx-ib" data-zoom="1" data-tip="Zoom in">${I('plus')}</button></div>
@@ -899,6 +904,7 @@ function framesView() {
   q1('.nx-fth.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   m.onclick = e => {
     const t = e.target;
+    if (t.closest('[data-stopgen]')) return stopGen();
     const tp = t.closest('[data-tkpick]'); if (tp) { const [a, b] = (tp.dataset.tkpick || '').split('-').map(Number); return tkPicker(isNaN(a) ? null : { a, b }); }
     const pk = t.closest('[data-pick]'); if (pk) return pick(+pk.dataset.pick);
     const st = t.closest('[data-step]'); if (st) return pick(si + +st.dataset.step);
@@ -955,6 +961,7 @@ function updateDock() {
     else tx = `Generating frames ${g.n0 + 1}–${g.n0 + g.count}…`;
     tx += '<span class="nx-dots"><i></i><i></i><i></i></span>';
     if (g.kind !== 'pictures' && g.msg && g.kind === 'pdf') tx += ` <span class="nx-dim">· ${E(g.msg)}</span>`;
+    if (g.kind !== 'pictures') btns += `<button class="nx-btn ghost" data-stopgen data-tip="Stop: nothing from this run is kept">${I('x')}Stop</button>`;
   } else if (S.bg) tx = E(S.bg) + '<span class="nx-dots"><i></i><i></i><i></i></span>';
   else if (pdf) tx = P.spec?.pdf_done ? `All ${n} frames made` : `${n} frame${n === 1 ? '' : 's'} generated`;
   else tx = `${n} frame${n === 1 ? '' : 's'} · made from your script`;
@@ -969,6 +976,7 @@ function updateDock() {
   d.innerHTML = `<span class="tx">${tx}</span>${btns}`;
   d.onclick = e => {
     const t = e.target;
+    if (t.closest('[data-stopgen]')) return stopGen();
     if (t.closest('[data-tkpick]')) return tkPicker();
     if (t.closest('[data-tkrest]')) return genRest();
     if (t.closest('[data-gennext]')) return genPdf(false);
@@ -1510,6 +1518,7 @@ async function openToolkit(theme) {
   try { const t = await tkLoad(theme, true); S.picked.clear(); await openVideo(t.pid); } catch (e) { toast(e.message || String(e), { err: true }); }
 }
 function tkLines() {
+  if (!scriptOn() && !(episodeTranscript?.segments?.length) && pdfOn() && S.pdfLines?.pid === P.id) return { src: 'pdf', list: S.pdfLines.lines.map(t => ({ t: null, text: t })) };
   if (scriptOn()) { let cum = 0; return { src: 'script', list: scriptLines(P.script).map(ln => { const t = cum / 2.6; cum += words(ln); return { t, text: ln }; }) }; }
   const segs = episodeTranscript?.segments;
   if (segs?.length) return { src: 'vo', list: segs.map(s => ({ t: Number(s.start), text: (s.text || '').trim() })) };
@@ -1549,10 +1558,29 @@ function tkTodoHTML(g) {
 }
 
 /* the picker: script lines on the left (click a line, shift-click to stretch), templates on the right */
+async function tkPdfLoad() {
+  if (!pdfOn() || (S.pdfLines?.pid === P.id && !S.pdfLines.loading)) return;
+  if (S.pdfLines?.pid === P.id && S.pdfLines.loading) { while (S.pdfLines?.loading) await new Promise(r => setTimeout(r, 150)); return; }
+  const pid = P.id; S.pdfLines = { pid, lines: [], loading: true };
+  try { const r = await api(`/api/projects/${pid}/pdf-lines`); S.pdfLines = { pid, lines: r.lines || [] }; } catch (_) { S.pdfLines = { pid, lines: [] }; }
+}
+function tkPdfNote() {   // a PDF video with toolkit frames: Claude is told which storyboard parts are already done
+  const f = tkFrames().filter(x => x.lines_src === 'pdf'); if (!f.length) return '';
+  return 'These parts of the storyboard already have a frame picked from the team toolkit; do NOT make frames for them: ' + f.map(x => `"${String(x.vo || '').replace(/\s+/g, ' ').slice(0, 160)}"`).join('; ') + '.';
+}
+async function stopGen() {
+  const g = S.gen; if (!g) return;
+  g.stopped = true; S.gen = null;
+  try { await api(`/api/projects/${g.pid}/stop`, { method: 'POST', body: '{}' }); } catch (_) {}
+  if (P?.id === g.pid) { try { P = await api(`/api/projects/${g.pid}`); P.look = normLook(P.look); frameHistInit(); } catch (_) {} selectedFrameId = studioFrames()[0]?.id || null; S.phSel = null; render(); }
+  loadList();
+  toast('Stopped. Nothing from that run is kept.');
+}
 async function tkPicker(pre) {
+  if (!scriptOn() && pdfOn()) await tkPdfLoad();
   if (!tkLines().list.length && P.has_episode_transcript && !episodeTranscript?.segments) { try { episodeTranscript = await api(`/api/projects/${P.id}/episode-transcript`); } catch (_) {} }
   const L = tkLines();
-  if (!L.list.some(l => l.text.trim())) return toast('Add the script or a voice-over first: a toolkit frame is picked for some of its lines.', { err: true });
+  if (!L.list.some(l => l.text.trim())) return toast('Add the script, a voice-over or a storyboard PDF with text first: a toolkit frame is picked for some of its lines.', { err: true });
   let T; try { T = await tkLoad(P.theme); } catch (e) { return toast(e.message || String(e), { err: true }); }
   if (!T.templates.length) return win({ title: 'The toolkit is empty', text: 'Make templates first: open <b>Toolkit</b> on the ZO page, start one on a kit photo, import a PSD, or use <b>Save to toolkit</b> on a frame.', ok: 'Open the toolkit', onOk: () => openToolkit(P.theme) });
   const own = tkOwner(L.list.length);
@@ -1591,16 +1619,17 @@ async function genRest() {
   if (!free) return toast('Every line already has a toolkit frame');
   const nTk = tkFrames().length, others = studioFrames().length - nTk;
   const go = async () => {
-    S.gen = { pid, kind: 'rest', n0: nTk, count: Math.max(1, Math.round(free / Math.max(1, L.list.filter(l => l.text.trim()).length) * (estFrames() || 6))), msg: 'Writing frames for the lines without a toolkit frame…' };
+    const tok = S.gen = { pid, kind: 'rest', n0: nTk, count: Math.max(1, Math.round(free / Math.max(1, L.list.filter(l => l.text.trim()).length) * (estFrames() || 6))), msg: 'Writing frames for the lines without a toolkit frame…' };
     P.spec = { ...P.spec, frames: (P.spec.frames || []).filter(f => f.tk_from) };
     render(); pollGen(pid);
     try {
       const r = await api(`/api/projects/${pid}/storyboard`, { method: 'POST', body: JSON.stringify({ script: P.script || '', look: lookPayload('script'), notes: '', rest: { lines: L.list.map(l => l.text), src: L.src } }) });
+      if (tok.stopped || r.stopped) return;
       S.gen = null;
       if (P?.id === pid) { P = r; P.look = normLook(P.look); frameVer = {}; frameHistInit(); selectedFrameId = studioFrames()[0]?.id || null; S.phSel = null; render(); }
       loadList();
       toast(`${(r.spec?.frames || []).filter(f => !f.tk_from).length} frames generated around ${nTk} toolkit frame${nTk === 1 ? '' : 's'}`);
-    } catch (e) { S.gen = null; if (P?.id === pid) { try { P = await api(`/api/projects/${pid}`); P.look = normLook(P.look); } catch (_) {} render(); } toast(e.message || String(e), { err: true }); }
+    } catch (e) { if (tok.stopped) return; S.gen = null; if (P?.id === pid) { try { P = await api(`/api/projects/${pid}`); P.look = normLook(P.look); } catch (_) {} render(); } toast(e.message || String(e), { err: true }); }
   };
   if (others) win({ title: 'Generate the rest again?', text: `The ${others} generated frame${others === 1 ? ' is' : 's are'} made again for the lines without a toolkit frame. Toolkit frames stay as they are.`, ok: 'Generate the rest', onOk: go });
   else go();

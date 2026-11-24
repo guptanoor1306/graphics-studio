@@ -35,3 +35,15 @@ def test_blank_templates():
     assert a["mode"] == "osa" and a["plate"] == "m2_left" and "left:1010px" in a["html"]
     b = toolkit.blank("fss", [a])
     assert b["mode"] == "fss" and "plate" not in b and b["id"] == "t2"
+
+
+def test_pdf_lines_drop_repeated_headers():
+    import fitz
+    d = fitz.open()
+    for i in range(4):
+        pg = d.new_page()
+        pg.insert_text((50, 40), "MTF storyboard v2")          # header on every page
+        pg.insert_text((50, 100), f"Scene {i + 1}: interest is 0.0{i}% a day")
+        pg.insert_text((50, 130), "0:12")
+    lines = toolkit.pdf_lines(d.tobytes())
+    assert lines == [f"Scene {i + 1}: interest is 0.0{i}% a day" for i in range(4)]
