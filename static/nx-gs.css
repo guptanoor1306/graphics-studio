@@ -623,3 +623,9 @@ body.nx .nx-words small{font-size:11.5px;color:var(--faint)}
 body.nx .nx-grp.nx-tkf .nx-gt::after{content:" · Toolkit";color:#5B5BD6}
 body.nx .nx-fl{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500}
 body.nx .nx-fl input{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px}
+body.nx .nx-escr{padding:10px 14px 20px}
+body.nx .nx-escr[hidden]{display:none!important}
+body.nx .nx-escr-h{display:block;font-size:12px;color:var(--faint);margin:2px 8px 8px}
+body.nx .nx-escr-e{padding:20px 8px;font-size:13px;color:var(--mute)}
+body.nx .nx-escr .nx-tkl{cursor:copy}
+body.nx .nx-escr .nx-tkl:hover{background:var(--hover)}

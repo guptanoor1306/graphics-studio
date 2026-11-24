@@ -134,40 +134,70 @@ def carry(old: dict | None, new: dict | None) -> None:
         new["tk_skip"], new["tk_skip_src"] = old.get("tk_skip"), old.get("tk_skip_src")
 
 
-def _line_of(vo: str, lines: list[str], start: int) -> int | None:
-    """Index of the script line where this frame's words begin (searching from `start`)."""
+_STOP = set("the a an and or of to in on for with is are was were be it its this that these those you your we our they their as at by from has have had will can not but so if then than into over about".split())
+
+
+def _words(t: str) -> list[str]:
+    return [w for w in _norm(t).split() if len(w) > 2 and w not in _STOP]
+
+
+def _line_of(vo: str, lines: list[str], start: int, avoid: set[int] | None = None) -> int | None:
+    """Index of the script line where this frame's words begin (searching from `start`, never a line in `avoid`)."""
+    avoid = avoid or set()
     w = _norm(vo).split()[:6]
     if not w:
         return None
     probe = " ".join(w[:4])
     for i in range(start, len(lines)):
-        if probe and probe in _norm(lines[i]):
+        if i not in avoid and probe and probe in _norm(lines[i]):
             return i
     for i in range(start, len(lines)):
         n = _norm(lines[i])
-        if n and sum(x in n.split() for x in w) >= max(2, len(w) // 2):
+        if i not in avoid and n and sum(x in n.split() for x in w) >= max(2, len(w) // 2):
             return i
     return None
 
 
+def _best_line(vo: str, lines: list[str], avoid: set[int]) -> int | None:
+    """The free line sharing the most meaningful words with the frame's words (a paraphrased vo)."""
+    vw = set(_words(vo))
+    best, at = 0, None
+    for i, ln in enumerate(lines):
+        if i in avoid or not ln.strip():
+            continue
+        lw = set(_words(ln))
+        sc = len(vw & lw) / (len(vw) ** 0.5 or 1)
+        if sc > best:
+            best, at = sc, i
+    return at if best >= 0.5 else None
+
+
 def merge_rest(kept: list[dict], new: list[dict], lines: list[str], src: str, skip: set[int] | None = None) -> list[dict]:
     """Toolkit frames + newly generated frames, in script order, each with the lines it covers.
-    Lines marked "no frame needed" (skip) are left out: a new frame never starts on or runs over them."""
+    Lines marked "no frame needed" (skip) are left out: a new frame never starts on or runs over them.
+    A new frame always lands on lines no toolkit frame owns."""
     covered = set()
     for f in kept:
         a, b = f["lines"]
         covered.update(range(a, b + 1))
     covered |= set(skip or ())
+    free = [i for i, ln in enumerate(lines) if ln.strip() and i not in covered]
     placed, cursor = [], 0
     for f in new:
         vo = f.get("vo") or ""
-        i = _line_of(vo, lines, cursor)
-        if i is None:
-            i = _line_of(vo, lines, 0)
-        if i is not None and i in covered:       # Claude made a frame for a toolkit line anyway: drop it
+        w = _norm(vo).split()[:4]
+        hit = next((i for i, ln in enumerate(lines) if w and " ".join(w) in _norm(ln)), None)
+        if hit is not None and hit in covered:   # Claude made a frame for a toolkit line anyway: drop it
             continue
+        i = _line_of(vo, lines, cursor, covered)
         if i is None:
-            i = cursor
+            i = _line_of(vo, lines, 0, covered)
+        if i is None:
+            i = _best_line(vo, lines, covered)
+        if i is None:                             # nothing matches: the next free line after the last frame
+            i = next((j for j in free if j >= cursor), free[-1] if free else None)
+        if i is None:
+            continue
         cursor = max(cursor, i)
         placed.append((i, f))
     allf = [(f["lines"][0], 0, f) for f in kept] + [(i, 1, f) for i, f in placed]
@@ -178,9 +208,10 @@ def merge_rest(kept: list[dict], new: list[dict], lines: list[str], src: str, sk
     for k, (s, kind, f) in enumerate(allf):
         if kind == 1:
             e = (starts[k + 1] - 1) if k + 1 < len(starts) else n - 1
-            # never run over the next toolkit frame's lines
-            while e > s and e in covered:
-                e -= 1
+            # never run over a toolkit frame's or a "no frame needed" line
+            stop = next((j for j in range(s + 1, e + 1) if j in covered), None)
+            if stop is not None:
+                e = stop - 1
             f["lines"], f["lines_src"] = [s, max(s, e)], src
     return out
 

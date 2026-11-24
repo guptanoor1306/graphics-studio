@@ -1325,8 +1325,22 @@ function setTab(k) {
   S.etab = k;
   const map = { layers: '#secLayers', prompt: '#secEdit', anchor: '#secAnchor' };
   Object.entries(map).forEach(([n, sel]) => { const d = q1(sel); if (d) { d.classList.toggle('nx-on', n === k); d.open = n === k; } });
+  const sc = q1('#nxSecScript'); if (sc) { sc.hidden = k !== 'script'; if (k === 'script') scriptTab(); }
   $$('.nx-etabs [data-etab]').forEach(b => b.classList.toggle('on', b.dataset.etab === k));
   if (k === 'prompt') setTimeout(() => q1('#editFrameAsk')?.focus(), 20);
+}
+/* edit mode: the video's script beside the frame, this frame's lines first in view; click a line to copy it */
+async function scriptTab() {
+  const box = q1('#nxSecScript'); if (!box || !P) return;
+  if (!scriptOn() && pdfOn() && !(S.pdfLines?.pid === P.id)) { box.innerHTML = '<div class="nx-escr-e">Loading the storyboard…</div>'; await tkPdfLoad(); }
+  if (!scriptOn() && !episodeTranscript?.segments && P.has_episode_transcript) { try { episodeTranscript = await api(`/api/projects/${P.id}/episode-transcript`); } catch (_) {} }
+  const L = tkLines(), f = studioFrames().find(x => x.id === selectedFrameId);
+  if (!L.list.some(l => l.text.trim())) { box.innerHTML = '<div class="nx-escr-e">This video has no script, voice-over or storyboard text yet.</div>'; return; }
+  let a = -1, b = -1;
+  if (f && Array.isArray(f.lines)) [a, b] = f.lines;
+  else if (f?.vo) { const w = String(f.vo).toLowerCase().split(/\W+/).filter(x => x.length > 3); let best = 0; L.list.forEach((l, j) => { const t = l.text.toLowerCase(); const sc = w.filter(x => t.includes(x)).length; if (sc > best) { best = sc; a = b = j; } }); }
+  box.innerHTML = `<small class="nx-escr-h">Click a line to copy it, then paste it into a text box${a >= 0 ? ' · this frame’s lines are highlighted' : ''}</small>` + L.list.map((l, j) => !l.text.trim() ? '' : `<button type="button" class="nx-tkl${j >= a && j <= b ? ' on' : ''}" data-sline="${j}"><time>${l.t != null ? mmss(l.t) : ''}</time><span>${E(l.text.trim())}</span></button>`).join('');
+  box.querySelector('.nx-tkl.on')?.scrollIntoView({ block: 'center' });
 }
 function decorateEdit() {
   const app = q1('#editModeApp'); if (!app) return;
@@ -1353,8 +1367,11 @@ function decorateEdit() {
   const side = app.querySelector('.edit-mode-side');
   if (!side.querySelector('.nx-etabs')) {
     const tabs = document.createElement('div'); tabs.className = 'nx-etabs nx-ui';
-    tabs.innerHTML = `<button data-etab="prompt">Prompt</button><button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="anchor" id="nxTabAnc">Anchor frame</button>`;
+    tabs.innerHTML = `<button data-etab="prompt">Prompt</button><button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="anchor" id="nxTabAnc">Anchor frame</button><button data-etab="script">Script</button>`;
     side.insertBefore(tabs, side.firstChild);
+    const sc = document.createElement('div'); sc.id = 'nxSecScript'; sc.className = 'nx-escr nx-ui'; sc.hidden = true;
+    tabs.after(sc);
+    sc.onclick = e => { const r = e.target.closest('[data-sline]'); if (!r) return; const tx = r.querySelector('span').innerText; navigator.clipboard?.writeText(tx).then(() => toast('Line copied. Paste it into a text box.'), () => toast('Could not copy', { err: true })); };
     tabs.onclick = e => { const b = e.target.closest('[data-etab]'); if (b) setTab(b.dataset.etab); };
     const look = q1('#editLookBlock'), body = q1('#secEdit .side-sec-body'); if (look && body) body.appendChild(look);
     const ask = q1('#editFrameAsk');
@@ -1574,7 +1591,23 @@ function tkFreeLines() {      // lines no toolkit frame covers (what "Generate t
 }
 function tkGroups(its) {
   const L = tkLines(), n = L.list.length, own = new Array(n).fill(null);
-  its.forEach(x => { if (x.f && Array.isArray(x.f.lines)) for (let j = x.f.lines[0]; j <= Math.min(n - 1, x.f.lines[1]); j++) own[j] = x.f.id; });
+  const setOwn = x => { for (let j = x.f.lines[0]; j <= Math.min(n - 1, x.f.lines[1]); j++) own[j] = x.f.id; };
+  const withL = its.filter(x => x.f && Array.isArray(x.f.lines));
+  withL.filter(x => !x.f.tk_from).forEach(setOwn); withL.filter(x => x.f.tk_from).forEach(setOwn);   // toolkit frames keep their lines
+  const lost = withL.filter(x => !x.f.tk_from && !own.includes(x.f.id)), fixes = {};
+  if (lost.length) {     // a generated frame that landed on a toolkit frame's lines (older runs): give it the free line it is about
+    const sk = tkSkip(), wd = t => String(t || '').toLowerCase().replace(/[^a-z0-9₹%\s]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+    lost.forEach(x => {
+      const vw = new Set(wd(x.f.vo)), free = L.list.map((l, j) => j).filter(j => own[j] == null && L.list[j].text.trim() && !sk.has(j));
+      if (!free.length) return;
+      let best = 0, at = null;
+      free.forEach(j => { const sc = wd(L.list[j].text).filter(w => vw.has(w)).length; if (sc > best) { best = sc; at = j; } });
+      if (at == null) at = free[0];
+      let e = at; while (e + 1 < n && own[e + 1] == null && !sk.has(e + 1) && free.includes(e + 1)) e++;
+      x.f.lines = [at, e]; setOwn(x); fixes[x.f.id] = [at, e];
+    });
+    if (Object.keys(fixes).length) { const pid = P.id; setTimeout(async () => { if (P?.id !== pid) return; const spec = { ...P.spec, frames: P.spec.frames.map(f => fixes[f.id] ? { ...f, lines: fixes[f.id] } : f) }; try { const r = await api(`/api/projects/${pid}`, { method: 'PUT', body: JSON.stringify({ spec }) }); if (P?.id === pid && r?.spec) P.spec = r.spec; } catch (_) {} }, 0); }
+  }
   const loose = its.filter(x => x.f && !Array.isArray(x.f.lines));
   if (loose.length && L.src === 'script') { const sa = assignScriptRanges(P.script, loose.map(x => x.f), P.storyboard); Object.entries(sa.lineToFrame).forEach(([j, fid]) => { if (own[+j] == null) own[+j] = fid; }); }
   const byId = new Map(its.filter(x => x.f).map(x => [x.f.id, x])), out = [], skip = tkSkip();
@@ -1753,7 +1786,7 @@ window.nxBoot = async function () {
   const _open = openEditMode;
   openEditMode = fid => { S.etab = (isTkProject() || studioFrames().find(x => x.id === fid)?.tk_from) ? 'layers' : 'prompt'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
   const _sel = selectEditFrame;
-  selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); } };
+  selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); if (S.etab === 'script') scriptTab(); } };
   const _strip = buildEditFrameStrip;
   buildEditFrameStrip = () => { _strip(); stripDecor(); };
   const _exit = exitEditMode;
