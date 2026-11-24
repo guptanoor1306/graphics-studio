@@ -11,8 +11,8 @@ import copy
 import json
 import re
 
-THEMES_WITH_TOOLKIT = ("zo-product-graphics",)
-NAME = {"zo-product-graphics": "Toolkit · ZO Product"}
+THEMES_WITH_TOOLKIT = ("zo-product-graphics", "zo-ipo-graphics")
+NAME = {"zo-product-graphics": "Toolkit · ZO Product", "zo-ipo-graphics": "Toolkit · ZO IPO"}
 
 
 def enabled(theme: str) -> bool:
@@ -111,19 +111,27 @@ def place(project: dict, template: dict, tk_look: dict, lines: list, text: str, 
 
 # ---------------------------------------------------------------- "Generate the rest"
 REST_NOTE = ("Some script lines already have a frame picked from the team's toolkit. They are marked "
-             "[[ALREADY A FRAME: ...]] in the script. Do NOT make frames for those lines: make frames only for the other "
-             "lines, in script order, and put the lines each frame covers in its \"vo\" field. Frame ids must not start "
-             "with \"tk\".")
+             "[[ALREADY A FRAME: ...]] in the script. Lines marked [[NO FRAME: ...]] need no graphic at all. Do NOT make "
+             "frames for either kind: make frames only for the other lines, in script order, and put the lines each "
+             "frame covers in its \"vo\" field. Frame ids must not start with \"tk\".")
 
 
-def marked_script(lines: list[str], covered: set[int]) -> str:
-    out = []
+def marked_script(lines: list[str], covered: set[int], skip: set[int] | None = None) -> str:
+    out, skip = [], skip or set()
     for i, ln in enumerate(lines):
         if i in covered and ln.strip():
             out.append(f"[[ALREADY A FRAME: {ln.strip()}]]")
+        elif i in skip and ln.strip():
+            out.append(f"[[NO FRAME: {ln.strip()}]]")
         else:
             out.append(ln)
     return "\n".join(out)
+
+
+def carry(old: dict | None, new: dict | None) -> None:
+    """Keep the video's "no frame needed" marks when its frames are made again."""
+    if isinstance(old, dict) and isinstance(new, dict) and old.get("tk_skip") is not None and "tk_skip" not in new:
+        new["tk_skip"], new["tk_skip_src"] = old.get("tk_skip"), old.get("tk_skip_src")
 
 
 def _line_of(vo: str, lines: list[str], start: int) -> int | None:
@@ -142,12 +150,14 @@ def _line_of(vo: str, lines: list[str], start: int) -> int | None:
     return None
 
 
-def merge_rest(kept: list[dict], new: list[dict], lines: list[str], src: str) -> list[dict]:
-    """Toolkit frames + newly generated frames, in script order, each with the lines it covers."""
+def merge_rest(kept: list[dict], new: list[dict], lines: list[str], src: str, skip: set[int] | None = None) -> list[dict]:
+    """Toolkit frames + newly generated frames, in script order, each with the lines it covers.
+    Lines marked "no frame needed" (skip) are left out: a new frame never starts on or runs over them."""
     covered = set()
     for f in kept:
         a, b = f["lines"]
         covered.update(range(a, b + 1))
+    covered |= set(skip or ())
     placed, cursor = [], 0
     for f in new:
         vo = f.get("vo") or ""
@@ -175,6 +185,11 @@ def merge_rest(kept: list[dict], new: list[dict], lines: list[str], src: str) ->
     return out
 
 
+_PDF_HEADS = {"script", "graphics", "graphic", "visual", "visuals", "vo", "voiceover", "voice over", "notes", "note",
+              "scene", "time", "timestamp", "timecode", "audio", "video", "on screen", "on-screen text", "b-roll",
+              "broll", "shot", "description", "remarks", "reference", "references", "sl no", "s.no", "sr no"}
+
+
 def pdf_lines(raw: bytes) -> list[str]:
     """A storyboard PDF's text as lines (page headers repeated on every page and very short bits dropped)."""
     import collections
@@ -186,7 +201,8 @@ def pdf_lines(raw: bytes) -> list[str]:
     out = []
     for pl in pages:
         for ln in pl:
-            if len(ln) >= 3 and ln not in rep and not re.fullmatch(r"[\d\s:.\-–|/]+", ln):
+            if (len(ln) >= 3 and ln not in rep and not re.fullmatch(r"[\d\s:.\-–|/]+", ln)
+                    and not re.match(r"(https?://|www\.)\S+$", ln) and ln.lower().rstrip(":") not in _PDF_HEADS):
                 out.append(ln)
     return out[:1500]
 

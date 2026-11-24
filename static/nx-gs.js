@@ -21,7 +21,7 @@ const IC = {
   trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/>', pencil: '<path d="M10.5 3.5l2 2L6 12H4v-2z"/>',
   check: '<path d="M3.5 8.5l3 3 6-7"/>', x: '<path d="M4 4l8 8M12 4l-8 8"/>', undo: '<path d="M5.5 6.5H10a3 3 0 0 1 0 6H7"/><path d="M7.5 4L5 6.5 7.5 9"/>',
   redo: '<path d="M10.5 6.5H6a3 3 0 0 0 0 6h3"/><path d="M8.5 4L11 6.5 8.5 9"/>', regen: '<path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10"/>',
-  minus: '<path d="M3.5 8h9"/>', info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.5M8 5.2v.1"/>', download: '<path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/>',
+  minus: '<path d="M3.5 8h9"/>', skip: '<circle cx="8" cy="8" r="5.5"/><path d="M4.2 11.8l7.6-7.6"/>', info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.5M8 5.2v.1"/>', download: '<path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/>',
   doc: '<path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3M6 8.5h4M6 11h4"/>', wave: '<path d="M2.5 8h1M5 5.5v5M7.5 3v10M10 5.5v5M12.5 7.5v1"/>',
   upload: '<path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6M3 13.5h10"/>', play: '<path d="M5.5 3.8l6.5 4.2-6.5 4.2z" fill="currentColor" stroke="none"/>', pause: '<path d="M5.5 4v8M10.5 4v8"/>',
   clock: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/>', hash: '<path d="M6 2.5L5 13.5M11 2.5l-1 11M2.5 6h11M2 10h11"/>', video: '<rect x="2" y="3.5" width="9" height="9" rx="1.5"/><path d="M11 7l3-2v6l-3-2"/>',
@@ -47,10 +47,10 @@ const LOGO = {
 LOGO.zo = LOGO.varsity;   // ZO's logo has not been supplied yet (handoff: open point)
 const CH = [
   { id: 'varsity', name: 'Varsity', c: '#A78BFA', line: 'English, Mutual Fund, Hindi Charts and Hindi Elements', kits: ['varsity-english', 'varsity-mf-graphics', 'varsity-hindi-graphics', 'varsity-hindi-fa-graphics'] },
-  { id: 'zo', name: 'ZO', c: '#387ED1', line: 'Product videos: FSS, OSA, OST and TOS frames', kits: ['zo-product-graphics'] },
+  { id: 'zo', name: 'ZO', c: '#387ED1', line: 'Product and IPO videos: FSS, OSA, OST and TOS frames', kits: ['zo-product-graphics', 'zo-ipo-graphics'] },
   { id: 'zero1', name: 'Zero1', c: '#F5B400', line: 'Hindi long form and vertical Reels', kits: ['zero1-hindi-graphics', 'zero1-reel-graphics'] },
 ];
-const KIT = { 'varsity-english': 'English', 'varsity-mf-graphics': 'Mutual Fund', 'varsity-hindi-graphics': 'Hindi – Charts', 'varsity-hindi-fa-graphics': 'Hindi – Elements', 'zo-product-graphics': 'Product', 'zero1-hindi-graphics': 'Long form', 'zero1-reel-graphics': 'Reels' };
+const KIT = { 'varsity-english': 'English', 'varsity-mf-graphics': 'Mutual Fund', 'varsity-hindi-graphics': 'Hindi – Charts', 'varsity-hindi-fa-graphics': 'Hindi – Elements', 'zo-product-graphics': 'Product', 'zo-ipo-graphics': 'IPO', 'zero1-hindi-graphics': 'Long form', 'zero1-reel-graphics': 'Reels' };
 const chOfTheme = t => CH.find(c => c.kits.includes(t));
 const chById = id => CH.find(c => c.id === String(id || '').toLowerCase() || c.name.toLowerCase() === String(id || '').toLowerCase());
 const kitsOf = c => (c?.kits || []).filter(t => !themes.length || themes.includes(t));
@@ -295,7 +295,7 @@ function renderChannel() {
   else if (vs.length && !filtered.length) empty = `<div class="nx-empty"><b>No videos match these filters</b><button class="nx-btn ghost" data-clearf>Clear filters</button></div>`;
   else empty = `<div class="nx-empty"><b>No videos in ${E(where)} yet</b>Make one from a script, a voice-over or a storyboard.<button class="nx-btn primary" data-new>${I('plus')}New</button></div>`;
   m.innerHTML = `<div class="nx-top"><div class="nx-crumb"><button data-home>Graphics</button>${I('chev')}<span class="nx-mark">${LOGO[c.id]}</span><b>${c.name}</b></div>${searchHTML()}</div>
-    <div class="nx-box${S.picked.size ? ' selmode' : ''}"><div class="nx-chrow">${tabs}<div class="nx-pright">${filterBtn()}${viewSwitch()}${kits.some(k => TK_THEMES.includes(k)) ? `<button class="nx-btn ghost lg" data-toolkit="${kits.find(k => TK_THEMES.includes(k))}" data-tip="Ready-made frames for ZO Product videos">${I('frames')}Toolkit</button>` : ''}<button class="nx-btn primary lg" data-new>${I('plus')}New</button></div></div>
+    <div class="nx-box${S.picked.size ? ' selmode' : ''}"><div class="nx-chrow">${tabs}<div class="nx-pright">${filterBtn()}${viewSwitch()}${kits.some(k => TK_THEMES.includes(k)) ? `<button class="nx-btn ghost lg" data-toolkit="${TK_THEMES.includes(S.kit) ? S.kit : ''}" data-tip="${TK_THEMES.includes(S.kit) ? `Ready-made frames for ${E(kitName(S.kit))} videos` : 'Ready-made frames for this channel’s videos'}">${I('frames')}Toolkit${TK_THEMES.includes(S.kit) ? '' : `<svg class="i" viewBox="0 0 16 16">${IC.chev}</svg>`}</button>` : ''}<button class="nx-btn primary lg" data-new>${I('plus')}New</button></div></div>
     ${loading ? skeleton() : videosBlock(filtered, { showKit: multi && !S.kit, emptyHTML: empty })}</div>`;
   bindList(m, filtered);
 }
@@ -307,7 +307,7 @@ function bindList(m, vs) {
     if (t.closest('[data-home]')) return goHomeNx();
     const ch = t.closest('[data-ch]'); if (ch) return openChannel(ch.dataset.ch);
     if (t.closest('[data-new]')) return newVideo();
-    const tkb = t.closest('[data-toolkit]'); if (tkb) return openToolkit(tkb.dataset.toolkit);
+    const tkb = t.closest('[data-toolkit]'); if (tkb) { if (tkb.dataset.toolkit) return openToolkit(tkb.dataset.toolkit); return menu(tkb, kitsOf(chById(S.ch)).filter(k => TK_THEMES.includes(k)).map(k => ({ label: `${kitName(k)} toolkit`, icon: 'frames', run: () => openToolkit(k) }))); }
     if (t.closest('[data-cost]')) return costWin();
     if (t.closest('[data-clearq]')) { S.q = ''; return renderList(); }
     if (t.closest('[data-clearf]')) { S.fst.clear(); S.fpj = 'any'; return renderList(); }
@@ -389,7 +389,7 @@ async function costWin(days = 30) {
 }
 
 /* ---------------- windows (B7, B8) ---------------- */
-function lookFor(theme) { return (isKitTheme(theme) || theme === 'zo-product-graphics' || theme === 'zero1-hindi-graphics') ? { look_line: '' } : { props: [...DEFAULT_PROPS] }; }
+function lookFor(theme) { return (isKitTheme(theme) || isZoProduct(theme) || theme === 'zero1-hindi-graphics') ? { look_line: '' } : { props: [...DEFAULT_PROPS] }; }
 function chPills(sel) { return `<div class="nx-chseg" role="radiogroup">${CH.filter(c => kitsOf(c).length).map(c => `<button type="button" class="nx-chpill${sel === c.id ? ' on' : ''}" data-pch="${c.id}" role="radio" aria-checked="${sel === c.id}"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>`).join('')}</div>`; }
 function kitChips(c, sel) { return `<div class="nx-kits">${kitsOf(c).map(t => `<button type="button" class="nx-kit${sel === t ? ' on' : ''}" data-pkit="${t}">${E(kitName(t))}</button>`).join('')}</div>`; }
 /* Channel + kit picker used by New video and by a project's first step. Returns a function that reads {ch, kit, err}. */
@@ -906,6 +906,9 @@ function framesView() {
     const t = e.target;
     if (t.closest('[data-stopgen]')) return stopGen();
     const tp = t.closest('[data-tkpick]'); if (tp) { const [a, b] = (tp.dataset.tkpick || '').split('-').map(Number); return tkPicker(isNaN(a) ? null : { a, b }); }
+    const tsk = t.closest('[data-tkskip]'); if (tsk) { const [a, b] = tsk.dataset.tkskip.split('-').map(Number); return tkSetSkip(a, b, true); }
+    const tus = t.closest('[data-tkunskip]'); if (tus) { const [a, b] = tus.dataset.tkunskip.split('-').map(Number); return tkSetSkip(a, b, false); }
+    const tex = t.closest('[data-tkexp]'); if (tex) { const a = +tex.dataset.tkexp; if (tkOpen.has(a)) tkOpen.delete(a); else tkOpen.add(a); return render(); }
     const pk = t.closest('[data-pick]'); if (pk) return pick(+pk.dataset.pick);
     const st = t.closest('[data-step]'); if (st) return pick(si + +st.dataset.step);
     const sw = t.closest('[data-strip]'); if (sw) { S.strip = sw.dataset.strip; ls.set('nx.strip', S.strip); return render(); }
@@ -963,13 +966,14 @@ function updateDock() {
     if (g.kind !== 'pictures' && g.msg && g.kind === 'pdf') tx += ` <span class="nx-dim">· ${E(g.msg)}</span>`;
     if (g.kind !== 'pictures') btns += `<button class="nx-btn ghost" data-stopgen data-tip="Stop: nothing from this run is kept">${I('x')}Stop</button>`;
   } else if (S.bg) tx = E(S.bg) + '<span class="nx-dots"><i></i><i></i><i></i></span>';
+  else if (tkKit() && tkFrames().length) { const k = tkFrames().length; tx = `${n} frame${n === 1 ? '' : 's'} · ${k === n ? 'all' : k} from the toolkit`; }
   else if (pdf) tx = P.spec?.pdf_done ? `All ${n} frames made` : `${n} frame${n === 1 ? '' : 's'} generated`;
   else tx = `${n} frame${n === 1 ? '' : 's'} · made from your script`;
   if (!g) {
     if (todo) btns += `<button class="nx-btn plain" data-fill>${z1 ? `Generate ${todo} picture${todo > 1 ? 's' : ''}` : `Make ${todo} missing picture${todo > 1 ? 's' : ''}`}</button>`;
     else if (gens) btns += `<button class="nx-btn plain" data-redo-pics>${z1 ? `Redo ${gens} generated frame${gens > 1 ? 's' : ''}` : `Redo ${gens} generated picture${gens > 1 ? 's' : ''}`}</button>`;
     if (tkKit()) btns += `<button class="nx-btn ghost" data-tkpick>${I('frames')}Pick from toolkit</button>`;
-    if (pdf && pdfOn() && !P.spec?.pdf_done) btns += `<button class="nx-btn ghost" data-genall>Generate all</button><button class="nx-btn primary" data-gennext>Generate next 10 frames</button>`;
+    if (pdf && pdfOn() && !P.spec?.pdf_done) { const tkn = tkKit() && tkFrames().length; btns += `<button class="nx-btn ghost" data-genall${tkn ? ' data-tip="Claude makes frames for every part of the storyboard without a toolkit frame"' : ''}>${tkn ? 'Generate all the rest' : 'Generate all'}</button><button class="nx-btn primary" data-gennext>Generate next 10 frames</button>`; }
     else if (!pdf && tkKit() && tkFrames().length) { const fr = tkFreeLines(); const again = studioFrames().length > tkFrames().length; btns += `<button class="nx-btn ${again ? 'ghost' : 'primary'}" data-tkrest ${fr ? '' : 'disabled'} data-tip="Claude writes frames only for the lines without a toolkit frame">${again ? 'Regenerate the rest' : `Generate the rest${fr ? ` (${fr} line${fr === 1 ? '' : 's'})` : ''}`}</button>`; }
     else if (!pdf) btns += `<button class="nx-btn ghost" data-regenall>Regenerate all</button>`;
   }
@@ -1135,7 +1139,10 @@ const nxRCL = function () {
   }
   const fdoc = q1('#canvasEditFrame')?.contentDocument;
   const textOf = mf => { if (!mf || !/^html:/.test(mf) || !fdoc) return null; try { const el = fdoc.querySelector(`[data-mf-path="${CSS.escape(mf)}"]`); return el && el.classList.contains('studio-inline-text') ? el.innerText : null; } catch (_) { return null; } };
-  list.innerHTML = tools + rows.map(r => {
+  const curF = studioFrames().find(x => x.id === selectedFrameId);
+  const words = (isTkProject() || curF?.tk_from) ? rows.map(r => ({ r, tx: textOf(r.mfPath) })).filter(w => w.tx != null && w.tx.trim()) : [];
+  const wordsHTML = words.length ? `<div class="nx-words"><span class="lab">Text on this frame</span>${words.map(w => `<textarea data-wtext data-mf="${E(w.r.mfPath)}" rows="${Math.min(4, w.tx.split('\n').length)}" aria-label="${E(layerKind(w.r.label).name)}">${E(w.tx)}</textarea>`).join('')}<small>Type to change the words · Enter saves · Shift+Enter for a new line</small></div>` : '';
+  list.innerHTML = tools + wordsHTML + rows.map(r => {
     const k = layerKind(r.label), key = r.idx + '|' + (r.mfPath || ''), f = repFiles[key];
     const tx = r.on ? textOf(r.mfPath) : null;
     return `<div class="nx-ls${r.on ? ' open' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
@@ -1146,8 +1153,8 @@ const nxRCL = function () {
   }).join('');
 };
 /* change a text layer's words right here (no AI, no cost): same save as double-clicking the text on the frame */
-function layerText(L) {
-  const v = (L.s.querySelector('[data-ltext]')?.value ?? '').replace(/\s+$/, '');
+function layerText(L, val) {
+  const v = (val ?? L.s?.querySelector('[data-ltext]')?.value ?? '').replace(/\s+$/, '');
   const el = q1('#canvasEditFrame')?.contentDocument?.querySelector(`[data-mf-path="${CSS.escape(L.mfPath || '')}"]`);
   if (!el || !v.trim()) return;
   el.innerText = v;
@@ -1208,7 +1215,12 @@ function bindLayerPanel() {
     const f = [...(e.clipboardData?.files || [])].find(x => /^image\//.test(x.type)); if (!f) return;
     e.preventDefault(); repFiles[L.key] = { file: namedPicture(f), url: URL.createObjectURL(f) }; renderCanvasLayerList(); toast('Picture added to Replace with an image');
   });
-  list.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ltext]')) { e.preventDefault(); const L = layerOf(e.target); if (L) layerText(L); return; } if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ai]')) { e.preventDefault(); e.target.closest('.nx-ls').querySelector('[data-aiapply]').click(); } });
+  const saveWords = ta => { if (ta._nxSaved === ta.value) return; ta._nxSaved = ta.value; layerText({ mfPath: ta.dataset.mf }, ta.value); };
+  list.addEventListener('focusout', e => { if (e.target.matches('[data-wtext]')) saveWords(e.target); });
+  list.addEventListener('focusin', e => { if (e.target.matches('[data-wtext]') && e.target._nxSaved == null) e.target._nxSaved = e.target.value; });
+  list.addEventListener('input', e => { if (e.target.matches('[data-wtext]')) { e.target.rows = Math.min(4, e.target.value.split('\n').length); try { const el = q1('#canvasEditFrame')?.contentDocument?.querySelector(`[data-mf-path="${CSS.escape(e.target.dataset.mf)}"]`); if (el) el.innerText = e.target.value; } catch (_) {} } });
+  list.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-wtext]')) { e.preventDefault(); saveWords(e.target); return; }
+    if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ltext]')) { e.preventDefault(); const L = layerOf(e.target); if (L) layerText(L); return; } if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ai]')) { e.preventDefault(); e.target.closest('.nx-ls').querySelector('[data-aiapply]').click(); } });
   list.addEventListener('change', e => {
     if (!e.target.matches('[data-repin]')) return;
     const L = layerOf(e.target), f = e.target.files[0]; if (!f || !L) return;
@@ -1517,7 +1529,7 @@ function projectStepsEmpty() { return `<div class="nx-steps">${['Graphics', 'Lay
    The kit's toolkit is a hidden project whose frames are the templates (made and edited in the normal editor).
    A video copies a template for the script lines picked (no Claude call); "Generate the rest" asks Claude only for
    the lines no toolkit frame covers. */
-const TK_THEMES = ['zo-product-graphics'];
+const TK_THEMES = ['zo-product-graphics', 'zo-ipo-graphics'];
 const tkKit = () => !!P && TK_THEMES.includes(P.theme) && !P.look?.toolkit;
 const isTkProject = () => !!P?.look?.toolkit;
 let TK = null;
@@ -1543,8 +1555,21 @@ function tkOwner(n) {
   studioFrames().forEach(f => { if (Array.isArray(f.lines)) for (let j = f.lines[0]; j <= Math.min(n - 1, f.lines[1]); j++) own[j] = f; });
   return own;
 }
+function tkSkip() {          // lines marked "no frame needed" (for the source they were marked on)
+  const sp = P?.spec || {};
+  return new Set(Array.isArray(sp.tk_skip) && sp.tk_skip_src === tkLines().src ? sp.tk_skip : []);
+}
+async function tkSetSkip(a, b, on) {
+  const L = tkLines(), s = tkSkip();
+  for (let j = a; j <= b; j++) { if (on) s.add(j); else s.delete(j); }
+  const spec = { ...P.spec, tk_skip: [...s].sort((x, y) => x - y), tk_skip_src: L.src };
+  P.spec = spec; render();
+  try { const r = await api(`/api/projects/${P.id}`, { method: 'PUT', body: JSON.stringify({ spec }) }); if (r?.spec) P.spec = { ...r.spec }; updateDock(); }
+  catch (e) { toast(e.message || String(e), { err: true }); }
+  if (on) toast(`${b - a + 1} line${a === b ? '' : 's'} marked: no frame needed`, { undo: () => tkSetSkip(a, b, false) });
+}
 function tkFreeLines() {      // lines no toolkit frame covers (what "Generate the rest" makes frames for)
-  const L = tkLines(), cov = new Set(); tkFrames().forEach(f => { for (let j = f.lines[0]; j <= f.lines[1]; j++) cov.add(j); });
+  const L = tkLines(), cov = tkSkip(); tkFrames().forEach(f => { for (let j = f.lines[0]; j <= f.lines[1]; j++) cov.add(j); });
   return L.list.filter((l, j) => l.text.trim() && !cov.has(j)).length;
 }
 function tkGroups(its) {
@@ -1552,12 +1577,12 @@ function tkGroups(its) {
   its.forEach(x => { if (x.f && Array.isArray(x.f.lines)) for (let j = x.f.lines[0]; j <= Math.min(n - 1, x.f.lines[1]); j++) own[j] = x.f.id; });
   const loose = its.filter(x => x.f && !Array.isArray(x.f.lines));
   if (loose.length && L.src === 'script') { const sa = assignScriptRanges(P.script, loose.map(x => x.f), P.storyboard); Object.entries(sa.lineToFrame).forEach(([j, fid]) => { if (own[+j] == null) own[+j] = fid; }); }
-  const byId = new Map(its.filter(x => x.f).map(x => [x.f.id, x])), out = [];
+  const byId = new Map(its.filter(x => x.f).map(x => [x.f.id, x])), out = [], skip = tkSkip();
   let cur = null;
   L.list.forEach((l, j) => {
     if (!l.text.trim()) return;
-    const o = own[j], key = o ? 'f:' + o : 'todo';
-    if (!cur || cur.key !== key) { cur = { key, x: o ? byId.get(o) : { todo: true }, lines: [], a: j, b: j }; out.push(cur); }
+    const o = own[j], key = o ? 'f:' + o : skip.has(j) ? 'skip' : 'todo';
+    if (!cur || cur.key !== key) { cur = { key, x: o ? byId.get(o) : key === 'skip' ? { todo: true, skip: true } : { todo: true }, lines: [], a: j, b: j }; out.push(cur); }
     cur.lines.push({ t: l.t, text: l.text.trim(), j }); cur.b = j;
   });
   its.forEach(x => { const k = x.ph ? 'ph' + x.k : 'f:' + x.f.id; if (!out.some(g => g.key === k)) out.push({ key: k, x, lines: [] }); });
@@ -1566,8 +1591,12 @@ function tkGroups(its) {
 function tkTimes(G, its) {
   return its.map(x => { const g = G.list.find(g => g.x === x && g.lines.length); return { s: g ? g.lines[0].t : null, e: g ? g.lines[g.lines.length - 1].t + 4 : null }; });
 }
+const tkOpen = new Set();     // long "no frame" groups the user expanded (by first line)
 function tkTodoHTML(g) {
-  return `<div class="nx-grp todo nx-tkfree"><div class="nx-gh"><span class="nx-gth nx-tkplus">${I('plus')}</span><b>No frame yet</b><span class="nx-gt dash">${g.lines.length} line${g.lines.length === 1 ? '' : 's'}</span><button class="nx-tbtn" data-tkpick="${g.a}-${g.b}">Pick from toolkit</button></div>${g.lines.map(l => `<p class="nx-ln"><time>${l.t != null ? mmss(l.t) : ''}</time><span>${E(l.text)}</span></p>`).join('')}</div>`;
+  const n = g.lines.length, ln = l => `<p class="nx-ln"><time>${l.t != null ? mmss(l.t) : ''}</time><span>${E(l.text)}</span></p>`;
+  if (g.x.skip) return `<div class="nx-tkskip" data-tkunskip="${g.a}-${g.b}" data-tip="Click to give these lines a frame again"><span class="ic">${I('skip')}</span><span class="tx"><b>No frame needed</b> · ${E(g.lines[0].text)}${n > 1 ? ` <i>+${n - 1}</i>` : ''}</span><span class="un">Undo</span></div>`;
+  const open = n <= 4 || tkOpen.has(g.a), shown = open ? g.lines : g.lines.slice(0, 3);
+  return `<div class="nx-grp todo nx-tkfree"><div class="nx-gh"><span class="nx-tkplus">${I('plus')}</span><b>No frame</b><span class="nx-tkn2">${n} line${n === 1 ? '' : 's'}</span><span class="nx-sp"></span><button class="nx-tbtn" data-tkpick="${g.a}-${g.b}">Pick from toolkit</button><button class="nx-ib sm" data-tkskip="${g.a}-${g.b}" data-tip="No frame needed for these lines" class="tip-l" aria-label="No frame needed">${I('skip')}</button></div>${shown.map(ln).join('')}${n > 4 ? `<button class="nx-tkmore" data-tkexp="${g.a}">${open ? 'Show less' : `Show ${n - 3} more line${n - 3 === 1 ? '' : 's'}`}</button>` : ''}</div>`;
 }
 
 /* the picker: script lines on the left (click a line, shift-click to stretch), templates on the right */
@@ -1578,8 +1607,10 @@ async function tkPdfLoad() {
   try { const r = await api(`/api/projects/${pid}/pdf-lines`); S.pdfLines = { pid, lines: r.lines || [] }; } catch (_) { S.pdfLines = { pid, lines: [] }; }
 }
 function tkPdfNote() {   // a PDF video with toolkit frames: Claude is told which storyboard parts are already done
-  const f = tkFrames().filter(x => x.lines_src === 'pdf'); if (!f.length) return '';
-  return 'These parts of the storyboard already have a frame picked from the team toolkit; do NOT make frames for them: ' + f.map(x => `"${String(x.vo || '').replace(/\s+/g, ' ').slice(0, 160)}"`).join('; ') + '.';
+  const f = tkFrames().filter(x => x.lines_src === 'pdf'), L = tkLines(), sk = L.src === 'pdf' ? [...tkSkip()].map(j => L.list[j]?.text).filter(Boolean) : [];
+  const no = sk.length ? ' No frame is needed at all for these storyboard lines: ' + sk.map(t => `"${String(t).replace(/\s+/g, ' ').slice(0, 120)}"`).join('; ') + '.' : '';
+  if (!f.length) return no.trim();
+  return no.trim() + (no ? ' ' : '') + 'These parts of the storyboard already have a frame picked from the team toolkit; do NOT make frames for them: ' + f.map(x => `"${String(x.vo || '').replace(/\s+/g, ' ').slice(0, 160)}"`).join('; ') + '.';
 }
 async function stopGen() {
   const g = S.gen; if (!g) return;
@@ -1636,7 +1667,7 @@ async function genRest() {
     P.spec = { ...P.spec, frames: (P.spec.frames || []).filter(f => f.tk_from) };
     render(); pollGen(pid);
     try {
-      const r = await api(`/api/projects/${pid}/storyboard`, { method: 'POST', body: JSON.stringify({ script: P.script || '', look: lookPayload('script'), notes: '', rest: { lines: L.list.map(l => l.text), src: L.src } }) });
+      const r = await api(`/api/projects/${pid}/storyboard`, { method: 'POST', body: JSON.stringify({ script: P.script || '', look: lookPayload('script'), notes: '', rest: { lines: L.list.map(l => l.text), src: L.src, skip: [...tkSkip()] } }) });
       if (tok.stopped || r.stopped) return;
       S.gen = null;
       if (P?.id === pid) { P = r; P.look = normLook(P.look); frameVer = {}; frameHistInit(); selectedFrameId = studioFrames()[0]?.id || null; S.phSel = null; render(); }
@@ -1720,7 +1751,7 @@ window.nxBoot = async function () {
   const _list = list;
   list = async () => { loadList().then(() => { allProjects = S.list || []; if (!P && !editModeOpen) renderList(); }); };
   const _open = openEditMode;
-  openEditMode = fid => { S.etab = 'prompt'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
+  openEditMode = fid => { S.etab = (isTkProject() || studioFrames().find(x => x.id === fid)?.tk_from) ? 'layers' : 'prompt'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
   const _sel = selectEditFrame;
   selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); } };
   const _strip = buildEditFrameStrip;

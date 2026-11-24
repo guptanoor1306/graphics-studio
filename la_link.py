@@ -26,6 +26,7 @@ CHANNELS = [
     ]},
     {"id": "zo", "name": "ZO", "colour": "#387ED1", "kits": [
         {"theme": "zo-product-graphics", "label": "ZO Product", "form": "lf"},
+        {"theme": "zo-ipo-graphics", "label": "ZO IPO", "form": "lf"},
     ]},
     {"id": "zero1", "name": "Zero1", "colour": "#C96442", "kits": [
         {"theme": "zero1-hindi-graphics", "label": "Zero1 Hindi", "form": "lf"},

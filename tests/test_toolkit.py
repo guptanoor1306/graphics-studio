@@ -47,3 +47,28 @@ def test_pdf_lines_drop_repeated_headers():
         pg.insert_text((50, 130), "0:12")
     lines = toolkit.pdf_lines(d.tobytes())
     assert lines == [f"Scene {i + 1}: interest is 0.0{i}% a day" for i in range(4)]
+
+
+def test_skip_lines_are_left_out():
+    lines = ["intro", "toolkit line", "no graphic here", "fourth", "fifth"]
+    s = toolkit.marked_script(lines, {1}, {2})
+    assert "[[ALREADY A FRAME: toolkit line]]" in s and "[[NO FRAME: no graphic here]]" in s
+    kept = [{"id": "tk1", "tk_from": "t1", "lines": [1, 1]}]
+    new = [{"id": "1", "vo": "intro"}, {"id": "2", "vo": "no graphic here"}, {"id": "3", "vo": "fourth"}]
+    out = toolkit.merge_rest(kept, new, lines, "script", {2})
+    assert [f["id"] for f in out] == ["1", "tk1", "3"]
+    assert out[2]["lines"] == [3, 4]
+
+
+def test_carry_keeps_skip_marks():
+    new = {"frames": []}
+    toolkit.carry({"tk_skip": [2, 3], "tk_skip_src": "pdf"}, new)
+    assert new["tk_skip"] == [2, 3] and new["tk_skip_src"] == "pdf"
+
+
+def test_ipo_kit_reuses_zo_product():
+    import theme_alias, presenter
+    assert theme_alias.base("zo-ipo-graphics") == "zo-product-graphics"
+    assert toolkit.enabled("zo-ipo-graphics")
+    assert presenter.has_slots("zo-ipo-graphics")
+    assert presenter.slot_of("zo-ipo-graphics", {"mode": "osa", "plate": "m2_left", "html": "<div></div>"}) == "left"

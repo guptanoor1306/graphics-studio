@@ -713,7 +713,7 @@ function setChannelKitFilter(theme){
 }
 const CHANNELS=[
  {id:'varsity',label:'Varsity',desc:'Varsity English, Varsity Hindi – Charts & Elements, and Varsity Mutual Fund.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics','varsity-hindi-fa-graphics'],accent:'#5b55e6'},
- {id:'zo',label:'ZO',desc:'ZO Product: FSS, OSA, OST and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
+ {id:'zo',label:'ZO',desc:'ZO Product: FSS, OSA, OST and TOS anchor frames.',themes:['zo-product-graphics','zo-ipo-graphics'],accent:'#387ed1'},
  {id:'zero1',label:'Zero1',desc:'Zero1 Hindi long-form toy-world frames, and vertical 1080×1920 Reels.',themes:['zero1-hindi-graphics','zero1-reel-graphics'],accent:'#c96442'},
 ];
 function syncShellNav(){
@@ -903,7 +903,7 @@ function layoutReelPhoneChrome(container,ox,oy,dw,dh){
  return {ox,oy,dw,dh,...dev,deviceLeft,deviceTop};
 }
 function isKitTheme(t){return !!(themeMeta[t]?.kit);}
-function isZoProduct(t){return (t||(P&&P.theme))==='zo-product-graphics'}
+function isZoProduct(t){const x=t||(P&&P.theme);return x==='zo-product-graphics'||x==='zo-ipo-graphics'}
 function isHindiChartsTheme(t){return (t||(P&&P.theme))==='varsity-hindi-graphics'}
 function isHindiFaTheme(t){return (t||(P&&P.theme))==='varsity-hindi-fa-graphics'}
 function isHindiTheme(t){return isHindiChartsTheme(t)||isHindiFaTheme(t)}
@@ -1855,6 +1855,7 @@ function themeLabel(theme){
   if(theme==='varsity-hindi-graphics')return 'Varsity Hindi - Charts';
   if(theme==='varsity-hindi-fa-graphics')return 'Varsity Hindi - Elements';
   if(theme==='zo-product-graphics')return 'ZO Product';
+  if(theme==='zo-ipo-graphics')return 'ZO IPO';
   if(theme==='zero1-reel-graphics')return 'Reels';
   if(theme==='zero1-hindi-graphics')return 'Zero1 Hindi';
   return theme||'—';
@@ -2068,7 +2069,7 @@ function newProject(){
     onSubmit:async name=>{
     if(!name)throw new Error('Enter a name');
     const theme=$('#newProjectTheme')?.value||$('#newProjectThemeSingle')?.value||pick[0];
-    const look=(isKitTheme(theme)||theme==='zo-product-graphics'||theme==='zero1-hindi-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
+    const look=(isKitTheme(theme)||isZoProduct(theme)||theme==='zero1-hindi-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
     const p=await api('/api/projects',{method:'POST',body:JSON.stringify({name,theme,look})});
     navChannel=channelForTheme(theme);
     await open_(p.id);
@@ -2116,7 +2117,7 @@ function specTodoCount(){
 function specGenCount(){
  if(isZ1Hindi()){const g=P?.spec?.gen||{};return z1GenKeys().filter(k=>g[k]?.file).length}
  const seen=new Set();const walk=o=>{if(!o)return;if(typeof o==='string'){if(o.startsWith('gen/'))seen.add(o);}else if(Array.isArray(o))o.forEach(walk);else if(typeof o==='object')Object.values(o).forEach(walk);};
- walk(P?.spec?.frames);return seen.size;
+ walk((P?.spec?.frames||[]).filter(f=>!f?.tk_from));return seen.size;
 }
 function assetsNote(r){
  const a=r?.assets||{};const f=Object.entries(a.filled||{}).filter(([,v])=>v.source!=='library');const bad=Object.keys(a.failed||{});

@@ -62,7 +62,8 @@ def is_reel_theme(theme_dir: pathlib.Path) -> bool:
 
 
 def is_zo_product_theme(theme_dir: pathlib.Path) -> bool:
-    return theme_dir.name == "zo-product-graphics"
+    import theme_alias
+    return theme_alias.base(theme_dir.name) == "zo-product-graphics"
 
 
 def is_z1_hindi_theme(theme_dir: pathlib.Path) -> bool:
@@ -924,6 +925,9 @@ def _z1h_issues(spec: dict) -> list[str]:
 def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "", storyboard_led: bool = False) -> list[str]:
     """storyboard_led: frames come from the team's storyboard PDF, which already decides anchor vs full screen,
     so the mix checks (too many anchor frames, need more full-screen) don't apply."""
+    import theme_alias
+    theme = theme_alias.base(theme)
+
     if theme == "zero1-hindi-graphics":
         return _z1h_issues(spec)
     if theme == "varsity-hindi-fa-graphics":

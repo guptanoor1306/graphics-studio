@@ -339,7 +339,8 @@ def is_mf_theme_name(theme: str) -> bool:
 
 
 def is_zo_theme_name(theme: str) -> bool:
-    return theme == "zo-product-graphics"
+    import theme_alias
+    return theme_alias.base(theme) == "zo-product-graphics"
 
 
 HINDI_THEME_NAMES = frozenset({"varsity-hindi-graphics", "varsity-hindi-fa-graphics"})
@@ -1271,10 +1272,11 @@ async def _make_storyboard(pid: int, b: dict, user: str):
         kept = [f for f in (p.get("spec") or {}).get("frames") or []
                 if isinstance(f, dict) and f.get("tk_from") and isinstance(f.get("lines"), list) and len(f["lines"]) == 2]
         covered = {i for f in kept for i in range(int(f["lines"][0]), int(f["lines"][1]) + 1)}
-        if not [i for i, ln in enumerate(lines) if ln.strip() and i not in covered]:
+        skip = {int(i) for i in rest.get("skip") or [] if str(i).lstrip("-").isdigit()} - covered
+        if not [i for i, ln in enumerate(lines) if ln.strip() and i not in covered and i not in skip]:
             raise HTTPException(400, "every line already has a toolkit frame")
         b = {**b, "notes": ((b.get("notes") or "") + "\n" + toolkit.REST_NOTE).strip()}
-        claude_script = toolkit.marked_script(lines, covered)
+        claude_script = toolkit.marked_script(lines, covered, skip)
     else:
         claude_script = script
     if z1_plates.is_theme(p["theme"]) and os.environ.get("STUDIO_LIVE_PREVIEW", "1") != "0":
@@ -1318,8 +1320,9 @@ async def _make_storyboard(pid: int, b: dict, user: str):
         spec = finalize(out["spec"])
         if rest:
             new = [f for f in spec.get("frames") or [] if isinstance(f, dict) and not str(f.get("id", "")).startswith("tk")]
-            spec["frames"] = toolkit.merge_rest(kept, new, [str(x) for x in rest.get("lines") or []], rest.get("src") or "script")
+            spec["frames"] = toolkit.merge_rest(kept, new, [str(x) for x in rest.get("lines") or []], rest.get("src") or "script", skip)
             only_new = {str(f.get("id")) for f in new}
+        toolkit.carry(p.get("spec"), spec)
     elif is_hindi_theme_name(theme) or z1_plates.is_theme(theme):
         finalize = None
         spec = out.get("spec") or {}
@@ -1661,6 +1664,7 @@ async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
+    toolkit.carry(p.get("spec"), spec)
     tkf = [f for f in spec.get("frames") or [] if isinstance(f, dict) and f.get("tk_from") and f.get("lines_src") == "pdf"
            and isinstance(f.get("lines"), list) and len(f["lines"]) == 2]
     if tkf and toolkit.enabled(p["theme"]):
@@ -1984,7 +1988,7 @@ async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: Upl
     import io, presenter
     from PIL import Image, ImageOps
     p = await _db_call(load, pid)
-    if slot not in presenter.SLOTS.get(p["theme"], {}):
+    if slot not in presenter.SLOTS.get(presenter._base(p["theme"]), {}):
         raise HTTPException(400, "this kit has no presenter shot called " + slot)
     raw = await file.read()
     try:
