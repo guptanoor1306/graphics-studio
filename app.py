@@ -1673,6 +1673,10 @@ async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0
             spec["frames"] = toolkit.merge_rest(tkf, others, toolkit.pdf_lines(storyboard_pdf.read_pdf(pid)), "pdf")
         except Exception as e:
             print(f"toolkit order after pdf batch skipped: {e}")
+    if is_mf_theme_name(p["theme"]) and claude_client.mf_picture_issues(spec):
+        _progress(pid, run, stage="checking", msg="Redrawing charts as kit graphics…")
+        spec = (await asyncio.to_thread(
+            claude_client.mf_fix_pictures, THEMES / p["theme"], {"spec": spec, "storyboard": storyboard}, script))["spec"]
     prog = str(out.get("pdf_progress") or "")
     spec["pdf_progress"] = prog
     spec["pdf_done"] = prog.strip().lower() in ("done", "complete", "finished")

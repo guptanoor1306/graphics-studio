@@ -922,6 +922,34 @@ def _z1h_issues(spec: dict) -> list[str]:
     return issues
 
 
+# MF kit: pictures (TODO:<asset> → generated image) are objects only. A chart drawn inside a picture comes out in a
+# random font with made-up axes; the kit draws charts, numbers and words as html in Inter.
+MF_PICTURE_RULE = (
+    "- Charts, graphs, bar/column/pie charts, axes, numbers, ₹/Rs amounts, percentages and any words are NEVER inside "
+    "a picture. Build every chart as an `html` frame (or the `html` block of a scene) with plain divs and the house "
+    "classes, all text in Inter, values copied exactly. A \"TODO:<what>\" asset is a single object only (a vault, a "
+    "coin stack, a phone) — never a chart, graph, table, screenshot or anything with numbers or words in it.\n"
+)
+_DATAVIZ_RE = re.compile(
+    r"\b(charts?|graphs?|histogram|infographic|axis|axes|pie|donut|doughnut|bar ?charts?|column ?charts?|"
+    r"line ?graphs?|plotted|y-axis|x-axis)\b|%|₹\s?\d|\brs\.?\s?\d", re.I)
+
+
+def mf_picture_issues(spec: dict) -> list[str]:
+    issues: list[str] = []
+    for f in (spec or {}).get("frames") or []:
+        if not isinstance(f, dict):
+            continue
+        blob = json.dumps(f, ensure_ascii=False)
+        bad = [d for d in re.findall(r'"TODO:\s*([^"]+)"', blob) if _DATAVIZ_RE.search(d)]
+        if bad:
+            issues.append(
+                f'Frame "{f.get("id") or "?"}": the picture "TODO:{bad[0][:80]}" is a chart / has numbers — rebuild '
+                "this frame as type html: the chart drawn with divs (bars, labels, values) in the house classes, all "
+                "text Inter, exact numbers; keep the pill/title. No TODO picture for it.")
+    return issues
+
+
 def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "", storyboard_led: bool = False) -> list[str]:
     """storyboard_led: frames come from the team's storyboard PDF, which already decides anchor vs full screen,
     so the mix checks (too many anchor frames, need more full-screen) don't apply."""
@@ -930,6 +958,8 @@ def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "", st
 
     if theme == "zero1-hindi-graphics":
         return _z1h_issues(spec)
+    if theme == "varsity-mf-graphics":
+        return mf_picture_issues(spec)
     if theme == "varsity-hindi-fa-graphics":
         issues: list[str] = []
         _fa_modes = {"fss", "osa", "osa_center", "blur", "takeaways"}
@@ -1510,6 +1540,22 @@ def patch_until_clean(
     return out
 
 
+def mf_fix_pictures(theme_dir: pathlib.Path, out: dict, script: str = "") -> dict:
+    """MF: frames that asked for a chart as a picture are rewritten as html (only those frames, one small call)."""
+    issues = mf_picture_issues(out.get("spec") or {})
+    if not issues:
+        return out
+    ids = sorted({m.group(1) for x in issues for m in [re.match(r'Frame "([^"]+)"', x)] if m})
+    try:
+        res = fix_frames(theme_dir, out["spec"], out.get("storyboard") or "", issues=issues, focus_ids=ids,
+                         script=script, round_no=1)
+        spec, _ = merge_fixes(out["spec"], res)
+        out["spec"] = spec
+    except Exception as e:
+        print(f"mf chart-picture fix skipped: {e}", flush=True)
+    return out
+
+
 def _call_with_pdf(
     theme_dir,
     msg: str,
@@ -1641,6 +1687,8 @@ def _pdf_batch_rules(theme_dir: pathlib.Path, look: dict) -> str:
             "- When every graphic PNG is already in ALREADY GENERATED ids, return frames: [] and set pdf_progress to done.\n"
             "- Every frame object MUST include string `id` (01, 02, …) and string `type` from the skill.\n"
             "- Match gift_city_spec.json density; copy numbers from PDF and/or script.\n"
+            "- A storyboard row that says “chart” is a chart built in html, even in the hook.\n"
+            f"{MF_PICTURE_RULE}"
             "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n"
         )
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
@@ -2084,13 +2132,16 @@ def storyboard(
                 "- Match the density and layout quality of scenes/gift_city_spec.json (hero assets, pills, tables, logo cards — not empty shells).\n"
                 "- Most of the video stays on footage; a graphic only when SKILL Step 3 says graphic/screen.\n"
                 "- Copy numbers exactly from the script.\n"
-                "- Pills: purple #5b55e6 gradient, white pill text (house.css); no green pill styling in spec HTML.\n\n"
+                "- Pills: purple #5b55e6 gradient, white pill text (house.css); no green pill styling in spec HTML.\n"
+                f"{MF_PICTURE_RULE}\n"
                 "Follow SKILL.md + references/spec_format.md + gift_city_breakdown.md.\n\n"
                 f"SCRIPT:\n{script}"
                 ),
                 episode_transcript,
             )
         out = _call_storyboard(theme_dir, msg, sb_tool=MF_SB_TOOL)
+        if not is_reel_theme(theme_dir) and isinstance(out.get("spec"), dict):
+            out = mf_fix_pictures(theme_dir, out, script)
         return out
 
     props = look.get("props") or ([look["prop"]] if look.get("prop") and look.get("prop") != "none" else [])
