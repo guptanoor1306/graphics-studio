@@ -25,12 +25,15 @@ _PLATE_KEYS = frozenset(PLATES.keys()) if PLATES else frozenset({
 _SIDE_PANEL = frozenset({'side_list', 'scroll_list', 'ladder', 'mini_table', 'ticket'})
 
 
-def _presenter_src(pname, stock_file, look):
-    """The project's own presenter shot for this side (editor: Presenter shot), else the kit's photo."""
+def _presenter_src(pname, stock_file, look, own=None):
+    """The project's own presenter shot for this side (editor: Presenter shot), else the frame's own photo (a toolkit
+    template brings one), else the kit's photo."""
     pres = (look or {}).get('presenter') if isinstance((look or {}).get('presenter'), dict) else {}
     k = (pname or '').lower()
     side = 'left' if 'left' in k else 'right' if 'right' in k else 'centre'
-    return f'../assets/{pres[side]}' if pres.get(side) else f'../assets/plates/{stock_file}'
+    if pres.get(side):
+        return f'../assets/{pres[side]}'
+    return f'../assets/{own}' if own else f'../assets/plates/{stock_file}'
 
 
 def _resolve_plate(f, look):
@@ -1013,7 +1016,7 @@ def html_frame(f, look=None, edit=False):
     shade = f.get('shade') or CHAT_SHADES.get(pname, CHAT_SHADES['m2_right'])
     face = json.dumps(p.get('face'))
     return (f'{head}<body{cls} data-mode="{E(mode)}" data-face=\'{face}\' style="background:#111">'
-            f'<img data-name="Presenter plate" src="{E(_presenter_src(pname, p.get("file", "m2_right.jpg"), look))}" '
+            f'<img data-name="Presenter plate" src="{E(_presenter_src(pname, p.get("file", "m2_right.jpg"), look, f.get("plate_img")))}" '
             'style="position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover">'
             f'<div data-name="Plate shade" style="position:absolute;{shade}"></div>'
             f'<div id="content" data-name="Content">{f["html"]}</div><div id="decor" data-name="Decor"></div>{deco_js}{tail}')

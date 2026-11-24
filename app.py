@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import asset_gen, audio_transcribe, la_link, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import asset_gen, audio_transcribe, toolkit, la_link, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -714,6 +714,8 @@ def projects_summary():
             look = json.loads(r.pop("look") or "{}") or {}
         except ValueError:
             look = {}
+        if look.get("toolkit"):   # a kit's toolkit (templates), opened from its own button, not a video
+            continue
         frames = [f for f in (spec.get("frames") or []) if isinstance(f, dict)]
         pr = PROGRESS.get(r["id"]) or {}
         running = pr.get("state") == "running" and now - (pr.get("ts") or pr.get("started") or 0) < 900
@@ -894,6 +896,106 @@ def export_frame_html(pid: int, fid: str):
     with _INLINE_SLOTS:
         return HTMLResponse(exporter.frame_page_for_layers(pages[0][1], THEMES / p["theme"],
                                                            theme_canvas.canvas_for_theme(p["theme"])))
+
+
+# ---------------------------------------------------------------- toolkit (ZO Product): ready-made frames
+def _toolkit_project(theme: str) -> dict:
+    """The kit's toolkit project (created the first time)."""
+    with connect() as c:
+        rows = c.execute("select id, look from projects where theme=? order by id", (theme,)).fetchall()
+    for r in rows:
+        try:
+            if (json.loads(r["look"] or "{}") or {}).get("toolkit"):
+                return load(r["id"])
+        except ValueError:
+            pass
+    pid = insert_project(toolkit.NAME.get(theme, "Toolkit"), theme, "", json.dumps({**_DEFAULT_LOOK, "toolkit": True}),
+                         "toolkit", time.time())
+    save(pid, "toolkit", "toolkit created", spec={"frames": []})
+    return load(pid)
+
+
+def _need_toolkit(theme: str):
+    if not toolkit.enabled(theme):
+        raise HTTPException(400, "this kit has no toolkit yet")
+
+
+@app.get("/api/toolkit")
+async def toolkit_get(theme: str):
+    _need_toolkit(theme)
+    tk = await _db_call(_toolkit_project, theme)
+    frames = [f for f in (tk.get("spec") or {}).get("frames") or [] if isinstance(f, dict)]
+    return {"pid": tk["id"], "updated_at": tk.get("updated_at"), "templates": [toolkit.template_view(f) for f in frames]}
+
+
+@app.post("/api/toolkit/save")
+async def toolkit_save(req: Request):
+    """Save a video's frame as a template."""
+    b = await req.json()
+    src = await _db_call(load, int(b["pid"]))
+    _need_toolkit(src["theme"])
+    fr = next((f for f in (src.get("spec") or {}).get("frames") or [] if str(f.get("id")) == str(b["fid"])), None)
+    if not fr:
+        raise HTTPException(404, "frame not found")
+    tk = await _db_call(_toolkit_project, src["theme"])
+    spec = dict(tk.get("spec") or {"frames": []})
+    frames = list(spec.get("frames") or [])
+    t = toolkit.from_frame(src, fr, b.get("name") or "", frames)
+    spec["frames"] = frames + [t]
+    await _db_call(save, tk["id"], who(req), f"template saved: {t['name']}", spec=spec)
+    return {"pid": tk["id"], "template": toolkit.template_view(t)}
+
+
+@app.post("/api/toolkit/blank")
+async def toolkit_blank(req: Request):
+    """A new template on one of the kit's presenter photos."""
+    b = await req.json()
+    theme = b.get("theme") or "zo-product-graphics"
+    _need_toolkit(theme)
+    tk = await _db_call(_toolkit_project, theme)
+    spec = dict(tk.get("spec") or {"frames": []})
+    frames = list(spec.get("frames") or [])
+    t = toolkit.blank(b.get("plate") or "m2_right", frames)
+    spec["frames"] = frames + [t]
+    await _db_call(save, tk["id"], who(req), "new template", spec=spec)
+    return {"pid": tk["id"], "template": toolkit.template_view(t)}
+
+
+@app.post("/api/toolkit/psd")
+async def toolkit_psd(req: Request, theme: str = Form(...), file: UploadFile = File(...)):
+    """A template from a layered PSD (photo layer + live text + shapes + pictures)."""
+    _need_toolkit(theme)
+    raw = await file.read()
+    tk = await _db_call(_toolkit_project, theme)
+    spec = dict(tk.get("spec") or {"frames": []})
+    frames = list(spec.get("frames") or [])
+    try:
+        t = await asyncio.to_thread(toolkit.psd_to_template, raw, theme, frames,
+                                    lambda desc, data, ext: asset_gen.store(theme, desc, data, ext, "toolkit"))
+    except Exception as e:
+        raise HTTPException(400, f"That PSD could not be read ({type(e).__name__}: {str(e)[:160]})")
+    t["name"] = re.sub(r"\.psd$", "", file.filename or "", flags=re.I)[:80] or f"Template {len(frames) + 1}"
+    spec["frames"] = frames + [t]
+    await _db_call(save, tk["id"], who(req), f"template from PSD: {t['name']}", spec=spec)
+    return {"pid": tk["id"], "template": toolkit.template_view(t)}
+
+
+@app.post("/api/projects/{pid}/toolkit-frame")
+async def toolkit_frame(pid: int, req: Request):
+    """Put a copy of a template into this video for the chosen script lines."""
+    b = await req.json()
+    p = await _db_call(load, pid)
+    _need_toolkit(p["theme"])
+    tk = await _db_call(_toolkit_project, p["theme"])
+    tpl = next((f for f in (tk.get("spec") or {}).get("frames") or [] if str(f.get("id")) == str(b.get("tk_fid"))), None)
+    if not tpl:
+        raise HTTPException(404, "template not found")
+    lines = b.get("lines") or []
+    if not (isinstance(lines, list) and len(lines) == 2):
+        raise HTTPException(400, "choose the script lines first")
+    spec, fid = toolkit.place(p, tpl, tk.get("look") or {}, lines, b.get("text") or "", b.get("src") or "script")
+    await _db_call(save, pid, who(req), f"toolkit frame: {tpl.get('name') or tpl.get('id')}", spec=spec)
+    return {**(await _db_call(load, pid)), "new_fid": fid}
 
 
 @app.post("/api/projects/{pid}/z1-split")
@@ -1134,6 +1236,19 @@ async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: st
 async def _make_storyboard(pid: int, b: dict, user: str):
     p = (await _db_call(load, pid))
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
+    rest = b.get("rest") if isinstance(b.get("rest"), dict) and toolkit.enabled(p["theme"]) else None
+    kept: list = []
+    if rest:   # keep the toolkit frames; Claude sees their lines marked and writes frames only for the others
+        lines = [str(x) for x in rest.get("lines") or []]
+        kept = [f for f in (p.get("spec") or {}).get("frames") or []
+                if isinstance(f, dict) and f.get("tk_from") and isinstance(f.get("lines"), list) and len(f["lines"]) == 2]
+        covered = {i for f in kept for i in range(int(f["lines"][0]), int(f["lines"][1]) + 1)}
+        if not [i for i, ln in enumerate(lines) if ln.strip() and i not in covered]:
+            raise HTTPException(400, "every line already has a toolkit frame")
+        b = {**b, "notes": ((b.get("notes") or "") + "\n" + toolkit.REST_NOTE).strip()}
+        claude_script = toolkit.marked_script(lines, covered)
+    else:
+        claude_script = script
     if z1_plates.is_theme(p["theme"]) and os.environ.get("STUDIO_LIVE_PREVIEW", "1") != "0":
         before = {"spec": p.get("spec"), "storyboard": p.get("storyboard") or ""}
         (await _db_call(save, pid, user, "storyboard started", script=script, look=look,
@@ -1148,7 +1263,7 @@ async def _make_storyboard(pid: int, b: dict, user: str):
         out = await asyncio.to_thread(
             claude_client.storyboard,
             THEMES / p["theme"],
-            script,
+            claude_script,
             look,
             b.get("notes", ""),
             episode_transcript=transcript,
@@ -1171,6 +1286,10 @@ async def _make_storyboard(pid: int, b: dict, user: str):
                 sp["look"].setdefault("plate", look["plate"])
             return sp
         spec = finalize(out["spec"])
+        if rest:
+            new = [f for f in spec.get("frames") or [] if isinstance(f, dict) and not str(f.get("id", "")).startswith("tk")]
+            spec["frames"] = toolkit.merge_rest(kept, new, [str(x) for x in rest.get("lines") or []], rest.get("src") or "script")
+            only_new = {str(f.get("id")) for f in new}
     elif is_hindi_theme_name(theme) or z1_plates.is_theme(theme):
         finalize = None
         spec = out.get("spec") or {}
@@ -1189,7 +1308,8 @@ async def _make_storyboard(pid: int, b: dict, user: str):
     critique_report: dict = {}
     try:
         spec, critique_report = await asyncio.to_thread(
-            _critique_spec, {**p, "look": plook}, spec, sb, script, finalize
+            _critique_spec, {**p, "look": plook}, spec, sb, script, finalize,
+            (only_new if rest else None)
         )
     except Exception as e:  # never lose a generated spec to a critique failure
         critique_report = {"error": str(e)}
@@ -1817,7 +1937,7 @@ async def presenter_get(pid: int):
 
 
 @app.post("/api/projects/{pid}/presenter")
-async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: UploadFile = File(...)):
+async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: UploadFile = File(...), fid: str = Form("")):
     """A still from this video's presenter replaces the stock photo in every frame that uses this slot."""
     import io, presenter
     from PIL import Image, ImageOps
@@ -1835,6 +1955,12 @@ async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: Upl
     rel = await asyncio.to_thread(asset_gen.store, p["theme"], f"presenter {pid} {slot} {time.time()}",
                                   buf.getvalue(), "jpg", "presenter")
     look = dict(p.get("look") or {})
+    if look.get("toolkit") and fid:   # a toolkit template: the photo belongs to that template only
+        spec = dict(p.get("spec") or {})
+        spec["frames"] = [{**f, "plate_img": rel} if str(f.get("id")) == fid else f for f in spec.get("frames") or []]
+        await _db_call(save, pid, who(req), f"template photo ({slot})", spec=spec)
+        p = await _db_call(load, pid)
+        return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
     look["presenter"] = {**(look.get("presenter") if isinstance(look.get("presenter"), dict) else {}), slot: rel}
     await _db_call(save, pid, who(req), f"presenter shot ({slot})", look=look)
     p = await _db_call(load, pid)

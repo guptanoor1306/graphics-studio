@@ -295,7 +295,7 @@ function renderChannel() {
   else if (vs.length && !filtered.length) empty = `<div class="nx-empty"><b>No videos match these filters</b><button class="nx-btn ghost" data-clearf>Clear filters</button></div>`;
   else empty = `<div class="nx-empty"><b>No videos in ${E(where)} yet</b>Make one from a script, a voice-over or a storyboard.<button class="nx-btn primary" data-new>${I('plus')}New</button></div>`;
   m.innerHTML = `<div class="nx-top"><div class="nx-crumb"><button data-home>Graphics</button>${I('chev')}<span class="nx-mark">${LOGO[c.id]}</span><b>${c.name}</b></div>${searchHTML()}</div>
-    <div class="nx-box${S.picked.size ? ' selmode' : ''}"><div class="nx-chrow">${tabs}<div class="nx-pright">${filterBtn()}${viewSwitch()}<button class="nx-btn primary lg" data-new>${I('plus')}New</button></div></div>
+    <div class="nx-box${S.picked.size ? ' selmode' : ''}"><div class="nx-chrow">${tabs}<div class="nx-pright">${filterBtn()}${viewSwitch()}${kits.some(k => TK_THEMES.includes(k)) ? `<button class="nx-btn ghost lg" data-toolkit="${kits.find(k => TK_THEMES.includes(k))}" data-tip="Ready-made frames for ZO Product videos">${I('frames')}Toolkit</button>` : ''}<button class="nx-btn primary lg" data-new>${I('plus')}New</button></div></div>
     ${loading ? skeleton() : videosBlock(filtered, { showKit: multi && !S.kit, emptyHTML: empty })}</div>`;
   bindList(m, filtered);
 }
@@ -307,6 +307,7 @@ function bindList(m, vs) {
     if (t.closest('[data-home]')) return goHomeNx();
     const ch = t.closest('[data-ch]'); if (ch) return openChannel(ch.dataset.ch);
     if (t.closest('[data-new]')) return newVideo();
+    const tkb = t.closest('[data-toolkit]'); if (tkb) return openToolkit(tkb.dataset.toolkit);
     if (t.closest('[data-cost]')) return costWin();
     if (t.closest('[data-clearq]')) { S.q = ''; return renderList(); }
     if (t.closest('[data-clearf]')) { S.fst.clear(); S.fpj = 'any'; return renderList(); }
@@ -542,6 +543,7 @@ function bindTop(m) {
 }
 function videoMenu(btn) {
   const items = [{ label: 'Rename video', icon: 'pencil', run: () => renameVideo({ id: P.id, name: P.name }) }];
+  if (tkKit() && studioFrames().length) items.push({ label: 'Save this frame to toolkit', icon: 'frames', run: saveToToolkit });
   if (P.spec) {
     items.push({ label: 'Check the layout', icon: 'check', run: checkLayout });
     items.push({ label: 'Download storyboard instructions', icon: 'download', run: () => { location.href = `/api/projects/${P.id}/storyboard-instructions.csv`; } });
@@ -563,6 +565,7 @@ function render2() {
   syncShellNav?.();
   if (editModeOpen) return;
   document.body.classList.toggle('reel', isReelTheme(P.theme));
+  if (isTkProject()) return toolkitView();
   const hasFrames = studioFrames().length > 0;
   if (!hasFrames && !genFor(P.id)) return sourcesView();
   framesView();
@@ -582,7 +585,8 @@ function srcDock() {
   const s = { sc: scriptOn(), pdf: pdfOn(), au: audioOn() };
   const added = [s.sc && 'Script', s.pdf && 'Storyboard PDF', s.au && 'Voice-over'].filter(Boolean);
   const n = estFrames();
-  return `<span class="tx">${E(added.length ? `${added.join(' + ')} added${n ? ` · about ${n} frame${n === 1 ? '' : 's'}` : ''}` : 'Add at least one to start')}</span><button class="nx-btn primary lg" data-gen ${added.length && !S.audioBusy && !S.pdfBusy ? '' : 'disabled'}>${s.pdf ? 'Generate frames' : 'Generate storyboard + frames'}</button>`;
+  const tkb = tkKit() && (s.sc || s.au) ? `<button class="nx-btn ghost lg" data-tkpick ${S.audioBusy ? 'disabled' : ''}>${I('frames')}Pick from toolkit</button>` : '';
+  return `<span class="tx">${E(added.length ? `${added.join(' + ')} added${n ? ` · about ${n} frame${n === 1 ? '' : 's'}` : ''}` : 'Add at least one to start')}</span>${tkb}<button class="nx-btn primary lg" data-gen ${added.length && !S.audioBusy && !S.pdfBusy ? '' : 'disabled'}>${s.pdf ? 'Generate frames' : 'Generate storyboard + frames'}</button>`;
 }
 function srcLive() {
   const c = q1('[data-card="script"]'); if (c) { c.classList.toggle('on', scriptOn() || S.sedit); const eb = c.querySelector('.nx-eb'); if (eb) eb.outerHTML = scriptBody(); }
@@ -627,6 +631,7 @@ function sourcesView() {
     const del = t.closest('[data-del]'); if (del) return removeSource(del.dataset.del);
     if (t.closest('[data-play]')) return playAudio();
     const wv = t.closest('[data-wave]'); if (wv) { const r = wv.getBoundingClientRect(); return playAudio((e.clientX - r.left) / r.width); }
+    if (t.closest('[data-tkpick]')) return tkPicker();
     if (t.closest('[data-gen]')) return startGen();
   };
   q1('#nxPdfIn').onchange = e => { const f = e.target.files[0]; if (f) addFile(f); e.target.value = ''; };
@@ -823,6 +828,7 @@ function items() {
 }
 function groups(its) {
   const frames = studioFrames();
+  if (tkKit() && frames.some(f => Array.isArray(f.lines)) && tkLines().list.length) return tkGroups(its);
   const out = new Map(its.map(x => [x.ph ? 'ph' + x.k : x.f.id, { x, lines: [] }]));
   const ids = frames.map(f => f.id);
   const segs = episodeTranscript?.segments;
@@ -861,12 +867,12 @@ function framesView() {
   const m = main();
   const its = items(), si = selIndex(its), cur = its[si];
   if (cur?.f) { selectedFrameId = cur.f.id; S.phSel = null; } else if (cur?.ph) S.phSel = cur.k;
-  const G = groups(its), times = frameTimes(G.list);
+  const G = groups(its), times = G.tk ? tkTimes(G, its) : frameTimes(G.list);
   const nLines = G.list.reduce((n, g) => n + g.lines.length, 0);
   const head = G.kind === 'transcript' ? 'VO transcript' : G.kind === 'script' ? 'Voiceover script' : 'Storyboard';
   const ver = id => frameVer[id] || 0;
   const thumb = (x, w = 320) => x.f ? `<img loading="lazy" alt="" src="${thumbUrl(P.id, x.f.id, ver(x.f.id) + '_' + Math.round(P.updated_at || 0), w)}" onerror="this.style.visibility='hidden'">` : '';
-  const grp = (g, i) => { const x = g.x, on = i === si; return `<div class="nx-grp${on ? ' on' : ''}${x.ph ? ' todo' : ''}" data-pick="${i}"><div class="nx-gh"><span class="nx-gth${x.ph ? ' nx-shim' : ''}">${thumb(x, 160)}</span><b>Frame ${x.i + 1}</b>${x.ph ? '<span class="nx-gt dash">To generate</span>' : `<span class="nx-gt">${E(frameType(x.f))}</span>`}</div>${g.lines.map(l => `<p class="nx-ln"><time>${l.t != null ? mmss(l.t) : ''}</time><span>${E(l.text)}</span></p>`).join('')}</div>`; };
+  const grp = (g, i) => { if (g.x.todo) return tkTodoHTML(g); if (G.tk) i = its.indexOf(g.x); const x = g.x, on = i === si; return `<div class="nx-grp${on ? ' on' : ''}${x.ph ? ' todo' : ''}${x.f?.tk_from ? ' nx-tkf' : ''}" data-pick="${i}"><div class="nx-gh"><span class="nx-gth${x.ph ? ' nx-shim' : ''}">${thumb(x, 160)}</span><b>Frame ${x.i + 1}</b>${x.ph ? '<span class="nx-gt dash">To generate</span>' : `<span class="nx-gt">${E(frameType(x.f))}</span>`}</div>${g.lines.map(l => `<p class="nx-ln"><time>${l.t != null ? mmss(l.t) : ''}</time><span>${E(l.text)}</span></p>`).join('')}</div>`; };
   const pdfRow = pdfOn() ? `<div class="nx-src"><span class="nx-pdfic">${PDFIC}</span><div class="tx"><b>${E((P.storyboard_pdf_name || P.look?.storyboard_pdf_name || 'Storyboard').replace(/\.pdf$/i, ''))}</b><small>Storyboard PDF</small></div><button class="nx-ib" data-repdf data-tip="Replace the storyboard PDF" class="tip-l">${I('pencil')}</button></div>` : '';
   const leftOn = G.kind !== 'storyboard' || nLines || pdfOn();
   const cap = cur ? (() => { const tm = times[si] || {}; const range = tm.s != null ? `${mmss(tm.s)}${tm.e != null ? '–' + mmss(tm.e) : ''}` : ''; const note = cur.f ? sbForFrame(cur.f.id, P.storyboard) : ''; return `<b>Frame ${cur.i + 1}</b><span>${[range, cur.f ? frameType(cur.f) : 'To generate'].filter(Boolean).join(' · ')}</span>${note && !/^No storyboard line/.test(note) ? `<span class="nx-note" data-tip="${E(note.slice(0, 420))}">${I('info')}</span>` : ''}<span class="of">${si + 1} of ${its.length}</span>`; })() : '';
@@ -893,6 +899,7 @@ function framesView() {
   q1('.nx-fth.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   m.onclick = e => {
     const t = e.target;
+    const tp = t.closest('[data-tkpick]'); if (tp) { const [a, b] = (tp.dataset.tkpick || '').split('-').map(Number); return tkPicker(isNaN(a) ? null : { a, b }); }
     const pk = t.closest('[data-pick]'); if (pk) return pick(+pk.dataset.pick);
     const st = t.closest('[data-step]'); if (st) return pick(si + +st.dataset.step);
     const sw = t.closest('[data-strip]'); if (sw) { S.strip = sw.dataset.strip; ls.set('nx.strip', S.strip); return render(); }
@@ -944,6 +951,7 @@ function updateDock() {
   if (g) {
     if (g.kind === 'pictures') tx = g.msg;
     else if (g.kind === 'script') tx = g.written ? `Generating frames… ${g.written} written` : (g.msg || 'Generating frames…');
+    else if (g.kind === 'rest') tx = 'Generating frames for the lines without a toolkit frame…';
     else tx = `Generating frames ${g.n0 + 1}–${g.n0 + g.count}…`;
     tx += '<span class="nx-dots"><i></i><i></i><i></i></span>';
     if (g.kind !== 'pictures' && g.msg && g.kind === 'pdf') tx += ` <span class="nx-dim">· ${E(g.msg)}</span>`;
@@ -953,12 +961,16 @@ function updateDock() {
   if (!g) {
     if (todo) btns += `<button class="nx-btn plain" data-fill>${z1 ? `Generate ${todo} picture${todo > 1 ? 's' : ''}` : `Make ${todo} missing picture${todo > 1 ? 's' : ''}`}</button>`;
     else if (gens) btns += `<button class="nx-btn plain" data-redo-pics>${z1 ? `Redo ${gens} generated frame${gens > 1 ? 's' : ''}` : `Redo ${gens} generated picture${gens > 1 ? 's' : ''}`}</button>`;
+    if (tkKit()) btns += `<button class="nx-btn ghost" data-tkpick>${I('frames')}Pick from toolkit</button>`;
     if (pdf && pdfOn() && !P.spec?.pdf_done) btns += `<button class="nx-btn ghost" data-genall>Generate all</button><button class="nx-btn primary" data-gennext>Generate next 10 frames</button>`;
+    else if (!pdf && tkKit() && tkFrames().length) { const fr = tkFreeLines(); const again = studioFrames().length > tkFrames().length; btns += `<button class="nx-btn ${again ? 'ghost' : 'primary'}" data-tkrest ${fr ? '' : 'disabled'} data-tip="Claude writes frames only for the lines without a toolkit frame">${again ? 'Regenerate the rest' : `Generate the rest${fr ? ` (${fr} line${fr === 1 ? '' : 's'})` : ''}`}</button>`; }
     else if (!pdf) btns += `<button class="nx-btn ghost" data-regenall>Regenerate all</button>`;
   }
   d.innerHTML = `<span class="tx">${tx}</span>${btns}`;
   d.onclick = e => {
     const t = e.target;
+    if (t.closest('[data-tkpick]')) return tkPicker();
+    if (t.closest('[data-tkrest]')) return genRest();
     if (t.closest('[data-gennext]')) return genPdf(false);
     if (t.closest('[data-genall]')) return genPdf(true);
     if (t.closest('[data-fill]')) return fillPictures(false);
@@ -1480,6 +1492,157 @@ function laProjectStart() {
 function projectStepsEmpty() { return `<div class="nx-steps">${['Graphics', 'Layers', 'Animate', 'Edit on video'].map((l, i) => `<button class="nx-step${i === 0 ? ' on' : ''}" data-stage="${['graphics', 'psd', 'animate', 'video'][i]}"><i>${i + 1}</i>${l}</button>${i < 3 ? I('chev') : ''}`).join('')}</div>`; }
 
 /* ---------------- take over from index.html ---------------- */
+/* ---------------- Toolkit (ZO Product): ready-made frames instead of generating ----------------
+   The kit's toolkit is a hidden project whose frames are the templates (made and edited in the normal editor).
+   A video copies a template for the script lines picked (no Claude call); "Generate the rest" asks Claude only for
+   the lines no toolkit frame covers. */
+const TK_THEMES = ['zo-product-graphics'];
+const tkKit = () => !!P && TK_THEMES.includes(P.theme) && !P.look?.toolkit;
+const isTkProject = () => !!P?.look?.toolkit;
+let TK = null;
+async function tkLoad(theme, force) {
+  if (!force && TK && TK.theme === theme && Date.now() - TK.at < 30000) return TK;
+  const r = await api(`/api/toolkit?theme=${encodeURIComponent(theme)}`);
+  TK = { theme, pid: r.pid, templates: r.templates || [], v: Math.round(r.updated_at || 0), at: Date.now() };
+  return TK;
+}
+async function openToolkit(theme) {
+  try { const t = await tkLoad(theme, true); S.picked.clear(); await openVideo(t.pid); } catch (e) { toast(e.message || String(e), { err: true }); }
+}
+function tkLines() {
+  if (scriptOn()) { let cum = 0; return { src: 'script', list: scriptLines(P.script).map(ln => { const t = cum / 2.6; cum += words(ln); return { t, text: ln }; }) }; }
+  const segs = episodeTranscript?.segments;
+  if (segs?.length) return { src: 'vo', list: segs.map(s => ({ t: Number(s.start), text: (s.text || '').trim() })) };
+  return { src: '', list: [] };
+}
+const tkFrames = () => studioFrames().filter(f => f.tk_from && Array.isArray(f.lines));
+function tkOwner(n) {
+  const own = new Array(n).fill(null);
+  studioFrames().forEach(f => { if (Array.isArray(f.lines)) for (let j = f.lines[0]; j <= Math.min(n - 1, f.lines[1]); j++) own[j] = f; });
+  return own;
+}
+function tkFreeLines() {      // lines no toolkit frame covers (what "Generate the rest" makes frames for)
+  const L = tkLines(), cov = new Set(); tkFrames().forEach(f => { for (let j = f.lines[0]; j <= f.lines[1]; j++) cov.add(j); });
+  return L.list.filter((l, j) => l.text.trim() && !cov.has(j)).length;
+}
+function tkGroups(its) {
+  const L = tkLines(), n = L.list.length, own = new Array(n).fill(null);
+  its.forEach(x => { if (x.f && Array.isArray(x.f.lines)) for (let j = x.f.lines[0]; j <= Math.min(n - 1, x.f.lines[1]); j++) own[j] = x.f.id; });
+  const loose = its.filter(x => x.f && !Array.isArray(x.f.lines));
+  if (loose.length && L.src === 'script') { const sa = assignScriptRanges(P.script, loose.map(x => x.f), P.storyboard); Object.entries(sa.lineToFrame).forEach(([j, fid]) => { if (own[+j] == null) own[+j] = fid; }); }
+  const byId = new Map(its.filter(x => x.f).map(x => [x.f.id, x])), out = [];
+  let cur = null;
+  L.list.forEach((l, j) => {
+    if (!l.text.trim()) return;
+    const o = own[j], key = o ? 'f:' + o : 'todo';
+    if (!cur || cur.key !== key) { cur = { key, x: o ? byId.get(o) : { todo: true }, lines: [], a: j, b: j }; out.push(cur); }
+    cur.lines.push({ t: l.t, text: l.text.trim(), j }); cur.b = j;
+  });
+  its.forEach(x => { const k = x.ph ? 'ph' + x.k : 'f:' + x.f.id; if (!out.some(g => g.key === k)) out.push({ key: k, x, lines: [] }); });
+  return { kind: L.src === 'vo' ? 'transcript' : 'script', list: out, tk: true };
+}
+function tkTimes(G, its) {
+  return its.map(x => { const g = G.list.find(g => g.x === x && g.lines.length); return { s: g ? g.lines[0].t : null, e: g ? g.lines[g.lines.length - 1].t + 4 : null }; });
+}
+function tkTodoHTML(g) {
+  return `<div class="nx-grp todo nx-tkfree"><div class="nx-gh"><span class="nx-gth nx-tkplus">${I('plus')}</span><b>No frame yet</b><span class="nx-gt dash">${g.lines.length} line${g.lines.length === 1 ? '' : 's'}</span><button class="nx-tbtn" data-tkpick="${g.a}-${g.b}">Pick from toolkit</button></div>${g.lines.map(l => `<p class="nx-ln"><time>${l.t != null ? mmss(l.t) : ''}</time><span>${E(l.text)}</span></p>`).join('')}</div>`;
+}
+
+/* the picker: script lines on the left (click a line, shift-click to stretch), templates on the right */
+async function tkPicker(pre) {
+  if (!tkLines().list.length && P.has_episode_transcript && !episodeTranscript?.segments) { try { episodeTranscript = await api(`/api/projects/${P.id}/episode-transcript`); } catch (_) {} }
+  const L = tkLines();
+  if (!L.list.some(l => l.text.trim())) return toast('Add the script or a voice-over first: a toolkit frame is picked for some of its lines.', { err: true });
+  let T; try { T = await tkLoad(P.theme); } catch (e) { return toast(e.message || String(e), { err: true }); }
+  if (!T.templates.length) return win({ title: 'The toolkit is empty', text: 'Make templates first: open <b>Toolkit</b> on the ZO page, start one on a kit photo, import a PSD, or use <b>Save to toolkit</b> on a frame.', ok: 'Open the toolkit', onOk: () => openToolkit(P.theme) });
+  const own = tkOwner(L.list.length);
+  let a = pre?.a ?? null, b = pre?.b ?? null, tpl = null;
+  const lineRows = () => L.list.map((l, j) => !l.text.trim() ? '' : `<button type="button" class="nx-tkl${a != null && j >= a && j <= b ? ' on' : ''}${own[j]?.tk_from ? ' used' : ''}" data-j="${j}"${own[j]?.tk_from ? ` data-tip="Already in a toolkit frame"` : ''}><time>${l.t != null ? mmss(l.t) : ''}</time><span>${E(l.text.trim())}</span></button>`).join('');
+  const body = `<div class="nx-tkp"><div class="nx-tkp-l"><small>1 · Lines this frame is for <i>(click, shift-click to add more)</i></small><div class="nx-tkls" id="nxTkLs">${lineRows()}</div></div>
+    <div class="nx-tkp-r"><small>2 · Template</small><div class="nx-tkts">${T.templates.map(t => `<button type="button" class="nx-tkt" data-t="${E(t.fid)}"><img loading="lazy" alt="" src="${thumbUrl(T.pid, t.fid, T.v, 320)}"><span>${E(t.name)}</span></button>`).join('')}</div></div></div>`;
+  const w = win({ title: 'Pick from toolkit', sub: 'No generating: the template is copied, then edit its text and layers as usual.', body, ok: 'Add frame', wide: true,
+    onOk: async () => {
+      if (a == null) { toast('Choose the lines this frame is for', { err: true }); return false; }
+      if (!tpl) { toast('Choose a template', { err: true }); return false; }
+      const text = L.list.slice(a, b + 1).map(l => l.text.trim()).filter(Boolean).join('\n');
+      const r = await api(`/api/projects/${P.id}/toolkit-frame`, { method: 'POST', body: JSON.stringify({ tk_fid: tpl, lines: [a, b], text, src: L.src }) });
+      P = r; P.look = normLook(P.look); frameHistInit(); selectedFrameId = r.new_fid; S.phSel = null;
+      render(); loadList();
+      toast('Toolkit frame added. Edit layers to put in this video’s words.');
+    } });
+  const el = w.el; el.querySelector('.nx-win').classList.add('nx-tkwin');
+  const draw = () => { el.querySelector('#nxTkLs').innerHTML = lineRows(); };
+  el.querySelector('#nxTkLs').addEventListener('click', e => {
+    const r = e.target.closest('[data-j]'); if (!r) return; const j = +r.dataset.j;
+    if (e.shiftKey && a != null) { a = Math.min(a, j); b = Math.max(b, j); }
+    else if (a === j && b === j) { a = b = null; }
+    else { a = b = j; }
+    draw();
+  });
+  el.querySelector('.nx-tkts').addEventListener('click', e => {
+    const t = e.target.closest('[data-t]'); if (!t) return; tpl = t.dataset.t;
+    el.querySelectorAll('.nx-tkt').forEach(x => x.classList.toggle('on', x === t));
+  });
+  el.querySelector('.nx-tkl.on')?.scrollIntoView({ block: 'center' });
+}
+
+async function genRest() {
+  const pid = P.id, L = tkLines(), free = tkFreeLines();
+  if (!free) return toast('Every line already has a toolkit frame');
+  const nTk = tkFrames().length, others = studioFrames().length - nTk;
+  const go = async () => {
+    S.gen = { pid, kind: 'rest', n0: nTk, count: Math.max(1, Math.round(free / Math.max(1, L.list.filter(l => l.text.trim()).length) * (estFrames() || 6))), msg: 'Writing frames for the lines without a toolkit frame…' };
+    P.spec = { ...P.spec, frames: (P.spec.frames || []).filter(f => f.tk_from) };
+    render(); pollGen(pid);
+    try {
+      const r = await api(`/api/projects/${pid}/storyboard`, { method: 'POST', body: JSON.stringify({ script: P.script || '', look: lookPayload('script'), notes: '', rest: { lines: L.list.map(l => l.text), src: L.src } }) });
+      S.gen = null;
+      if (P?.id === pid) { P = r; P.look = normLook(P.look); frameVer = {}; frameHistInit(); selectedFrameId = studioFrames()[0]?.id || null; S.phSel = null; render(); }
+      loadList();
+      toast(`${(r.spec?.frames || []).filter(f => !f.tk_from).length} frames generated around ${nTk} toolkit frame${nTk === 1 ? '' : 's'}`);
+    } catch (e) { S.gen = null; if (P?.id === pid) { try { P = await api(`/api/projects/${pid}`); P.look = normLook(P.look); } catch (_) {} render(); } toast(e.message || String(e), { err: true }); }
+  };
+  if (others) win({ title: 'Generate the rest again?', text: `The ${others} generated frame${others === 1 ? ' is' : 's are'} made again for the lines without a toolkit frame. Toolkit frames stay as they are.`, ok: 'Generate the rest', onOk: go });
+  else go();
+}
+
+async function saveToToolkit() {
+  const f = studioFrames().find(x => x.id === selectedFrameId); if (!f) return;
+  win({ title: 'Save to toolkit', sub: 'A copy of this frame becomes a template every ZO video can use.', body: `<label class="nx-fl">Template name<input id="nxTkName" value="${E(f.name || '')}" placeholder="e.g. Anchor right · heading + 3 points"></label>`, ok: 'Save to toolkit',
+    onOk: async m => { const name = m.querySelector('#nxTkName').value.trim(); await api('/api/toolkit/save', { method: 'POST', body: JSON.stringify({ pid: P.id, fid: f.id, name }) }); TK = null; toast('Saved to the toolkit'); } });
+}
+
+/* the toolkit itself: its templates as cards */
+function toolkitView() {
+  const m = main(), fs = studioFrames(), ver = id => frameVer[id] || 0;
+  const plates = [['m2_right', 'Presenter on the right'], ['m2_left', 'Presenter on the left'], ['m2_centre', 'Presenter in the centre'], ['m1_close_left', 'Close, presenter on the left'], ['fss', 'Full screen (no presenter)']];
+  m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><button class="nx-btn ghost" data-tkpsd>${I('upload')}Import PSD</button><button class="nx-btn primary" data-tknew>${I('plus')}New template</button></div>
+  <div class="nx-box"><div class="nx-tkh"><b>${fs.length} template${fs.length === 1 ? '' : 's'}</b><span>Ready-made frames ZO videos can use instead of generating one. Click a template to edit it like any frame: text, layers, presenter photo.</span></div>
+  ${fs.length ? `<div class="nx-cards">${fs.map(f => `<div class="nx-card nx-tkc" data-tkf="${E(f.id)}" tabindex="0"><span class="nx-tkim"><img loading="lazy" alt="" src="${thumbUrl(P.id, f.id, ver(f.id) + '_' + Math.round(P.updated_at || 0), 480)}" onerror="this.style.visibility='hidden'"></span><div class="nx-tkn"><b>${E(f.name || 'Template')}</b><button class="nx-ib" data-tkmore="${E(f.id)}" aria-label="More" data-tip="More">${I('more')}</button></div></div>`).join('')}</div>`
+    : `<div class="nx-empty"><b>No templates yet</b>Start one on a kit photo, import a layered PSD, or open any ZO video and use <i>Save to toolkit</i> on a frame.<button class="nx-btn primary" data-tknew>${I('plus')}New template</button></div>`}</div>
+  <input type="file" id="nxTkPsd" accept=".psd" hidden>`;
+  bindTop(m);
+  const after = async (r, msg) => { TK = null; P = await api(`/api/projects/${P.id}`); P.look = normLook(P.look); frameVer = {}; frameHistInit(); render(); toast(msg); return r; };
+  m.onclick = e => {
+    const t = e.target;
+    if (t.closest('[data-tknew]')) return menu(t.closest('[data-tknew]'), plates.map(([k, l]) => ({ label: l, icon: 'frame', run: async () => { try { const r = await api('/api/toolkit/blank', { method: 'POST', body: JSON.stringify({ theme: P.theme, plate: k }) }); await after(r, 'New template added'); } catch (er) { toast(er.message, { err: true }); } } })));
+    if (t.closest('[data-tkpsd]')) return q1('#nxTkPsd').click();
+    const mo = t.closest('[data-tkmore]');
+    if (mo) { const fid = mo.dataset.tkmore, f = fs.find(x => x.id === fid); return menu(mo, [
+      { label: 'Edit', icon: 'pencil', run: () => { selectedFrameId = fid; openEditMode(fid); } },
+      { label: 'Rename', icon: 'pencil', run: () => win({ title: 'Rename template', body: `<label class="nx-fl">Name<input id="nxTkRn" value="${E(f.name || '')}"></label>`, ok: 'Rename', onOk: async m2 => { const nm = m2.querySelector('#nxTkRn').value.trim(); if (!nm) return false; await putFrames({ [fid]: { ...f, name: nm } }, 'template renamed'); TK = null; render(); } }) },
+      '-', { label: 'Delete template', icon: 'trash', red: true, run: () => win({ title: 'Delete this template?', text: 'Videos that already used it keep their frame.', ok: 'Delete', onOk: async () => { await api(`/api/projects/${P.id}`, { method: 'PUT', body: JSON.stringify({ spec: { ...P.spec, frames: P.spec.frames.filter(x => x.id !== fid) } }) }); await after(null, 'Template deleted'); } }) }]); }
+    const c = t.closest('[data-tkf]'); if (c) { selectedFrameId = c.dataset.tkf; return openEditMode(c.dataset.tkf); }
+  };
+  q1('#nxTkPsd').onchange = async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    const fd = new FormData(); fd.append('theme', P.theme); fd.append('file', f);
+    toast(`Reading ${f.name}…`);
+    try { const r = await fetch('/api/toolkit/psd', { method: 'POST', body: fd }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || 'That PSD could not be read'); await after(j, `Template made from ${f.name}`); }
+    catch (er) { toast(er.message || String(er), { err: true }); }
+  };
+}
+
 window.nxBoot = async function () {
   shell();
   render = render2;

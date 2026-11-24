@@ -2858,7 +2858,7 @@ function presenterRefreshAll(res){
 }
 async function uploadPresenter(slot,input){
  const file=input?.files?.[0];if(!file)return;
- const fd=new FormData();fd.append('slot',slot);fd.append('file',file);
+ const fd=new FormData();fd.append('slot',slot);fd.append('file',file);if(P?.look?.toolkit&&selectedFrameId)fd.append('fid',String(selectedFrameId));
  setEditLoading(true);
  try{
   const r=await fetch(`/api/projects/${P.id}/presenter`,{method:'POST',body:fd});
