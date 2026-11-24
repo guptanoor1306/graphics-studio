@@ -1133,15 +1133,27 @@ const nxRCL = function () {
     rendering = true; try { selectedCanvasLayer = { idx: rows[0].idx, mfPath: rows[0].mfPath }; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); } finally { rendering = false; }
     rows[0].on = true;
   }
+  const fdoc = q1('#canvasEditFrame')?.contentDocument;
+  const textOf = mf => { if (!mf || !/^html:/.test(mf) || !fdoc) return null; try { const el = fdoc.querySelector(`[data-mf-path="${CSS.escape(mf)}"]`); return el && el.classList.contains('studio-inline-text') ? el.innerText : null; } catch (_) { return null; } };
   list.innerHTML = tools + rows.map(r => {
     const k = layerKind(r.label), key = r.idx + '|' + (r.mfPath || ''), f = repFiles[key];
+    const tx = r.on ? textOf(r.mfPath) : null;
     return `<div class="nx-ls${r.on ? ' open' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
       <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
-      ${r.on ? `<div class="nx-lsb"><span class="lab">Edit with AI</span><div class="nx-ai"><textarea data-ai rows="2" aria-label="Edit with AI"></textarea><div class="row"><small>Enter to apply</small><button class="nx-tbtn off" data-aiapply>Apply</button></div></div>
+      ${r.on ? `<div class="nx-lsb">${tx != null ? `<span class="lab">Text</span><div class="nx-ai"><textarea data-ltext rows="${Math.min(4, tx.split('\n').length + 1)}" aria-label="Text">${E(tx)}</textarea><div class="row"><small>Enter to save · Shift+Enter for a new line</small><button class="nx-tbtn" data-ltextapply>Save</button></div></div>` : ''}<span class="lab">Edit with AI</span><div class="nx-ai"><textarea data-ai rows="2" aria-label="Edit with AI"></textarea><div class="row"><small>Enter to apply</small><button class="nx-tbtn off" data-aiapply>Apply</button></div></div>
         <span class="lab">Replace with an image</span><div class="nx-rep"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b><small>${f ? 'Click to choose another' : 'PNG, JPG or SVG'}</small></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin></div>
         <div class="nx-ai"><textarea data-repnote rows="2" placeholder="Note (optional)" aria-label="Note"></textarea><div class="row"><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Apply</button></div></div></div></div>` : ''}</div>`;
   }).join('');
 };
+/* change a text layer's words right here (no AI, no cost): same save as double-clicking the text on the frame */
+function layerText(L) {
+  const v = (L.s.querySelector('[data-ltext]')?.value ?? '').replace(/\s+$/, '');
+  const el = q1('#canvasEditFrame')?.contentDocument?.querySelector(`[data-mf-path="${CSS.escape(L.mfPath || '')}"]`);
+  if (!el || !v.trim()) return;
+  el.innerText = v;
+  patchFrameInline({ studio: 'inline', mfPath: L.mfPath, outer: el.outerHTML });
+  toast('Text changed', { undo: () => undoFrameEdit() });
+}
 function layerOf(el) { const s = el.closest('.nx-ls'); return s ? { s, idx: +s.dataset.idx, mfPath: s.dataset.mf || null, key: s.dataset.key, label: s.querySelector('.nm')?.textContent || 'layer' } : null; }
 async function layerAsk(L, text, file) {
   const fid = selectedFrameId;
@@ -1182,6 +1194,7 @@ function bindLayerPanel() {
     if (t.closest('[data-open]')) { if (L.s.classList.contains('open')) { S.noAutoPick = true; selectedCanvasLayer = null; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); renderCanvasLayerList(); S.noAutoPick = false; } else selectCanvasLayer(L.idx, L.mfPath); return; }
     if (t.closest('[data-rmimg]')) { e.stopPropagation(); const f = repFiles[L.key]; if (f) URL.revokeObjectURL(f.url); delete repFiles[L.key]; return renderCanvasLayerList(); }
     if (t.closest('[data-upl]') && !t.closest('[data-repin]')) return L.s.querySelector('[data-repin]').click();
+    if (t.closest('[data-ltextapply]')) return layerText(L);
     if (t.closest('[data-aiapply]')) { const ta = L.s.querySelector('[data-ai]'); const v = ta.value.trim(); if (!v) return ta.focus(); ta.value = ''; return layerAsk(L, v); }
     if (t.closest('[data-repapply]')) { const f = repFiles[L.key]; const note = L.s.querySelector('[data-repnote]').value.trim(); if (!f) { toast('Pick an image to replace this layer with'); return L.s.querySelector('[data-repin]').click(); } return layerAsk(L, note, f.file); }
   });
@@ -1195,7 +1208,7 @@ function bindLayerPanel() {
     const f = [...(e.clipboardData?.files || [])].find(x => /^image\//.test(x.type)); if (!f) return;
     e.preventDefault(); repFiles[L.key] = { file: namedPicture(f), url: URL.createObjectURL(f) }; renderCanvasLayerList(); toast('Picture added to Replace with an image');
   });
-  list.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ai]')) { e.preventDefault(); e.target.closest('.nx-ls').querySelector('[data-aiapply]').click(); } });
+  list.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ltext]')) { e.preventDefault(); const L = layerOf(e.target); if (L) layerText(L); return; } if (e.key === 'Enter' && !e.shiftKey && e.target.matches('[data-ai]')) { e.preventDefault(); e.target.closest('.nx-ls').querySelector('[data-aiapply]').click(); } });
   list.addEventListener('change', e => {
     if (!e.target.matches('[data-repin]')) return;
     const L = layerOf(e.target), f = e.target.files[0]; if (!f || !L) return;

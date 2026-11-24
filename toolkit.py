@@ -209,7 +209,7 @@ def psd_to_template(raw: bytes, theme: str, tk_frames: list, store) -> dict:
     # the photo: the full-frame picture layers at the bottom (background colour, presenter photo, a shade over it)
     base = []
     for l in layers:                          # bottom to top
-        if l.kind in ("pixel", "smartobject") and area(l) >= 0.6 * W * H:
+        if l.kind in ("pixel", "smartobject", "solidcolorfill", "gradientfill", "patternfill") and area(l) >= 0.6 * W * H:
             base.append(l)
         else:
             break
@@ -232,7 +232,9 @@ def psd_to_template(raw: bytes, theme: str, tk_frames: list, store) -> dict:
         if x1 <= x0 or y1 <= y0:
             continue
         L, T, Wd, Ht = round(x0 * sx), round(y0 * sy), round((x1 - x0) * sx), round((y1 - y0) * sy)
-        name = (l.name or "Layer").replace("'", "’")[:60]
+        raw_name = re.sub(r"[<>]", "", (l.name or "").replace("'", "’")).strip()
+        kind = "Text" if l.kind == "type" else "Shape" if l.kind == "shape" else "Picture"
+        name = f"{kind}: {raw_name or kind}"[:60]   # the editor's layer list shows the kind and the PSD layer's name
         if l.kind == "type":
             t = _type_info(l)
             txt = (t["text"] or "").replace("\r", "\n").strip()
