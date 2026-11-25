@@ -160,7 +160,9 @@ def make_one(key: str, entry: dict, spec: dict, force: bool = False, pdf: dict |
             req["refs"] = [frames[0]] + list(req["refs"])
             req["prompt"] += (" The FIRST reference image is the team's approved styleframe for this exact shot: keep "
                               "its set, camera angle, composition, props, Arjun's pose and the lighting, and repaint it "
-                              "in the house miniature look of the other references. Leave out every word, number, "
+                              "in the house miniature look of the other references. Take ONLY the layout and pose from "
+                              "it: Arjun's face, hair, hands, legs and proportions always come from the character sheet "
+                              "and the last image, never from how the styleframe draws him. Leave out every word, number, "
                               "label and UI text that appears in it.")
     desc = _desc(req)
     if not force:

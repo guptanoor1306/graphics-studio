@@ -23,4 +23,9 @@ Every issue below shipped in at least one of V1–V3. The build's `WARN` lines c
 - [ ] All people are wooden-block figures with oval eyes, costume consistent per episode, and **head + neck + torso one block** (no visible neck or separate head piece).
 - [ ] Plates read as matte paper craft like `assets/theme/`: no glossy/plastic/photoreal surfaces, no corrugated-cardboard look on things that aren't boxes, no saturated colours outside the three.
 - [ ] Generated plates contain no stray text/logos; before/after plates share the camera angle.
+- [ ] **Arjun matches the canonical sheet in every frame**: same face and hair, C-shaped toy hands (also in hand close-ups), thick block legs, same proportions. Regenerate any that drift.
+- [ ] Props are paper craft (no glossy/plastic clipboards, boards or devices); lists use the kit `checklist`.
+- [ ] Every India map has the correct outline and all state borders.
+- [ ] SOP / QMARK "?" is the flat shard "?" made from the previous frame (`sop.qmark`), never a 3D or sculpted one.
+- [ ] Data frames keep the backdrop and carry only what the VO says in that beat (no invented side panels).
 - [ ] Pending `gen:` placeholders are listed in the final message (they are expected until images come back).
