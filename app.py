@@ -611,6 +611,10 @@ def _finish_frame_page(theme, html, base_href, edit):
             )
         elif "<body>" in html:
             html = html.replace("<body>", '<body class="in-studio-iframe">', 1)
+        else:      # a fixed-design page: <body data-page="1" ...>
+            html = re.sub(r"<body\b([^>]*)>", lambda m: (f'<body{m.group(1)}>' if "in-studio-iframe" in m.group(1) else
+                          (re.sub(r'class="', 'class="in-studio-iframe ', m.group(1), count=1) if 'class="' in m.group(1)
+                           else f'{m.group(1)} class="in-studio-iframe"').join(("<body", ">"))), html, count=1)
         edit_css = (ROOT / "static" / "studio_edit.css").read_text()
         registry_js = (ROOT / "static" / "layer_registry.js").read_text()
         interact_js = (ROOT / "static" / "interact.min.js").read_text()

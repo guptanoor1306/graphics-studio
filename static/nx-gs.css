@@ -639,3 +639,46 @@ body.nx .nx-ls.locked .nm{color:var(--mute)}
 body.nx .nx-ls.locked .nx-lk{display:grid;place-items:center;width:26px;height:26px;color:var(--faint);flex:none}
 body.nx .nx-ls.locked .nx-lk svg.i{width:13px;height:13px}
 body.nx .nx-lkn{margin:0 0 10px;font-size:12.5px;line-height:1.5;color:var(--mute)}
+
+/* ---- Edit layers, one panel: layers + their settings on the left, frames under the canvas ---- */
+body.nx #editModeApp .edit-mode-grid{grid-template-columns:380px minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr) 150px}
+body.nx #editModeApp .edit-mode-side{grid-column:1;grid-row:1/3}
+body.nx #editModeApp .edit-mode-center{grid-column:2;grid-row:1}
+body.nx #editModeApp .edit-frame-strip{grid-column:2;grid-row:2;display:flex!important;align-items:stretch;gap:2px;overflow-x:auto;overflow-y:hidden;padding:0 8px}
+body.nx #editModeApp .edit-frame-strip .nx-elh{display:none}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb{flex:none;width:168px;margin:10px 4px;padding:6px}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb .mini-label{margin-top:5px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.nx #editModeApp .edit-frame-strip.reel-strip .edit-frame-thumb{width:auto}
+body.nx #editModeApp .edit-frame-strip.reel-strip .mini-thumb{height:84px;aspect-ratio:9/16}
+/* layer rows: compact, with show/hide */
+body.nx .nx-lsh{min-height:48px;padding:6px 10px 6px 16px;gap:8px}
+body.nx .nx-lsh .ty{width:26px;height:26px;border-radius:7px}
+body.nx .nx-lsh .nm{-webkit-line-clamp:1;font-size:13px}
+body.nx .nx-lsh .nx-ib{width:26px;height:26px;opacity:0;color:var(--mute)}
+body.nx .nx-lsh:hover .nx-ib,body.nx .nx-ls.open .nx-lsh .nx-ib,body.nx .nx-ls.hid .nx-lsh [data-leye]{opacity:1}
+body.nx .nx-lsh .nx-ib svg.i{width:14px;height:14px}
+body.nx .nx-ls.hid .nx-lsh .nm,body.nx .nx-ls.hid .nx-lsh .ty{opacity:.45}
+body.nx .nx-rename{flex:1;min-width:0;height:28px;padding:0 8px;border:0;border-radius:7px;font:inherit;font-size:13px;box-shadow:0 0 0 1.5px var(--accent);outline:0}
+/* settings inside the open row (LA Studio's Layer settings) */
+body.nx .nx-insp{padding:0 16px 18px}
+body.nx .nx-insp .lab{font-size:12px;font-weight:600;color:var(--mute);margin:14px 0 7px}
+body.nx .nx-insp textarea[data-ltext]{width:100%;resize:vertical;min-height:44px;padding:8px 10px;border:0;border-radius:9px;background:#F5F5F7;font:inherit;font-size:13.5px;line-height:1.45;outline:0}
+body.nx .nx-insp textarea[data-ltext]:focus{background:#fff;box-shadow:0 0 0 1.5px var(--accent)}
+body.nx .nx-irow{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+body.nx .nx-irow select{flex:1;min-width:0;height:32px;padding:0 8px;border:0;border-radius:8px;background:#F5F5F7;font:inherit;font-size:13px;color:var(--ink)}
+body.nx .nx-nf{flex:1;min-width:64px;display:flex;align-items:center;gap:5px;height:32px;padding:0 9px;border-radius:8px;background:#F5F5F7}
+body.nx .nx-nf span{font-size:11.5px;color:var(--faint);flex:none}
+body.nx .nx-nf input{flex:1;min-width:0;width:100%;border:0;background:none;outline:0;font:inherit;font-size:13px;color:var(--ink);padding:0;-moz-appearance:textfield}
+body.nx .nx-nf input::-webkit-inner-spin-button{opacity:.4}
+body.nx .nx-nf i{font-style:normal;font-size:11.5px;color:var(--faint)}
+body.nx .nx-nf:focus-within{background:#fff;box-shadow:0 0 0 1.5px var(--accent)}
+body.nx .nx-cf{flex:1;min-width:110px;display:flex;align-items:center;gap:7px;height:32px;padding:0 9px 0 5px;border-radius:8px;background:#F5F5F7;cursor:pointer}
+body.nx .nx-cf input[type=color]{width:22px;height:22px;padding:0;border:0;border-radius:6px;background:none;cursor:pointer;flex:none}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch{border:0;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+body.nx .nx-cf span{font-size:11.5px;color:var(--faint)}
+body.nx .nx-cf b{font-size:12px;font-weight:500;color:var(--ink-2);margin-left:auto}
+body.nx .nx-seg.sm button{height:28px;width:30px;padding:0!important;display:grid;place-items:center}
+body.nx .nx-seg.sm svg.i{width:14px;height:14px}
+body.nx .nx-insp .nx-rep .row{display:flex;justify-content:flex-end;padding:8px 12px}
+body.nx .nx-lfoot{display:flex;justify-content:flex-start;margin-top:12px}

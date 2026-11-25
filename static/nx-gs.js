@@ -21,7 +21,7 @@ const IC = {
   trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/>', pencil: '<path d="M10.5 3.5l2 2L6 12H4v-2z"/>',
   check: '<path d="M3.5 8.5l3 3 6-7"/>', x: '<path d="M4 4l8 8M12 4l-8 8"/>', undo: '<path d="M5.5 6.5H10a3 3 0 0 1 0 6H7"/><path d="M7.5 4L5 6.5 7.5 9"/>',
   redo: '<path d="M10.5 6.5H6a3 3 0 0 0 0 6h3"/><path d="M8.5 4L11 6.5 8.5 9"/>', regen: '<path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10"/>',
-  minus: '<path d="M3.5 8h9"/>', lock: '<rect x="3.5" y="7.2" width="9" height="6.3" rx="1.4"/><path d="M5.6 7.2V5.3a2.4 2.4 0 014.8 0v1.9"/>', skip: '<circle cx="8" cy="8" r="5.5"/><path d="M4.2 11.8l7.6-7.6"/>', info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.5M8 5.2v.1"/>', download: '<path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/>',
+  minus: '<path d="M3.5 8h9"/>', alleft: '<path d="M2.5 4h11M2.5 8h7M2.5 12h9"/>', alcenter: '<path d="M2.5 4h11M4.5 8h7M3.5 12h9"/>', alright: '<path d="M2.5 4h11M6.5 8h7M4.5 12h9"/>', eye: '<path d="M1.8 8s2.3-4.3 6.2-4.3S14.2 8 14.2 8s-2.3 4.3-6.2 4.3S1.8 8 1.8 8z"/><circle cx="8" cy="8" r="1.9"/>', eyeoff: '<path d="M6.3 4c.5-.2 1.1-.3 1.7-.3 3.9 0 6.2 4.3 6.2 4.3s-.6 1.1-1.7 2.2M10.4 11.6c-.7.4-1.5.7-2.4.7C4.1 12.3 1.8 8 1.8 8s.8-1.5 2.3-2.8M2.5 2.5l11 11"/>', lock: '<rect x="3.5" y="7.2" width="9" height="6.3" rx="1.4"/><path d="M5.6 7.2V5.3a2.4 2.4 0 014.8 0v1.9"/>', skip: '<circle cx="8" cy="8" r="5.5"/><path d="M4.2 11.8l7.6-7.6"/>', info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.5M8 5.2v.1"/>', download: '<path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/>',
   doc: '<path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3M6 8.5h4M6 11h4"/>', wave: '<path d="M2.5 8h1M5 5.5v5M7.5 3v10M10 5.5v5M12.5 7.5v1"/>',
   upload: '<path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6M3 13.5h10"/>', play: '<path d="M5.5 3.8l6.5 4.2-6.5 4.2z" fill="currentColor" stroke="none"/>', pause: '<path d="M5.5 4v8M10.5 4v8"/>',
   clock: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/>', hash: '<path d="M6 2.5L5 13.5M11 2.5l-1 11M2.5 6h11M2 10h11"/>', video: '<rect x="2" y="3.5" width="9" height="9" rx="1.5"/><path d="M11 7l3-2v6l-3-2"/>',
@@ -1122,6 +1122,11 @@ const repFiles = {};
 let _renderCanvasLayerList = null;
 let rendering = false;
 const nxRCL = function () {
+  const lst = q1('#canvasLayerList'), ae = document.activeElement;
+  if (lst && ae && lst.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && !rendering) {   // typing in a layer's settings: redraw when done
+    if (!lst._nxPend) { lst._nxPend = true; ae.addEventListener('blur', () => setTimeout(() => { lst._nxPend = false; renderCanvasLayerList(); }, 0), { once: true }); }
+    return;
+  }
   _renderCanvasLayerList();
   if (rendering) return;
   const list = q1('#canvasLayerList'); if (!list) return;
@@ -1133,9 +1138,8 @@ const nxRCL = function () {
   const tabN = q1('[data-etab="layers"] .nx-cnt'); if (tabN) tabN.textContent = rows.length;
   const frNow = studioFrames().find(x => x.id === selectedFrameId);
   const fixed = !!(frNow && typeof frNow.page === 'string' && frNow.page.trim());
-  const kitLocked = !fixed && rows.some(r => r.mfPath === 'locked:kit');
   const tools = layerToolsHTML() + (fixed ? `<div class="nx-fixed">${I('check')}<span>Every layer of this frame can be edited.</span>${frNow.kit_frame ? `<button class="nx-tbtn" data-unfix data-tip="Undo making the layers editable: the kit draws this frame again">Back to kit version</button>` : ''}</div>`
-    : kitLocked ? `<div class="nx-fixed lock">${I('lock')}<span>Layers with a lock are drawn by the kit.</span><button class="nx-tbtn" data-mkedit>Make all editable</button></div>` : '');
+    : '');
   if (!rows.length) { list.innerHTML = tools + `<div class="nx-lempty">${list.textContent.trim() ? E(list.textContent.trim()) : 'This frame has no layers to edit. Describe a change in Prompt, or regenerate it.'}</div>`; return; }
   const first = rows.find(r => !String(r.mfPath || '').startsWith('locked:'));
   if (first && !rows.some(r => r.on) && !selectedCanvasLayer && !S.noAutoPick) {
@@ -1151,22 +1155,146 @@ const nxRCL = function () {
   list.innerHTML = tools + wordsHTML + rows.map(r => {
     const k = layerKind(r.label), key = r.idx + '|' + (r.mfPath || ''), f = repFiles[key];
     const lk = /^locked:(.*)$/.exec(r.mfPath || '');
-    if (lk) return `<div class="nx-ls locked${r.on ? ' open' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath)}">
+    if (lk && lk[1] !== 'kit') return `<div class="nx-ls locked${r.on ? ' open' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath)}">
       <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><span class="nx-lk" aria-label="Locked">${I('lock')}</span></div>
-      ${r.on ? `<div class="nx-lsb"><p class="nx-lkn">${E(LOCKED[lk[1]] || LOCKED.kit)}</p>${lk[1] === 'kit' ? '<button class="nx-tbtn" data-mkedit>Make all editable</button>' : ''}</div>` : ''}</div>`;
-    const tx = r.on ? textOf(r.mfPath) : null;
-    return `<div class="nx-ls${r.on ? ' open' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
-      <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
-      ${r.on ? `<div class="nx-lsb">${tx != null ? `<span class="lab">Text</span><div class="nx-ai"><textarea data-ltext rows="${Math.min(4, tx.split('\n').length + 1)}" aria-label="Text">${E(tx)}</textarea><div class="row"><small>Enter to save · Shift+Enter for a new line</small><button class="nx-tbtn" data-ltextapply>Save</button></div></div>` : ''}<span class="lab">Edit with AI</span><div class="nx-ai"><textarea data-ai rows="2" aria-label="Edit with AI"></textarea><div class="row"><small>Enter to apply</small><button class="nx-tbtn off" data-aiapply>Apply</button></div></div>
-        <span class="lab">Replace with an image</span><div class="nx-rep"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b><small>${f ? 'Click to choose another' : 'PNG, JPG or SVG'}</small></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin></div>
-        <div class="nx-ai"><textarea data-repnote rows="2" placeholder="Note (optional)" aria-label="Note"></textarea><div class="row"><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Apply</button></div></div></div></div>` : ''}</div>`;
+      ${r.on ? `<div class="nx-lsb"><p class="nx-lkn">${E(LOCKED[lk[1]] || LOCKED.kit)}</p></div>` : ''}</div>`;
+    const el = inspEl(r), hid = !!(el && el.dataset.psdHidden), nm = (el && el.getAttribute('aria-label')) || k.name;
+    return `<div class="nx-ls${r.on ? ' open' : ''}${hid ? ' hid' : ''}${lk ? ' kit' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
+      <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm" data-lname data-tip="Double-click to rename"><b>${E(k.type)}</b> · <span class="nmv">${E(nm)}</span></span><button class="nx-ib" data-leye data-tip="${hid ? 'Show' : 'Hide'} this layer" class="tip-l" aria-label="${hid ? 'Show' : 'Hide'} layer">${I(hid ? 'eyeoff' : 'eye')}</button><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
+      ${r.on ? inspectorHTML(r, el, f) : ''}</div>`;
   }).join('');
 };
+/* ---------------- Layer settings, inside the layer's own row (LA Studio's Layers inspector, on the frame's HTML) ----------------
+   Every change is made on the layer's element in the frame and saved as its new markup, the same way a drag or a
+   text edit is saved, so Undo, Prompt and Make Layers all see it. A layer the kit draws (locked, or a kit field) makes
+   the frame a fixed design first (auto, with Back to kit version in the toast), then gets the change. */
+const FONT_BASE = ['Inter', 'Anton', 'Bricolage Grotesque', 'Poppins', 'Montserrat', 'Roboto', 'Open Sans', 'Lato', 'Oswald', 'Playfair Display', 'DM Sans', 'Manrope', 'Arial', 'Helvetica', 'Georgia'];
+let laFontList = null;
+function askLaFonts() {          // inside LA Studio: the fonts installed on this Mac (so Photoshop has them)
+  if (laFontList || window.parent === window) return;
+  const id = 'f' + Date.now();
+  const on = e => { const d = e.data; if (!d || d.zo !== 'graphics-host' || d.id !== id) return; window.removeEventListener('message', on); if (d.ok && d.data?.families) { laFontList = Object.keys(d.data.families).sort(); renderCanvasLayerList(); } };
+  window.addEventListener('message', on);
+  try { window.parent.postMessage({ zo: 'graphics', op: 'fonts', id }, '*'); } catch (_) {}
+  setTimeout(() => window.removeEventListener('message', on), 8000);
+}
+function frameDoc() { try { return q1('#canvasEditFrame')?.contentDocument || null; } catch (_) { return null; } }
+function inspEl(r) {
+  const d = frameDoc(); if (!d || !r) return null;
+  try { return (r.mfPath ? d.querySelector(`[data-mf-path="${CSS.escape(r.mfPath)}"],[data-mf-drag="${CSS.escape(r.mfPath)}"]`) : null) || d.querySelector(`[data-spec-idx="${r.idx}"]`); } catch (_) { return null; }
+}
+const htmlPath = mf => !!mf && (/^html:/.test(mf) || mf.includes('>'));
+const hex = c => { const m = String(c || '').match(/rgba?\(([^)]+)\)/); if (!m) return /^#/.test(c) ? c : '#000000'; const [r, g, b, a] = m[1].split(',').map(x => parseFloat(x)); if (a === 0) return ''; return '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join(''); };
+function layerSort(el) {
+  if (!el) return 'block';
+  const cs = el.ownerDocument.defaultView.getComputedStyle(el);
+  if (el.matches('img') || (cs.backgroundImage && cs.backgroundImage.includes('url(')) || (el.querySelectorAll('img').length === 1 && !el.innerText.trim())) return 'picture';
+  const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+  if (own || (el.innerText.trim() && !el.querySelector('div,img,svg,table'))) return 'text';
+  if (el.matches('svg') || el.querySelector('svg')) return 'drawing';
+  return 'box';
+}
+function inspectorHTML(r, el, f) {
+  askLaFonts();
+  if (!el) return `<div class="nx-lsb"><p class="nx-lkn">Loading this layer…</p></div>`;
+  const cs = el.ownerDocument.defaultView.getComputedStyle(el), rc = el.getBoundingClientRect(), sort = layerSort(el);
+  const fam = (cs.fontFamily || '').split(',')[0].replace(/["']/g, '').trim();
+  const fams = [...new Set([fam, ...(laFontList || []), ...FONT_BASE].filter(Boolean))];
+  const W = [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'Semibold'], [700, 'Bold'], [800, 'Extra bold'], [900, 'Black']];
+  const wt = parseInt(cs.fontWeight, 10) || 400, al = { start: 'left', end: 'right', justify: 'left' }[cs.textAlign] || cs.textAlign;
+  const num = (k, lab, v, unit) => `<label class="nx-nf"><span>${lab}</span><input type="number" data-st="${k}" value="${Math.round(v)}" step="1">${unit ? `<i>${unit}</i>` : ''}</label>`;
+  const col = (k, lab, v) => `<label class="nx-cf"><input type="color" data-st="${k}" value="${v || '#ffffff'}"><span>${lab}</span><b>${v ? v.toUpperCase() : 'None'}</b></label>`;
+  const tx = sort === 'text' ? el.innerText : null;
+  const bw = parseFloat(cs.borderTopWidth) || 0, bc = bw ? hex(cs.borderTopColor) : '';
+  let h = `<div class="nx-lsb nx-insp">`;
+  if (tx != null) h += `<span class="lab">Text</span><textarea data-ltext rows="${Math.min(4, tx.split('\n').length + 1)}" aria-label="Text">${E(tx)}</textarea>
+    <span class="lab">Typography</span><div class="nx-irow"><select data-st="family" aria-label="Font">${fams.map(x => `<option${x === fam ? ' selected' : ''}>${E(x)}</option>`).join('')}</select><select data-st="weight" aria-label="Weight">${W.map(([v, n]) => `<option value="${v}"${v === wt ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
+    <div class="nx-irow">${num('size', 'Size', parseFloat(cs.fontSize), 'px')}<div class="nx-seg sm" data-al>${['left', 'center', 'right'].map(a => `<button type="button" data-align="${a}" class="${al === a ? 'on' : ''}" aria-label="Align ${a}">${I('al' + a)}</button>`).join('')}</div></div>
+    <div class="nx-irow">${col('color', 'Text colour', hex(cs.color))}</div>`;
+  h += `<span class="lab">Position and size</span><div class="nx-irow">${num('x', 'X', rc.left)}${num('y', 'Y', rc.top)}${num('w', 'W', rc.width)}</div>`;
+  if (sort === 'box' || sort === 'text') h += `<span class="lab">Fill and stroke</span><div class="nx-irow">${col('fill', 'Fill', hex(cs.backgroundColor))}${col('stroke', 'Stroke', bc)}${num('strokeW', 'W', bw, 'px')}</div>`;
+  if (sort === 'picture' || sort === 'drawing') h += `<span class="lab">Replace with an image</span><div class="nx-rep"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b><small>${f ? 'Click to choose another' : 'PNG, JPG or SVG'}</small></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin></div>
+    <div class="row"><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Replace</button></div></div>`;
+  h += `<span class="lab">Edit with AI</span><div class="nx-ai"><textarea data-ai rows="2" aria-label="Edit with AI" placeholder="Describe the change"></textarea><div class="row"><small>Enter to apply</small><button class="nx-tbtn off" data-aiapply>Apply</button></div></div>
+    <div class="nx-lfoot"><button class="nx-tbtn" data-lreset data-tip="This layer as it was when you opened the frame">Reset layer</button></div></div>`;
+  return h;
+}
+const layerOrig = {};
+const saveT = {};
+/* the layer's element, editable as markup: a kit-drawn layer turns the frame into a fixed design first */
+async function editableEl(L) {
+  if (htmlPath(L.mfPath)) return { L, el: inspEl(L) };
+  const el0 = inspEl(L); if (!el0) return { L, el: null };
+  const r0 = el0.getBoundingClientRect(), name = (el0.innerText || '').trim().slice(0, 40), fid = selectedFrameId;
+  toast('Making this frame editable…');
+  await frameStateCall(fid, 'detach', 'This frame is a fixed design now: every layer can be edited');
+  for (let i = 0; i < 40; i++) {     // wait for the reloaded frame to list its layers again
+    await new Promise(r => setTimeout(r, 250));
+    const cands = (lastCanvasLayers || []).filter(x => x.mfPath && x.mfPath.startsWith('page>'));
+    if (!cands.length) continue;
+    const d = frameDoc(); let best = null, bs = 1e9;
+    for (const c of cands) {
+      const e = d && d.querySelector(`[data-mf-path="${CSS.escape(c.mfPath)}"]`); if (!e) continue;
+      const r = e.getBoundingClientRect(), sc = Math.abs(r.left - r0.left) + Math.abs(r.top - r0.top) + Math.abs(r.width - r0.width) + Math.abs(r.height - r0.height) + (name && (e.innerText || '').trim().slice(0, 40) === name ? 0 : 40);
+      if (sc < bs) { bs = sc; best = { c, e }; }
+    }
+    if (best) { const nl = { idx: best.c.idx, mfPath: best.c.mfPath, key: best.c.idx + '|' + best.c.mfPath }; selectCanvasLayer(nl.idx, nl.mfPath); return { L: nl, el: best.e }; }
+  }
+  return { L, el: null };
+}
+function saveLayer(L, el, msg) {
+  if (!el || !htmlPath(L.mfPath)) return;
+  clearTimeout(saveT[L.key]);
+  saveT[L.key] = setTimeout(() => { patchFrameInline({ studio: 'inline', mfPath: L.mfPath, outer: el.outerHTML }); if (msg) toast(msg, { undo: () => undoFrameEdit() }); }, 450);
+}
+async function layerStyle(L, k, v, live) {
+  let { L: L2, el } = await editableEl(L); if (!el) return;
+  if (!layerOrig[L2.key]) layerOrig[L2.key] = el.outerHTML;
+  const cs = el.ownerDocument.defaultView.getComputedStyle(el), st = el.style;
+  if (k === 'family') st.fontFamily = `"${v}"` + (cs.fontFamily.includes('sans') ? ', sans-serif' : '');
+  else if (k === 'weight') st.fontWeight = v;
+  else if (k === 'size') st.fontSize = Math.max(4, +v || 0) + 'px';
+  else if (k === 'align') st.textAlign = v;
+  else if (k === 'color') st.color = v;
+  else if (k === 'fill') st.backgroundColor = v;
+  else if (k === 'stroke' || k === 'strokeW') { const w = k === 'strokeW' ? Math.max(0, +v || 0) : (parseFloat(cs.borderTopWidth) || 3); const c = k === 'stroke' ? v : (cs.borderTopColor || '#222'); st.border = w ? `${w}px solid ${c}` : 'none'; }
+  else if (k === 'w') { st.width = Math.max(4, +v || 0) + 'px'; if (el.matches('img')) st.height = 'auto'; }
+  else if (k === 'x' || k === 'y') {
+    const rc = el.getBoundingClientRect(), d = (+v || 0) - (k === 'x' ? rc.left : rc.top);
+    if (/absolute|fixed/.test(cs.position)) { if (k === 'x') st.left = (parseFloat(cs.left) || 0) + d + 'px'; else st.top = (parseFloat(cs.top) || 0) + d + 'px'; }
+    else { const t = (st.translate || '0px 0px').split(/\s+/).map(parseFloat); const tx = (t[0] || 0) + (k === 'x' ? d : 0), ty = (t[1] || 0) + (k === 'y' ? d : 0); st.translate = `${Math.round(tx)}px ${Math.round(ty)}px`; }
+  }
+  saveLayer(L2, el, live ? '' : 'Layer changed');
+  if (L2 !== L) setTimeout(renderCanvasLayerList, 60);      // the frame was just made editable: show the new row's values
+  try { frameDoc()?.defaultView?.dispatchEvent(new Event('resize')); } catch (_) {}
+}
+async function layerHide(L) {
+  let { L: L2, el } = await editableEl(L); if (!el) return;
+  const hide = !el.dataset.psdHidden;
+  if (hide) { el.dataset.psdHidden = '1'; el.style.visibility = 'hidden'; } else { delete el.dataset.psdHidden; el.style.visibility = ''; }
+  saveLayer(L2, el, hide ? 'Layer hidden' : 'Layer shown');
+  setTimeout(renderCanvasLayerList, 0);
+}
+async function layerRename(L, name) {
+  let { L: L2, el } = await editableEl(L); if (!el) return;
+  if (name) el.setAttribute('aria-label', name); else el.removeAttribute('aria-label');
+  saveLayer(L2, el, 'Layer renamed');
+  setTimeout(renderCanvasLayerList, 0);
+}
+async function layerReset(L) {
+  const el = inspEl(L), o = layerOrig[L.key]; if (!el || !o) return toast('Nothing to reset on this layer yet');
+  const t = el.ownerDocument.createElement('template'); t.innerHTML = o; const n = t.content.firstElementChild; if (!n) return;
+  el.replaceWith(n); delete layerOrig[L.key];
+  patchFrameInline({ studio: 'inline', mfPath: L.mfPath, outer: o });
+  toast('Layer reset', { undo: () => undoFrameEdit() }); setTimeout(() => { refreshEditCanvas(); renderCanvasLayerList(); }, 300);
+}
 /* change a text layer's words right here (no AI, no cost): same save as double-clicking the text on the frame */
-function layerText(L, val) {
+async function layerText(L, val) {
   const v = (val ?? L.s?.querySelector('[data-ltext]')?.value ?? '').replace(/\s+$/, '');
-  const el = q1('#canvasEditFrame')?.contentDocument?.querySelector(`[data-mf-path="${CSS.escape(L.mfPath || '')}"]`);
-  if (!el || !v.trim()) return;
+  if (!v.trim()) return;
+  let el = q1('#canvasEditFrame')?.contentDocument?.querySelector(`[data-mf-path="${CSS.escape(L.mfPath || '')}"]`);
+  if (L.s && !htmlPath(L.mfPath)) ({ L, el } = await editableEl(L));
+  if (!el) return;
   el.innerText = v;
   patchFrameInline({ studio: 'inline', mfPath: L.mfPath, outer: el.outerHTML });
   toast('Text changed', { undo: () => undoFrameEdit() });
@@ -1209,13 +1337,35 @@ function bindLayerPanel() {
     if (e.target.closest('[data-lpaste]')) return pasteLayer();
     const t = e.target, L = layerOf(t); if (!L) return;
     if (t.closest('[data-ldel]')) { e.stopPropagation(); return layerDelete(L); }
+    if (t.closest('[data-leye]')) { e.stopPropagation(); return layerHide(L); }
+    if (t.closest('[data-lreset]')) { e.stopPropagation(); return layerReset(L); }
+    const alb = t.closest('[data-align]'); if (alb) { alb.parentElement.querySelectorAll('button').forEach(b => b.classList.toggle('on', b === alb)); return layerStyle(L, 'align', alb.dataset.align); }
     if (t.closest('[data-lcopy]')) { e.stopPropagation(); return copyLayer(L); }
+    if (t.closest('[data-lname]') && L.s.classList.contains('open')) return;   // the name of the open layer: double-click renames it
     if (t.closest('[data-open]')) { if (L.s.classList.contains('open')) { S.noAutoPick = true; selectedCanvasLayer = null; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); renderCanvasLayerList(); S.noAutoPick = false; } else selectCanvasLayer(L.idx, L.mfPath); return; }
     if (t.closest('[data-rmimg]')) { e.stopPropagation(); const f = repFiles[L.key]; if (f) URL.revokeObjectURL(f.url); delete repFiles[L.key]; return renderCanvasLayerList(); }
     if (t.closest('[data-upl]') && !t.closest('[data-repin]')) return L.s.querySelector('[data-repin]').click();
     if (t.closest('[data-ltextapply]')) return layerText(L);
     if (t.closest('[data-aiapply]')) { const ta = L.s.querySelector('[data-ai]'); const v = ta.value.trim(); if (!v) return ta.focus(); ta.value = ''; return layerAsk(L, v); }
     if (t.closest('[data-repapply]')) { const f = repFiles[L.key]; const note = L.s.querySelector('[data-repnote]').value.trim(); if (!f) { toast('Pick an image to replace this layer with'); return L.s.querySelector('[data-repin]').click(); } return layerAsk(L, note, f.file); }
+  });
+  list.addEventListener('dblclick', e => {
+    const nm = e.target.closest('[data-lname]'); if (!nm) return;
+    const L = layerOf(nm); if (!L) return; e.preventDefault(); e.stopPropagation();
+    const v = nm.querySelector('.nmv'), cur = v ? v.textContent : '';
+    const inp = document.createElement('input'); inp.className = 'nx-rename'; inp.value = cur; nm.replaceWith(inp); inp.focus(); inp.select();
+    let done = false; const end = ok => { if (done) return; done = true; const nv = inp.value.trim(); if (ok && nv !== cur) layerRename(L, nv); else renderCanvasLayerList(); };
+    inp.addEventListener('keydown', k => { if (k.key === 'Enter') end(true); if (k.key === 'Escape') end(false); k.stopPropagation(); });
+    inp.addEventListener('blur', () => end(true));
+  });
+  list.addEventListener('input', e => {
+    const st = e.target.closest('[data-st]');
+    if (st && st.type !== 'color' && st.tagName !== 'SELECT') { const L = layerOf(st); if (L && st.value !== '') layerStyle(L, st.dataset.st, st.value, true); }
+    if (st && st.type === 'color') { const L = layerOf(st); if (L) { const b = st.parentElement.querySelector('b'); if (b) b.textContent = st.value.toUpperCase(); layerStyle(L, st.dataset.st, st.value, true); } }
+  });
+  list.addEventListener('change', e => {
+    const st = e.target.closest('[data-st]'); if (!st || st.tagName !== 'SELECT') return;
+    const L = layerOf(st); if (L) layerStyle(L, st.dataset.st, st.value);
   });
   list.addEventListener('input', e => {
     const L = layerOf(e.target); if (!L) return;
@@ -1406,7 +1556,7 @@ function decorateEdit() {
   const side = app.querySelector('.edit-mode-side');
   if (!side.querySelector('.nx-etabs')) {
     const tabs = document.createElement('div'); tabs.className = 'nx-etabs nx-ui';
-    tabs.innerHTML = `<button data-etab="prompt">Prompt</button><button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="anchor" id="nxTabAnc">Anchor frame</button><button data-etab="script">Script</button>`;
+    tabs.innerHTML = `<button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="prompt">Prompt</button><button data-etab="anchor" id="nxTabAnc">Anchor frame</button><button data-etab="script">Script</button>`;
     side.insertBefore(tabs, side.firstChild);
     const sc = document.createElement('div'); sc.id = 'nxSecScript'; sc.className = 'nx-escr nx-ui'; sc.hidden = true;
     tabs.after(sc);
@@ -1823,7 +1973,7 @@ window.nxBoot = async function () {
   const _list = list;
   list = async () => { loadList().then(() => { allProjects = S.list || []; if (!P && !editModeOpen) renderList(); }); };
   const _open = openEditMode;
-  openEditMode = fid => { S.etab = (isTkProject() || studioFrames().find(x => x.id === fid)?.tk_from) ? 'layers' : 'prompt'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
+  openEditMode = fid => { S.etab = 'layers'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
   const _sel = selectEditFrame;
   selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); if (S.etab === 'script') scriptTab(); } };
   const _strip = buildEditFrameStrip;

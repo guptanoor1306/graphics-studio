@@ -47,8 +47,11 @@
     busy = true;
     const ov = document.getElementById('studio-overlay'), ovd = ov ? ov.style.display : '';
     if (ov) ov.style.display = 'none';
+    const hidden = [...document.querySelectorAll('[data-psd-hidden]')];      // hidden layers are still layers: list them
+    hidden.forEach(el => { el.style.visibility = 'visible'; });
     let list = [];
     try { list = window.PSD_COLLECT(canvas()) || []; } catch (e) { console.warn('psd layers:', e); }
+    hidden.forEach(el => { el.style.visibility = 'hidden'; });
     const byI = {};
     document.querySelectorAll('[data-zo]').forEach(el => { el.getAttribute('data-zo').split(/\s+/).forEach(k => { byI[k] = el; }); el.removeAttribute('data-zo'); });
     if (ov) ov.style.display = ovd;
@@ -61,13 +64,20 @@
       if (!r && el.parentElement && el.parentElement.closest('[data-spec-idx]')) continue;   // part of a layer the kit already lists (a decor shape's icon)
       el.dataset.mfTagged = '1';
       el.dataset.layerType = type;
-      el.dataset.layerLabel = String(it.name || it.text || type).replace(/\s+/g, ' ').trim().slice(0, 40);
+      const cls = (typeof el.className === 'string' ? el.className : '').split(/\s+/).filter(Boolean)[0] || '';
+      let nm = String(it.name || it.text || type).replace(/\s+/g, ' ').trim();
+      if (cls && nm.replace(/\s+/g, ' ') === cls.replace(/[-_]+/g, ' ')) {          // only a CSS class name: say what it holds
+        const words = (el.innerText || '').replace(/\s+/g, ' ').trim();
+        nm = words ? words.slice(0, 30) + (it.kind === 'box' ? ' box' : '') : ({ box: 'Shape', picture: 'Picture', icon: 'Icon' }[it.kind] || nm);
+      }
+      el.dataset.layerLabel = nm.slice(0, 40);
       el.dataset.specIdx = String(seq++);
       if (it.kind === 'box') el.dataset.psdBox = '1';
       const path = r ? indexPath(el, r.root) : null;
-      if (r && path && it.kind !== 'page') {
+      const pageBg = it.kind === 'page' && r && r.base === 'page';            // a fixed design's background: editable, not draggable
+      if (r && path && (it.kind !== 'page' || pageBg)) {
         el.dataset.mfPath = r.base + '>' + path;
-        el.classList.add('studio-editable');
+        if (!pageBg) el.classList.add('studio-editable');
         if (it.kind === 'text' && !el.children.length && window.studioInline) {
           window.studioInline(el, () => window.parent.postMessage({ studio: 'inline', mfPath: el.dataset.mfPath, outer: el.outerHTML }, '*'));
         }
