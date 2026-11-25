@@ -92,6 +92,11 @@ em{font-style:italic}
 .clip .clamp{position:absolute;left:50%;top:-26px;transform:translateX(-50%);width:230px;height:84px;background:linear-gradient(#5d5d5d,#2f2f2f);border-radius:18px 18px 10px 10px;box-shadow:0 6px 10px rgba(0,0,0,.35)}
 .clip li{list-style:none;display:flex;align-items:center;gap:22px;font:300 40px/1.1 "Bricolage";color:#111;padding:14px 0;border-bottom:2px solid #e3ded2}
 .box{width:40px;height:40px;border:3px solid #222;border-radius:4px;flex:none;position:relative;background:#fff}
+.clip.paperclip{background-color:#a8703f;background-size:cover;border-radius:18px;box-shadow:0 14px 22px rgba(0,0,0,.28),inset 0 0 0 2px rgba(80,45,15,.25);padding:66px 30px 34px}
+.clip.paperclip .sheet{background-color:#ece7df;background-size:1400px auto;background-position:center;background-blend-mode:multiply;border-radius:3px;box-shadow:0 3px 8px rgba(0,0,0,.18)}
+.clip.paperclip .clampimg{position:absolute;left:50%;top:-34px;filter:drop-shadow(0 5px 6px rgba(0,0,0,.35))}
+.clip.paperclip li{border-bottom:1.5px solid rgba(60,50,40,.22)}
+.clip.paperclip .box{width:34px;height:34px;border:2.5px solid #1a1a1a;border-radius:2px;background:transparent}
 .box.on:after{content:"";position:absolute;left:9px;top:1px;width:12px;height:24px;border:solid #111;border-width:0 6px 6px 0;transform:rotate(40deg)}
 /* marks */
 .ok,.no{display:inline-block;width:42px;height:42px;border-radius:7px;color:#fff;text-align:center;font:700 34px/42px "Bricolage";vertical-align:middle;margin-left:14px}

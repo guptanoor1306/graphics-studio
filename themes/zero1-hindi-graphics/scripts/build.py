@@ -446,11 +446,22 @@ def t_placards(ctx, gen, f, dark):
     return "\n".join(out)
 
 
+def _kit(ctx, rel):
+    p, _ = ctx.src("asset:" + rel)
+    return ctx.url(p) if p else ""
+
+
 def t_checklist(ctx, gen, f, dark):
+    """The house clipboard (v2 #55): kraft board, matte black clip, textured off-white paper sheet, thin ruled lines,
+    plain ink tick boxes. Paper-craft, never a glossy or plastic board."""
     x, y, w = f.get("x", 560), f.get("y", 110), f.get("w", 700)
     n = f.get("checked", 0)
     lis = "".join(f'<li class="t"><span class="box{" on" if i < n else ""}"></span><span>{md(t)}</span></li>' for i, t in enumerate(f["items"]))
-    out = [f'<div class="clip" style="left:{x}px;top:{y}px;width:{w}px"><div class="clamp"></div><div class="sheet">'
+    board, clip, paper = _kit(ctx, "props/clipboard_board.jpg"), _kit(ctx, "props/clipboard_clip.png"), _kit(ctx, "backdrops/plain_paper.jpg")
+    cw = int(w * .42)
+    out = [f'<div class="clip paperclip" style="left:{x}px;top:{y}px;width:{w}px;background-image:url(\'{board}\')">'
+           f'<img class="clampimg" src="{clip}" style="width:{cw}px;margin-left:{-cw // 2}px">'
+           f'<div class="sheet" style="background-image:url(\'{paper}\')">'
            f'<div class="t imp" style="font-size:76px;color:#111;margin-bottom:18px">{md(f.get("title","Checklist"))}</div><ul>{lis}</ul></div></div>']
     if f.get("photo"):
         px, py, pw = f.get("photo_pos", [x + w - 120, y + 30, 360])
@@ -461,8 +472,51 @@ def t_checklist(ctx, gen, f, dark):
     return "\n".join(out)
 
 
+# The SOP "?" (v2 #8): the previous frame's picture cut into flat shards that together draw a giant question mark —
+# white gaps with a thin black line between shards, an outline round the mark, no 3D. The mark is the Impact-role
+# "?" glyph; the shards are a jittered grid laid over it (fixed seed, so every render matches).
+def _qmark_shards():
+    import random
+    rnd = random.Random(7)
+    xs, ys = [0, 110, 200, 320], [0, 120, 230, 330, 430, 530, 640]
+    pt = {(i, j): (x + (rnd.uniform(-28, 28) if 0 < i < len(xs) - 1 else 0),
+                   y + (rnd.uniform(-30, 30) if 0 < j < len(ys) - 1 else 0))
+          for i, x in enumerate(xs) for j, y in enumerate(ys)}
+    return [[pt[(i, j)], pt[(i + 1, j)], pt[(i + 1, j + 1)], pt[(i, j + 1)]]
+            for i in range(len(xs) - 1) for j in range(len(ys) - 1)]
+
+
+def qmark_svg(img_url: str, x: int, y: int, h: int = 640) -> str:
+    sc = h / 640
+    glyph = ('<text x="160" y="600" text-anchor="middle" font-family="Anton, Impact, sans-serif" '
+             'font-size="760" letter-spacing="0">?</text>')
+    shards = _qmark_shards()
+    clips = ['<clipPath id="qmg">' + glyph + '</clipPath>']
+    pieces, lines = [], []
+    for i, pts in enumerate(shards):
+        d = " ".join(f"{px:.0f},{py:.0f}" for px, py in pts)
+        clips.append(f'<clipPath id="qms{i}"><polygon points="{d}"/></clipPath>')
+        # each shard shows its own slightly shifted crop of the picture, like broken glass
+        dx, dy = ((i * 37) % 23) - 11, ((i * 53) % 19) - 9
+        pieces.append(f'<g clip-path="url(#qms{i})"><image href="{img_url}" x="{-300 + dx}" y="{-20 + dy}" width="920" '
+                      f'height="680" preserveAspectRatio="xMidYMid slice"/></g>')
+        lines.append(f'<polygon points="{d}" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>'
+                     f'<polygon points="{d}" fill="none" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/>')
+    return (f'<svg class="L qmark" style="left:{x}px;top:{y}px;width:{round(320 * sc)}px;height:{h}px;overflow:visible;'
+            f'filter:drop-shadow(0 8px 10px rgba(0,0,0,.25))" viewBox="0 0 320 640">'
+            f'<defs>{"".join(clips)}</defs><g clip-path="url(#qmg)">{"".join(pieces)}{"".join(lines)}</g>'
+            f'{glyph.replace("<text ", "<text fill=\"none\" stroke=\"#111\" stroke-width=\"3\" ")}</svg>')
+
+
 def t_sop(ctx, gen, f, dark):
     out = []
+    if f.get("qmark"):                      # the house "?" made of shards of the previous frame's picture
+        p, key = ctx.src(f["qmark"])
+        if p:
+            qx, qy, qh = (f.get("qmark_pos") or [810, 200, 640])[:3]
+            out.append(qmark_svg(ctx.url(p), qx, qy, qh))
+        else:
+            out.append(ph(key, 810, 200, 300, 640, gen))
     frames = ["#D7A742", "#447599", "#A4403B"]
     for i, it in enumerate(f["items"]):
         x, y = it["x"], it["y"]
