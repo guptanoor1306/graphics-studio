@@ -502,10 +502,11 @@ def qmark_svg(img_url: str, x: int, y: int, h: int = 640) -> str:
                       f'height="680" preserveAspectRatio="xMidYMid slice"/></g>')
         lines.append(f'<polygon points="{d}" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>'
                      f'<polygon points="{d}" fill="none" stroke="#111" stroke-width="2.5" stroke-linejoin="round"/>')
+    outline = glyph.replace("<text ", '<text fill="none" stroke="#111" stroke-width="3" ')
     return (f'<svg class="L qmark" style="left:{x}px;top:{y}px;width:{round(320 * sc)}px;height:{h}px;overflow:visible;'
             f'filter:drop-shadow(0 8px 10px rgba(0,0,0,.25))" viewBox="0 0 320 640">'
             f'<defs>{"".join(clips)}</defs><g clip-path="url(#qmg)">{"".join(pieces)}{"".join(lines)}</g>'
-            f'{glyph.replace("<text ", "<text fill=\"none\" stroke=\"#111\" stroke-width=\"3\" ")}</svg>')
+            f'{outline}</svg>')
 
 
 def t_sop(ctx, gen, f, dark):
