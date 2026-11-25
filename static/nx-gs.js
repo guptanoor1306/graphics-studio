@@ -521,13 +521,21 @@ function topLeftHTML() {
   const c = chOfP();
   return `<div class="nx-crumb"><button data-home>Graphics</button>${I('chev')}<button data-chn class="nx-crch" style="display:inline-flex;align-items:center;gap:6px"><span class="nx-mark">${LOGO[c.id]}</span>${c.name}</button>${I('chev')}<span class="nx-title" data-title data-tip="Click to rename">${E(P.name)}</span></div>`;
 }
-function projectSteps() {
-  const made = studioFrames().length > 0;
-  const st = [['graphics', 'Graphics'], ['psd', 'Layers'], ['animate', 'Animate'], ['video', 'Edit on video']];
-  const done = new Set((QS.get('done') || '').split(',').filter(Boolean)); if (made) done.add('graphics');
-  return `<div class="nx-steps">${st.map(([k, l], i) => `<button class="nx-step${k === 'graphics' ? ' on' : ''}${done.has(k) ? ' done' : ''}" data-stage="${k}"><i>${done.has(k) ? '✓' : i + 1}</i>${l}</button>${i < 3 ? I('chev') : ''}`).join('')}</div>`;
+/* the project's steps, as LA Studio sends them (?steps=graphics,animate,video); an older LA Studio sends none: its four */
+const STEP_NAMES = { graphics: 'Graphics', psd: 'Layers', animate: 'Animate', video: 'Edit on video' };
+function laSteps() { const q = (QS.get('steps') || '').split(',').filter(k => STEP_NAMES[k]); return q.length ? q : ['graphics', 'psd', 'animate', 'video']; }
+function projectSteps(empty) {
+  const made = !empty && studioFrames().length > 0, st = laSteps();
+  const done = new Set((QS.get('done') || '').split(',').filter(Boolean)); if (made) done.add('graphics'); if (empty) done.clear();
+  return `<div class="nx-steps">${st.map((k, i) => `<button class="nx-step${k === 'graphics' ? ' on' : ''}${done.has(k) ? ' done' : ''}" data-stage="${k}"><i>${done.has(k) ? '✓' : i + 1}</i>${STEP_NAMES[k]}</button>${i < st.length - 1 ? I('chev') : ''}`).join('')}</div>`;
 }
+/* Import graphics (a project inside LA Studio): pictures, a folder, HTML or a zip, picked in LA Studio; each becomes a PSD for Animate */
+const laImportBtn = () => gsSteps() && QS.get('steps') ? `<button class="nx-btn ghost" data-laimport data-tip="Graphics you already have: each becomes a layered PSD, ready in Animate" class="tip-l">${I('upload')}Import graphics</button>` : '';
+const toAnimate = () => !!QS.get('steps') && !laSteps().includes('psd');   // LA Studio with three steps: frames go to Animate; an older one: Make Layers
+const SEND = () => toAnimate() ? 'Send to Animate' : 'Make Layers';
+function laImport() { laPost('import', {}).catch(() => laPost('skip', {}).catch(() => toast('Open this video inside LA Studio to import graphics.', { err: true }))); }
 function bindTop(m) {
+  m.querySelector('[data-laimport]')?.addEventListener('click', laImport);
   m.querySelector('[data-home]')?.addEventListener('click', goHomeNx);
   m.querySelector('[data-chn]')?.addEventListener('click', () => openChannel(chOfP().id));
   m.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { if (b.dataset.stage !== 'graphics') laPost('stage', { stage: b.dataset.stage }).catch(() => laPost('skip', {}).catch(() => {})); }));
@@ -610,7 +618,7 @@ function sourcesView() {
     auBody = `<div class="nx-eb done" style="flex-direction:column;align-items:stretch;justify-content:center;gap:0;padding:10px 12px 10px 16px"><div style="display:flex;align-items:center;gap:12px"><button class="nx-play" data-play data-tip="Play">${I(S.playing ? 'pause' : 'play')}</button><div class="tx" style="flex:1;min-width:0;display:flex;flex-direction:column"><b style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${E((P.episode_audio_name || S.audioBusy || 'Voice-over').replace(/\.(mp3|m4a|wav|webm|ogg|mp4)$/i, ''))}</b><small style="font-size:12px;color:var(--mute)">${[mmss(secs), st].filter(Boolean).join(' · ')}</small></div><button class="nx-ib nx-trash" data-del="audio" data-tip="${S.audioBusy ? 'Stop and remove this voice-over' : 'Remove the voice-over'}" class="tip-l">${I('trash')}</button></div><div class="nx-wave" data-wave>${waveBars()}</div></div>`;
   } else auBody = empty('audio', 'Upload or drop', 'MP3, M4A or WAV', 'upload');
   const card = (k, icon, title, body, on) => `<div class="nx-ec${on ? ' on' : ''}" data-card="${k}"><span class="nx-eic">${icon}</span><b>${title}</b>${body}</div>`;
-  m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><button class="nx-ib" data-vmore aria-label="More" data-tip="More">${I('more')}</button></div>
+  m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span>${laImportBtn()}<button class="nx-ib" data-vmore aria-label="More" data-tip="More">${I('more')}</button></div>
   <div class="nx-box"><div class="nx-srcw">
     <div class="nx-srch"><b>Add what you have</b><span>use one, or combine them</span><span class="nx-note" data-tip="With more than one: the storyboard decides the frames, the voice-over times them, the script fills in exact words and numbers.">${I('info')}</span></div>
     <div class="nx-srcs">${card('script', I('doc'), 'Script', scBody, s.sc || S.sedit)}<span class="nx-plus">+</span>${card('pdf', PDFIC.replace('width="22" height="22"', 'width="18" height="18"'), 'Storyboard PDF', pdfBody, s.pdf)}<span class="nx-plus">+</span>${card('audio', I('wave'), 'Voice-over', auBody, s.au)}</div>
@@ -904,7 +912,7 @@ function framesView() {
        ${S.banner ? `<div class="nx-banner ${S.banner.cls}">${E(S.banner.text)}</div>` : ''}
        <div class="nx-big" id="nxBig">${bigInner}</div><div class="nx-cap" id="nxCap">${cap}</div></div></div>
        <button class="nx-nav l" data-step="-1" ${si > 0 ? '' : 'disabled'} aria-label="Previous frame" data-tip="Previous frame">${I('back')}</button><button class="nx-nav r" data-step="1" ${si < its.length - 1 ? '' : 'disabled'} aria-label="Next frame" data-tip="Next frame">${I('chev')}</button>`;
-  m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><div class="nx-topr" style="display:flex;gap:8px;align-items:center">${exportSplit()}${EMBED ? `<div class="nx-split"><button class="nx-btn primary" id="laSendBtn" data-layers ${studioFrames().length ? '' : 'disabled'} data-tip="Every frame goes to Animate as a layered PSD" class="tip-l">Send to Animate</button><button class="nx-btn primary car" data-layersmenu ${studioFrames().length ? '' : 'disabled'} aria-label="Send some frames to Animate" data-tip="Only some frames" class="tip-l">${I('down')}</button></div>` : ''}<button class="nx-ib" data-vmore aria-label="More" data-tip="More" class="tip-l">${I('more')}</button></div></div>
+  m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><div class="nx-topr" style="display:flex;gap:8px;align-items:center">${laImportBtn()}${exportSplit()}${EMBED ? `<div class="nx-split"><button class="nx-btn primary" id="laSendBtn" data-layers ${studioFrames().length ? '' : 'disabled'} data-tip="${toAnimate() ? 'Every frame goes to Animate as a layered PSD' : 'LA Studio turns every frame into a layered PSD'}" class="tip-l">${SEND()}</button><button class="nx-btn primary car" data-layersmenu ${studioFrames().length ? '' : 'disabled'} aria-label="${SEND()}: only some frames" data-tip="Only some frames" class="tip-l">${I('down')}</button></div>` : ''}<button class="nx-ib" data-vmore aria-label="More" data-tip="More" class="tip-l">${I('more')}</button></div></div>
   <div class="nx-row" style="--lw:${S.lw}px">
     ${leftOn ? `<div class="nx-pan nx-left"><div class="nx-ph"><b>${head}</b><small>${nLines} lines · ${its.length} frames</small><button class="nx-ib" data-escript data-tip="Edit script">${I('pencil')}</button></div>${pdfRow}<div class="nx-lines" id="nxLines">${G.list.map(grp).join('')}</div><span class="nx-resz" data-resz></span></div>` : ''}
     <div class="nx-pan nx-mid"><div class="nx-stage"><div class="nx-vsw"><div class="nx-view"><button class="${S.strip === 'strip' ? 'on' : ''}" data-strip="strip" data-tip="One frame">${I('strip')}</button><button class="${S.strip === 'grid' ? 'on' : ''}" data-strip="grid" data-tip="All frames" class="tip-l">${I('grid')}</button></div></div>${stage}</div>
@@ -1058,7 +1066,7 @@ function chooseLayerFrames() {
   const fs = studioFrames(), pick = new Set(selectedFrameId ? [String(selectedFrameId)] : []);
   const ver = id => frameVer[id] || 0;
   const w = win({
-    title: 'Send some frames to Animate', ok: 'Send to Animate', wide: true, text: 'Pick the frames to animate. Each goes to Animate as a layered PSD.',
+    title: toAnimate() ? 'Send some frames to Animate' : 'Make layers for some frames', ok: SEND(), wide: true, text: toAnimate() ? 'Pick the frames to animate. Each goes to Animate as a layered PSD.' : 'Pick the frames LA Studio should turn into layered PSDs.',
     body: `<div class="nx-lpick-h"><button class="nx-tbtn" data-lall>Select all</button><span class="nx-dim" data-lcount></span></div><div class="nx-lpick">${fs.map((f, i) => `<button type="button" class="nx-lpk${pick.has(String(f.id)) ? ' on' : ''}" data-lid="${E(f.id)}"><span class="im"><img loading="lazy" alt="" src="${thumbUrl(P.id, f.id, ver(f.id) + '_' + Math.round(P.updated_at || 0), 280)}"><i class="nx-ck">${I('check')}</i></span><span>Frame ${i + 1}</span></button>`).join('')}</div>`,
     onOk: async () => { if (!pick.size) { toast('Pick at least one frame', { err: true }); return false; } const order = fs.map(f => String(f.id)).filter(id => pick.has(id)); setTimeout(() => makeLayers(order), 0); },
   });
@@ -1100,14 +1108,14 @@ async function makeLayers(only) {
     let csv = null; try { const r = await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`); if (r.ok) csv = new File([await r.blob()], `${stem}_storyboard-instructions.csv`, { type: 'text/csv' }); } catch (_) {}
     label('Finding the project…');
     const la = await laEnsureProject(P);
-    label('Sending to Animate…');
+    label(toAnimate() ? 'Sending to Animate…' : 'Sending to Layers…');
     await laPost('frames', { project: { id: P.id, name: P.name, theme: P.theme }, la, files, csv });
     try { await _api0(`/api/projects/${P.id}/sent-layers`, { method: 'POST' }); P.look = { ...P.look, sent_layers: Date.now() / 1000 }; } catch (_) {}
-    toast(`${files.length} frame${files.length === 1 ? '' : 's'} sent to Animate. Each becomes a layered PSD there.`);
+    toast(`${files.length} frame${files.length === 1 ? '' : 's'} sent to ${toAnimate() ? 'Animate' : 'Layers'}. Each becomes a layered PSD${toAnimate() ? ', ready to animate' : ''}.`);
     loadList();
-    if (inProject()) laPost('stage', { stage: 'animate' }).catch(() => {});
+    if (inProject()) laPost('stage', { stage: toAnimate() ? 'animate' : 'psd' }).catch(() => {});
   } catch (e) { toast(e.message || String(e), { err: true }); }
-  finally { label('Send to Animate'); if (btn) btn.disabled = false; }
+  finally { label(SEND()); if (btn) btn.disabled = false; }
 }
 addEventListener('keydown', e => {
   if (!P || editModeOpen || !studioFrames().length) return;
@@ -1789,7 +1797,7 @@ function laProjectStart() {
   });
   const read = chKitPicker(w.el.querySelector('#nxPkPick'), { ch: ch?.id || null, fixedCh: !!ch });
 }
-function projectStepsEmpty() { return `<div class="nx-steps">${['Graphics', 'Layers', 'Animate', 'Edit on video'].map((l, i) => `<button class="nx-step${i === 0 ? ' on' : ''}" data-stage="${['graphics', 'psd', 'animate', 'video'][i]}"><i>${i + 1}</i>${l}</button>${i < 3 ? I('chev') : ''}`).join('')}</div>`; }
+function projectStepsEmpty() { return projectSteps(true); }
 
 /* ---------------- take over from index.html ---------------- */
 /* ---------------- Toolkit (ZO Product): ready-made frames instead of generating ----------------
