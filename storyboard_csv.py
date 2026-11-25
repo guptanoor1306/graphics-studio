@@ -152,3 +152,31 @@ def storyboard_csv_text(storyboard: str, spec: dict | None = None, *, project_na
             ]
         )
     return buf.getvalue()
+
+
+def frames_csv_text(frames: list[dict], *, project_name: str = "") -> str:
+    """The same CSV for a video with no storyboard text (frames picked from the toolkit or made from the script): one row per
+    frame, in time order, from what the page knows: {frame_id, t (seconds), mode, text (its script lines)}."""
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(["project", "line_no", "timestamp", "timestamp_seconds", "approximate", "beat_type", "instruction",
+                "frame_id", "has_spec_frame", "spec_mode", "raw_line"])
+    rows = []
+    for f in frames or []:
+        if not isinstance(f, dict) or not str(f.get("frame_id") or "").strip():
+            continue
+        try:
+            t = float(f.get("t"))
+        except (TypeError, ValueError):
+            t = None
+        rows.append((t if t is not None else 1e9, f, t))
+    rows.sort(key=lambda r: r[0])
+    for n, (_, f, t) in enumerate(rows, 1):
+        ts = f"{int(t // 60)}.{int(t % 60):02d}" if t is not None else ""
+        mode = str(f.get("mode") or "")[:40]
+        text = " ".join(str(f.get("text") or "").split())[:2000]
+        beat = {"fss": "FSS", "osa": "OSA"}.get(mode.lower(), mode.upper() or "FRAME")
+        fid = str(f["frame_id"])[:80]
+        w.writerow([project_name or "", n, ts, f"{t:.2f}" if t is not None else "", "", beat, text, fid, "yes", mode,
+                    f"{ts} – {beat} – {text} → {fid}".strip(" –")])
+    return buf.getvalue()

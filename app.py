@@ -2320,8 +2320,25 @@ def _storyboard_csv_bytes(p: dict) -> bytes | None:
 
 @app.get("/api/projects/{pid}/storyboard-instructions.csv")
 def export_storyboard_csv(pid: int):
-    p = load(pid)
+    return _storyboard_csv_response(load(pid), None)
+
+
+@app.post("/api/projects/{pid}/storyboard-instructions.csv")
+async def export_storyboard_csv_frames(pid: int, request: Request):
+    """With no storyboard text (toolkit frames, frames from the script) the page sends each frame's time and lines."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    frames = body.get("frames") if isinstance(body, dict) else None
+    p = await _db_call(load, pid)
+    return _storyboard_csv_response(p, frames if isinstance(frames, list) else None)
+
+
+def _storyboard_csv_response(p: dict, frames: list[dict] | None):
     raw = _storyboard_csv_bytes(p)
+    if raw is None and frames:
+        raw = storyboard_csv.frames_csv_text(frames[:2000], project_name=p.get("name") or "").encode("utf-8")
     if raw is None:
         raise HTTPException(400, "No storyboard text on this project yet.")
     text = raw.decode("utf-8")

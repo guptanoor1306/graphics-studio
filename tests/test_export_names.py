@@ -20,3 +20,15 @@ def test_export_names_cleans_what_the_page_sends():
     assert app._export_names('["a"]') is None
     got = app._export_names('{"tk1": "0.50_my video/../x", "f2": ""}')
     assert got == {"tk1": "0.50_my_video_.._x"}
+
+
+def test_storyboard_csv_from_frames_when_there_is_no_storyboard_text():
+    import storyboard_csv
+    t = storyboard_csv.frames_csv_text([{"frame_id": "tk2", "t": 50, "mode": "osa", "text": "When can I sell?"},
+                                        {"frame_id": "tk1", "t": 13.4, "mode": "fss", "text": "So your IPO\ncame through"},
+                                        {"frame_id": ""}], project_name="IPO")
+    rows = t.strip().split("\n")
+    assert rows[0].startswith("project,line_no,timestamp,timestamp_seconds")
+    assert rows[1].startswith("IPO,1,0.13,13.40,,FSS,So your IPO came through,tk1,yes,fss")
+    assert rows[2].startswith("IPO,2,0.50,50.00,,OSA,When can I sell?,tk2")
+    assert len(rows) == 3

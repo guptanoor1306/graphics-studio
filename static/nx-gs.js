@@ -25,7 +25,7 @@ const IC = {
   doc: '<path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3M6 8.5h4M6 11h4"/>', wave: '<path d="M2.5 8h1M5 5.5v5M7.5 3v10M10 5.5v5M12.5 7.5v1"/>',
   upload: '<path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6M3 13.5h10"/>', play: '<path d="M5.5 3.8l6.5 4.2-6.5 4.2z" fill="currentColor" stroke="none"/>', pause: '<path d="M5.5 4v8M10.5 4v8"/>',
   clock: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/>', hash: '<path d="M6 2.5L5 13.5M11 2.5l-1 11M2.5 6h11M2 10h11"/>', video: '<rect x="2" y="3.5" width="9" height="9" rx="1.5"/><path d="M11 7l3-2v6l-3-2"/>',
-  status: '<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/>', folder: '<path d="M2.5 4.5h4l1.5 1.5h5.5v6.5h-11z"/>', tag: '<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.5" cy="5.5" r=".8"/>',
+  status: '<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/>', folder: '<path d="M2.5 4.5h4l1.5 1.5h5.5v6.5h-11z"/>', merge: '<rect x="2.5" y="2.5" width="7" height="7" rx="1.2"/><rect x="6.5" y="6.5" width="7" height="7" rx="1.2"/>', fwd: '<rect x="5.5" y="2.5" width="8" height="8" rx="1.2"/><path d="M2.5 6v7.5H10"/>', back: '<rect x="2.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M6 2.5h7.5V10"/>', find: '<rect x="2" y="2" width="12" height="12" rx="2" stroke-dasharray="2 2"/><rect x="5" y="5" width="6" height="6" rx="1"/>', tag: '<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.5" cy="5.5" r=".8"/>',
   layers: '<path d="M8 2.5l5.5 3L8 8.5l-5.5-3z"/><path d="M2.5 8.5L8 11.5l5.5-3"/>', file: '<path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/>',
   text: '<path d="M3.5 4h9M8 4v8.5"/>', picture: '<rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M2.8 11l3.2-3 2.5 2.3 1.8-1.6 3 2.6"/><circle cx="10.5" cy="6" r="1"/>',
   table: '<rect x="2.5" y="3" width="11" height="10" rx="1.2"/><path d="M2.5 6.3h11M2.5 9.6h11M6.5 3v10"/>', chart: '<path d="M3 13V3M3 13h10"/><path d="M5 10.5l2.5-3 2 1.5L13 5"/>',
@@ -554,7 +554,7 @@ function videoMenu(btn) {
   if (tkKit() && studioFrames().length) items.push({ label: 'Save this frame to toolkit', icon: 'frames', run: saveToToolkit });
   if (P.spec) {
     items.push({ label: 'Check the layout', icon: 'check', run: checkLayout });
-    items.push({ label: 'Download storyboard instructions', icon: 'download', run: () => { location.href = `/api/projects/${P.id}/storyboard-instructions.csv`; } });
+    items.push({ label: 'Download storyboard instructions', icon: 'download', run: () => downloadStoryboardCsv() });
   }
   if (EMBED && laOrigin && !inProject()) items.push({ label: 'Add to project', icon: 'folder', run: async () => { await loadList(); addToProject((S.list || []).find(v => v.id === P.id) || { id: P.id, name: P.name, theme: P.theme }); } });
   items.push('-', { label: 'Delete video', icon: 'trash', red: true, run: () => delVideos([P.id]) });
@@ -868,10 +868,33 @@ function frameTimes(gl) {
    video places it by the time in its name, and a storyboard sheet's frame id still finds it. A frame with no time keeps
    "<project>_<id>". */
 const ID_IS_TIME = /^(?:\d{1,2}[.:])?\d{1,2}[.:]\d{2}(?=[._\- ]|$)/;
-function frameFileNames(ids, stem) {
+function frameStartMap() {                    // frame id -> the second it comes in, as the frame list shows it
   const at = {};
   try { const its = items(), G = groups(its), times = G.tk ? tkTimes(G, its) : frameTimes(G.list);
     (G.tk ? its : G.list.map(g => g.x)).forEach((x, i) => { if (x && x.f && times[i] && times[i].s != null) at[String(x.f.id)] = times[i].s; }); } catch (_) {}
+  return at;
+}
+/* the storyboard CSV (LA Studio's Edit on video places graphics by it): from the storyboard text when there is one; otherwise
+   (frames picked from the toolkit, frames made from the script) from each frame's time and script lines */
+async function storyboardCsvFile(stem) {
+  let frames = [];
+  try {
+    const at = frameStartMap(), its = items().filter(x => x.f), G = groups(its), L = tkLines();
+    const byG = {}; (G.list || []).forEach(g => { if (g.x && g.x.f) byG[g.x.f.id] = (g.lines || []).map(l => l.text).join(' '); });
+    frames = its.map(({ f }) => ({ frame_id: String(f.id), t: at[String(f.id)] ?? frameTimestampSec(String(f.id), P.storyboard), mode: f.mode || f.type || '',
+      text: Array.isArray(f.lines) && L.list.length ? L.list.slice(f.lines[0], f.lines[1] + 1).map(l => l.text).join(' ') : byG[f.id] || f.vo || '' }));
+  } catch (_) {}
+  const r = await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ frames }) });
+  if (!r.ok) { let m = ''; try { m = (await r.json()).detail; } catch (_) {} throw new Error(m || 'Could not make the storyboard CSV'); }
+  return new File([await r.blob()], `${stem}_storyboard-instructions.csv`, { type: 'text/csv' });
+}
+async function downloadStoryboardCsv() {
+  try { const f = await storyboardCsvFile(laSlug(P.name)); const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = `${laSlug(P.name)}_storyboard.csv`; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+  catch (e) { toast(e.message || 'Could not make the storyboard CSV', { err: true }); }
+}
+window.storyboardCsvFile = storyboardCsvFile;
+function frameFileNames(ids, stem) {
+  const at = frameStartMap();
   const safe = s => String(s).replace(/[^\w.-]+/g, '_');
   return ids.map(id => {
     const sec = at[id] ?? frameTimestampSec(id, P.storyboard);
@@ -943,7 +966,7 @@ function framesView() {
     if (t.closest('[data-escript]')) return editScriptWin();
     if (t.closest('[data-repdf]')) return q1('#nxPdfIn').click();
     if (t.closest('[data-expall]')) return exp();
-    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', disabled: !cur?.f, run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }, { label: 'Export storyboard CSV', icon: 'download', run: () => { location.href = `/api/projects/${P.id}/storyboard-instructions.csv`; } }]);
+    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', disabled: !cur?.f, run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }, { label: 'Export storyboard CSV', icon: 'download', run: () => downloadStoryboardCsv() }]);
     if (t.closest('[data-layers]')) return makeLayers();
     if (t.closest('[data-layersmenu]')) { const n = studioFrames().length; return menu(t.closest('[data-layersmenu]'), [{ label: cur?.f ? `This frame (Frame ${cur.i + 1})` : 'This frame', icon: 'frame', disabled: !cur?.f, run: () => makeLayers([String(cur.f.id)]) }, { label: 'Choose frames…', icon: 'check', run: chooseLayerFrames }, '-', { label: `All ${n} frames`, icon: 'frames', run: () => makeLayers() }]); }
     if (t.closest('[data-vmore]')) return videoMenu(t.closest('[data-vmore]'));
@@ -1105,7 +1128,7 @@ async function makeLayers(only) {
       if (!r.ok) throw new Error(`Frame ${i + 1}: ${await r.text()}`);
       files.push(new File([await r.text()], `${names[i]}.html`, { type: 'text/html' }));
     }
-    let csv = null; try { const r = await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`); if (r.ok) csv = new File([await r.blob()], `${stem}_storyboard-instructions.csv`, { type: 'text/csv' }); } catch (_) {}
+    let csv = null; try { csv = await storyboardCsvFile(stem); } catch (_) {}
     label('Finding the project…');
     const la = await laEnsureProject(P);
     label(toAnimate() ? 'Sending to Animate…' : 'Sending to Layers…');
@@ -1128,6 +1151,11 @@ addEventListener('keydown', e => {            // edit mode: ⌘G groups the pick
   if (!editModeOpen || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'g' || e.shiftKey) return;
   const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
   if ((S.lsel?.size || 0) >= 2) { e.preventDefault(); groupPicked(); }
+});
+addEventListener('keydown', e => {            // ⌘E merges the picked layers (as in Photoshop)
+  if (!editModeOpen || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'e' || e.shiftKey) return;
+  const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+  if ((S.lsel?.size || 0) >= 2) { e.preventDefault(); groupPicked('merge'); }
 });
 /* ---------------- Edit layers (B12–B15): the existing edit mode, laid out as designed ---------------- */
 const LT = { text: ['text', 'Text'], title: ['text', 'Text'], heading: ['text', 'Text'], subtitle: ['text', 'Text'], term: ['text', 'Text'], definition: ['text', 'Text'], point: ['text', 'Text'], label: ['text', 'Text'], pill: ['text', 'Text'], step: ['text', 'Text'], tile: ['text', 'Text'], lead: ['text', 'Text'],
@@ -1178,8 +1206,8 @@ const nxRCL = function () {
   const fdoc = q1('#canvasEditFrame')?.contentDocument;
   const textOf = mf => { if (!mf || !/^html:/.test(mf) || !fdoc) return null; try { const el = fdoc.querySelector(`[data-mf-path="${CSS.escape(mf)}"]`); return el && el.classList.contains('studio-inline-text') ? el.innerText : null; } catch (_) { return null; } };
   const curF = studioFrames().find(x => x.id === selectedFrameId);
-  const words = (isTkProject() || curF?.tk_from) ? rows.map(r => ({ r, tx: textOf(r.mfPath) })).filter(w => w.tx != null && w.tx.trim()) : [];
-  const wordsHTML = words.length ? `<div class="nx-words"><span class="lab">Text on this frame</span>${words.map(w => `<textarea data-wtext data-mf="${E(w.r.mfPath)}" rows="${Math.min(4, w.tx.split('\n').length)}" aria-label="${E(layerKind(w.r.label).name)}">${E(w.tx)}</textarea>`).join('')}<small>Type to change the words · Enter saves · Shift+Enter for a new line</small></div>` : '';
+  // (the toolkit's "Text on this frame" box is gone: its words are edited in their text layers)
+  const wordsHTML = '';   // (the words are edited in their text layers)
   const RANK = { Text: 0, Picture: 1, Shape: 2, Drawing: 3, Table: 4, Chart: 4, Block: 5, Layer: 5, Background: 9 };
   const rk = r => { const t = layerKind(r.label).type, lk = /^locked:(?!kit)/.test(r.mfPath || ''); return (lk ? 20 : 0) + (RANK[t] ?? 6); };
   rows.sort((a, b) => rk(a) - rk(b) || a.idx - b.idx);
@@ -1197,20 +1225,21 @@ const nxRCL = function () {
   };
   /* groups (data-psd-group on the layers): one row each, its layers under it when open; they become one group in the PSD
      (Animate moves a group as one). ⌘ / ⇧ click picks several layers, then Group. */
-  const gOf = r => { if (/^locked:/.test(r.mfPath || '')) return ''; const el = inspEl(r); return (el && el.dataset.psdGroup) || ''; };
+  const gOf = r => { if (/^locked:/.test(r.mfPath || '')) return ''; const el = inspEl(r); return !el ? '' : el.dataset.psdMerge ? 'm:' + el.dataset.psdMerge : el.dataset.psdGroup ? 'g:' + el.dataset.psdGroup : ''; };
   const seen = new Set(), keys = new Set(rows.map(r => r.idx + '|' + (r.mfPath || '')));
   S.lsel = new Set([...(S.lsel || [])].filter(k => keys.has(k)));
-  const sel = S.lsel, selBar = sel.size >= 2 ? `<div class="nx-lselbar"><b>${sel.size} layers picked</b><span class="nx-sp"></span><button class="nx-tbtn" data-lgroup data-tip="Group them (⌘G): one group in the PSD, animated as one">${I('folder')}Group</button><button class="nx-ib" data-lselx aria-label="Clear" data-tip="Clear the picked layers">${I('x')}</button></div>`
-    : `<div class="nx-lhint">⌘-click or ⇧-click layers to pick several, then group them</div>`;
+  const sel = S.lsel, selBar = sel.size >= 2 ? `<div class="nx-lselbar"><b>${sel.size} picked</b><span class="nx-sp"></span><button class="nx-tbtn" data-lgroup data-tip="Group them (⌘G): one group in the PSD, animated as one">${I('folder')}Group</button><button class="nx-tbtn" data-lmerge data-tip="Merge them (⌘E): one layer in the PSD">${I('merge')}Merge</button><button class="nx-ib" data-lselhide aria-label="Hide or show them" data-tip="Hide / show them">${I('eye')}</button><button class="nx-ib nx-trash" data-lseldel aria-label="Delete them" data-tip="Delete them">${I('trash')}</button><button class="nx-ib" data-lselx aria-label="Clear" data-tip="Clear the picked layers">${I('x')}</button></div>`
+    : `<div class="nx-lhint">⌘-click or ⇧-click layers to pick several: drag them together, group or merge them</div>`;
   list.innerHTML = tools + wordsHTML + selBar + rows.map(r => {
     const g = gOf(r); if (!g) return rowHTML(r);
     if (seen.has(g)) return ''; seen.add(g);
-    const mem = rows.filter(x => gOf(x) === g), open = (S.gopen || (S.gopen = new Set())).has(g), allHid = mem.every(x => inspEl(x)?.dataset.psdHidden);
-    return `<div class="nx-lg${open ? ' open' : ''}" data-gname="${E(g)}"><button class="nx-ib sm" data-gchev aria-label="${open ? 'Close' : 'Open'} group">${I('down')}</button><span class="gi">${I('folder')}</span><span class="nm" data-gren data-tip="Double-click to rename"><b>${E(g)}</b> <small>${mem.length} layers</small></span>
-      <button class="nx-ib" data-geye data-tip="${allHid ? 'Show' : 'Hide'} the group" class="tip-l">${I(allHid ? 'eyeoff' : 'eye')}</button><button class="nx-tbtn grey" data-gun data-tip="Ungroup: the layers stay, the group goes">Ungroup</button></div>`
+    const mem = rows.filter(x => gOf(x) === g), open = (S.gopen || (S.gopen = new Set())).has(g), allHid = mem.every(x => inspEl(x)?.dataset.psdHidden), mg = g.startsWith('m:');
+    return `<div class="nx-lg${open ? ' open' : ''}${mg ? ' merged' : ''}" data-gname="${E(g)}"><button class="nx-ib sm" data-gchev aria-label="${open ? 'Close' : 'Open'}">${I('down')}</button><span class="gi">${I(mg ? 'merge' : 'folder')}</span><span class="nm" data-gren data-tip="Double-click to rename"><b>${E(g.slice(2))}</b> <small>${mg ? 'merged · ' : ''}${mem.length} layers</small></span>
+      <button class="nx-ib" data-geye data-tip="${allHid ? 'Show' : 'Hide'} ${mg ? 'it' : 'the group'}" class="tip-l">${I(allHid ? 'eyeoff' : 'eye')}</button><button class="nx-tbtn grey" data-gun data-tip="${mg ? 'Unmerge: separate layers again' : 'Ungroup: the layers stay, the group goes'}">${mg ? 'Unmerge' : 'Ungroup'}</button></div>`
       + (open ? `<div class="nx-lgin">${mem.map(rowHTML).join('')}</div>` : '');
   }).join('');
   $$('.nx-ls', list).forEach(n => n.classList.toggle('sel', sel.has(n.dataset.key)));
+  try { frameDoc()?.defaultView.postMessage({ studio: 'pick-many', paths: [...sel].map(k => k.slice(k.indexOf('|') + 1)) }, '*'); } catch (_) {}   // picked layers drag together
 };
 /* ---------------- Layer settings, inside the layer's own row (LA Studio's Layers inspector, on the frame's HTML) ----------------
    Every change is made on the layer's element in the frame and saved as its new markup, the same way a drag or a
@@ -1299,6 +1328,7 @@ function inspectorHTML(r, el, f) {
     <div class="nx-irow">${num('size', 'Size', parseFloat(cs.fontSize), 'px')}<div class="nx-seg sm" data-al>${['left', 'center', 'right'].map(a => `<button type="button" data-align="${a}" class="${al === a ? 'on' : ''}" aria-label="Align ${a}">${I('al' + a)}</button>`).join('')}</div></div>
     <div class="nx-irow">${col('color', 'Text colour', hex(cs.color))}</div>`;
   h += `<span class="lab">Position and size</span><div class="nx-irow">${num('x', 'X', rc.left)}${num('y', 'Y', rc.top)}${num('w', 'W', rc.width)}</div>`;
+  h += `<span class="lab">Opacity and order</span><div class="nx-irow">${num('o', 'Opacity', Math.round((parseFloat(cs.opacity) || 0) * 100), '%')}<div class="nx-seg sm"><button type="button" data-lorder="-1" data-tip="Send backward" aria-label="Send backward">${I('back')}</button><button type="button" data-lorder="1" data-tip="Bring forward" aria-label="Bring forward">${I('fwd')}</button></div></div>`;
   if (sort === 'box' || sort === 'text') h += `<span class="lab">Fill and stroke</span><div class="nx-irow">${col('fill', 'Fill', hex(cs.backgroundColor))}${col('stroke', 'Stroke', bc)}${num('strokeW', 'W', bw, 'px')}</div>`;
   if (sort === 'picture' || sort === 'drawing') h += `<span class="lab">Replace with an image</span><div class="nx-rep sm"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Replace</button></div></div>`;
   h += `<span class="lab">Edit with AI</span><div class="nx-ai sm"><textarea data-ai rows="1" aria-label="Edit with AI" placeholder="Describe the change, then Enter"></textarea><button class="nx-tbtn off" data-aiapply>Apply</button></div>
@@ -1345,6 +1375,7 @@ async function layerStyle(L, k, v, live) {
   else if (k === 'fill') st.backgroundColor = v;
   else if (k === 'stroke' || k === 'strokeW') { const w = k === 'strokeW' ? Math.max(0, +v || 0) : (parseFloat(cs.borderTopWidth) || 3); const c = k === 'stroke' ? v : (cs.borderTopColor || '#222'); st.border = w ? `${w}px solid ${c}` : 'none'; }
   else if (k === 'w') { st.width = Math.max(4, +v || 0) + 'px'; if (el.matches('img')) st.height = 'auto'; }
+  else if (k === 'o') { const o = Math.max(0, Math.min(100, +v || 0)); st.opacity = o >= 100 ? '' : String(o / 100); }
   else if (k === 'x' || k === 'y') {
     const rc = el.getBoundingClientRect(), d = (+v || 0) - (k === 'x' ? rc.left : rc.top);
     if (/absolute|fixed/.test(cs.position)) { if (k === 'x') st.left = (parseFloat(cs.left) || 0) + d + 'px'; else st.top = (parseFloat(cs.top) || 0) + d + 'px'; }
@@ -1423,6 +1454,11 @@ function bindLayerPanel() {
     if (e.target.closest('[data-lpaste]')) return pasteLayer();
     if (e.target.closest('[data-lselx]')) { S.lsel = new Set(); return renderCanvasLayerList(); }
     if (e.target.closest('[data-lgroup]')) return groupPicked();
+    if (e.target.closest('[data-lmerge]')) return groupPicked('merge');
+    if (e.target.closest('[data-lselhide]')) return hidePicked();
+    if (e.target.closest('[data-lseldel]')) return deletePicked();
+    if (e.target.closest('[data-lfind]')) return findGroups();
+    const ord = e.target.closest('[data-lorder]'); if (ord) { const L0 = layerOf(ord); return L0 && layerOrder(L0, +ord.dataset.lorder); }
     const gh = e.target.closest('.nx-lg');
     if (gh) { const g = gh.dataset.gname;
       if (e.target.closest('[data-geye]')) return groupHide(g);
@@ -1564,30 +1600,72 @@ async function editableMany(Ls) {             // every picked layer as an elemen
     if (best && bs < 80) { used.add(best.c.mfPath); out.push({ L: { idx: best.c.idx, mfPath: best.c.mfPath, key: best.c.idx + '|' + best.c.mfPath }, el: best.e }); } });
   return out;
 }
-const groupMembers = g => [...(frameDoc()?.querySelectorAll('[data-psd-group]') || [])].filter(e => e.dataset.psdGroup === g && e.getAttribute('data-mf-path'));
+const GATTR = { g: 'psdGroup', m: 'psdMerge' };
+const groupMembers = key => { const a = GATTR[key[0]], n = key.slice(2); return [...(frameDoc()?.querySelectorAll('[data-mf-path]') || [])].filter(e => e.dataset[a] === n); };
 async function saveEls(els, msg) {
   for (const el of els) await patchFrameInline({ studio: 'inline', mfPath: el.getAttribute('data-mf-path'), outer: el.outerHTML });
   if (msg) toast(msg, { undo: () => undoFrameEdit() });
   renderCanvasLayerList();
 }
-async function groupPicked() {
-  const Ls = rowsByKey(S.lsel || []); if (Ls.length < 2) { toast('Pick two or more layers (⌘-click) to group them'); return; }
-  const got = await editableMany(Ls); if (got.length < 2) { toast('These layers could not be grouped', { err: true }); return; }
-  const have = new Set([...(frameDoc()?.querySelectorAll('[data-psd-group]') || [])].map(e => e.dataset.psdGroup)); let n = 1; while (have.has('Group ' + n)) n++;
-  const name = 'Group ' + n; got.forEach(x => { x.el.dataset.psdGroup = name; });
-  S.lsel = new Set(); (S.gopen = S.gopen || new Set()).add(name);
-  await saveEls(got.map(x => x.el), `Grouped ${got.length} layers into “${name}”: one group in the PSD`);
+async function pickedEls(min = 1) {
+  const Ls = rowsByKey(S.lsel || []); if (Ls.length < min) return null;
+  const got = await editableMany(Ls); return got.length >= min ? got : null;
 }
-async function ungroup(g) { const els = groupMembers(g); els.forEach(e => { delete e.dataset.psdGroup; }); await saveEls(els, `“${g}” ungrouped`); }
-async function renameGroup(g, nv) { const els = groupMembers(g); els.forEach(e => { e.dataset.psdGroup = nv; }); if (S.gopen?.delete(g)) S.gopen.add(nv); await saveEls(els, 'Group renamed'); }
-async function groupHide(g) {
-  const els = groupMembers(g), hide = !els.every(e => e.dataset.psdHidden);
-  els.forEach(e => { if (hide) { e.dataset.psdHidden = '1'; e.style.visibility = 'hidden'; } else { delete e.dataset.psdHidden; e.style.visibility = ''; } });
-  await saveEls(els, hide ? 'Group hidden' : 'Group shown');
+async function groupPicked(kind = 'group') {
+  const merge = kind === 'merge', a = merge ? 'psdMerge' : 'psdGroup', word = merge ? 'Merged' : 'Group';
+  const got = await pickedEls(2); if (!got) { toast(`Pick two or more layers (⌘-click) to ${merge ? 'merge' : 'group'} them`); return; }
+  const have = new Set([...(frameDoc()?.querySelectorAll('[data-mf-path]') || [])].map(e => e.dataset[a]).filter(Boolean)); let n = 1; while (have.has(word + ' ' + n)) n++;
+  const name = word + ' ' + n; got.forEach(x => { x.el.dataset[a] = name; });
+  S.lsel = new Set(); (S.gopen = S.gopen || new Set()).delete((merge ? 'm:' : 'g:') + name);
+  await saveEls(got.map(x => x.el), merge ? `Merged ${got.length} layers: one layer in the PSD` : `Grouped ${got.length} layers into “${name}”: one group in the PSD`);
+}
+async function ungroup(key) { const a = GATTR[key[0]], els = groupMembers(key); els.forEach(e => { delete e.dataset[a]; }); await saveEls(els, key[0] === 'm' ? 'Unmerged' : `“${key.slice(2)}” ungrouped`); }
+async function renameGroup(key, nv) { const a = GATTR[key[0]], els = groupMembers(key); els.forEach(e => { e.dataset[a] = nv; }); if (S.gopen?.delete(key)) S.gopen.add(key[0] + ':' + nv); await saveEls(els, 'Renamed'); }
+function setHidden(els, hide) { els.forEach(e => { if (hide) { e.dataset.psdHidden = '1'; e.style.visibility = 'hidden'; } else { delete e.dataset.psdHidden; e.style.visibility = ''; } }); }
+async function groupHide(key) { const els = groupMembers(key), hide = !els.every(e => e.dataset.psdHidden); setHidden(els, hide); await saveEls(els, hide ? 'Hidden' : 'Shown'); }
+async function hidePicked() { const got = await pickedEls(1); if (!got) return; const els = got.map(x => x.el), hide = !els.every(e => e.dataset.psdHidden); setHidden(els, hide); await saveEls(els, `${els.length} layers ${hide ? 'hidden' : 'shown'}`); }
+async function deletePicked() {
+  const got = await pickedEls(1); if (!got) return;
+  const fid = selectedFrameId, i = P.spec.frames.findIndex(f => f.id === fid); if (i < 0) return;
+  const seg = p => p.slice(p.indexOf('>') + 1).split('.').map(Number);
+  const paths = got.map(x => x.el.getAttribute('data-mf-path')).sort((a, b) => { const x = seg(a), y = seg(b); for (let k = 0; k < Math.max(x.length, y.length); k++) { const d = (y[k] ?? -1) - (x[k] ?? -1); if (d) return d; } return 0; });   // the last first: earlier ones keep their place
+  const fr = JSON.parse(JSON.stringify(P.spec.frames[i])); let n = 0; paths.forEach(p => { if (applyMfPathDelete(fr, p)) n++; });
+  if (!n) { toast('These layers cannot be removed directly', { err: true }); return; }
+  P.spec.frames[i] = fr; S.lsel = new Set(); selectedCanvasLayer = null;
+  try { P = await api('/api/projects/' + P.id, { method: 'PUT', body: JSON.stringify({ spec: P.spec, note: 'delete ' + n + ' layers ' + fid }) }); bumpFrame(fid); refreshEditCanvas(); renderCanvasLayerList(); toast(`Removed ${n} layers`, { undo: () => undoFrameEdit() }); }
+  catch (e) { toast(e.message, { err: true }); }
+}
+/* order: a layer in front of / behind the one next to it (swaps the two in the frame's markup) */
+async function layerOrder(L, dir) {
+  const got = await editableEl(L), el = got.el; if (!el) return;
+  let sib = dir > 0 ? el.nextElementSibling : el.previousElementSibling;
+  while (sib && !sib.hasAttribute('data-mf-path')) sib = dir > 0 ? sib.nextElementSibling : sib.previousElementSibling;
+  if (!sib) { toast(dir > 0 ? 'It is already in front' : 'It is already at the back'); return; }
+  const pa = el.getAttribute('data-mf-path'), pb = sib.getAttribute('data-mf-path'), oa = el.outerHTML, ob = sib.outerHTML;
+  await patchFrameInline({ studio: 'inline', mfPath: pa, outer: ob }); await patchFrameInline({ studio: 'inline', mfPath: pb, outer: oa });
+  bumpFrame(selectedFrameId); selectedCanvasLayer = { idx: got.L.idx, mfPath: pb }; refreshEditCanvas();
+  toast(dir > 0 ? 'Brought forward' : 'Sent backward', { undo: () => undoFrameEdit() });
+}
+/* Find groups: a box or picture with layers on it (a label on its pill, an icon in its card) becomes a group with them */
+async function findGroups() {
+  const cur = () => (lastCanvasLayers || []).filter(L => L.mfPath && !/^locked:/.test(L.mfPath));
+  if (!cur().some(L => htmlPath(L.mfPath)) && cur().length) { const k = cur()[0]; await editableEl({ idx: k.idx, mfPath: k.mfPath, key: k.idx + '|' + k.mfPath }); }   // a frame the kit drew is made editable first (one that has its own markup keeps the kit's decoration as it is)
+  const d = frameDoc(); if (!d) return;
+  const W = d.defaultView.innerWidth * d.defaultView.innerHeight;
+  const L = cur().filter(x => htmlPath(x.mfPath)).map(x => { const el = d.querySelector(`[data-mf-path="${CSS.escape(x.mfPath)}"]`); return el && !el.dataset.psdGroup && !el.dataset.psdMerge ? { el, r: el.getBoundingClientRect() } : null; }).filter(x => x && x.r.width > 1 && x.r.height > 1);
+  const area = r => r.width * r.height, inside = (a, b) => { const w = Math.min(a.right, b.right) - Math.max(a.left, b.left), h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top); return w > 0 && h > 0 && w * h >= 0.9 * area(a); };
+  const boxes = L.filter(x => ['box', 'picture'].includes(layerSort(x.el)) && area(x.r) > 0.004 * W && area(x.r) < 0.6 * W).sort((a, b) => area(a.r) - area(b.r));
+  const used = new Set(), sets = [];
+  boxes.forEach(b => { if (used.has(b.el)) return; const mem = L.filter(x => x !== b && !used.has(x.el) && !x.el.contains(b.el) && !b.el.contains(x.el) && area(x.r) < area(b.r) && inside(x.r, b.r));
+    if (mem.length) { [b, ...mem].forEach(x => used.add(x.el)); sets.push([b, ...mem].map(x => x.el)); } });
+  if (!sets.length) { toast('No groups found: pick layers (⌘-click) and Group them'); return; }
+  const have = new Set([...d.querySelectorAll('[data-psd-group]')].map(e => e.dataset.psdGroup)); let n = 1;
+  sets.forEach(els => { while (have.has('Group ' + n)) n++; const nm = 'Group ' + n; have.add(nm); els.forEach(e => { e.dataset.psdGroup = nm; }); });
+  await saveEls(sets.flat(), `Found ${sets.length} group${sets.length === 1 ? '' : 's'} (${sets.flat().length} layers)`);
 }
 function layerToolsHTML() {
   const c = clipGet();
-  return `<div class="nx-ltools"><button class="nx-btn ghost" data-addtext data-tip="Add a new text layer to this frame">${I('addtext')}Add text</button>${c ? `<button class="nx-btn ghost" data-lpaste data-tip="Paste the copied layer into this frame (⌘V)">${I('paste')}Paste "${E(String(c.label).slice(0, 22))}"</button>` : ''}</div>`;
+  return `<div class="nx-ltools"><button class="nx-btn ghost" data-addtext data-tip="Add a new text layer to this frame">${I('addtext')}Add text</button><button class="nx-btn ghost" data-lfind data-tip="Group each box or picture with the layers on it (a label on its pill)">${I('find')}Find groups</button>${c ? `<button class="nx-btn ghost" data-lpaste data-tip="Paste the copied layer into this frame (⌘V)">${I('paste')}Paste "${E(String(c.label).slice(0, 22))}"</button>` : ''}</div>`;
 }
 function copyLayer(L) {
   const fr = P?.spec?.frames?.find(f => f.id === selectedFrameId); if (!fr || !L) return;
@@ -1743,7 +1821,7 @@ function editTopBar() {
     if (t.closest('[data-ehome]')) return goHomeNx();
     if (t.closest('[data-ech]')) { const id = chOfP().id; exitEditMode().then(() => openChannel(id)); return; }
     if (t.closest('[data-expall]')) return exp();
-    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }, { label: 'Export storyboard CSV', icon: 'download', run: () => { location.href = `/api/projects/${P.id}/storyboard-instructions.csv`; } }]);
+    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }, { label: 'Export storyboard CSV', icon: 'download', run: () => downloadStoryboardCsv() }]);
     if (t.closest('[data-resetall]')) return resetAll();
   };
 }

@@ -290,7 +290,7 @@
     const mp = el.dataset.mfPath || el.dataset.mfDrag;
     if (mp) payload.mfPath = mp;
     if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
-    if (el.dataset.layerType === "html") payload.outer = el.outerHTML;
+    if (el.dataset.layerType === "html" || (mp && mp.indexOf(">") > 0)) payload.outer = el.outerHTML;   // a layer of a hand-written frame saves as its markup
     window.parent.postMessage(payload, "*");
     schedulePlaceChips();
   }
@@ -465,7 +465,7 @@
     if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
     const mp = el.dataset.mfPath || el.dataset.mfDrag;
     if (mp) payload.mfPath = mp;
-    if (el.dataset.layerType === "html") payload.outer = el.outerHTML;
+    if (el.dataset.layerType === "html" || (mp && mp.indexOf(">") > 0)) payload.outer = el.outerHTML;   // a layer of a hand-written frame saves as its markup
     window.parent.postMessage(payload, "*");
     schedulePlaceChips();
   }
@@ -561,6 +561,18 @@
     });
   }
 
+  /* layers that move together: the same group (data-psd-group), the same merged layer (data-psd-merge), or the layers picked
+     together in the panel (Studio sends their paths) */
+  let pickedPaths = new Set();
+  function matesOf(el) {
+    const g = el.dataset.psdGroup, m = el.dataset.psdMerge, p = el.dataset.mfPath;
+    const out = [];
+    document.querySelectorAll("[data-spec-idx].studio-editable").forEach((x) => {
+      if (x === el || el.contains(x) || x.contains(el)) return;
+      if ((g && x.dataset.psdGroup === g) || (m && x.dataset.psdMerge === m) || (p && pickedPaths.has(p) && pickedPaths.has(x.dataset.mfPath))) out.push(x);
+    });
+    return out;
+  }
   function initPointerDrag() {
     if (pointerDragBound) return;
     pointerDragBound = true;
@@ -622,6 +634,8 @@
         drag.offX = e.clientX - origin.x - pos.x;
         drag.offY = e.clientY - origin.y - pos.y;
         drag.el.classList.add("studio-dragging");
+        drag.x0 = pos.x; drag.y0 = pos.y;
+        drag.mates = matesOf(drag.el).map((m) => { ensureAbsolute(m); const q = readPos(m); return { m, x: q.x, y: q.y }; });
         try {
           drag.el.setPointerCapture(e.pointerId);
         } catch (_) {}
@@ -645,6 +659,8 @@
       drag.el.style.top = y + "px";
       drag.el.setAttribute("data-x", String(x));
       drag.el.setAttribute("data-y", String(y));
+      (drag.mates || []).forEach((o) => { const nx = Math.round(o.x + x - drag.x0), ny = Math.round(o.y + y - drag.y0);
+        o.m.style.left = nx + "px"; o.m.style.top = ny + "px"; o.m.setAttribute("data-x", String(nx)); o.m.setAttribute("data-y", String(ny)); });
       schedulePlaceChips();
     });
 
@@ -672,12 +688,14 @@
       if (!drag || (e.pointerId != null && e.pointerId !== drag.pointerId)) return;
       const el = drag.el;
       const idx = drag.idx;
+      const mates = drag.mates || [];
       el.classList.remove("studio-dragging");
       try {
         el.releasePointerCapture(drag.pointerId);
       } catch (_) {}
       drag = null;
       postMove(el, idx);
+      mates.forEach((o) => postMove(o.m, parseInt(o.m.dataset.specIdx, 10)));
       lastBoundsSig = "";
       emitLayerBoundsToParent();
     }
@@ -993,6 +1011,7 @@
   window.addEventListener("message", (e) => {
     const d = e.data;
     if (!d) return;
+    if (d.studio === "pick-many") { pickedPaths = new Set(d.paths || []); return; }
     if (d.studio === "select-layer") {
       applyStudioSelection(d);
       schedulePlaceChips();
