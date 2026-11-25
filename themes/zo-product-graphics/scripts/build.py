@@ -815,6 +815,26 @@ R.update(acronym=acronym, qtitle=qtitle, steps=steps, slab_table=slab_table, spl
          ov_title=ov_title, ybox=ybox, bubble=bubble, caption=caption, pill_rail=pill_rail, relation=relation)
 
 # ======================================================================= decor
+def _decor_of(f):
+    """A frame's decor setting as dict / True / False. Models sometimes send it as text — JSON or a JS object
+    literal ({seed:1,dark:true}) — which must never break the render."""
+    d = (f or {}).get('decor', True) if isinstance(f, dict) else True
+    if isinstance(d, (dict, bool)) or d is None:
+        return True if d is None else d
+    if isinstance(d, str):
+        t = d.strip()
+        if t.lower() in ('', 'true', 'on', 'yes'):
+            return True
+        if t.lower() in ('false', 'off', 'no', 'none'):
+            return False
+        for cand in (t, re.sub(r'([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:', r'\1"\2":', t).replace("'", '"')):
+            try:
+                v = json.loads(cand)
+                if isinstance(v, (dict, bool)):
+                    return v
+            except Exception:
+                pass
+    return True
 _DOODLE = ('<svg width="150" height="90" viewBox="0 0 150 90"><path d="M6 40c18-26 26-36 18-34-8 2-12 34 6 34s20-24 12-22-6 26 12 26 '
            '18-22 12-20-4 26 14 26 18-18 12-16-2 22 18 30" fill="none" stroke="{c}" stroke-width="4" stroke-linecap="round"/></svg>')
 
@@ -844,7 +864,7 @@ def fss_decor(seed, f=None):
     grey 4-point star, orange dash left, green dash right. Override any piece per frame with
     f["decor"] = {doodleAt, tri1, tri2, starAt, dash1, dash2: {left|right|top|bottom}, doodle:false, star:false},
     plus optional f["blob"] {x,y,w,h} (grey blob behind a hero) and f["glow"] {x,y,d} (pale yellow circle)."""
-    o = (f or {}).get('decor') if isinstance((f or {}).get('decor'), dict) else {}
+    o = _decor_of(f) if isinstance(_decor_of(f), dict) else {}
     rnd = random.Random(seed)
     cols = ['#A984FF', '#4CAF52', '#F07339', '#FFC02E']
     c1 = cols[rnd.randrange(4)]; c2 = cols[(cols.index(c1) + 1 + rnd.randrange(3)) % 4]
@@ -871,7 +891,7 @@ def fss_decor(seed, f=None):
 
 def anchor_decor(zone, f=None):
     """Over the presenter: one orange triangle, one purple triangle and a white doodle, at the text zone's edges."""
-    o = (f or {}).get('decor') if isinstance((f or {}).get('decor'), dict) else {}
+    o = _decor_of(f) if isinstance(_decor_of(f), dict) else {}
     x, y, w, h = zone['x'], zone['y'], zone['w'], zone['h']
     add = lambda html_, pos: f'<div class="decor" style="{_pos(pos)};z-index:8">{html_}</div>'
     return (add(_tri('#F07339', 20, 60), o.get('tri1') or {'left': max(20, x - 70), 'top': max(20, y + 10)})
@@ -915,7 +935,7 @@ def _render_stage_inner(f, look):
             flow_parts.append((it.get('t'), f'<div class="zo-item" data-zo-item="{idx}" data-zo-t="{E(str(it.get("t", "")))}"{scale}>{h}</div>'))
     if mode == 'fss':
         z = f.get('zone', {'x': 210, 'y': 60, 'w': 1500, 'h': 950})
-        body, plate, decor, cut = 'fss', '', (fss_decor(_seed(f['id']), f) if f.get('decor', True) is not False else ''), ''
+        body, plate, decor, cut = 'fss', '', (fss_decor(_seed(f['id']), f) if _decor_of(f) is not False else ''), ''
         align = 'center'
     else:
         pname = _resolve_plate(f, look)
@@ -929,7 +949,7 @@ def _render_stage_inner(f, look):
             z = {'x': 960, 'y': 120, 'w': 880, 'h': 880, 'valign': 'center', 'align': 'left'}
             z.update(f.get('zone', {}))
             body = 'dark'; plate = ''; cut = ''
-        decor = anchor_decor(z, f) if f.get('decor', True) is not False else ''
+        decor = anchor_decor(z, f) if _decor_of(f) is not False else ''
         align = z.get('align', 'center')
         if mode == 'tos' and f.get('title') and f.get('tos_style') != 'behind':
             t = f['title']
@@ -996,7 +1016,7 @@ def html_frame(f, look=None, edit=False):
     if not f.get("as_is"):                     # a PSD import keeps its own colours and shadows
         f = {**f, "html": brand_hex(f.get("html"))}
     mode = str(f.get('mode') or 'fss').lower()
-    decor = f.get('decor', {})
+    decor = _decor_of(f)
     if decor is True:
         decor = {}
     head = ('<!doctype html><html><head><meta charset="utf-8"><meta name="studio-canvas" content="1920,1080">'
