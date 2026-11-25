@@ -1124,6 +1124,11 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const b = q1(`[data-step="${e.key === 'ArrowLeft' ? -1 : 1}"]`); if (b && !b.disabled) { e.preventDefault(); b.click(); } }
 });
 
+addEventListener('keydown', e => {            // edit mode: ⌘G groups the picked layers
+  if (!editModeOpen || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'g' || e.shiftKey) return;
+  const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+  if ((S.lsel?.size || 0) >= 2) { e.preventDefault(); groupPicked(); }
+});
 /* ---------------- Edit layers (B12–B15): the existing edit mode, laid out as designed ---------------- */
 const LT = { text: ['text', 'Text'], title: ['text', 'Text'], heading: ['text', 'Text'], subtitle: ['text', 'Text'], term: ['text', 'Text'], definition: ['text', 'Text'], point: ['text', 'Text'], label: ['text', 'Text'], pill: ['text', 'Text'], step: ['text', 'Text'], tile: ['text', 'Text'], lead: ['text', 'Text'],
   img: ['picture', 'Picture'], image: ['picture', 'Picture'], asset: ['picture', 'Picture'], hero: ['picture', 'Picture'], prop: ['picture', 'Picture'], picture: ['picture', 'Picture'],
@@ -1179,7 +1184,7 @@ const nxRCL = function () {
   const rk = r => { const t = layerKind(r.label).type, lk = /^locked:(?!kit)/.test(r.mfPath || ''); return (lk ? 20 : 0) + (RANK[t] ?? 6); };
   rows.sort((a, b) => rk(a) - rk(b) || a.idx - b.idx);
   const LOCKED = { kit: 'Drawn by the kit. Make all layers editable to change it here, or describe the change in Prompt.', plate: 'The presenter photo: change it in the Anchor tab.', decor: 'Kit decoration: move or remove it in Prompt.', background: 'The background of the frame.' };
-  list.innerHTML = tools + wordsHTML + rows.map(r => {
+  const rowHTML = r => {
     const k = layerKind(r.label), key = r.idx + '|' + (r.mfPath || ''), f = repFiles[key];
     const lk = /^locked:(.*)$/.exec(r.mfPath || '');
     if (lk && lk[1] !== 'kit') return `<div class="nx-ls locked${r.on ? ' open' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath)}">
@@ -1189,7 +1194,23 @@ const nxRCL = function () {
     return `<div class="nx-ls${r.on ? ' open' : ''}${hid ? ' hid' : ''}${lk ? ' kit' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
       <div class="nx-lsh" data-open><span class="ty pv">${layerPreview(el, k)}</span><span class="nm" data-lname data-tip="Double-click to rename"><b>${E(k.type)}</b> · <span class="nmv">${E(nm)}</span></span><button class="nx-ib" data-leye data-tip="${hid ? 'Show' : 'Hide'} this layer" class="tip-l" aria-label="${hid ? 'Show' : 'Hide'} layer">${I(hid ? 'eyeoff' : 'eye')}</button><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
       ${r.on ? inspectorHTML(r, el, f) : ''}</div>`;
+  };
+  /* groups (data-psd-group on the layers): one row each, its layers under it when open; they become one group in the PSD
+     (Animate moves a group as one). ⌘ / ⇧ click picks several layers, then Group. */
+  const gOf = r => { if (/^locked:/.test(r.mfPath || '')) return ''; const el = inspEl(r); return (el && el.dataset.psdGroup) || ''; };
+  const seen = new Set(), keys = new Set(rows.map(r => r.idx + '|' + (r.mfPath || '')));
+  S.lsel = new Set([...(S.lsel || [])].filter(k => keys.has(k)));
+  const sel = S.lsel, selBar = sel.size >= 2 ? `<div class="nx-lselbar"><b>${sel.size} layers picked</b><span class="nx-sp"></span><button class="nx-tbtn" data-lgroup data-tip="Group them (⌘G): one group in the PSD, animated as one">${I('folder')}Group</button><button class="nx-ib" data-lselx aria-label="Clear" data-tip="Clear the picked layers">${I('x')}</button></div>`
+    : `<div class="nx-lhint">⌘-click or ⇧-click layers to pick several, then group them</div>`;
+  list.innerHTML = tools + wordsHTML + selBar + rows.map(r => {
+    const g = gOf(r); if (!g) return rowHTML(r);
+    if (seen.has(g)) return ''; seen.add(g);
+    const mem = rows.filter(x => gOf(x) === g), open = (S.gopen || (S.gopen = new Set())).has(g), allHid = mem.every(x => inspEl(x)?.dataset.psdHidden);
+    return `<div class="nx-lg${open ? ' open' : ''}" data-gname="${E(g)}"><button class="nx-ib sm" data-gchev aria-label="${open ? 'Close' : 'Open'} group">${I('down')}</button><span class="gi">${I('folder')}</span><span class="nm" data-gren data-tip="Double-click to rename"><b>${E(g)}</b> <small>${mem.length} layers</small></span>
+      <button class="nx-ib" data-geye data-tip="${allHid ? 'Show' : 'Hide'} the group" class="tip-l">${I(allHid ? 'eyeoff' : 'eye')}</button><button class="nx-tbtn grey" data-gun data-tip="Ungroup: the layers stay, the group goes">Ungroup</button></div>`
+      + (open ? `<div class="nx-lgin">${mem.map(rowHTML).join('')}</div>` : '');
   }).join('');
+  $$('.nx-ls', list).forEach(n => n.classList.toggle('sel', sel.has(n.dataset.key)));
 };
 /* ---------------- Layer settings, inside the layer's own row (LA Studio's Layers inspector, on the frame's HTML) ----------------
    Every change is made on the layer's element in the frame and saved as its new markup, the same way a drag or a
@@ -1214,16 +1235,30 @@ const htmlPath = mf => !!mf && (/^html:/.test(mf) || mf.includes('>'));
 const hex = c => { const m = String(c || '').match(/rgba?\(([^)]+)\)/); if (!m) return /^#/.test(c) ? c : '#000000'; const [r, g, b, a] = m[1].split(',').map(x => parseFloat(x)); if (a === 0) return ''; return '#' + [r, g, b].map(v => Math.round(v).toString(16).padStart(2, '0')).join(''); };
 function layerSort(el) {
   if (!el) return 'block';
-  const cs = el.ownerDocument.defaultView.getComputedStyle(el);
-  if (el.matches('img') || (cs.backgroundImage && cs.backgroundImage.includes('url(')) || (el.querySelectorAll('img').length === 1 && !el.innerText.trim())) return 'picture';
+  const cs = el.ownerDocument.defaultView.getComputedStyle(el), words = String(el.innerText ?? el.textContent ?? '').trim();   // (an svg part has no innerText)
+  if (el.matches('img') || (cs.backgroundImage && cs.backgroundImage.includes('url(')) || (el.querySelectorAll('img').length === 1 && !words)) return 'picture';
   const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
-  if (own || (el.innerText.trim() && !el.querySelector('div,img,svg,table'))) return 'text';
+  if (own || (words && !el.querySelector('div,img,svg,table'))) return 'text';
   if (el.matches('svg') || el.querySelector('svg')) return 'drawing';
   return 'box';
 }
 /* a small picture of the layer for its row: the picture itself, the words in their font and colour, the shape's fill */
+/* a layer's preview: its own part of the rendered frame (as LA Studio's Layers shows each layer), cropped to its box and fitted in the
+   tile; a hidden layer, or one the picture can't show, falls back to a drawing of what it is */
+function layerCrop(el) {
+  try {
+    if (!el || el.dataset.psdHidden || !selectedFrameId) return '';
+    const w = el.ownerDocument.defaultView, W = w.innerWidth, H = w.innerHeight, r = el.getBoundingClientRect();
+    const x = Math.max(0, r.left), y = Math.max(0, r.top), bw = Math.min(W, r.right) - x, bh = Math.min(H, r.bottom) - y;
+    if (!(W > 0 && bw > 1 && bh > 1) || bw * bh > 0.9 * W * H) return '';
+    const T = 30, s = T / Math.max(bw, bh), url = thumbUrl(P.id, selectedFrameId, (frameVer[selectedFrameId] || 0) + '_' + Math.round(P.updated_at || 0), 960);
+    const ox = (T - bw * s) / 2 - x * s, oy = (T - bh * s) / 2 - y * s;
+    return `<span class="pvc" style="background-image:url('${url}');background-size:${(W * s).toFixed(1)}px ${(H * s).toFixed(1)}px;background-position:${ox.toFixed(1)}px ${oy.toFixed(1)}px;clip-path:inset(${((T - bh * s) / 2).toFixed(1)}px ${((T - bw * s) / 2).toFixed(1)}px)"></span>`;
+  } catch (_) { return ''; }
+}
 function layerPreview(el, k) {
   if (!el) return I(k.icon);
+  const crop = layerCrop(el); if (crop) return crop;
   try {
     const w = el.ownerDocument.defaultView, cs = w.getComputedStyle(el), sort = layerSort(el);
     const url = v => { const m = /url\(["']?([^"')]+)["']?\)/.exec(v || ''); return m ? m[1] : ''; };
@@ -1386,6 +1421,19 @@ function bindLayerPanel() {
     if (e.target.closest('[data-unfix]')) { e.stopPropagation(); return backToKitVersion(); }
     if (e.target.closest('[data-addtext]')) return addTextWin();
     if (e.target.closest('[data-lpaste]')) return pasteLayer();
+    if (e.target.closest('[data-lselx]')) { S.lsel = new Set(); return renderCanvasLayerList(); }
+    if (e.target.closest('[data-lgroup]')) return groupPicked();
+    const gh = e.target.closest('.nx-lg');
+    if (gh) { const g = gh.dataset.gname;
+      if (e.target.closest('[data-geye]')) return groupHide(g);
+      if (e.target.closest('[data-gun]')) return ungroup(g);
+      if (e.target.closest('[data-gren]') && gh.classList.contains('open')) return;   // the name of an open group: double-click renames it
+      S.gopen = S.gopen || new Set(); S.gopen.has(g) ? S.gopen.delete(g) : S.gopen.add(g); return renderCanvasLayerList(); }
+    const pick = e.target.closest('.nx-ls:not(.locked) [data-open]');
+    if (pick && (e.metaKey || e.ctrlKey || e.shiftKey) && !e.target.closest('button')) {   // ⌘ / ⇧ click: pick several layers (to group them)
+      e.preventDefault(); e.stopPropagation(); const k = pick.closest('.nx-ls').dataset.key; S.lsel = S.lsel || new Set();
+      if (!S.lsel.size && selectedCanvasLayer) S.lsel.add(selectedCanvasLayer.idx + '|' + (selectedCanvasLayer.mfPath || ''));
+      S.lsel.has(k) ? S.lsel.delete(k) : S.lsel.add(k); return renderCanvasLayerList(); }
     const t = e.target, L = layerOf(t); if (!L) return;
     if (t.closest('[data-ldel]')) { e.stopPropagation(); return layerDelete(L); }
     if (t.closest('[data-leye]')) { e.stopPropagation(); return layerHide(L); }
@@ -1401,6 +1449,12 @@ function bindLayerPanel() {
     if (t.closest('[data-repapply]')) { const f = repFiles[L.key]; const note = L.s.querySelector('[data-repnote]').value.trim(); if (!f) { toast('Pick an image to replace this layer with'); return L.s.querySelector('[data-repin]').click(); } return layerAsk(L, note, f.file); }
   });
   list.addEventListener('dblclick', e => {
+    const gr = e.target.closest('[data-gren]');
+    if (gr) { e.preventDefault(); e.stopPropagation(); const g = gr.closest('.nx-lg').dataset.gname;
+      const inp = document.createElement('input'); inp.className = 'nx-rename'; inp.value = g; gr.replaceWith(inp); inp.focus(); inp.select();
+      let done = false; const end = ok => { if (done) return; done = true; const nv = inp.value.trim(); if (ok && nv && nv !== g) renameGroup(g, nv); else renderCanvasLayerList(); };
+      inp.addEventListener('keydown', k => { if (k.key === 'Enter') end(true); if (k.key === 'Escape') end(false); k.stopPropagation(); });
+      inp.addEventListener('blur', () => end(true)); return; }
     const nm = e.target.closest('[data-lname]'); if (!nm) return;
     const L = layerOf(nm); if (!L) return; e.preventDefault(); e.stopPropagation();
     const v = nm.querySelector('.nmv'), cur = v ? v.textContent : '';
@@ -1494,6 +1548,43 @@ async function frameStateCall(fid, what, msg) {
   } catch (e) { toast(e.message || String(e), { err: true }); }
   finally { try { setEditLoading?.(false); } catch (_) {} }
 }
+/* ---------------- groups: data-psd-group="<name>" on each layer; LA Studio makes them one group in the PSD ---------------- */
+function rowsByKey(keys) {
+  return [...keys].map(k => { const n = k.indexOf('|'); return { idx: +k.slice(0, n), mfPath: k.slice(n + 1) || null, key: k }; }).filter(L => !/^locked:/.test(L.mfPath || ''));
+}
+async function editableMany(Ls) {             // every picked layer as an element that can be saved (a kit frame is made editable first)
+  if (Ls.every(L => htmlPath(L.mfPath))) return Ls.map(L => ({ L, el: inspEl(L) })).filter(x => x.el);
+  const before = Ls.map(L => { const e = inspEl(L); return e ? { r: e.getBoundingClientRect(), t: (e.innerText || '').trim().slice(0, 40) } : null; });
+  const firstKit = Ls.find(L => !htmlPath(L.mfPath)); const got = await editableEl(firstKit); if (!got.el) return [];
+  const d = frameDoc(), cands = (lastCanvasLayers || []).filter(x => x.mfPath && x.mfPath.startsWith('page>')), out = [], used = new Set();
+  before.forEach(b => { if (!b) return; let best = null, bs = 1e9;
+    for (const c of cands) { if (used.has(c.mfPath)) continue; const e = d && d.querySelector(`[data-mf-path="${CSS.escape(c.mfPath)}"]`); if (!e) continue;
+      const r = e.getBoundingClientRect(), sc = Math.abs(r.left - b.r.left) + Math.abs(r.top - b.r.top) + Math.abs(r.width - b.r.width) + Math.abs(r.height - b.r.height) + (b.t && (e.innerText || '').trim().slice(0, 40) === b.t ? 0 : 40);
+      if (sc < bs) { bs = sc; best = { c, e }; } }
+    if (best && bs < 80) { used.add(best.c.mfPath); out.push({ L: { idx: best.c.idx, mfPath: best.c.mfPath, key: best.c.idx + '|' + best.c.mfPath }, el: best.e }); } });
+  return out;
+}
+const groupMembers = g => [...(frameDoc()?.querySelectorAll('[data-psd-group]') || [])].filter(e => e.dataset.psdGroup === g && e.getAttribute('data-mf-path'));
+async function saveEls(els, msg) {
+  for (const el of els) await patchFrameInline({ studio: 'inline', mfPath: el.getAttribute('data-mf-path'), outer: el.outerHTML });
+  if (msg) toast(msg, { undo: () => undoFrameEdit() });
+  renderCanvasLayerList();
+}
+async function groupPicked() {
+  const Ls = rowsByKey(S.lsel || []); if (Ls.length < 2) { toast('Pick two or more layers (⌘-click) to group them'); return; }
+  const got = await editableMany(Ls); if (got.length < 2) { toast('These layers could not be grouped', { err: true }); return; }
+  const have = new Set([...(frameDoc()?.querySelectorAll('[data-psd-group]') || [])].map(e => e.dataset.psdGroup)); let n = 1; while (have.has('Group ' + n)) n++;
+  const name = 'Group ' + n; got.forEach(x => { x.el.dataset.psdGroup = name; });
+  S.lsel = new Set(); (S.gopen = S.gopen || new Set()).add(name);
+  await saveEls(got.map(x => x.el), `Grouped ${got.length} layers into “${name}”: one group in the PSD`);
+}
+async function ungroup(g) { const els = groupMembers(g); els.forEach(e => { delete e.dataset.psdGroup; }); await saveEls(els, `“${g}” ungrouped`); }
+async function renameGroup(g, nv) { const els = groupMembers(g); els.forEach(e => { e.dataset.psdGroup = nv; }); if (S.gopen?.delete(g)) S.gopen.add(nv); await saveEls(els, 'Group renamed'); }
+async function groupHide(g) {
+  const els = groupMembers(g), hide = !els.every(e => e.dataset.psdHidden);
+  els.forEach(e => { if (hide) { e.dataset.psdHidden = '1'; e.style.visibility = 'hidden'; } else { delete e.dataset.psdHidden; e.style.visibility = ''; } });
+  await saveEls(els, hide ? 'Group hidden' : 'Group shown');
+}
 function layerToolsHTML() {
   const c = clipGet();
   return `<div class="nx-ltools"><button class="nx-btn ghost" data-addtext data-tip="Add a new text layer to this frame">${I('addtext')}Add text</button>${c ? `<button class="nx-btn ghost" data-lpaste data-tip="Paste the copied layer into this frame (⌘V)">${I('paste')}Paste "${E(String(c.label).slice(0, 22))}"</button>` : ''}</div>`;
@@ -1565,7 +1656,6 @@ function setTab(k) {
   S.etab = k;
   const map = { layers: '#secLayers', prompt: '#secEdit', anchor: '#secAnchor' };
   Object.entries(map).forEach(([n, sel]) => { const d = q1(sel); if (d) { d.classList.toggle('nx-on', n === k); d.open = n === k; } });
-  const sc = q1('#nxSecScript'); if (sc) { sc.hidden = k !== 'script'; if (k === 'script') scriptTab(); }
   $$('.nx-etabs [data-etab]').forEach(b => b.classList.toggle('on', b.dataset.etab === k));
   if (k === 'prompt') setTimeout(() => q1('#editFrameAsk')?.focus(), 20);
 }
@@ -1575,6 +1665,7 @@ async function scriptTab() {
   if (!scriptOn() && pdfOn() && !(S.pdfLines?.pid === P.id)) { box.innerHTML = '<div class="nx-escr-e">Loading the storyboard…</div>'; await tkPdfLoad(); }
   if (!scriptOn() && !episodeTranscript?.segments && P.has_episode_transcript) { try { episodeTranscript = await api(`/api/projects/${P.id}/episode-transcript`); } catch (_) {} }
   const L = tkLines(), f = studioFrames().find(x => x.id === selectedFrameId);
+  const ht = q1('#nxEColT'), hn = q1('#nxEColN'); if (ht) ht.textContent = L.src === 'pdf' ? 'Storyboard' : L.src === 'script' ? 'Voiceover script' : 'VO transcript'; if (hn) hn.textContent = `${L.list.filter(l => l.text.trim()).length} lines`;
   if (!L.list.some(l => l.text.trim())) { box.innerHTML = '<div class="nx-escr-e">This video has no script, voice-over or storyboard text yet.</div>'; return; }
   let a = -1, b = -1;
   if (f && Array.isArray(f.lines)) [a, b] = f.lines;
@@ -1607,10 +1698,12 @@ function decorateEdit() {
   const side = app.querySelector('.edit-mode-side');
   if (!side.querySelector('.nx-etabs')) {
     const tabs = document.createElement('div'); tabs.className = 'nx-etabs nx-ui';
-    tabs.innerHTML = `<button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="prompt">Prompt</button><button data-etab="anchor" id="nxTabAnc">Anchor</button><button data-etab="script">Script</button>`;
+    tabs.innerHTML = `<button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="prompt">Prompt</button><button data-etab="anchor" id="nxTabAnc">Anchor</button>`;
     side.insertBefore(tabs, side.firstChild);
-    const sc = document.createElement('div'); sc.id = 'nxSecScript'; sc.className = 'nx-escr nx-ui'; sc.hidden = true;
-    tabs.after(sc);
+    /* the script / storyboard stays on the left, as on the frames screen (the frame's lines highlighted) */
+    const col = document.createElement('div'); col.className = 'nx-ecol nx-ui'; col.innerHTML = `<div class="nx-ecol-h"><b id="nxEColT">Script</b><small id="nxEColN"></small></div>`;
+    const sc = document.createElement('div'); sc.id = 'nxSecScript'; sc.className = 'nx-escr nx-ui'; col.appendChild(sc);
+    app.querySelector('.edit-mode-grid').prepend(col);
     sc.onclick = e => { const r = e.target.closest('[data-sline]'); if (!r) return; const tx = r.querySelector('span').innerText; navigator.clipboard?.writeText(tx).then(() => toast('Line copied. Paste it into a text box.'), () => toast('Could not copy', { err: true })); };
     tabs.onclick = e => { const b = e.target.closest('[data-etab]'); if (b) setTab(b.dataset.etab); };
     const look = q1('#editLookBlock'), body = q1('#secEdit .side-sec-body'); if (look && body) body.appendChild(look);
@@ -2042,9 +2135,9 @@ window.nxBoot = async function () {
   const _list = list;
   list = async () => { loadList().then(() => { allProjects = S.list || []; if (!P && !editModeOpen) renderList(); }); };
   const _open = openEditMode;
-  openEditMode = fid => { S.etab = 'layers'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
+  openEditMode = fid => { S.etab = 'layers'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); scriptTab(); };
   const _sel = selectEditFrame;
-  selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); try { renderPresenter(); } catch (_) {} if (S.etab === 'script') scriptTab(); } };
+  selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); try { renderPresenter(); } catch (_) {} scriptTab(); } };
   const _strip = buildEditFrameStrip;
   buildEditFrameStrip = () => { _strip(); stripDecor(); };
   const _exit = exitEditMode;
