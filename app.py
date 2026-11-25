@@ -557,6 +557,14 @@ def frame_page(
     spec: dict | None = None,
     overlay: bool = False,
 ):
+    if isinstance(frame, dict) and isinstance(frame.get("page"), str) and frame["page"].strip():
+        html = frame["page"]          # a frame made editable as a fixed design: its own page, no kit render
+    else:
+        html = _kit_frame_html(theme, frame, look, edit, all_frames, spec, overlay)
+    return _finish_frame_page(theme, html, base_href, edit)
+
+
+def _kit_frame_html(theme, frame, look, edit, all_frames, spec, overlay):
     mod = builder(theme)
     render = mod.frame_html
     prev_studio_web = os.environ.get("STUDIO_WEB")
@@ -584,6 +592,10 @@ def frame_page(
             os.environ.pop("STUDIO_WEB", None)
         else:
             os.environ["STUDIO_WEB"] = prev_studio_web
+    return html
+
+
+def _finish_frame_page(theme, html, base_href, edit):
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
     cw, ch = theme_canvas.canvas_for_theme(theme)
     canvas_meta = f'<meta name="studio-canvas" content="{cw},{ch}">'
@@ -603,11 +615,12 @@ def frame_page(
         registry_js = (ROOT / "static" / "layer_registry.js").read_text()
         interact_js = (ROOT / "static" / "interact.min.js").read_text()
         edit_js = (ROOT / "static" / "studio_edit.js").read_text()
+        psd_js = (ROOT / "static" / "psd_collect.js").read_text() + "\n" + (ROOT / "static" / "psd_layers.js").read_text()
         html = html.replace("</head>", f"<style>{edit_css}</style></head>", 1)
         html = html.replace(
             "</body>",
             f"<script>{registry_js}</script><script>{interact_js}</script>"
-            f"<script>{edit_js}</script></body>",
+            f"<script>{edit_js}</script><script>{psd_js}</script></body>",
             1,
         )
     return html
@@ -1843,6 +1856,12 @@ async def edit(pid: int, fid: str, req: Request):
                 item_index = None
         mf_path = (b.get("mf_path") or "").strip() or None
 
+    page_frame = isinstance(spec["frames"][i].get("page"), str) and spec["frames"][i]["page"].strip()
+    if page_frame and not regenerate:
+        return await _edit_page_frame(p, pid, fid, i, ask, mf_path, ref_src, ref_image, req)
+    if page_frame and regenerate:      # regenerate = a fresh kit frame (the fixed design is dropped)
+        spec["frames"][i] = {**copy.deepcopy(spec["frames"][i].get("kit_frame") or {}), "id": fid} if isinstance(spec["frames"][i].get("kit_frame"), dict) \
+            else {k: v for k, v in spec["frames"][i].items() if k not in ("page", "kit_frame")}
     if mf_path and ask:
         ask = (
             f"Edit ONLY the field `{mf_path}` on this frame JSON. "
@@ -1948,6 +1967,38 @@ async def edit(pid: int, fid: str, req: Request):
     note = f"{fid}: {(ask or 'reference')[:80]}"
     (await _db_call(save, pid, who(req), note, spec=spec))
     return new
+
+async def _edit_page_frame(p, pid, fid, i, ask, mf_path, ref_src, ref_image, req):
+    """A fixed-design frame: a picture swap is done here (no AI); anything else is one small Claude edit of its page."""
+    import page_html
+    spec = p["spec"]
+    before = spec["frames"][i]
+    path = mf_path.split(">", 1)[1] if mf_path and mf_path.startswith("page>") else None
+    page = None
+    if ref_src and path and (not ask or ask.strip().lower().startswith("replace with")):
+        page = page_html.set_picture(before["page"], path, f"../assets/{ref_src}")
+    if page is None:
+        if not ask and not ref_src:
+            raise HTTPException(400, "describe the change")
+        try:
+            page = await asyncio.to_thread(
+                claude_client.edit_page, THEMES / p["theme"], before["page"], ask or "Use the attached picture here.",
+                focus=page_html.outer(before["page"], path) if path else None,
+                ref_src=f"../assets/{ref_src}" if ref_src else None, ref_image=ref_image)
+        except HTTPException:
+            raise
+        except Exception as e:
+            try:
+                _raise_claude_gateway(e)
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(500, detail=f"The edit failed ({type(e).__name__}: {str(e)[:200]}). Try again.") from e
+    new = {**before, "page": page}
+    spec["frames"][i] = new
+    await _db_call(save, pid, who(req), f"{fid}: {(ask or 'picture')[:80]}", spec=spec)
+    return new
+
 
 @app.post("/api/projects/{pid}/undo")
 def undo(pid: int, req: Request):
@@ -2104,6 +2155,64 @@ async def delete_storyboard_ref(pid: int, req: Request):
     if fp.is_file():
         fp.unlink()
     return (await _db_call(load, pid))
+
+# ---- Edit layers on the PSD's layers: a kit-drawn frame becomes a fixed design (its own page) so every layer can
+# be edited; "Back to kit version" brings the kit's frame back (page_html.py, static/psd_layers.js). ----
+async def _static_page(pid: int, fid: str, theme: str) -> str:
+    from playwright.async_api import async_playwright
+    import page_html
+    cw, ch = theme_canvas.canvas_for_theme(theme)
+    async with async_playwright() as pw:
+        b = await exporter.launch_chromium(pw)
+        try:
+            pg = await b.new_page(viewport={"width": cw, "height": ch})
+            await pg.goto(preview_url(pid, fid), wait_until="load", timeout=120_000)
+            try:
+                await pg.wait_for_function("window.RENDERED === undefined || window.RENDERED === true", timeout=20_000)
+            except Exception:
+                pass
+            await pg.wait_for_timeout(300)
+            html = await pg.evaluate(page_html.DETACH_JS)
+        finally:
+            await b.close()
+    return page_html.clean_detached(html, preview_base(), theme)
+
+
+@app.post("/api/projects/{pid}/frames/{fid}/detach")
+async def frame_detach(pid: int, fid: str, req: Request):
+    p = await _db_call(load, pid)
+    spec = p.get("spec") or {}
+    i = next((k for k, f in enumerate(spec.get("frames") or []) if str(f.get("id")) == fid), None)
+    if i is None:
+        raise HTTPException(404, "frame not found")
+    f = spec["frames"][i]
+    if isinstance(f.get("page"), str) and f["page"].strip():
+        return f
+    try:
+        page = await _static_page(pid, fid, p["theme"])
+    except Exception as e:
+        raise HTTPException(502, detail=f"Could not make this frame editable: {e}") from e
+    new = {**copy.deepcopy(f), "page": page, "kit_frame": copy.deepcopy(f)}
+    spec["frames"][i] = new
+    await _db_call(save, pid, who(req), f"{fid}: layers made editable", spec=spec)
+    return new
+
+
+@app.post("/api/projects/{pid}/frames/{fid}/undetach")
+async def frame_undetach(pid: int, fid: str, req: Request):
+    p = await _db_call(load, pid)
+    spec = p.get("spec") or {}
+    i = next((k for k, f in enumerate(spec.get("frames") or []) if str(f.get("id")) == fid), None)
+    if i is None:
+        raise HTTPException(404, "frame not found")
+    f = spec["frames"][i]
+    kit = f.get("kit_frame")
+    if not isinstance(kit, dict):
+        raise HTTPException(400, "this frame has no kit version to go back to")
+    spec["frames"][i] = {**copy.deepcopy(kit), "id": f.get("id")}
+    await _db_call(save, pid, who(req), f"{fid}: back to the kit version", spec=spec)
+    return spec["frames"][i]
+
 
 @app.get("/api/projects/{pid}/check")
 async def check(pid: int):

@@ -21,7 +21,7 @@ const IC = {
   trash: '<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"/>', pencil: '<path d="M10.5 3.5l2 2L6 12H4v-2z"/>',
   check: '<path d="M3.5 8.5l3 3 6-7"/>', x: '<path d="M4 4l8 8M12 4l-8 8"/>', undo: '<path d="M5.5 6.5H10a3 3 0 0 1 0 6H7"/><path d="M7.5 4L5 6.5 7.5 9"/>',
   redo: '<path d="M10.5 6.5H6a3 3 0 0 0 0 6h3"/><path d="M8.5 4L11 6.5 8.5 9"/>', regen: '<path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 3v2.5H10"/>',
-  minus: '<path d="M3.5 8h9"/>', skip: '<circle cx="8" cy="8" r="5.5"/><path d="M4.2 11.8l7.6-7.6"/>', info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.5M8 5.2v.1"/>', download: '<path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/>',
+  minus: '<path d="M3.5 8h9"/>', lock: '<rect x="3.5" y="7.2" width="9" height="6.3" rx="1.4"/><path d="M5.6 7.2V5.3a2.4 2.4 0 014.8 0v1.9"/>', skip: '<circle cx="8" cy="8" r="5.5"/><path d="M4.2 11.8l7.6-7.6"/>', info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.5M8 5.2v.1"/>', download: '<path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/>',
   doc: '<path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3M6 8.5h4M6 11h4"/>', wave: '<path d="M2.5 8h1M5 5.5v5M7.5 3v10M10 5.5v5M12.5 7.5v1"/>',
   upload: '<path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6M3 13.5h10"/>', play: '<path d="M5.5 3.8l6.5 4.2-6.5 4.2z" fill="currentColor" stroke="none"/>', pause: '<path d="M5.5 4v8M10.5 4v8"/>',
   clock: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/>', hash: '<path d="M6 2.5L5 13.5M11 2.5l-1 11M2.5 6h11M2 10h11"/>', video: '<rect x="2" y="3.5" width="9" height="9" rx="1.5"/><path d="M11 7l3-2v6l-3-2"/>',
@@ -1104,7 +1104,7 @@ addEventListener('keydown', e => {
 const LT = { text: ['text', 'Text'], title: ['text', 'Text'], heading: ['text', 'Text'], subtitle: ['text', 'Text'], term: ['text', 'Text'], definition: ['text', 'Text'], point: ['text', 'Text'], label: ['text', 'Text'], pill: ['text', 'Text'], step: ['text', 'Text'], tile: ['text', 'Text'], lead: ['text', 'Text'],
   img: ['picture', 'Picture'], image: ['picture', 'Picture'], asset: ['picture', 'Picture'], hero: ['picture', 'Picture'], prop: ['picture', 'Picture'], picture: ['picture', 'Picture'],
   table: ['table', 'Table'], chart: ['chart', 'Chart'], bars: ['chart', 'Chart'], donut: ['chart', 'Chart'], person: ['person', 'Person'], char: ['person', 'Person'], card: ['block', 'Card'], cards: ['block', 'Cards'],
-  html: ['block', 'Block'], decor: ['shape', 'Shape'], shape: ['shape', 'Shape'], box: ['shape', 'Shape'], dot: ['shape', 'Shape'], arrow: ['shape', 'Shape'], rect: ['shape', 'Shape'] };
+  html: ['block', 'Block'], drawing: ['shape', 'Drawing'], background: ['frame', 'Background'], decor: ['shape', 'Shape'], shape: ['shape', 'Shape'], box: ['shape', 'Shape'], dot: ['shape', 'Shape'], arrow: ['shape', 'Shape'], rect: ['shape', 'Shape'] };
 function layerKind(label) {
   const m = String(label || '').match(/^\s*([A-Za-z_]+)(?:\s*\d+)?\s*(?::|·)\s*(.*)$/);
   let type = m ? m[1].toLowerCase() : '', name = m ? m[2] : String(label || '');
@@ -1131,19 +1131,29 @@ const nxRCL = function () {
     return mm ? { idx: +mm[1], mfPath: mm[2] ? mm[2].replace(/\\'/g, "'").replace(/\\\\/g, '\\') : null, label: r.querySelector('.cl-name')?.getAttribute('title') || r.textContent, on: r.classList.contains('on') } : null;
   }).filter(Boolean);
   const tabN = q1('[data-etab="layers"] .nx-cnt'); if (tabN) tabN.textContent = rows.length;
-  const tools = layerToolsHTML();
+  const frNow = studioFrames().find(x => x.id === selectedFrameId);
+  const fixed = !!(frNow && typeof frNow.page === 'string' && frNow.page.trim());
+  const kitLocked = !fixed && rows.some(r => r.mfPath === 'locked:kit');
+  const tools = layerToolsHTML() + (fixed ? `<div class="nx-fixed">${I('check')}<span>Every layer of this frame can be edited.</span>${frNow.kit_frame ? `<button class="nx-tbtn" data-unfix data-tip="Undo making the layers editable: the kit draws this frame again">Back to kit version</button>` : ''}</div>`
+    : kitLocked ? `<div class="nx-fixed lock">${I('lock')}<span>Layers with a lock are drawn by the kit.</span><button class="nx-tbtn" data-mkedit>Make all editable</button></div>` : '');
   if (!rows.length) { list.innerHTML = tools + `<div class="nx-lempty">${list.textContent.trim() ? E(list.textContent.trim()) : 'This frame has no layers to edit. Describe a change in Prompt, or regenerate it.'}</div>`; return; }
-  if (!rows.some(r => r.on) && !selectedCanvasLayer && !S.noAutoPick) {
-    rendering = true; try { selectedCanvasLayer = { idx: rows[0].idx, mfPath: rows[0].mfPath }; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); } finally { rendering = false; }
-    rows[0].on = true;
+  const first = rows.find(r => !String(r.mfPath || '').startsWith('locked:'));
+  if (first && !rows.some(r => r.on) && !selectedCanvasLayer && !S.noAutoPick) {
+    rendering = true; try { selectedCanvasLayer = { idx: first.idx, mfPath: first.mfPath }; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); } finally { rendering = false; }
+    first.on = true;
   }
   const fdoc = q1('#canvasEditFrame')?.contentDocument;
   const textOf = mf => { if (!mf || !/^html:/.test(mf) || !fdoc) return null; try { const el = fdoc.querySelector(`[data-mf-path="${CSS.escape(mf)}"]`); return el && el.classList.contains('studio-inline-text') ? el.innerText : null; } catch (_) { return null; } };
   const curF = studioFrames().find(x => x.id === selectedFrameId);
   const words = (isTkProject() || curF?.tk_from) ? rows.map(r => ({ r, tx: textOf(r.mfPath) })).filter(w => w.tx != null && w.tx.trim()) : [];
   const wordsHTML = words.length ? `<div class="nx-words"><span class="lab">Text on this frame</span>${words.map(w => `<textarea data-wtext data-mf="${E(w.r.mfPath)}" rows="${Math.min(4, w.tx.split('\n').length)}" aria-label="${E(layerKind(w.r.label).name)}">${E(w.tx)}</textarea>`).join('')}<small>Type to change the words · Enter saves · Shift+Enter for a new line</small></div>` : '';
+  const LOCKED = { kit: 'Drawn by the kit. Make all layers editable to change it here, or describe the change in Prompt.', plate: 'The presenter photo: change it in Anchor frame.', decor: 'Kit decoration: move or remove it in Prompt.', background: 'The background of the frame.' };
   list.innerHTML = tools + wordsHTML + rows.map(r => {
     const k = layerKind(r.label), key = r.idx + '|' + (r.mfPath || ''), f = repFiles[key];
+    const lk = /^locked:(.*)$/.exec(r.mfPath || '');
+    if (lk) return `<div class="nx-ls locked${r.on ? ' open' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath)}">
+      <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><span class="nx-lk" aria-label="Locked">${I('lock')}</span></div>
+      ${r.on ? `<div class="nx-lsb"><p class="nx-lkn">${E(LOCKED[lk[1]] || LOCKED.kit)}</p>${lk[1] === 'kit' ? '<button class="nx-tbtn" data-mkedit>Make all editable</button>' : ''}</div>` : ''}</div>`;
     const tx = r.on ? textOf(r.mfPath) : null;
     return `<div class="nx-ls${r.on ? ' open' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
       <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
@@ -1193,6 +1203,8 @@ const nxCLA = function (idx, action, mfPath = null) {
 function bindLayerPanel() {
   const list = q1('#canvasLayerList'); if (!list || list._nx) return; list._nx = true;
   list.addEventListener('click', e => {
+    if (e.target.closest('[data-mkedit]')) { e.stopPropagation(); return makeLayersEditable(); }
+    if (e.target.closest('[data-unfix]')) { e.stopPropagation(); return backToKitVersion(); }
     if (e.target.closest('[data-addtext]')) return addTextWin();
     if (e.target.closest('[data-lpaste]')) return pasteLayer();
     const t = e.target, L = layerOf(t); if (!L) return;
@@ -1254,6 +1266,33 @@ function refThumb() {
 const CLIP_KEY = 'gs.layerclip';
 const clipGet = () => { const c = ls.get(CLIP_KEY, null); return c && Date.now() - (c.ts || 0) < 6 * 3600e3 ? c : null; };
 function pathGet(obj, path) { return String(path || '').split('.').reduce((o, k) => (o == null ? undefined : o[/^\d+$/.test(k) ? +k : k]), obj); }
+/* Edit layers lists the PSD's layers; a kit-drawn frame turns into a fixed design (its own page) so every layer can be
+   edited, and "Back to kit version" lets the kit draw it again (server: /detach, /undetach). */
+function makeLayersEditable() {
+  const fid = selectedFrameId; if (!fid || !P) return;
+  win({
+    title: 'Make all layers editable?', ok: 'Make editable',
+    body: `<p class="nx-wp" style="margin:0">This frame becomes a fixed design: you can move, change and delete every layer, exactly as it will be in the PSD.</p>
+      <p class="nx-wp" style="margin:10px 0 0">The kit stops redrawing it. Prompt still works, and <b>Back to kit version</b> undoes this.</p>`,
+    onOk: () => { setTimeout(() => frameStateCall(fid, 'detach', 'Every layer of this frame can be edited now'), 0); },
+  });
+}
+function backToKitVersion() {
+  const fid = selectedFrameId; if (!fid) return;
+  frameStateCall(fid, 'undetach', 'Back to the kit version');
+}
+async function frameStateCall(fid, what, msg) {
+  const fi = P?.spec?.frames?.findIndex(f => f.id === fid); if (fi == null || fi < 0) return;
+  try { setEditLoading?.(true); } catch (_) {}
+  try {
+    const nf = await api(`/api/projects/${P.id}/frames/${encodeURIComponent(fid)}/${what}`, { method: 'POST' });
+    P.spec.frames[fi] = nf;
+    frameHistNote([nf]);
+    selectedCanvasLayer = null; bumpFrame?.(fid); refreshEditCanvas(); renderCanvasLayerList();
+    toast(msg, { undo: () => undoFrameEdit() });
+  } catch (e) { toast(e.message || String(e), { err: true }); }
+  finally { try { setEditLoading?.(false); } catch (_) {} }
+}
 function layerToolsHTML() {
   const c = clipGet();
   return `<div class="nx-ltools"><button class="nx-btn ghost" data-addtext data-tip="Add a new text layer to this frame">${I('addtext')}Add text</button>${c ? `<button class="nx-btn ghost" data-lpaste data-tip="Paste the copied layer into this frame (⌘V)">${I('paste')}Paste "${E(String(c.label).slice(0, 22))}"</button>` : ''}</div>`;

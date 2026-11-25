@@ -2238,12 +2238,12 @@ function canvasEditUrl(){
 }
 /* ZO hand-written frames (frame.html): layers are the named blocks. The editor sends a changed block's markup
    (outer) with its path "html:<name>#<occurrence>"; decor moves land in frame.decor. */
-const STUDIO_ATTRS=['data-mf-tagged','data-spec-idx','data-layer-type','data-layer-label','data-mf-path','data-mf-drag','data-resize','data-x','data-y','data-studio-inline','data-inline-bound','contenteditable','spellcheck'];
+const STUDIO_ATTRS=['data-psd-box','data-mf-tagged','data-spec-idx','data-layer-type','data-layer-label','data-mf-path','data-mf-drag','data-resize','data-x','data-y','data-studio-inline','data-inline-bound','contenteditable','spellcheck'];
 function cleanStudioMarkup(node){
  [node,...node.querySelectorAll('*')].forEach(e=>{
   const own=e.getAttribute('data-mf-path');   // the reel kit names its blocks with data-mf-path: keep those
   STUDIO_ATTRS.forEach(a=>e.removeAttribute(a));
-  if(own&&!/^(html:|decor\.)/.test(own))e.setAttribute('data-mf-path',own);
+  if(own&&!/^(html:|decor\.|locked:|page>)/.test(own)&&!own.includes('>'))e.setAttribute('data-mf-path',own);
   if(e.classList){[...e.classList].filter(c=>c.startsWith('studio-')).forEach(c=>e.classList.remove(c));if(!e.classList.length)e.removeAttribute('class')}
  });
  return node;
@@ -2277,7 +2277,8 @@ function htmlChildPatch(fr,mfPath,outer){
  const field=mfPath.slice(0,cut),steps=mfPath.slice(cut+1).split('.').map(Number);
  const src=getSpecPathVal(fr,field);
  if(typeof src!=='string')return false;
- const doc=new DOMParser().parseFromString('<body>'+src+'</body>','text/html');
+ const whole=field==='page';   // a fixed-design frame: the whole page, its <head> kept
+ const doc=new DOMParser().parseFromString(whole?src:'<body>'+src+'</body>','text/html');
  let node=doc.body;
  for(const s of steps){node=node&&node.children[s];}
  if(!node||node===doc.body)return false;
@@ -2287,13 +2288,13 @@ function htmlChildPatch(fr,mfPath,outer){
   const nn=tpl.content.firstElementChild;if(!nn)return false;
   node.replaceWith(cleanStudioMarkup(nn));
  }
- setSpecPath(fr,field,doc.body.innerHTML);
+ setSpecPath(fr,field,whole?'<!doctype html>\n'+doc.documentElement.outerHTML:doc.body.innerHTML);
  return true;
 }
-function extraLayerRows(){   // html pieces and FA side-block headings the iframe tagged
+function extraLayerRows(){   // html pieces, FA side-block headings and the PSD's other layers the iframe tagged
  const seen=new Set();
- return (lastCanvasLayers||[]).filter(L=>L.mfPath&&(L.mfPath.includes('>')||/^els\.\d+\.header$/.test(L.mfPath))&&!seen.has(L.mfPath)&&seen.add(L.mfPath))
-  .sort((a,b)=>a.idx-b.idx).map(L=>({idx:L.idx,mfPath:L.mfPath,label:(L.mfPath.endsWith('.header')?'heading · ':'· ')+(L.label||'piece')}));
+ return (lastCanvasLayers||[]).filter(L=>L.mfPath&&(L.mfPath.includes('>')||L.mfPath.startsWith('locked:')||/^els\.\d+\.header$/.test(L.mfPath))&&!seen.has(L.mfPath+'#'+L.idx)&&seen.add(L.mfPath+'#'+L.idx))
+  .sort((a,b)=>a.idx-b.idx).map(L=>({idx:L.idx,mfPath:L.mfPath,label:(L.mfPath.endsWith('.header')?'heading · ':(L.type?L.type+' · ':'· '))+(L.label||'piece')}));
 }
 function extraLayerRowsHtml(){
  return extraLayerRows().map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row sub${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join('');
@@ -2314,7 +2315,7 @@ function applyDecorMove(fr,mfPath,x,y){
 function isHtmlLayerFrame(fr){return !!(fr&&fr.html&&(isZoProduct(P?.theme)||P?.theme==='zero1-reel-graphics'))}
 function htmlFrameLayerEntries(fr){
  const seen=new Set();
- return (lastCanvasLayers||[]).filter(L=>L.mfPath&&!seen.has(L.mfPath)&&seen.add(L.mfPath))
+ return (lastCanvasLayers||[]).filter(L=>L.mfPath&&!L.mfPath.includes('>')&&!L.mfPath.startsWith('locked:')&&!seen.has(L.mfPath)&&seen.add(L.mfPath))
   .sort((a,b)=>a.idx-b.idx)
   .map(L=>({idx:L.idx,label:(L.mfPath.startsWith('decor.')?'decor · ':'')+(L.label||L.mfPath.replace(/^html:/,'').replace(/#\d+$/,'')),mfPath:L.mfPath}));
 }
@@ -2415,13 +2416,17 @@ function renderCanvasLayerList(){
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  if(!fr){list.innerHTML='';return}
+ if(typeof fr.page==='string'&&fr.page.trim()){   // a fixed-design frame: every layer comes from the page itself
+  const extra=extraLayerRowsHtml();
+  list.innerHTML=extra||`<p style="margin:0;font-size:12px;color:var(--mute)">Loading layers…</p>`;
+  return}
  if(isZ1Hindi(P.theme)){
-  const rows=z1LayerEntries(fr);
-  list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">This ${esc(fr.type||'scene')} frame has no free layers. Ask for changes in the chat below.</p>`;
+  const rows=z1LayerEntries(fr),extra=extraLayerRowsHtml();
+  list.innerHTML=(rows.length||extra)?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join('')+extra:`<p style="margin:0;font-size:12px;color:var(--mute)">This ${esc(fr.type||'scene')} frame has no free layers. Ask for changes in the chat below.</p>`;
   return}
  if(isHtmlLayerFrame(fr)){
-  const rows=htmlFrameLayerEntries(fr);
-  list.innerHTML=rows.length?rows.map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">Loading layers…</p>`;
+  const rows=htmlFrameLayerEntries(fr),extra=extraLayerRowsHtml();
+  list.innerHTML=(rows.length||extra)?rows.map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join('')+extra:`<p style="margin:0;font-size:12px;color:var(--mute)">Loading layers…</p>`;
   return}
  if(isKitTheme(P.theme)){
   const rows=mfLayerEntries(fr);
@@ -2431,7 +2436,7 @@ function renderCanvasLayerList(){
  const useEls=isHindiFaTheme(P.theme);
  const items=useEls?(fr?.els||[]):(fr?.items||[]);
  const lbl=useEls?layerRowLabelEl:layerRowLabel;
- list.innerHTML=items.length?items.map((it,i)=>{const mp=useEls?mfPathAttr('els.'+i):'';return `<div class="canvas-layer-row${layerRowSelected(i,useEls?'els.'+i:null)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(lbl(it,i))}">${esc(lbl(it,i))}</span>${layerRowActionButtons(i,useEls?'els.'+i:null)}</div>`}).join('')+(useEls?extraLayerRowsHtml():''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
+ list.innerHTML=items.length?items.map((it,i)=>{const mp=useEls?mfPathAttr('els.'+i):'';return `<div class="canvas-layer-row${layerRowSelected(i,useEls?'els.'+i:null)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(lbl(it,i))}">${esc(lbl(it,i))}</span>${layerRowActionButtons(i,useEls?'els.'+i:null)}</div>`}).join('')+extraLayerRowsHtml():(extraLayerRowsHtml()||'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>');
 }
 function openLayerEditDialog(action,idx,mfPath=null){
  const dlg=document.getElementById('layerEditDlg');

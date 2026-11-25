@@ -2165,6 +2165,48 @@ def storyboard(
     return out
 
 
+PAGE_TOOL = {
+    "name": "submit_page",
+    "description": "The frame's full page HTML after the change.",
+    "input_schema": {"type": "object", "properties": {"page": {"type": "string", "description": "the whole page, from <!doctype html> to </html>"}},
+                     "required": ["page"]},
+}
+
+
+def edit_page(theme_dir: pathlib.Path, page: str, ask: str, *, focus: str | None = None, ref_src: str | None = None,
+              ref_image: tuple[str, bytes] | None = None) -> str:
+    """A frame kept as a fixed design (its own page HTML): one small edit, in the kit's house style."""
+    import base64
+    msg = ("This frame is a fixed 1920x1080 design kept as one HTML page (below). Make this change and return the "
+           "WHOLE page with submit_page.\n"
+           f"Change: {ask}\n")
+    if focus:
+        msg += f"Change only this element (leave every other element exactly as it is):\n{focus[:6000]}\n"
+    if ref_src:
+        msg += f"The attached picture is saved at {ref_src}: use that path for it (as an <img src> or url()).\n"
+    msg += ("Rules: keep every other element, its position, its words and its styles unchanged; keep all relative "
+            "links; no <script>; keep <body data-page=\"1\">; use the kit's fonts and colours (SKILL.md). New text "
+            "goes in its own element, absolutely positioned where it fits without covering other content.\n\n"
+            f"PAGE:\n{page}")
+    content: list = []
+    if ref_image:
+        content.append({"type": "image", "source": {"type": "base64", "media_type": ref_image[0],
+                                                     "data": base64.standard_b64encode(ref_image[1]).decode()}})
+    if _tool_choice("submit_page")["type"] == "auto":
+        msg += "\n\nRespond only by calling the submit_page tool."
+    content.append({"type": "text", "text": msg})
+    r = _messages_create(label="edit-page", model=LIGHT_MODEL, max_tokens=min(32000, 4000 + len(page) // 2),
+                         system=_system(theme_dir), tools=[PAGE_TOOL], tool_choice=_tool_choice("submit_page"),
+                         messages=[{"role": "user", "content": content}])
+    out = str(_tool_input(r, "submit_page").get("page") or "")
+    if "<body" not in out.lower():
+        raise ValueError("Claude sent back no page")
+    out = re.sub(r"<script\b[^>]*>.*?</script>", "", out, flags=re.S | re.I)
+    if 'data-page="1"' not in out:
+        out = re.sub(r"<body\b", '<body data-page="1"', out, count=1, flags=re.I)
+    return out
+
+
 def edit_frame(
     theme_dir: pathlib.Path,
     frame: dict,
