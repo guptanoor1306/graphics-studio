@@ -25,9 +25,11 @@ _PLATE_KEYS = frozenset(PLATES.keys()) if PLATES else frozenset({
 _SIDE_PANEL = frozenset({'side_list', 'scroll_list', 'ladder', 'mini_table', 'ticket'})
 
 
-def _presenter_src(pname, stock_file, look, own=None):
-    """The project's own presenter shot for this side (editor: Presenter shot), else the frame's own photo (a toolkit
-    template brings one), else the kit's photo."""
+def _presenter_src(pname, stock_file, look, own=None, mine=None):
+    """The anchor photo uploaded for this frame only (Anchor tab), else the project's own presenter shot for this side
+    (Presenter photos), else the frame's own photo (a toolkit template brings one), else the kit's photo."""
+    if mine:
+        return f'../assets/{mine}'
     pres = (look or {}).get('presenter') if isinstance((look or {}).get('presenter'), dict) else {}
     k = (pname or '').lower()
     side = 'left' if 'left' in k else 'right' if 'right' in k else 'centre'
@@ -942,7 +944,7 @@ def _render_stage_inner(f, look):
         p = PLATES.get(pname) if pname else None
         if p:
             z = dict(p['zone']); z.update(f.get('zone', {}))
-            body = 'dark'; plate = f'<img class="plate" src="{_presenter_src(pname, p["file"], look)}">'
+            body = 'dark'; plate = f'<img class="plate" src="{_presenter_src(pname, p["file"], look, None, f.get("plate_own"))}">'
             cut = (f'<img class="cutout" src="../assets/plates/{p["cutout"]}">'
                    if mode == 'tos' and f.get('tos_style') == 'behind' and p.get('cutout') else '')
         else:
@@ -1037,7 +1039,7 @@ def html_frame(f, look=None, edit=False):
     shade = f.get('shade') or CHAT_SHADES.get(pname, CHAT_SHADES['m2_right'])
     face = json.dumps(p.get('face'))
     return (f'{head}<body{cls} data-mode="{E(mode)}" data-face=\'{face}\' style="background:#111">'
-            f'<img data-name="Presenter plate" src="{E(_presenter_src(pname, p.get("file", "m2_right.jpg"), look, f.get("plate_img")))}" '
+            f'<img data-name="Presenter plate" src="{E(_presenter_src(pname, p.get("file", "m2_right.jpg"), look, f.get("plate_img"), f.get("plate_own")))}" '
             'style="position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover">'
             f'<div data-name="Plate shade" style="position:absolute;{shade}"></div>'
             f'<div id="content" data-name="Content">{f["html"]}</div><div id="decor" data-name="Decor"></div>{deco_js}{tail}')

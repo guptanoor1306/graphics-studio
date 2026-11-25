@@ -2042,7 +2042,8 @@ async def presenter_get(pid: int):
 
 
 @app.post("/api/projects/{pid}/presenter")
-async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: UploadFile = File(...), fid: str = Form("")):
+async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: UploadFile = File(...), fid: str = Form(""),
+                        scope: str = Form("")):
     """A still from this video's presenter replaces the stock photo in every frame that uses this slot."""
     import io, presenter
     from PIL import Image, ImageOps
@@ -2060,14 +2061,27 @@ async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: Upl
     rel = await asyncio.to_thread(asset_gen.store, p["theme"], f"presenter {pid} {slot} {time.time()}",
                                   buf.getvalue(), "jpg", "presenter")
     look = dict(p.get("look") or {})
-    if look.get("toolkit") and fid:   # a toolkit template: the photo belongs to that template only
+    if fid and (look.get("toolkit") or scope == "frame"):   # a toolkit template, or one frame's own anchor photo
+        key = "plate_img" if look.get("toolkit") else "plate_own"
         spec = dict(p.get("spec") or {})
-        spec["frames"] = [{**f, "plate_img": rel} if str(f.get("id")) == fid else f for f in spec.get("frames") or []]
-        await _db_call(save, pid, who(req), f"template photo ({slot})", spec=spec)
+        spec["frames"] = [{**f, key: rel} if str(f.get("id")) == fid else f for f in spec.get("frames") or []]
+        await _db_call(save, pid, who(req), f"{'template' if key == 'plate_img' else fid + ': anchor'} photo ({slot})", spec=spec)
         p = await _db_call(load, pid)
         return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
     look["presenter"] = {**(look.get("presenter") if isinstance(look.get("presenter"), dict) else {}), slot: rel}
     await _db_call(save, pid, who(req), f"presenter shot ({slot})", look=look)
+    p = await _db_call(load, pid)
+    return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
+
+
+@app.delete("/api/projects/{pid}/frames/{fid}/anchor")
+async def frame_anchor_reset(pid: int, fid: str, req: Request):
+    """This frame goes back to the video's presenter photo."""
+    import presenter
+    p = await _db_call(load, pid)
+    spec = dict(p.get("spec") or {})
+    spec["frames"] = [{k: v for k, v in f.items() if k != "plate_own"} if str(f.get("id")) == fid else f for f in spec.get("frames") or []]
+    await _db_call(save, pid, who(req), f"{fid}: anchor photo back to the video's", spec=spec)
     p = await _db_call(load, pid)
     return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
 
@@ -2326,8 +2340,30 @@ def _export_zip_filename(p: dict, ids: set[str] | None) -> str:
     return _dl_name(p["name"], "_frames.zip")
 
 
-def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None = None) -> tuple[bytes, str]:
+_SAFE_NAME = re.compile(r"[^\w.-]+")
+
+
+def _export_names(raw: str) -> dict[str, str] | None:
+    """names=<json {frame id: file name}> from the page: each frame's file named by the time it comes in."""
+    if not raw:
+        return None
+    try:
+        d = json.loads(raw)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(d, dict):
+        return None
+    out = {}
+    for k, v in list(d.items())[:2000]:
+        name = _SAFE_NAME.sub("_", str(v or "")).strip("._")[:120]
+        if name:
+            out[str(k)] = name
+    return out or None
+
+
+def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None = None, names: str = "") -> tuple[bytes, str]:
     ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
+    rename = _export_names(names)
     pages = _export_pages(p, ids)
     sb_csv = None
     raw_sb = _storyboard_csv_bytes(p)
@@ -2345,6 +2381,7 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
             storyboard_csv=sb_csv,
             zip_path=dest,
             extra_files=extra,
+            names=rename,
         )
         return b"", fn
     data = exporter.export_zip(
@@ -2354,14 +2391,15 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
         (cw, ch),
         storyboard_csv=sb_csv,
         extra_files=extra,
+        names=rename,
     )
     return data, fn
 
 
-def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "") -> str:
+def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "", names: str = "") -> str:
     if fmt == "bulletin":
         return _export_bulletin(p, only, dest)
-    _, fn = _export_zip_payload(p, png, only, dest)
+    _, fn = _export_zip_payload(p, png, only, dest, names)
     return fn
 
 
@@ -2412,7 +2450,7 @@ def _export_job_prune() -> None:
 
 
 @app.post("/api/projects/{pid}/export/jobs")
-def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = ""):
+def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = "", names: str = ""):
     """Start export in a background thread; poll status then download (avoids long HTTP/2 streams)."""
     p = load(pid)
     _export_job_prune()
@@ -2440,7 +2478,7 @@ def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = ""):
                 st = _EXPORT_JOBS.get(job_id)
                 if st:
                     st["status"] = "running"
-            outfile = _export_build_zip(p, png, only, dest, fmt)
+            outfile = _export_build_zip(p, png, only, dest, fmt, names)
             with _EXPORT_JOB_LOCK:
                 st = _EXPORT_JOBS.get(job_id)
                 if not st:
@@ -2522,10 +2560,10 @@ def export_job_file(pid: int, job_id: str):
 
 
 @app.get("/api/projects/{pid}/export")
-async def export(pid: int, png: int = 1, only: str = ""):
+async def export(pid: int, png: int = 1, only: str = "", names: str = ""):
     p = (await _db_call(load, pid))
     try:
-        data, fn = await asyncio.to_thread(_export_zip_payload, p, png, only, None)
+        data, fn = await asyncio.to_thread(_export_zip_payload, p, png, only, None, names)
     except HTTPException:
         raise
     except ValueError as e:

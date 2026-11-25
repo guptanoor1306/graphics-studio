@@ -640,16 +640,20 @@ body.nx .nx-ls.locked .nx-lk{display:grid;place-items:center;width:26px;height:2
 body.nx .nx-ls.locked .nx-lk svg.i{width:13px;height:13px}
 body.nx .nx-lkn{margin:0 0 10px;font-size:12.5px;line-height:1.5;color:var(--mute)}
 
-/* ---- Edit layers, one panel: layers + their settings on the left, frames under the canvas ---- */
-body.nx #editModeApp .edit-mode-grid{grid-template-columns:380px minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr) 150px}
-body.nx #editModeApp .edit-mode-side{grid-column:1;grid-row:1/3}
-body.nx #editModeApp .edit-mode-center{grid-column:2;grid-row:1}
-body.nx #editModeApp .edit-frame-strip{grid-column:2;grid-row:2;display:flex!important;align-items:stretch;gap:2px;overflow-x:auto;overflow-y:hidden;padding:0 8px}
+/* ---- Edit layers: canvas with the frames as a strip under it (like LA Studio's Layers), the layer panel on the right ---- */
+body.nx #editModeApp .edit-mode-grid{grid-template-columns:minmax(0,1fr) 380px!important;grid-template-rows:minmax(0,1fr) auto;column-gap:6px;row-gap:0}
+body.nx #editModeApp .edit-mode-side{grid-column:2;grid-row:1/3}
+body.nx #editModeApp .edit-mode-center{grid-column:1;grid-row:1;border-radius:14px 14px 0 0}
+body.nx #editModeApp .edit-frame-strip{grid-column:1;grid-row:2;display:flex!important;justify-content:safe center;align-items:center;gap:12px;overflow-x:auto;overflow-y:hidden;padding:12px 18px 14px;background:#FAFAFB;border-radius:0 0 14px 14px;scrollbar-width:thin}
 body.nx #editModeApp .edit-frame-strip .nx-elh{display:none}
-body.nx #editModeApp .edit-frame-strip .edit-frame-thumb{flex:none;width:168px;margin:10px 4px;padding:6px}
-body.nx #editModeApp .edit-frame-strip .edit-frame-thumb .mini-label{margin-top:5px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb{position:relative;flex:none;width:96px;margin:0;padding:0;border-radius:10px;background:none!important;box-shadow:none!important;transition:transform .18s ease}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb .mini-thumb{border-radius:10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06),0 0 0 1px var(--line)}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb:hover{transform:translateY(-1px)}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb.on{transform:scale(1.22);margin:0 10px;z-index:1}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb.on .mini-thumb{box-shadow:0 0 0 2px #FAFAFB,0 0 0 4px var(--accent)}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb .mini-label{position:absolute;left:4px;top:4px;margin:0;padding:0 5px;height:16px;line-height:16px;border-radius:5px;background:rgba(255,255,255,.92);font-size:10px;font-weight:600;color:var(--ink);box-shadow:0 0 0 .5px var(--line)}
 body.nx #editModeApp .edit-frame-strip.reel-strip .edit-frame-thumb{width:auto}
-body.nx #editModeApp .edit-frame-strip.reel-strip .mini-thumb{height:84px;aspect-ratio:9/16}
+body.nx #editModeApp .edit-frame-strip.reel-strip .mini-thumb{height:96px;aspect-ratio:9/16}
 /* layer rows: compact, with show/hide */
 body.nx .nx-lsh{min-height:48px;padding:6px 10px 6px 16px;gap:8px}
 body.nx .nx-lsh .ty{width:26px;height:26px;border-radius:7px}
@@ -682,3 +686,20 @@ body.nx .nx-seg.sm button{height:28px;width:30px;padding:0!important;display:gri
 body.nx .nx-seg.sm svg.i{width:14px;height:14px}
 body.nx .nx-insp .nx-rep .row{display:flex;justify-content:flex-end;padding:8px 12px}
 body.nx .nx-lfoot{display:flex;justify-content:flex-start;margin-top:12px}
+/* layer previews in the rows */
+body.nx .nx-lsh .ty.pv{width:34px;height:34px;border-radius:8px;background:#F2F2F5 repeating-conic-gradient(#ECECF0 0 25%,#F7F7F9 0 50%) 0 0/8px 8px;overflow:hidden;position:relative;box-shadow:inset 0 0 0 .5px var(--line)}
+body.nx .pv .pvi{position:absolute;inset:3px;background:center/contain no-repeat}
+body.nx .pv .pvt{font-size:15px;line-height:1;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;max-width:30px}
+body.nx .pv .pvt.dk{background:#3A3A3C;position:absolute;inset:0;display:grid;place-items:center}
+body.nx .pv .pvb{position:absolute;inset:8px 6px;border:1.5px solid transparent}
+body.nx .pv .pvs{position:absolute;inset:5px;display:block}
+body.nx .pv .pvs svg{display:block;width:100%;height:100%}
+/* smaller Replace and Edit with AI */
+body.nx .nx-rep.sm{border-radius:10px}
+body.nx .nx-rep.sm .nx-upl{padding:8px 8px 8px 8px;gap:10px;border-bottom:0}
+body.nx .nx-rep.sm .nx-upl .tile{width:30px;height:30px;border-radius:8px}
+body.nx .nx-rep.sm .nx-upl .tile svg.i{width:14px;height:14px}
+body.nx .nx-rep.sm .nx-upl .tx{flex:1}
+body.nx .nx-rep.sm .nx-upl .tx b{font-size:12.5px;font-weight:500;color:var(--ink-2)}
+body.nx .nx-ai.sm{flex-direction:row;align-items:center;gap:8px;padding:5px 6px 5px 12px;border-radius:10px}
+body.nx .nx-ai.sm textarea{min-height:0;height:24px;line-height:24px;font-size:13px;flex:1}

@@ -856,6 +856,22 @@ function frameTimes(gl) {
   const st = gl.map(g => g.lines[0]?.t ?? (g.x.f ? frameTimestampSec(g.x.f.id, P.storyboard) : null));
   return st.map((s, i) => ({ s, e: st.slice(i + 1).find(v => v != null) ?? (gl[i].lines.length ? gl[i].lines[gl[i].lines.length - 1].t + 4 : null) }));
 }
+/* each frame's file starts with the time it comes in and ends with its frame id ("1.53_<project>_tk4"): LA Studio's Edit on
+   video places it by the time in its name, and a storyboard sheet's frame id still finds it. A frame with no time keeps
+   "<project>_<id>". */
+const ID_IS_TIME = /^(?:\d{1,2}[.:])?\d{1,2}[.:]\d{2}(?=[._\- ]|$)/;
+function frameFileNames(ids, stem) {
+  const at = {};
+  try { const its = items(), G = groups(its), times = G.tk ? tkTimes(G, its) : frameTimes(G.list);
+    (G.tk ? its : G.list.map(g => g.x)).forEach((x, i) => { if (x && x.f && times[i] && times[i].s != null) at[String(x.f.id)] = times[i].s; }); } catch (_) {}
+  const safe = s => String(s).replace(/[^\w.-]+/g, '_');
+  return ids.map(id => {
+    const sec = at[id] ?? frameTimestampSec(id, P.storyboard);
+    const t = ID_IS_TIME.test(id) ? id.match(ID_IS_TIME)[0].replace(':', '.') : sec != null && !isNaN(sec) ? `${Math.floor(sec / 60)}.${String(Math.floor(sec % 60)).padStart(2, '0')}` : '';
+    return t ? `${t}_${stem}_${safe(id)}` : `${stem}_${safe(id)}`;
+  });
+}
+window.frameFileNames = frameFileNames;   // index.html's Export all names the zip's files the same way
 function selIndex(its) {
   if (S.phSel != null) { const k = its.findIndex(x => x.ph && x.k === S.phSel); if (k >= 0) return k; }
   const k = its.findIndex(x => x.f && x.f.id === selectedFrameId);
@@ -888,7 +904,7 @@ function framesView() {
        ${S.banner ? `<div class="nx-banner ${S.banner.cls}">${E(S.banner.text)}</div>` : ''}
        <div class="nx-big" id="nxBig">${bigInner}</div><div class="nx-cap" id="nxCap">${cap}</div></div></div>
        <button class="nx-nav l" data-step="-1" ${si > 0 ? '' : 'disabled'} aria-label="Previous frame" data-tip="Previous frame">${I('back')}</button><button class="nx-nav r" data-step="1" ${si < its.length - 1 ? '' : 'disabled'} aria-label="Next frame" data-tip="Next frame">${I('chev')}</button>`;
-  m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><div class="nx-topr" style="display:flex;gap:8px;align-items:center">${exportSplit()}${EMBED ? `<div class="nx-split"><button class="nx-btn primary" id="laSendBtn" data-layers ${studioFrames().length ? '' : 'disabled'} data-tip="LA Studio turns every frame into a layered PSD" class="tip-l">Make Layers</button><button class="nx-btn primary car" data-layersmenu ${studioFrames().length ? '' : 'disabled'} aria-label="Make layers for some frames" data-tip="Only some frames" class="tip-l">${I('down')}</button></div>` : ''}<button class="nx-ib" data-vmore aria-label="More" data-tip="More" class="tip-l">${I('more')}</button></div></div>
+  m.innerHTML = `<div class="nx-top">${topLeftHTML()}<span class="nx-sp"></span><div class="nx-topr" style="display:flex;gap:8px;align-items:center">${exportSplit()}${EMBED ? `<div class="nx-split"><button class="nx-btn primary" id="laSendBtn" data-layers ${studioFrames().length ? '' : 'disabled'} data-tip="Every frame goes to Animate as a layered PSD" class="tip-l">Send to Animate</button><button class="nx-btn primary car" data-layersmenu ${studioFrames().length ? '' : 'disabled'} aria-label="Send some frames to Animate" data-tip="Only some frames" class="tip-l">${I('down')}</button></div>` : ''}<button class="nx-ib" data-vmore aria-label="More" data-tip="More" class="tip-l">${I('more')}</button></div></div>
   <div class="nx-row" style="--lw:${S.lw}px">
     ${leftOn ? `<div class="nx-pan nx-left"><div class="nx-ph"><b>${head}</b><small>${nLines} lines · ${its.length} frames</small><button class="nx-ib" data-escript data-tip="Edit script">${I('pencil')}</button></div>${pdfRow}<div class="nx-lines" id="nxLines">${G.list.map(grp).join('')}</div><span class="nx-resz" data-resz></span></div>` : ''}
     <div class="nx-pan nx-mid"><div class="nx-stage"><div class="nx-vsw"><div class="nx-view"><button class="${S.strip === 'strip' ? 'on' : ''}" data-strip="strip" data-tip="One frame">${I('strip')}</button><button class="${S.strip === 'grid' ? 'on' : ''}" data-strip="grid" data-tip="All frames" class="tip-l">${I('grid')}</button></div></div>${stage}</div>
@@ -919,7 +935,7 @@ function framesView() {
     if (t.closest('[data-escript]')) return editScriptWin();
     if (t.closest('[data-repdf]')) return q1('#nxPdfIn').click();
     if (t.closest('[data-expall]')) return exp();
-    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', disabled: !cur?.f, run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }]);
+    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', disabled: !cur?.f, run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }, { label: 'Export storyboard CSV', icon: 'download', run: () => { location.href = `/api/projects/${P.id}/storyboard-instructions.csv`; } }]);
     if (t.closest('[data-layers]')) return makeLayers();
     if (t.closest('[data-layersmenu]')) { const n = studioFrames().length; return menu(t.closest('[data-layersmenu]'), [{ label: cur?.f ? `This frame (Frame ${cur.i + 1})` : 'This frame', icon: 'frame', disabled: !cur?.f, run: () => makeLayers([String(cur.f.id)]) }, { label: 'Choose frames…', icon: 'check', run: chooseLayerFrames }, '-', { label: `All ${n} frames`, icon: 'frames', run: () => makeLayers() }]); }
     if (t.closest('[data-vmore]')) return videoMenu(t.closest('[data-vmore]'));
@@ -1042,7 +1058,7 @@ function chooseLayerFrames() {
   const fs = studioFrames(), pick = new Set(selectedFrameId ? [String(selectedFrameId)] : []);
   const ver = id => frameVer[id] || 0;
   const w = win({
-    title: 'Make layers for some frames', ok: 'Make Layers', wide: true, text: 'Pick the frames LA Studio should turn into layered PSDs.',
+    title: 'Send some frames to Animate', ok: 'Send to Animate', wide: true, text: 'Pick the frames to animate. Each goes to Animate as a layered PSD.',
     body: `<div class="nx-lpick-h"><button class="nx-tbtn" data-lall>Select all</button><span class="nx-dim" data-lcount></span></div><div class="nx-lpick">${fs.map((f, i) => `<button type="button" class="nx-lpk${pick.has(String(f.id)) ? ' on' : ''}" data-lid="${E(f.id)}"><span class="im"><img loading="lazy" alt="" src="${thumbUrl(P.id, f.id, ver(f.id) + '_' + Math.round(P.updated_at || 0), 280)}"><i class="nx-ck">${I('check')}</i></span><span>Frame ${i + 1}</span></button>`).join('')}</div>`,
     onOk: async () => { if (!pick.size) { toast('Pick at least one frame', { err: true }); return false; } const order = fs.map(f => String(f.id)).filter(id => pick.has(id)); setTimeout(() => makeLayers(order), 0); },
   });
@@ -1050,7 +1066,7 @@ function chooseLayerFrames() {
     w.el.querySelectorAll('[data-lid]').forEach(b => b.classList.toggle('on', pick.has(b.dataset.lid)));
     w.el.querySelector('[data-lcount]').textContent = `${pick.size} of ${fs.length} picked`;
     w.el.querySelector('[data-lall]').textContent = pick.size === fs.length ? 'Deselect all' : 'Select all';
-    const ok = w.el.querySelector('[data-ok]'); ok.textContent = pick.size === fs.length ? 'Make Layers for all frames' : `Make Layers for ${pick.size} frame${pick.size === 1 ? '' : 's'}`; ok.disabled = !pick.size;
+    const ok = w.el.querySelector('[data-ok]'); ok.textContent = pick.size === fs.length ? 'Send all frames' : `Send ${pick.size} frame${pick.size === 1 ? '' : 's'}`; ok.disabled = !pick.size;
   };
   w.el.querySelector('.nx-wb').onclick = e => {
     const b = e.target.closest('[data-lid]'); if (b) { pick.has(b.dataset.lid) ? pick.delete(b.dataset.lid) : pick.add(b.dataset.lid); return sync(); }
@@ -1063,7 +1079,7 @@ async function makeLayers(only) {
   const btn = q1('#laSendBtn');
   const label = t => { if (btn) btn.textContent = t; };
   if (btn) btn.disabled = true;
-  const ids = (Array.isArray(only) && only.length ? only : P.spec.frames.map(f => String(f.id))), stem = laSlug(P.name);
+  const ids = (Array.isArray(only) && only.length ? only : P.spec.frames.map(f => String(f.id))), stem = laSlug(P.name), names = frameFileNames(ids, stem);
   try {
     if (P.theme === 'zero1-hindi-graphics') {   // characters in the scene plates get their own layer + a clean background
       label('Separating characters…');
@@ -1079,19 +1095,19 @@ async function makeLayers(only) {
       const r = await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(ids[i])}/export.html`, { cache: 'no-store' });
       if (r.status === 404 || r.status === 400) continue;
       if (!r.ok) throw new Error(`Frame ${i + 1}: ${await r.text()}`);
-      files.push(new File([await r.text()], `${stem}_${ids[i].replace(/[^\w.-]+/g, '_')}.html`, { type: 'text/html' }));
+      files.push(new File([await r.text()], `${names[i]}.html`, { type: 'text/html' }));
     }
     let csv = null; try { const r = await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`); if (r.ok) csv = new File([await r.blob()], `${stem}_storyboard-instructions.csv`, { type: 'text/csv' }); } catch (_) {}
     label('Finding the project…');
     const la = await laEnsureProject(P);
-    label('Sending to Layers…');
+    label('Sending to Animate…');
     await laPost('frames', { project: { id: P.id, name: P.name, theme: P.theme }, la, files, csv });
     try { await _api0(`/api/projects/${P.id}/sent-layers`, { method: 'POST' }); P.look = { ...P.look, sent_layers: Date.now() / 1000 }; } catch (_) {}
-    toast(`${files.length} frame${files.length === 1 ? '' : 's'} sent to Layers. Each becomes a layered PSD.`);
+    toast(`${files.length} frame${files.length === 1 ? '' : 's'} sent to Animate. Each becomes a layered PSD there.`);
     loadList();
-    if (inProject()) laPost('stage', { stage: 'psd' }).catch(() => {});
+    if (inProject()) laPost('stage', { stage: 'animate' }).catch(() => {});
   } catch (e) { toast(e.message || String(e), { err: true }); }
-  finally { label('Make Layers'); if (btn) btn.disabled = false; }
+  finally { label('Send to Animate'); if (btn) btn.disabled = false; }
 }
 addEventListener('keydown', e => {
   if (!P || editModeOpen || !studioFrames().length) return;
@@ -1142,7 +1158,7 @@ const nxRCL = function () {
     : '');
   if (!rows.length) { list.innerHTML = tools + `<div class="nx-lempty">${list.textContent.trim() ? E(list.textContent.trim()) : 'This frame has no layers to edit. Describe a change in Prompt, or regenerate it.'}</div>`; return; }
   const first = rows.find(r => !String(r.mfPath || '').startsWith('locked:'));
-  if (first && !rows.some(r => r.on) && !selectedCanvasLayer && !S.noAutoPick) {
+  if (false && first && !rows.some(r => r.on) && !selectedCanvasLayer && !S.noAutoPick) {   // rows start closed: a click opens one
     rendering = true; try { selectedCanvasLayer = { idx: first.idx, mfPath: first.mfPath }; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); } finally { rendering = false; }
     first.on = true;
   }
@@ -1151,16 +1167,19 @@ const nxRCL = function () {
   const curF = studioFrames().find(x => x.id === selectedFrameId);
   const words = (isTkProject() || curF?.tk_from) ? rows.map(r => ({ r, tx: textOf(r.mfPath) })).filter(w => w.tx != null && w.tx.trim()) : [];
   const wordsHTML = words.length ? `<div class="nx-words"><span class="lab">Text on this frame</span>${words.map(w => `<textarea data-wtext data-mf="${E(w.r.mfPath)}" rows="${Math.min(4, w.tx.split('\n').length)}" aria-label="${E(layerKind(w.r.label).name)}">${E(w.tx)}</textarea>`).join('')}<small>Type to change the words · Enter saves · Shift+Enter for a new line</small></div>` : '';
-  const LOCKED = { kit: 'Drawn by the kit. Make all layers editable to change it here, or describe the change in Prompt.', plate: 'The presenter photo: change it in Anchor frame.', decor: 'Kit decoration: move or remove it in Prompt.', background: 'The background of the frame.' };
+  const RANK = { Text: 0, Picture: 1, Shape: 2, Drawing: 3, Table: 4, Chart: 4, Block: 5, Layer: 5, Background: 9 };
+  const rk = r => { const t = layerKind(r.label).type, lk = /^locked:(?!kit)/.test(r.mfPath || ''); return (lk ? 20 : 0) + (RANK[t] ?? 6); };
+  rows.sort((a, b) => rk(a) - rk(b) || a.idx - b.idx);
+  const LOCKED = { kit: 'Drawn by the kit. Make all layers editable to change it here, or describe the change in Prompt.', plate: 'The presenter photo: change it in the Anchor tab.', decor: 'Kit decoration: move or remove it in Prompt.', background: 'The background of the frame.' };
   list.innerHTML = tools + wordsHTML + rows.map(r => {
     const k = layerKind(r.label), key = r.idx + '|' + (r.mfPath || ''), f = repFiles[key];
     const lk = /^locked:(.*)$/.exec(r.mfPath || '');
     if (lk && lk[1] !== 'kit') return `<div class="nx-ls locked${r.on ? ' open' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath)}">
-      <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><span class="nx-lk" aria-label="Locked">${I('lock')}</span></div>
+      <div class="nx-lsh" data-open><span class="ty pv">${layerPreview(inspEl(r), k)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><span class="nx-lk" aria-label="Locked">${I('lock')}</span></div>
       ${r.on ? `<div class="nx-lsb"><p class="nx-lkn">${E(LOCKED[lk[1]] || LOCKED.kit)}</p></div>` : ''}</div>`;
     const el = inspEl(r), hid = !!(el && el.dataset.psdHidden), nm = (el && el.getAttribute('aria-label')) || k.name;
     return `<div class="nx-ls${r.on ? ' open' : ''}${hid ? ' hid' : ''}${lk ? ' kit' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
-      <div class="nx-lsh" data-open><span class="ty">${I(k.icon)}</span><span class="nm" data-lname data-tip="Double-click to rename"><b>${E(k.type)}</b> · <span class="nmv">${E(nm)}</span></span><button class="nx-ib" data-leye data-tip="${hid ? 'Show' : 'Hide'} this layer" class="tip-l" aria-label="${hid ? 'Show' : 'Hide'} layer">${I(hid ? 'eyeoff' : 'eye')}</button><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
+      <div class="nx-lsh" data-open><span class="ty pv">${layerPreview(el, k)}</span><span class="nm" data-lname data-tip="Double-click to rename"><b>${E(k.type)}</b> · <span class="nmv">${E(nm)}</span></span><button class="nx-ib" data-leye data-tip="${hid ? 'Show' : 'Hide'} this layer" class="tip-l" aria-label="${hid ? 'Show' : 'Hide'} layer">${I(hid ? 'eyeoff' : 'eye')}</button><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
       ${r.on ? inspectorHTML(r, el, f) : ''}</div>`;
   }).join('');
 };
@@ -1194,6 +1213,31 @@ function layerSort(el) {
   if (el.matches('svg') || el.querySelector('svg')) return 'drawing';
   return 'box';
 }
+/* a small picture of the layer for its row: the picture itself, the words in their font and colour, the shape's fill */
+function layerPreview(el, k) {
+  if (!el) return I(k.icon);
+  try {
+    const w = el.ownerDocument.defaultView, cs = w.getComputedStyle(el), sort = layerSort(el);
+    const url = v => { const m = /url\(["']?([^"')]+)["']?\)/.exec(v || ''); return m ? m[1] : ''; };
+    if (sort === 'picture') {
+      const im = el.matches('img') ? el : el.querySelector('img'), src = im ? (im.currentSrc || im.src) : url(cs.backgroundImage);
+      if (src) return `<span class="pvi" style="background-image:url('${src.replace(/'/g, '%27')}')"></span>`;
+    }
+    if (sort === 'text') {
+      const c = cs.color, light = (() => { const m = c.match(/\d+/g); return m && (+m[0] * .3 + +m[1] * .59 + +m[2] * .11) > 200; })();
+      return `<span class="pvt${light ? ' dk' : ''}" style="font-family:${E(cs.fontFamily)};font-weight:${cs.fontWeight};color:${c}">${E((el.innerText || 'Aa').trim().slice(0, 2) || 'Aa')}</span>`;
+    }
+    if (sort === 'drawing') {
+      const sv = el.matches('svg') ? el : el.querySelector('svg');
+      if (sv && sv.outerHTML.length < 30000) { const c = sv.cloneNode(true); c.removeAttribute('style'); c.setAttribute('width', '100%'); c.setAttribute('height', '100%'); c.setAttribute('preserveAspectRatio', 'xMidYMid meet'); return `<span class="pvs">${c.outerHTML}</span>`; }
+    }
+    if (sort === 'box' || sort === 'drawing') {
+      const bg = cs.backgroundColor, bc = parseFloat(cs.borderTopWidth) ? cs.borderTopColor : 'transparent', r = Math.min(8, parseFloat(cs.borderTopLeftRadius) / 6 || 0);
+      return `<span class="pvb" style="background:${bg};border-color:${bc};border-radius:${r}px"></span>`;
+    }
+  } catch (_) {}
+  return I(k.icon);
+}
 function inspectorHTML(r, el, f) {
   askLaFonts();
   if (!el) return `<div class="nx-lsb"><p class="nx-lkn">Loading this layer…</p></div>`;
@@ -1213,9 +1257,8 @@ function inspectorHTML(r, el, f) {
     <div class="nx-irow">${col('color', 'Text colour', hex(cs.color))}</div>`;
   h += `<span class="lab">Position and size</span><div class="nx-irow">${num('x', 'X', rc.left)}${num('y', 'Y', rc.top)}${num('w', 'W', rc.width)}</div>`;
   if (sort === 'box' || sort === 'text') h += `<span class="lab">Fill and stroke</span><div class="nx-irow">${col('fill', 'Fill', hex(cs.backgroundColor))}${col('stroke', 'Stroke', bc)}${num('strokeW', 'W', bw, 'px')}</div>`;
-  if (sort === 'picture' || sort === 'drawing') h += `<span class="lab">Replace with an image</span><div class="nx-rep"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b><small>${f ? 'Click to choose another' : 'PNG, JPG or SVG'}</small></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin></div>
-    <div class="row"><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Replace</button></div></div>`;
-  h += `<span class="lab">Edit with AI</span><div class="nx-ai"><textarea data-ai rows="2" aria-label="Edit with AI" placeholder="Describe the change"></textarea><div class="row"><small>Enter to apply</small><button class="nx-tbtn off" data-aiapply>Apply</button></div></div>
+  if (sort === 'picture' || sort === 'drawing') h += `<span class="lab">Replace with an image</span><div class="nx-rep sm"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Replace</button></div></div>`;
+  h += `<span class="lab">Edit with AI</span><div class="nx-ai sm"><textarea data-ai rows="1" aria-label="Edit with AI" placeholder="Describe the change, then Enter"></textarea><button class="nx-tbtn off" data-aiapply>Apply</button></div>
     <div class="nx-lfoot"><button class="nx-tbtn" data-lreset data-tip="This layer as it was when you opened the frame">Reset layer</button></div></div>`;
   return h;
 }
@@ -1344,7 +1387,7 @@ function bindLayerPanel() {
     if (t.closest('[data-lname]') && L.s.classList.contains('open')) return;   // the name of the open layer: double-click renames it
     if (t.closest('[data-open]')) { if (L.s.classList.contains('open')) { S.noAutoPick = true; selectedCanvasLayer = null; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); renderCanvasLayerList(); S.noAutoPick = false; } else selectCanvasLayer(L.idx, L.mfPath); return; }
     if (t.closest('[data-rmimg]')) { e.stopPropagation(); const f = repFiles[L.key]; if (f) URL.revokeObjectURL(f.url); delete repFiles[L.key]; return renderCanvasLayerList(); }
-    if (t.closest('[data-upl]') && !t.closest('[data-repin]')) return L.s.querySelector('[data-repin]').click();
+    if (t.closest('[data-upl]') && !t.closest('[data-repin]') && !t.closest('[data-repapply]')) return L.s.querySelector('[data-repin]').click();
     if (t.closest('[data-ltextapply]')) return layerText(L);
     if (t.closest('[data-aiapply]')) { const ta = L.s.querySelector('[data-ai]'); const v = ta.value.trim(); if (!v) return ta.focus(); ta.value = ''; return layerAsk(L, v); }
     if (t.closest('[data-repapply]')) { const f = repFiles[L.key]; const note = L.s.querySelector('[data-repnote]').value.trim(); if (!f) { toast('Pick an image to replace this layer with'); return L.s.querySelector('[data-repin]').click(); } return layerAsk(L, note, f.file); }
@@ -1556,7 +1599,7 @@ function decorateEdit() {
   const side = app.querySelector('.edit-mode-side');
   if (!side.querySelector('.nx-etabs')) {
     const tabs = document.createElement('div'); tabs.className = 'nx-etabs nx-ui';
-    tabs.innerHTML = `<button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="prompt">Prompt</button><button data-etab="anchor" id="nxTabAnc">Anchor frame</button><button data-etab="script">Script</button>`;
+    tabs.innerHTML = `<button data-etab="layers">Layers <span class="nx-cnt">0</span></button><button data-etab="prompt">Prompt</button><button data-etab="anchor" id="nxTabAnc">Anchor</button><button data-etab="script">Script</button>`;
     side.insertBefore(tabs, side.firstChild);
     const sc = document.createElement('div'); sc.id = 'nxSecScript'; sc.className = 'nx-escr nx-ui'; sc.hidden = true;
     tabs.after(sc);
@@ -1599,7 +1642,7 @@ function editTopBar() {
     if (t.closest('[data-ehome]')) return goHomeNx();
     if (t.closest('[data-ech]')) { const id = chOfP().id; exitEditMode().then(() => openChannel(id)); return; }
     if (t.closest('[data-expall]')) return exp();
-    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }]);
+    if (t.closest('[data-expmenu]')) return menu(t.closest('[data-expmenu]'), [{ label: 'Export this frame', icon: 'frame', run: () => expFrame() }, { label: 'Export all frames', icon: 'frames', run: () => exp() }, { label: 'Export storyboard CSV', icon: 'download', run: () => { location.href = `/api/projects/${P.id}/storyboard-instructions.csv`; } }]);
     if (t.closest('[data-resetall]')) return resetAll();
   };
 }
@@ -1615,7 +1658,7 @@ function stripDecor() {
   const G = groups(fs.map((f, k) => ({ f, i: k }))), times = frameTimes(G.list);
   $$('.edit-frame-thumb', el).forEach(t => {
     const i = fs.findIndex(f => f.id === t.dataset.fid), lab = t.querySelector('.mini-label');
-    if (lab && i >= 0) lab.textContent = `Frame ${i + 1}${times[i]?.s != null ? ' · ' + mmss(times[i].s) : ''}`;
+    if (lab && i >= 0) { lab.textContent = String(i + 1); t.title = `Frame ${i + 1}${times[i]?.s != null ? ' · ' + mmss(times[i].s) : ''}`; }
   });
   if (!el.querySelector('.nx-elh')) { const h = document.createElement('div'); h.className = 'nx-elh nx-ui'; el.insertBefore(h, el.firstChild); }
   el.querySelector('.nx-elh').innerHTML = `<b>Frames</b><small>${fs.findIndex(f => f.id === selectedFrameId) + 1} of ${fs.length}</small>`;
@@ -1673,10 +1716,26 @@ const nxRP = function () {
   block.hidden = !presenterSlots.length;
   renderAnchorSection();
   const lab = s => { const l = String(s.label || ''); return /right/i.test(l) ? 'Presenter · on right' : /left/i.test(l) ? 'Presenter · on left' : /centre|center/i.test(l) ? 'Presenter · in the centre' : 'Presenter · ' + l.toLowerCase(); };
-  host.innerHTML = `<div class="nx-anc">${q1('#anchorFrameCtl')?.innerHTML.trim() ? '<hr style="margin-top:0">' : ''}<div class="hd" style="margin-bottom:0"><b>Presenter photos</b></div><p>Replace the stock photo with a video frame across all instances. The change will apply to all frames.</p>
+  const fr = P?.spec?.frames?.find(f => f.id === selectedFrameId);
+  const own = isZoProduct() && fr && (fr.mode || 'fss') !== 'fss' && !P.look?.toolkit;
+  const plate = String(fr?.plate || P?.look?.plate || 'centre'), oslot = /left/.test(plate) ? 'left' : /right/.test(plate) ? 'right' : 'centre';
+  const ownHTML = own ? `<div class="hd" style="margin-bottom:0"><b>This frame</b></div><p>Use a different anchor photo in this frame only.</p>
+    <div class="nx-prow"><img src="${fr.plate_own ? `/themes/${E(P.theme)}/assets/${E(fr.plate_own)}` : E((presenterSlots.find(x => x.slot === oslot) || {}).src || '')}" alt="" loading="lazy"><div class="tx"><b>${fr.plate_own ? 'Own photo' : 'Same as the video'}</b><small>Frame ${studioFrames().findIndex(f => f.id === fr.id) + 1}</small></div>
+      <label class="nx-tbtn" style="cursor:pointer">Upload<input type="file" accept="image/*" hidden data-ownanc="${oslot}"></label>${fr.plate_own ? '<button class="nx-tbtn grey" data-ownundo>Use the video’s</button>' : ''}</div><hr>` : '';
+  host.innerHTML = `<div class="nx-anc">${q1('#anchorFrameCtl')?.innerHTML.trim() ? '<hr style="margin-top:0">' : ''}${ownHTML}<div class="hd" style="margin-bottom:0"><b>${own ? 'All frames' : 'Presenter photos'}</b></div><p>Replace the stock photo with a video frame across all instances. The change will apply to all frames.</p>
     ${presenterSlots.map(s => `<div class="nx-prow"><img src="${E(s.src)}" alt="" loading="lazy"><div class="tx"><b>${E(lab(s))}</b><small>${s.count} frame${s.count === 1 ? '' : 's'}</small></div>
       <label class="nx-tbtn" style="cursor:pointer">Change<input type="file" accept="image/*" hidden data-still="${E(s.slot)}"></label>${s.custom ? `<button class="nx-tbtn grey" data-stundo="${E(s.slot)}">Undo</button>` : ''}</div>`).join('')}</div>`;
   host.onchange = async e => {
+    const oa = e.target.closest('[data-ownanc]');
+    if (oa) {          // this frame's own anchor photo
+      const f = oa.files[0]; if (!f) return;
+      if (!/^image\//.test(f.type)) { oa.value = ''; return toast("That file couldn't be used (an image only)", { err: true }); }
+      const fd = new FormData(); fd.append('slot', oa.dataset.ownanc); fd.append('file', f); fd.append('fid', String(selectedFrameId)); fd.append('scope', 'frame');
+      setEditLoading(true);
+      try { const r = await fetch(`/api/projects/${P.id}/presenter`, { method: 'POST', body: fd }); if (!r.ok) { let m = await r.text(); try { m = JSON.parse(m).detail || m; } catch (_) {} throw new Error(m); } presenterRefreshAll(await r.json()); toast('This frame now uses your photo', { undo: () => undoFrameEdit() }); }
+      catch (er) { toast('Could not use that picture: ' + (er.message || er), { err: true }); } finally { setEditLoading(false); oa.value = ''; }
+      return;
+    }
     const i = e.target.closest('[data-still]'); if (!i) return;
     const f = i.files[0]; if (!f) return;
     if (!/^image\//.test(f.type)) { i.value = ''; return toast("That file couldn't be used (an image only)", { err: true }); }
@@ -1684,7 +1743,9 @@ const nxRP = function () {
     await uploadPresenter(i.dataset.still, i);
     if ((presenterSlots.find(x => x.slot === s?.slot) || {}).custom) toast(`${lab(s).replace('Presenter · ', 'Presenter ')} now uses your still`);
   };
-  host.onclick = async e => { const u = e.target.closest('[data-stundo]'); if (u) { await resetPresenter(u.dataset.stundo); toast('The kit photo is back'); } };
+  host.onclick = async e => {
+    if (e.target.closest('[data-ownundo]')) { setEditLoading(true); try { presenterRefreshAll(await api(`/api/projects/${P.id}/frames/${encodeURIComponent(selectedFrameId)}/anchor`, { method: 'DELETE' })); toast('This frame uses the video’s photo again'); } catch (er) { toast(er.message || String(er), { err: true }); } finally { setEditLoading(false); } return; }
+    const u = e.target.closest('[data-stundo]'); if (u) { await resetPresenter(u.dataset.stundo); toast('The kit photo is back'); } };
 };
 /* keyboard with a layer picked: typing goes into Edit with AI; Delete removes it; Esc deselects */
 addEventListener('keydown', e => {
@@ -1975,7 +2036,7 @@ window.nxBoot = async function () {
   const _open = openEditMode;
   openEditMode = fid => { S.etab = 'layers'; window.nxZoom = 1; selectedCanvasLayer = null; _open(fid); decorateEdit(); editCaption(); stripDecor(); };
   const _sel = selectEditFrame;
-  selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); if (S.etab === 'script') scriptTab(); } };
+  selectEditFrame = fid => { selectedCanvasLayer = null; _sel(fid); if (q1('#editModeApp .nx-ui')) { editTopBar(); editCaption(); stripDecor(); ancTabVisible(); try { renderPresenter(); } catch (_) {} if (S.etab === 'script') scriptTab(); } };
   const _strip = buildEditFrameStrip;
   buildEditFrameStrip = () => { _strip(); stripDecor(); };
   const _exit = exitEditMode;
