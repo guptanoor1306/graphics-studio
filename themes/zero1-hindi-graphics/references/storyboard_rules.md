@@ -43,7 +43,8 @@ Use this table **after** `storyboarding_method.md` Pass 3 (literalise → morph/
 | Comparing 3+ options | OPTION board per option + ✅/❌ lists → HUB with values | V3 Ch-3 |
 | Doing arithmetic | CALC (equation → answer swaps in red), or a hung TABLE with rows revealing | Worried Arjun beside |
 | Showing a breakdown of costs | EXPLODE (object split into parts with ₹ labels) or TABLE | |
-| Showing a list of rules / features | SIGN placards, CHECKLIST clipboard, CALLOUT pills on an aerial, ID TAG fields | Never bullets on a plain slide |
+| Showing a list of rules / features | SIGN placards, CHECKLIST clipboard (kit `checklist`), CALLOUT pills on an aerial, ID TAG fields | Never bullets on a plain slide; never a generated clipboard |
+| Showing rent / a flat / a home | CUTAWAY dollhouse with hanging price boards | Same house reused across the comparison beats |
 | Citing a study / report / news | SRC article card (re-typeset, highlight the line read), NEWS-WALL, NEWSPAPER spread | Re-typeset, don't screenshot. Show source + date. If you don't have the real sentence, write a close paraphrase and mark it `VERIFY: replace with exact quote + date` in the storyboard |
 | Telling history | TL / TL-SPINE: vertical line, red dot, Impact year, a cut-out scene per stop | Timeline moves = new year state |
 | Describing a process / chain | FLOW (A → B → C objects with arrows) | |
@@ -53,6 +54,11 @@ Use this table **after** `storyboarding_method.md` Pass 3 (literalise → morph/
 | Crisis / risk | red flood / red tint, notices stuck on the house, storm | |
 | Plugging another video / product | UI frame (YouTube / phone), SCREEN CAPTURE beat | Mark `SCREEN` |
 | Showing a real website / app step | SCREEN CAPTURE (not designed) | Mark `SCREEN` in the storyboard |
+
+## 4b. Data frames (tile grids, expense trackers, dots)
+- **Keep the house backdrop**: `bg: "sky"` (paper sky) or the scene the beat happens in; a data frame on bare paper looks like the background went missing.
+- **One idea per frame**: the grid/dots, its title tag, the one value the VO says, and Arjun. No invented side panels, mini-collages, pinned photo cards or stamps beside it.
+- Anything else on the frame must be a line the VO says **in this beat**, as a kit layer (hang tag, sticker tag, red Impact number), with the exact number. Next beat's numbers go on the next frame.
 
 ## 5. Arjun rules
 - Arjun is the viewer's proxy, and every abstract number happens **to him**: his tag, his salary, his flat, his necklace. Put him in or imply him in most frames.

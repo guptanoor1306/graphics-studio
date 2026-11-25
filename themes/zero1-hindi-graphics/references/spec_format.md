@@ -52,7 +52,7 @@
 | `hangtags` | `tags`: [{`x` (centre), `y` (card top), `kicker`, `title`, `size`, `color`, `w`}]: price tags (no kicker, black Impact) or boards (kicker + red Impact) |
 | `placards` | `items`: [{`text`, `x` (centre), `y` (top), `rot`, `size`, `w`, `stake`}] |
 | `checklist` | `title`, `items` [..], `checked` n, `x`,`y`,`w`, `photo` ref, `photo_pos` [x,y,w] |
-| `sop` | `items`: [{`n`, `kicker`, `title`, `img`, `x`,`y`, `w` 230, `rot`, `text_pos`, `size`}] + layers (Arjun / "?") |
+| `sop` | `items`: [{`n`, `kicker`, `title`, `img`, `x`,`y`, `w` 230, `rot`, `text_pos`, `size`}], `qmark` (picture ref — use the previous frame's `bg`; the kit draws the house shard "?" from it), `qmark_pos` [x, y, height] (default [810, 200, 640]) + layers (Arjun) |
 | `news_wall` | `items`: [{`source`, `headline`, `x`,`y`,`w`,`size`}] (auto-staggers if x/y omitted) |
 | `article` | `source`, `title`, `body`, `highlight` (exact substring of body), `date`, `mount` hung\|plain, `x`,`y`,`w`, `title_size` 52, `body_size` 34 |
 | `calc` | `equation` + `answer` ("?" or "₹50 Lakh") + `pos` [x,y] (give x so the equation stays put when the answer swaps; x=0 centres it); or `lines` [{`l`:"Current value", `r`:"= ₹1.48 Lakhs", `color`}] + `pos` [x,y] + `size` |

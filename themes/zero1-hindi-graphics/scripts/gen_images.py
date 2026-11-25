@@ -19,7 +19,7 @@ Output: gen/<key>.png next to spec.json — 16:9 plates cover-cropped to 1920x10
 background removed (flood fill from the border, no extra dependency). A log is written to gen/_gen_log.json.
 Only the Python standard library + Pillow are needed.
 """
-import argparse, base64, io, json, os, sys, time, uuid, urllib.request, urllib.error
+import argparse, base64, io, json, os, re, sys, time, uuid, urllib.request, urllib.error
 from collections import deque
 from pathlib import Path
 from PIL import Image
@@ -35,6 +35,23 @@ DEFAULT_STYLE_REFS = ["asset:theme/theme_01_office_deal.jpg", "asset:theme/theme
 ARJUN_SHEET = "asset:characters/arjun_canonical_sheet.jpg"   # head + neck + torso = ONE block, tall proportions
 ARJUN_REF = {"city": "asset:characters/arjun_city_neutral.png", "kerala": "asset:characters/arjun_kerala_neutral.png",
              "andhra": "asset:characters/arjun_andhra_neutral.png", "meghalaya": "asset:characters/arjun_meghalaya_neutral.png"}
+# Frames the team called out as just right (2026-11-25): dollhouse cut-away rooms. Used as extra style refs for
+# interiors / houses / flats so new ones keep that look.
+CUTAWAY_REFS = ["asset:theme/approved_cutaway_1bhk.jpg", "asset:theme/approved_cutaway_2bhk.jpg"]
+INDIA_MAP_REF = "asset:maps/india_map_wood_AP_highlight.png"
+# Arjun's body, word for word, so close-ups and full shots never drift (team feedback 2026-11-25: changed face,
+# a human hand, thin legs).
+ARJUN_BODY = ("ARJUN'S BODY IS FIXED, exactly as on the character sheet: one tall rectangular light-wood block for head, "
+              "neck and torso; small oval black eyes; spiky black cut-paper hair on top; red paper tunic with a V collar and "
+              "one front pocket; arms are segmented light-wood blocks ending in rounded C-shaped wooden toy hands (no "
+              "fingers, no nails, never a human hand); two THICK square light-wood leg blocks, each about a third of the "
+              "torso's width, as long as on the sheet, with grey shoes. Same proportions in every shot and from every angle. "
+              "In a close-up of only his hand, it is still that wooden C-shaped toy hand coming out of a red sleeve. ")
+MAP_NOTE = ("Any map of India (or part of it) must have India's exact outline as in the map reference, with EVERY state "
+            "border drawn as a thin line, even when only one state is highlighted. A city map shows that city's real shape; "
+            "never invent a coastline or country outline. ")
+_CUTAWAY_WORDS = ("cutaway", "cut-away", "cross-section", "dollhouse", "doll house", "bhk", "flat interior", "apartment",
+                  "rooms side by side", "house interior")
 REF_NOTE = ("Reference images: the first images show the exact visual style to match (handcrafted stop-motion paper-craft "
             "diorama, matte textured paper surfaces, earthy muted colours, warm window light, shallow depth of field). "
             "{arjun}Match their materials, palette, lighting and camera feel; do not copy their layout or any text in them. "
@@ -69,15 +86,22 @@ def img_bytes(path, max_side=1024):
 def build_request(key, g, spec):
     prompt, aspect = build.prompt_text(key, g, spec.get("arjun", "city"))
     refs = list(g.get("refs") or DEFAULT_STYLE_REFS)
+    low = (prompt or "").lower()
+    extra = ""
+    if any(w in low for w in _CUTAWAY_WORDS):
+        refs += [r for r in CUTAWAY_REFS if r not in refs]
+    if re.search(r"\b(maps?|naksha)\b", low):
+        refs.append(INDIA_MAP_REF)
+        extra += MAP_NOTE
     has_arjun = g.get("arjun") is not None
     if has_arjun or g.get("people"):
         refs.append(ARJUN_SHEET)
     if has_arjun:
         refs.append(ARJUN_REF.get(g.get("arjun") or spec.get("arjun", "city"), ARJUN_REF["city"]))
     paths = [p for p in (resolve(r) for r in refs) if p]
-    note = REF_NOTE.format(arjun=("The character sheet shows the body every person must have: head, neck and torso are ONE "
+    note = extra + REF_NOTE.format(arjun=("The character sheet shows the body every person must have: head, neck and torso are ONE "
                                   "wooden block, no separate neck. The last image is the main character ARJUN: keep his "
-                                  "face, block body, cut-paper hair and costume exactly. ") if has_arjun else
+                                  "face, block body, cut-paper hair and costume exactly. " + ARJUN_BODY) if has_arjun else
                            ("The character sheet shows the body every person must have: head, neck and torso are ONE "
                             "wooden block, no separate neck. ") if g.get("people") else "")
     return {"key": key, "prompt": note + prompt, "aspect": aspect, "refs": [str(p) for p in paths], "cutout": bool(g.get("cutout"))}

@@ -29,7 +29,8 @@ Every code below has original frames on the labelled contact sheets `frames/_atl
 | WORD-FX | one giant word ("Lekin!", "SALARY?", "₹2 Crore"), red Impact or red italic, can sit behind buildings | `word` | no | WORD-FX__v2_6 |
 | PIVOT | red Impact "But…" + Bricolage line, Arjun close-up beside | `word` with `kicker`/`sub`, or `stat` | char | PIVOT__v3_25 |
 | SOP | numbered polaroids (coloured frame, black number badge) + kicker + Impact phrase, around Arjun or a "?" | `sop` | polaroid photos | SOP__v2_8, SOP__v3_5-6-7 |
-| QMARK | the previous frame cut into shards that form a giant "?" | `scene` with a gen/edited plate, or mark `DESIGNER` | designer/edit | QMARK__v1_6 |
+| QMARK | the previous frame cut into flat shards that form a giant "?" (white gaps, thin black lines, outline; never a 3D or sculpted "?") | `sop` with `qmark` = the previous frame's picture (the kit cuts the shards); alone: `sop` with no items | no | QMARK__v1_6, SOP__v2_8 |
+| CUTAWAY | dollhouse cross-section of a flat/house: rooms side by side, Arjun inside, cream price boards hanging above ("1 BHK / ₹36,000/month") — team favourite, Nov 2026 | `scene` + gen plate (cutaway prompt) + `hangtags` | plate | `assets/theme/approved_cutaway_*.jpg` |
 | TAG | hanging ID tag (NAME / AGE / SALARY / INFO / STATE) above each Arjun; unknown = red "?" | `idtag` | no | TAG__v1_3-4-5 |
 | PRICE-TAGS | cream tags on strings hanging over buildings ("₹3 Crore") | `hangtags` | plate | PRICE-TAGS__v2_13 |
 | OPTION | hanging board "Option-N / NAME" + two objects with ✅/❌ lists | `compare` (or `hangtags`) | object cut-outs | OPTION__v3_36 |

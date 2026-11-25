@@ -16,7 +16,11 @@ The PSD layer names show the team generates Arjun plates in **Magnific (Freepik)
 | Nose / mouth | none by default. Add a mouth/brows **only** for an expression beat |
 | Hair | layered **black cut-paper / cardstock fringe**; women: long black cut-paper hair, bun or braids, flowers for festive |
 | Limbs | separate small wooden blocks with visible joints; chunky C-shaped wooden hands; wooden legs (city) or legs under cloth; **grey-silver block shoes**; tall proportions (never short/squat) |
+| Hands | **always the rounded C-shaped wooden toy hand**, no fingers, no nails, never a human or realistic wooden hand, **also in a close-up of only his hand** (holding a phone, a note): the toy hand coming out of a red paper sleeve |
+| Legs | **two thick square wooden blocks**, each about a third of the torso's width, as long as on the sheet. Never thin sticks, never shorter than the sheet: the legs must look as solid as the upper body |
 | Clothes | textured paper, regionally correct |
+
+**Arjun never changes between frames** (team feedback, Nov 2026: a different-looking Arjun in a wide shot, a human hand in a phone close-up, thin legs under a heavy torso). The generator sends the canonical sheet + the variant cut-out and spells his body out in every request. When a storyboard PDF styleframe is the first reference, only its layout, camera and pose are copied, never how it draws Arjun. Check every Arjun plate against `arjun_canonical_sheet.jpg` (face, hair, hands, legs, proportions) and regenerate any that drift.
 
 **Variants (keep costume fixed for the whole episode):**
 - `city`: brick-red #A4403B cut-paper V-neck shirt with a front pocket, worn like a tunic (canonical sheet)
@@ -28,6 +32,11 @@ The PSD layer names show the team generates Arjun plates in **Magnific (Freepik)
 **Expressions** (`expr`): neutral · worried (raised brows, down-turned small mouth, hand scratching head) · happy (small smile) · thinking (hand on chin) · aged (grey fringe + grey moustache) · crying (glossy drops under eyes + small smile).
 
 **Side characters** (family, jeweller, loan officer, guard, crowd) use the **same wooden-block model**: moustache for older men, saree/mundu/jainsem for women, uniform for a guard. Every past episode slipped here (Lego-minifig guard, smooth-faced loan officer, plastic crowd), so say "same wooden-block figure style as Arjun" in the prompt.
+
+## Props and maps
+- **Every prop is paper craft** like the rest of the set: matte kraft, cork-like paper, card, cut paper. No glossy plastic boards, chrome or photo-real objects. A clipboard, checklist or form is the kit's `checklist` (kraft board, black clip, textured paper sheet), never a generated one.
+- **India maps are always geographically correct with every state border** drawn as a thin line, even when one state is highlighted. Use the kit maps first (`assets/maps/`, plates `v1_7-8`, `v2_1`, `v1_INDIAMAP`). When a map has to be generated, the generator adds the kit map as a reference automatically; keep the word "map" in the prompt. A city map (Mumbai, Noida) shows the city's real shape; never an invented coastline or country outline.
+- **Interiors and flats:** the approved look is the dollhouse cut-away (`assets/theme/approved_cutaway_*.jpg`): the house sliced open from the front, rooms side by side, furniture in matte paper and wood, Arjun sitting inside, cream price boards hanging on strings above. Prompts with cutaway / dollhouse / BHK / flat / apartment get those two frames as extra references.
 
 ## Writing a `gen` prompt
 Describe **what is in the frame and where**, not the style (the build appends style + character bible):
