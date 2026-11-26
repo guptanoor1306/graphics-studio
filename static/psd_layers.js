@@ -78,6 +78,9 @@
       if (r && path && (it.kind !== 'page' || pageBg)) {
         el.dataset.mfPath = r.base + '>' + path;
         if (!pageBg) el.classList.add('studio-editable');
+        if (!pageBg && getComputedStyle(el).pointerEvents === 'none') {   // a small kit decoration (a dot, a little circle) that ignored clicks: it can be picked now
+          const q = el.getBoundingClientRect(); if (q.width * q.height < 0.04 * innerWidth * innerHeight) el.style.pointerEvents = 'auto';
+        }
         if (it.kind === 'text' && !el.children.length && window.studioInline) {
           window.studioInline(el, () => window.parent.postMessage({ studio: 'inline', mfPath: el.dataset.mfPath, outer: el.outerHTML }, '*'));
         }

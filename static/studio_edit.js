@@ -952,7 +952,21 @@
     document.addEventListener("input", again, true);
   }
 
+  /* keys for the page around the frame (Delete, Esc, ⌘C / ⌘G / ⌘E / ⌘Z): after a click on a layer the focus is in here, and the page never heard them */
+  let keysOn = false;
+  function forwardKeys() {
+    if (keysOn) return; keysOn = true;
+    document.addEventListener("keydown", (e) => {
+      const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const mod = e.metaKey || e.ctrlKey, k = (e.key || "").toLowerCase();
+      if (!(e.key === "Delete" || e.key === "Backspace" || e.key === "Escape" || (mod && ["c", "g", "e", "z", "d"].includes(k)))) return;
+      if (e.key === "Delete" || e.key === "Backspace" || (mod && ["g", "e", "z", "d"].includes(k))) e.preventDefault();
+      try { window.parent.postMessage({ studio: "key", key: e.key, meta: e.metaKey, ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey }, "*"); } catch (_) {}
+    }, true);
+  }
+
   function bootLayers() {
+    forwardKeys();
     lastBoundsSig = "";
     followChanges();
     tagHtmlBlocks();

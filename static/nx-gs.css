@@ -73,9 +73,9 @@ body.nx-embed #nxSide{display:none}
 
 /* tooltips: data-tip on anything */
 [data-tip]{position:relative}
-[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);background:#1D1D1F;color:#fff;font:500 12px/1.4 var(--font);padding:5px 9px;border-radius:7px;white-space:nowrap;z-index:200;pointer-events:none;max-width:320px;white-space:normal;width:max-content}
-[data-tip].tip-l:hover::after{left:auto;right:0;transform:none}
-[data-tip].tip-up:hover::after{top:auto;bottom:calc(100% + 6px)}
+body:not(.nx-tipjs) [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);background:#1D1D1F;color:#fff;font:500 12px/1.4 var(--font);padding:5px 9px;border-radius:7px;white-space:nowrap;z-index:200;pointer-events:none;max-width:320px;white-space:normal;width:max-content}
+body:not(.nx-tipjs) [data-tip].tip-l:hover::after{left:auto;right:0;transform:none}
+body:not(.nx-tipjs) [data-tip].tip-up:hover::after{top:auto;bottom:calc(100% + 6px)}
 
 /* menus */
 .nx-menu{position:absolute;z-index:120;background:#fff;border-radius:12px;box-shadow:var(--shadow-2);padding:6px;min-width:200px}
@@ -743,3 +743,22 @@ body.nx .fchat-box{flex-wrap:wrap!important}
 body.nx .fchat-box textarea{flex:1 1 100%!important;min-width:0}
 body.nx .fchat-box .fchat-row{flex:1 1 100%;justify-content:flex-end;flex-wrap:nowrap;min-width:0}
 body.nx .fchat-box .fchat-row #editRefLabel,body.nx .fchat-box .fchat-row .nx-refchip{min-width:0;max-width:calc(100% - 80px);margin-right:auto}
+
+/* export / download in progress: one full-screen veil saying what is happening */
+#nxBusy{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(245,245,247,.8);backdrop-filter:blur(2px);font:500 14px/1.4 var(--font);color:#1D1D1F}
+#nxBusy[hidden]{display:none}
+#nxBusy .nx-spin{width:28px;height:28px;border-radius:50%;border:3px solid #E5E5EA;border-top-color:#0071E3;animation:nxspin .8s linear infinite}
+@keyframes nxspin{to{transform:rotate(360deg)}}
+/* the one floating tooltip (nx-gs.js): above every panel, never cut off, kept inside the window */
+#nxTip{position:fixed;z-index:10000;max-width:300px;width:max-content;padding:5px 9px;border-radius:7px;background:#1D1D1F;color:#fff;font:500 12px/1.4 var(--font);pointer-events:none;opacity:0;transition:opacity .12s}
+#nxTip.on{opacity:1}
+/* Fill and stroke row: fill · stroke · width always fit the panel (the swatches stay small, a long colour code is cut with …) */
+body.nx .nx-irow:has(> .nx-cf + .nx-cf){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 76px;flex-wrap:nowrap}
+body.nx .nx-irow > .nx-cf{min-width:0}
+body.nx .nx-irow > .nx-nf{min-width:0}
+body.nx .nx-cf span{font-size:11.5px;color:var(--faint);flex:none}
+body.nx .nx-cf b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;font-size:12.5px}
+body.nx .nx-cf input[type=color]{width:22px!important;height:22px!important;min-width:22px;min-height:0!important;max-height:22px;-webkit-appearance:none;appearance:none}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch{border:1px solid #E5E5EA;border-radius:6px}
+body.nx .nx-cf input[type=color]::-moz-color-swatch{border:1px solid #E5E5EA;border-radius:6px}

@@ -2763,6 +2763,7 @@ function renderParentCanvasChips(layers){
 function clearParentOverlayDom(){lastCanvasChipSig='';const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
 function clearParentCanvasChips(){clearParentOverlayDom();selectedCanvasLayer=null}
 function selectEditFrame(fid){
+ if(fid!==selectedFrameId)window.clearToasts?.();
  selectedFrameId=fid;
  clearParentCanvasChips();
  document.querySelectorAll('.edit-frame-thumb').forEach(t=>t.classList.toggle('on',t.dataset.fid===fid));

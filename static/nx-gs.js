@@ -74,7 +74,9 @@ const fsize = b => !b ? '' : b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 102
 function toast(msg, { undo, err, ms } = {}) {
   let host = q1('.nx-toasts');
   if (!host) { host = document.createElement('div'); host.className = 'nx-toasts'; document.body.appendChild(host); }
-  const t = document.createElement('div');
+  [...host.children].forEach(o => { if (o._msg === String(msg)) o.remove(); });   // the same news again (each nudge of X, each frame): one toast, not a stack
+  while (host.children.length >= 3) host.firstElementChild.remove();              // at most three at a time
+  const t = document.createElement('div'); t._msg = String(msg);
   t.className = 'nx-toast' + (err ? ' err' : '');
   t.innerHTML = `<i class="tk">${I(err ? 'x' : 'check')}</i><span>${E(msg)}</span>${undo ? '<button class="nx-tbtn" data-u>Undo</button>' : ''}<button class="x" aria-label="Close">${I('x')}</button>`;
   const close = () => t.remove();
@@ -84,6 +86,8 @@ function toast(msg, { undo, err, ms } = {}) {
   setTimeout(close, ms || (undo ? 8000 : err ? 9000 : 4500));
   return close;
 }
+function clearToasts() { q1('.nx-toasts')?.querySelectorAll('.nx-toast:not(.err)').forEach(t => t.remove()); }   // another frame: the last one's news goes
+window.clearToasts = clearToasts; window.nxAddTextDirect = (...a) => addTextDirect(...a); window.nxToast = (...a) => toast(...a);
 let menuEl = null;
 function closeMenu() { if (menuEl) { menuEl._btn?.setAttribute('aria-expanded', 'false'); menuEl.remove(); menuEl = null; } }
 function menu(btn, items, { right = true, html } = {}) {
@@ -1179,6 +1183,11 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { const b = q1(`[data-step="${e.key === 'ArrowLeft' ? -1 : 1}"]`); if (b && !b.disabled) { e.preventDefault(); b.click(); } }
 });
 
+addEventListener('message', e => {           // a key pressed while the frame has the focus (a layer was just clicked): Delete, Esc, ⌘C, ⌘G, ⌘E, ⌘Z act as if pressed here
+  const d = e.data; let own = false; try { own = !!(e.source && e.source.frameElement && document.contains(e.source.frameElement)); } catch (_) {}
+  if (!d || d.studio !== 'key' || !editModeOpen || !own) return;
+  const ev = new KeyboardEvent('keydown', { key: String(d.key || ''), metaKey: !!d.meta, ctrlKey: !!d.ctrl, shiftKey: !!d.shift, altKey: !!d.alt, bubbles: true, cancelable: true }); ev.fromFrame = true; dispatchEvent(ev);
+});
 addEventListener('message', e => { if (e.data && e.data.studio === 'drag-state') document.body.classList.toggle('nx-dragging', !!e.data.on); });   // the outlines hide while a layer is dragged, and come back where it lands
 addEventListener('keydown', e => {            // edit mode: ⌘G groups the picked layers
   if (!editModeOpen || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'g' || e.shiftKey) return;
@@ -1350,7 +1359,10 @@ function layerPreview(el, k) {
 }
 function inspectorHTML(r, el, f) {
   askLaFonts();
-  if (!el) return `<div class="nx-lsb"><p class="nx-lkn">Loading this layer…</p></div>`;
+  if (!el) {   // the frame is still loading (just made editable, or another frame): look again shortly instead of staying here
+    S.inspTry = (S.inspTry || 0) + 1; if (S.inspTry <= 8) { clearTimeout(S.inspT); S.inspT = setTimeout(() => { if (editModeOpen) renderCanvasLayerList(); }, 500); }
+    return `<div class="nx-lsb"><p class="nx-lkn">${S.inspTry > 8 ? 'This layer could not be read. Click another layer, then this one again.' : 'Loading this layer…'}</p></div>`; }
+  S.inspTry = 0;
   const cs = el.ownerDocument.defaultView.getComputedStyle(el), rc = el.getBoundingClientRect(), sort = layerSort(el);
   const fam = (cs.fontFamily || '').split(',')[0].replace(/["']/g, '').trim();
   const fams = [...new Set([fam, ...(laFontList || []), ...FONT_BASE].filter(Boolean))];
@@ -1771,6 +1783,24 @@ async function pasteLayer() {
   const r = await askFrame(fid, `Add this element, copied from frame ${c.fno}, to this frame. Keep its words, numbers and look exactly; place it where it fits without covering other content, at a similar position if there is room.\nElement: ${what}`, { quiet: true });
   if (r?.ok) toast(`Pasted "${c.label.slice(0, 40)}" into frame ${fno}`, { undo: () => undoFrameEdit() }); else if (r) toast(r.error || 'Paste did not work', { err: true });
 }
+/* a new text layer written straight into the frame, in the style of the frame's own text (the largest for a heading, the most common for
+   body, the smallest for a note): no AI, so it shows at once */
+async function addTextDirect(fid, tx, where, size) {
+  const d = selectedFrameId === fid && frameDoc(); if (!d || !d.body) return false;
+  const w = d.defaultView, W = w.innerWidth || 1920, H = w.innerHeight || 1080;
+  const texts = [...d.body.querySelectorAll('*')].filter(el => { if (el.closest('#studio-overlay,.studio-chip,svg,script,style')) return false;
+    if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return false; const r = el.getBoundingClientRect(), cs = w.getComputedStyle(el);
+    return r.width > 4 && r.height > 4 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0.2; }).map(el => ({ el, cs: w.getComputedStyle(el), fs: parseFloat(w.getComputedStyle(el).fontSize) || 0 }));
+  if (!texts.length) return false;
+  const bySize = [...texts].sort((a, b) => a.fs - b.fs), count = {}; texts.forEach(t => { count[t.fs] = (count[t.fs] || 0) + (t.el.textContent || '').length; });
+  const common = +Object.keys(count).sort((a, b) => count[b] - count[a])[0];
+  const pick = size === 'heading' ? bySize[bySize.length - 1] : size === 'small' ? (bySize.find(t => t.fs >= 14) || bySize[0]) : (texts.find(t => t.fs === common) || bySize[Math.floor(bySize.length / 2)]);
+  const cs = pick.cs, fs = Math.round(size === 'heading' ? Math.max(pick.fs, 44) : size === 'small' ? Math.min(Math.max(pick.fs, 16), 28) : Math.max(Math.min(pick.fs, 44), 20));
+  const top = Math.round(H * ({ top: 0.08, middle: 0.44, bottom: 0.8 }[where] || 0.8)), left = Math.round(W * 0.08);
+  const style = `position:absolute;left:${left}px;top:${top}px;width:${Math.round(W * 0.84)}px;margin:0;box-sizing:border-box;font-family:${cs.fontFamily};font-size:${fs}px;font-weight:${size === 'heading' ? Math.max(600, +cs.fontWeight || 600) : cs.fontWeight};line-height:1.25;letter-spacing:${cs.letterSpacing};color:${cs.color};text-align:${where === 'middle' ? 'center' : 'left'};white-space:pre-wrap;z-index:5`;
+  const outer = `<div style="${style.replace(/"/g, "'")}">${E(tx)}</div>`;
+  return pasteOuter({ outer, fid: null, pid: P.id, label: 'Text' }, fid);
+}
 function addTextWin(prefill = '') {
   const fid = selectedFrameId, fno = studioFrames().findIndex(f => f.id === fid) + 1; if (!fid) return;
   let where = 'bottom', size = 'body';
@@ -1784,6 +1814,7 @@ function addTextWin(prefill = '') {
     onOk: async m => {
       const tx = m.querySelector('#nxAddTx').value.trim(); if (!tx) { m.querySelector('#nxAddTx').focus(); return false; }
       setTimeout(async () => {
+        try { if (await addTextDirect(fid, tx, where, size)) { toast(`Text added to frame ${fno}`, { undo: () => undoFrameEdit() }); return; } } catch (_) {}   // straight into the frame (a second, no AI); AI only if that can't be done
         const st = { heading: 'as a heading (large, bold)', body: 'as body text', small: 'as a small note / caption' }[size];
         const r = await askFrame(fid, `Add ONE new text layer with exactly this text: "${tx}". Put it at the ${where} of the frame, ${st}, in this kit's text style, without moving or covering the other layers. Change nothing else.`, { quiet: true });
         if (r?.ok) toast(`Text added to frame ${fno}`, { undo: () => undoFrameEdit() }); else if (r) toast(r.error || 'Adding the text did not work', { err: true });
@@ -2002,7 +2033,7 @@ const nxRP = function () {
 /* keyboard with a layer picked: typing goes into Edit with AI; Delete removes it; Esc deselects */
 addEventListener('keydown', e => {
   if (!editModeOpen || q1('.nx-modal')) return;
-  const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || a.tagName === 'IFRAME')) return;
+  const a = document.activeElement; if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) || (a.tagName === 'IFRAME' && !e.fromFrame))) return;
   if (!selectedCanvasLayer) return;
   if (e.key === 'Escape') { selectedCanvasLayer = null; S.noAutoPick = true; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); renderCanvasLayerList(); S.noAutoPick = false; return; }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') { const s = q1('.nx-ls.open'); if (s) { e.preventDefault(); copyLayer(layerOf(s)); } return; }
@@ -2265,9 +2296,13 @@ window.nxBoot = async function () {
     const mf = L.mfPath ? ` data-mf-path="${E(L.mfPath)}"` : '';
     const B = (act, tip, icon) => `<button type="button" data-act="${act}" data-idx="${L.idx}"${mf} title="${tip}"><svg viewBox="0 0 16 16">${IC[icon]}</svg></button>`;
     chip.innerHTML = `<span class="cl">${E(layerKind(L.label).name || 'Layer')}</span><span class="ca">${B('edit', 'Edit this layer with AI', 'pencil')}${B('replace', 'Replace with an image', 'regen')}${B('copy', 'Copy this layer (⌘C)', 'copy')}${B('delete', 'Delete this layer', 'trash')}</span>`;
-    let y = top - 40; if (y < 4) y = top + Math.max(20, h) + 8;
-    chip.style.top = y + 'px'; chip.style.left = Math.max(4, left) + 'px';
     host.appendChild(chip);
+    /* above the layer, unless that is under the canvas toolbar (undo · Regenerate · zoom) or off the top: then under it; never past the right edge */
+    const vp = q1('#canvasEditViewport'), tb = q1('.nx-etools .nx-tools'), hr = host.getBoundingClientRect();
+    const barBottom = tb ? tb.getBoundingClientRect().bottom - hr.top + 6 : 4, cw = chip.offsetWidth || 180, W = (vp ? vp.clientWidth : host.clientWidth) || 1200;
+    let y = top - 40; const x = Math.max(4, Math.min(left, W - cw - 8));
+    if (y < 4 || (y < barBottom && x < (tb ? tb.getBoundingClientRect().right - hr.left : 0) && x + cw > (tb ? tb.getBoundingClientRect().left - hr.left : 0))) y = top + Math.max(20, h) + 8;
+    chip.style.top = y + 'px'; chip.style.left = x + 'px';
   };
   renderHomeMain = () => { if (!P) renderList(); };
   renderSidebar = () => {};
@@ -2278,7 +2313,10 @@ window.nxBoot = async function () {
   laStartPanel = laProjectStart;
   frameLabel = fid => 'Frame ' + (Math.max(0, studioFrames().findIndex(f => f.id === fid)) + 1);
   selectFrame = fid => { selectedFrameId = fid; S.phSel = null; render(); };
-  setWorkspaceLoading = (on, msg) => { S.bg = on ? (msg || 'Working…') : ''; if (P && !editModeOpen) updateDock(); };
+  setWorkspaceLoading = (on, msg) => { S.bg = on ? (msg || 'Working…') : ''; if (P && !editModeOpen) updateDock();
+    const full = on && /export|download|zip/i.test(msg || '');   // an export / download: a full-screen veil so it is clear something is downloading
+    let v = q1('#nxBusy'); if (full && !v) { v = document.createElement('div'); v.id = 'nxBusy'; v.innerHTML = '<div class="nx-spin"></div><span></span>'; document.body.appendChild(v); }
+    if (v) { v.hidden = !full; if (full) v.querySelector('span').textContent = msg; } };
   showBg = s => { S.bg = s.state === 'running' ? (s.msg || 'Working…') : ''; if (P && !editModeOpen) updateDock(); };
   hideBg = () => { S.bg = ''; if (P && !editModeOpen) updateDock(); };
   const _bump = bumpFrame;
@@ -2323,4 +2361,31 @@ window.nxBoot = async function () {
   allProjects = S.list || [];
   if (!P) renderList();
 };
+})();
+
+/* tooltips: one floating box for every data-tip (and title: the browser's own waits ~2 s and looks different), shown after 250 ms,
+   placed under the thing (above it near the bottom), always inside the window - never cut off by a panel's edge */
+(() => {
+  document.body.classList.add('nx-tipjs');
+  let tip = null, at = null, timer = 0;
+  const box = () => tip || (tip = Object.assign(document.createElement('div'), { id: 'nxTip', role: 'tooltip' }), document.body.appendChild(tip), tip);
+  const hide = () => { clearTimeout(timer); at = null; if (tip) tip.classList.remove('on'); };
+  const show = el => {
+    const t = el.getAttribute('data-tip'); if (!t || !document.contains(el)) return;
+    const b = box(); b.textContent = t; b.style.left = '0px'; b.style.top = '0px';
+    const r = el.getBoundingClientRect(), w = b.offsetWidth, h = b.offsetHeight, W = innerWidth, H = innerHeight;
+    let x = r.left + r.width / 2 - w / 2, y = r.bottom + 6;
+    if (el.classList.contains('tip-up') || y + h > H - 6) y = r.top - h - 6;
+    x = Math.max(6, Math.min(W - w - 6, x)); y = Math.max(6, y);
+    b.style.left = x + 'px'; b.style.top = y + 'px'; b.classList.add('on');
+  };
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest && e.target.closest('[data-tip],[title]'); if (el === at) return; hide(); if (!el || el.closest('svg') && !el.closest('button,a')) return;
+    if (el.matches('.canvas-parent-layer-outline,.canvas-parent-resize-handle')) { el.removeAttribute('title'); return; }   // the outlines on the canvas: no tooltip over the picture
+    if (el.hasAttribute('title')) { const t = el.getAttribute('title'); el.removeAttribute('title'); if (t && !el.hasAttribute('data-tip')) el.setAttribute('data-tip', t); }
+    if (!el.getAttribute('data-tip')) return;
+    at = el; timer = setTimeout(() => { if (at === el) show(el); }, 250);
+  }, true);
+  document.addEventListener('mouseout', e => { if (at && !(e.relatedTarget && at.contains(e.relatedTarget))) hide(); }, true);
+  ['mousedown', 'scroll', 'keydown', 'blur'].forEach(k => addEventListener(k, hide, true));
 })();
