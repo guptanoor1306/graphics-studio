@@ -130,6 +130,7 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
         rels = (
             "SKILL.md",
             "references/spec_format.md",
+            "references/m4_futures_patterns.md",
             "references/storyboard_rules.md",
             "references/assets.md",
             "examples/example_spec.json",

@@ -1375,7 +1375,7 @@ function inspectorHTML(r, el, f) {
     return `<div class="nx-lsb"><p class="nx-lkn">${S.inspTry > 8 ? 'This layer could not be read. Click another layer, then this one again.' : 'Loading this layer…'}</p></div>`; }
   S.inspTry = 0;
   const rc = el.getBoundingClientRect(); let sort = layerSort(el), tel = el;
-  if (sort === 'box' || sort === 'block') { const lf = textLeaf(el); if (lf && el.querySelectorAll('*').length <= 8) { sort = 'text'; tel = lf; } }   // its words in an inner element: still a text layer
+  if (sort === 'box' || sort === 'block' || sort === 'drawing') { const lf = textLeaf(el); if (lf && el.querySelectorAll('*').length <= 8) { sort = 'text'; tel = lf; } }   // its words in an inner element: still a text layer
   const cs = el.ownerDocument.defaultView.getComputedStyle(tel), bcs = el.ownerDocument.defaultView.getComputedStyle(el);
   const fam = (cs.fontFamily || '').split(',')[0].replace(/["']/g, '').trim();
   const fams = [...new Set([fam, ...(laFontList || []), ...FONT_BASE].filter(Boolean))];

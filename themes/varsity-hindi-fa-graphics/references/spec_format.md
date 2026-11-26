@@ -45,7 +45,10 @@ Canvas 1920×1080. Coordinates in px. Elements draw in list order (later = in fr
 **logo** `{"type":"logo","name":"SBIN"|"State Bank of India"|"nse","x","y","h":80,"align","card":true}`: every named company/organisation shows its real logo (listed companies by NSE/BSE ticker or name; institutions from `assets/logos/<name>.svg`). Missing → dashed placeholder + warning.
 
 **osa** (the only layout for content beside the presenter) `{"type":"osa","header":"Hedging","kind":"quote|list|tags|formula|calc|text", …}`
-- fixed positions: header at (120, 250), block at (120, 370), width 820. Same spot every frame.
+- fixed positions: header at (120, 250), block at (120, 420), width 820. Same spot every frame.
+- the header is the **window heading** (white card, black outline, blue band, − × tab), readable on any footage; `"hstyle": "plain"` for the old bold black words (only on a light plate).
+- the block is a frosted light card with dark words on every series, so it reads on dark studio footage too.
+- `"checks": true` on a list puts a blue tick on every item (recap: "Futures Terminology" at the end of the episode).
 - `list`: `items` as text or `{"text","icon"}`; icon = asset path, `logo:<name>` or `prop:<kind>`; no icon → numbered badge. `active` highlights the item being read.
 - `tags`: `items: [{"label","value"}]` (price tags, key facts). `quote`: `text`. `formula` / `calc`: same fields as `card`.
 - the theme follows `series` (futures = dark glass card + white header with a blue bar).
@@ -58,6 +61,7 @@ Canvas 1920×1080. Coordinates in px. Elements draw in list order (later = in fr
 - `box`: white rounded box ("Option-Based Valuation", pie titles).
 - `label`: light-blue block ("Intrinsic Valuation").
 - `glass`: big glass title card with `w` ("EBITDA Margin of\nBajaj Auto", "Valuation Ratios").
+- `window`: the window heading of the OSA block, for full-screen frames too ("Match the Following", "Contract Months", "Quick Question", "Up Next"); top-left at (120, 140), size 58.
 
 **pill** `{"type":"pill","text","x","y","italic":true,"bold"?,"size":32,"tilt"?,"active"?,"faded"?,"arrow_to":[x,y],"arrow_from":[x,y],"bend":0.3}`
 Italic name label on scenes; `"italic":false,"bold":true` for word chips. `arrow_to` draws a hand-drawn arrow (negative `bend` curves the other way).
@@ -107,5 +111,15 @@ Use real `points` whenever the script gives numbers; `trend` only for illustrati
 **module** `{"type":"module","module":"Module 3","chapters":[4 titles],"current":2,"start":1}` chapter page.
 
 **takeaways** `{"type":"takeaways","title":"Key\nTakeaways","items":[…]}` (frame `mode: takeaways`, `floor:false`).
+
+**quiz** `{"type":"quiz","x":220,"y":300,"w":860,"question","options":[…],"answer":1|null,"timer":5,"note"?}` question to the viewer with A / B options. State 1: no `answer`, a `timer` box, note "Comment your answer". State `_b`: `answer` = index of the right option (yellow + tick, note "Correct answer: B"), no timer.
+
+**match** `{"type":"match","x":120,"y":300,"left":[…],"right":[…],"left_title":"Situation","right_title":"Answer","pairs":[[0,1],[1,0]]|null,"timer":5,"left_w":600}` match the following: numbered left rows, lettered right rows. State 1: no `pairs`, a `timer`. State `_b`: `pairs` (rows yellow, crossing lines, ticks, "Answer: 1 → B · 2 → A").
+
+**monthcards** `{"type":"monthcards","x":300,"y":330,"cw":230,"items":[{"month":"November","tag":"Near month","state":"active"|"expired"|"new"}]}` contract months (calendar card per month, pill under it). Show the roll-over in states: October expires (`expired`), January is added (`new`), the near month is `active`.
+
+**episodes** `{"type":"episodes","items":["Episode 1","Episode 2","Episode 3"],"current":1,"lamp":true}` series page / next-episode page: tilted glass cards on a dashed arc under a hanging lamp, the current card lit ("Up Next": `["Episode 2","Episode 3\nFutures Pricing","Coming Soon"]`).
+
+**magnify** `{"type":"magnify","x":960,"y":180,"word":"FUTURES","focus":3,"tag":"SBIN OCT FUT","caption":"FUT = Futures contract","lens":true}` a big word with a magnifier on its first `focus` letters (blue): decoding a ticker or an abbreviation. `_b` state: `"lens": false`.
 
 **html** escape hatch: `{"type":"html","x","y","w","html":"…"}`, palette colours only (the build warns).

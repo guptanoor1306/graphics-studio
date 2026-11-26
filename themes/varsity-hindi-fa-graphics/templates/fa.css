@@ -200,3 +200,65 @@ b{font-weight:800}
 .darkcard .otag{background:rgba(255,255,255,.1);box-shadow:none}.darkcard .otag .ol{color:#cfd6df}
 /* overlay render: transparent */
 html.overlay,html.overlay body,#stage.overlay{background:transparent!important}
+
+/* ---- beside the presenter (OSA), the look of the M4 Futures episode: readable on any footage ---- */
+.osa-win{background:#fff;border:3px solid #1d1d1d;border-radius:18px;padding:22px 40px 52px;box-shadow:0 12px 28px rgba(20,50,90,.16);white-space:normal;max-width:880px;letter-spacing:0}
+.osa-win .vh-text{line-height:1.08}
+.osa-win .vh-text{position:relative;display:block;font-size:58px;font-weight:700;line-height:1;color:#111}
+.osa-win .vh-band{position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(180deg,#78B2FF 0%,#3F86EE 60%,#2F7CF6 100%);border-top:3px solid #1d1d1d;border-radius:0 0 15px 15px}
+.osa-win .vh-tab{position:absolute;top:-22px;right:22px;background:#fff;border:3px solid #1d1d1d;border-radius:4px;padding:4px 8px;display:flex;align-items:center;font-style:normal}
+.osa-win .vh-tab svg{display:block}
+.darkcard{background:rgba(255,255,255,.55);border:2px solid rgba(255,255,255,.9);color:#111;box-shadow:0 20px 50px rgba(20,50,90,.18);backdrop-filter:blur(14px)}
+.darkcard .oic{background:rgba(255,255,255,.75)}
+.darkcard .oic .num{color:#2F7CF6}
+.darkcard .orow.on{color:#111;background:#F5D36B;border-radius:10px}
+.darkcard .otag{background:rgba(255,255,255,.6)}.darkcard .otag .ol{color:#333}
+.osa-list .oic{flex:0 0 84px;width:84px;height:84px;border-radius:18px}
+.osa-list .oic img{max-width:70px;max-height:70px}.osa-list .oic svg{width:66px;height:66px}
+.osa-list .orow{margin:6px 0}
+.osa-list .orow .vh-ck{width:34px;height:34px;margin-left:auto;flex:none}
+/* quiz / match: white option rows, blue A·B·1·2 badges, the right answer yellow with a tick, a countdown box and a note pill */
+.vh-quiz,.vh-match{font-family:Inter,sans-serif;color:#111}
+.vh-q{font-size:40px;font-weight:700;line-height:1.25;margin-bottom:26px}
+.vh-opt,.vh-mrow{display:flex;align-items:center;gap:20px;background:rgba(255,255,255,.85);border:2px solid #fff;border-radius:16px;padding:16px 20px;margin-bottom:22px;font-size:30px;font-weight:600;box-shadow:0 10px 24px rgba(20,50,90,.10)}
+.vh-opt.on,.vh-mrow.on{background:#F5D36B;border-color:#F5D36B}
+.vh-badge{flex:none;width:46px;height:46px;border-radius:12px;background:#2F7CF6;color:#fff;font-weight:800;font-size:26px;display:flex;align-items:center;justify-content:center}
+.vh-otx{flex:1;line-height:1.25}
+.vh-opt .vh-ck{width:40px;height:40px;flex:none}
+.vh-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.vh-note{background:#fff;border-radius:999px;padding:10px 22px;font-size:24px;font-weight:700;box-shadow:0 6px 16px rgba(20,50,90,.12)}
+.vh-timer{width:96px;height:96px;border:4px solid #2F7CF6;border-radius:18px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:56px;font-weight:800;color:#111}
+.vh-match{display:grid;grid-template-columns:var(--lw) var(--cg) auto;align-items:start}
+.vh-match .vh-mcol.r{grid-column:3}
+.vh-match .vh-mt{font-size:20px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#444;height:44px}
+.vh-match .vh-mrow{height:var(--rh);margin-bottom:var(--gap);padding:0 20px;font-size:26px;line-height:1.2}
+.vh-match .vh-mlines{position:absolute;top:0}
+.vh-match .vh-mticks{position:absolute;right:-60px;top:44px;display:flex;flex-direction:column;gap:calc(var(--rh) + var(--gap) - 40px);padding-top:calc((var(--rh) - 40px) / 2)}
+.vh-match .vh-mticks .vh-ck{width:40px;height:40px}
+.vh-match .vh-foot{grid-column:1 / 4}
+/* contract months: calendar cards, Near / Next / Far month pills, EXPIRED stamp, NEW badge */
+.vh-months{display:flex;align-items:flex-start}
+.vh-month{position:relative;display:flex;flex-direction:column;align-items:center;gap:22px}
+.vh-mcard{position:relative;width:100%;aspect-ratio:1/1.05;background:rgba(255,255,255,.8);border:2px solid #fff;border-radius:22px;box-shadow:0 16px 36px rgba(20,50,90,.14);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.vh-mcard img{width:46%}
+.vh-mcard b{font-size:34px;font-weight:700}
+.vh-month.expired .vh-mcard{opacity:.55;filter:grayscale(1)}
+.vh-stamp{position:absolute;top:34%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);border:3px solid #1d1d1d;border-radius:8px;background:#fff;padding:4px 12px;font:800 24px Inter,sans-serif;font-style:normal;letter-spacing:.04em}
+.vh-new{position:absolute;top:-16px;right:-10px;z-index:2;background:#F5D36B;border-radius:8px;padding:3px 10px;font:800 18px Inter,sans-serif;font-style:normal}
+.vh-mpill{background:#fff;border-radius:999px;padding:8px 22px;font-size:22px;font-weight:700;box-shadow:0 6px 16px rgba(20,50,90,.12)}
+.vh-month.active .vh-mpill{background:#F5D36B}
+/* episodes: tilted glass cards on a dashed arc under a lamp */
+.vh-eps .vh-lamp{position:absolute;width:280px}
+.vh-eps .vh-arc{position:absolute}
+.vh-ep{position:absolute;width:250px;height:190px;border-radius:24px;background:linear-gradient(160deg,#6EA8FF,#2F7CF6);border:6px solid rgba(255,255,255,.75);box-shadow:0 24px 50px rgba(20,60,140,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#0c2a66;opacity:.8}
+.vh-ep.on{width:300px;height:230px;color:#0c2a66;opacity:1;box-shadow:0 30px 70px rgba(20,60,140,.35),0 0 0 8px rgba(255,255,255,.5)}
+.vh-ep b{font-size:34px;font-weight:800;text-align:center;line-height:1.1}
+.vh-ep i{width:90px;height:16px;border-radius:9px;background:#fff}
+/* magnified word: blue first letters, chips above and below */
+.vh-mag{display:flex;flex-direction:column;align-items:center;gap:30px}
+.vh-word{font-weight:900;letter-spacing:-.02em;line-height:1;color:#1d1d1d}
+.vh-word .b{color:#2F7CF6}
+.vh-wordw{position:relative}
+.vh-lens{position:absolute;z-index:2}
+.vh-mag .vh-chip{position:relative;z-index:3}
+.vh-chip{background:#fff;border-radius:999px;padding:10px 24px;font-size:26px;font-weight:700;color:#111;box-shadow:0 6px 16px rgba(20,50,90,.12)}

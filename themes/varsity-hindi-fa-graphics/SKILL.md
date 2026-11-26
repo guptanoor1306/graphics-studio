@@ -12,7 +12,8 @@ The VO is Hinglish; **everything on screen is English**. You deliver (1) a story
 ## Read first (token budget)
 1. This file, `references/storyboard_rules.md` (the graphic/footage decision) and `references/spec_format.md`.
 2. Look at `references/style_at_a_glance.jpg`, `references/characters_poses.png` (the six characters, poses, expressions) and `references/drawn_props.png` once.
-3. `references/assets.md` when choosing characters/props. `references/style_guide.md` if unsure about a look. `references/video_breakdowns.md` (4 episodes studied) only for an unfamiliar beat. `examples/example_spec.json` to copy a frame pattern.
+3. For Futures and other OSA-heavy episodes, `references/m4_futures_patterns.md` (the approved M4 look: window headings, quiz, match the following, month cards, magnified word, episode cards) and its two sheets.
+4. `references/assets.md` when choosing characters/props. `references/style_guide.md` if unsure about a look. `references/video_breakdowns.md` (4 episodes studied) only for an unfamiliar beat. `examples/example_spec.json` to copy a frame pattern.
 Never hand-write full HTML pages: write one `spec.json` and build.
 
 ## Step 1: Setup

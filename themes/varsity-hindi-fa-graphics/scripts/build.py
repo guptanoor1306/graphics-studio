@@ -162,6 +162,9 @@ def el_header(e, fid):
         return f'<div class="el hdr-box" style="{pos_font(e, size or 56)}">{md(t)}</div>'
     if s == "label":        # light-blue label block (Ep 9)
         return f'<div class="el hdr-label" style="{pos_font(e, size or 40)}">{md(t)}</div>'
+    if s == "window":       # the M4 Futures heading: white window card, blue band, − × tab (any frame; reads on any footage)
+        return (f'<div class="el osa-h osa-win" style="{pos(e)}"><span class="vh-text" style="font-size:{size or _win_size(t)}px">{md(t)}</span>'
+                f'<i class="vh-band"></i><i class="vh-tab">{_TAB_SVG}</i></div>')
     if s == "glass":        # big glass title card (Ep 8 2.16 / 6.20)
         return f'<div class="el glass hdr-glass" style="{pos_font(e, size or 84)}">{md(t)}</div>'
     warn(fid, f"unknown header style {s}")
@@ -701,6 +704,84 @@ def el_logo(e, fid):
     return f'<div class="{cls}" style="{pos({**e, "h": None})}">{inner}</div>'
 
 OSA_X, OSA_HDR_Y, OSA_Y, OSA_W = 120, 250, 370, 820
+_TAB_SVG = '<svg width="46" height="18" viewBox="0 0 46 18" fill="none" stroke="#1d1d1d" stroke-width="2.6" stroke-linecap="round"><path d="M3 9h11M30 3l11 12M41 3 30 15"/></svg>'
+def _win_size(t):   # the window heading steps down for long words, then wraps (it stays left of the presenter)
+    n = max(len(x) for x in re.sub(r"[*=^_]", "", str(t)).split("\n"))
+    return 58 if n <= 22 else 50 if n <= 28 else 44
+_CHECK_SVG = '<svg class="vh-ck" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#2F7CF6"/><path d="M11 20.5l6 6 12-13" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+# ---------------------------------------------------------------- the M4 Futures episode's elements (quiz, match, month cards, episodes, magnifier)
+def _timer(e):
+    return f'<div class="vh-timer">{int(e["timer"])}</div>' if e.get("timer") else ""
+def _note(text):
+    return f'<div class="vh-note">{md(text)}</div>' if text else ""
+
+def el_quiz(e, fid):
+    """MCQ to camera: question, options A / B / C…, `answer` (index) marks the right one (yellow + tick: the _b state),
+    `timer` = countdown box, `note` = pill under the options ("Comment your answer" / "Correct answer: B")."""
+    ans = e.get("answer")
+    opts = "".join(f'<div class="vh-opt{" on" if ans == i else ""}"><span class="vh-badge">{chr(65 + i)}</span><span class="vh-otx" data-tx="options.{i}">{md(o)}</span>{_CHECK_SVG if ans == i else ""}</div>'
+                   for i, o in enumerate(e.get("options", [])))
+    return (f'<div class="el vh-quiz" style="{pos({**e, "w": e.get("w", 860)})}"><div class="vh-q" data-tx="question">{md(e.get("question", ""))}</div>{opts}'
+            f'<div class="vh-foot">{_note(e.get("note") or ("Correct answer: " + chr(65 + ans) if ans is not None else "Comment your answer"))}{_timer(e)}</div></div>')
+
+def el_match(e, fid):
+    """Match the following: `left` (numbered 1, 2 …) and `right` (lettered A, B …) columns under small titles. `pairs`
+    [[left, right], …] answers it (rows turn yellow, ticks, crossing lines: the _b state); `timer`, `note` as quiz."""
+    L, R, pairs = e.get("left", []), e.get("right", []), e.get("pairs")
+    on_l = {a for a, _ in (pairs or [])}; on_r = {b for _, b in (pairs or [])}
+    col = lambda items, num, on: "".join(f'<div class="vh-mrow{" on" if i in on else ""}"><span class="vh-badge">{(i + 1) if num else chr(65 + i)}</span><span class="vh-otx" data-tx="{"left" if num else "right"}.{i}">{md(t)}</span></div>' for i, t in enumerate(items))
+    rh, gap = e.get("row_h", 92), e.get("gap", 26)
+    lines = ""
+    if pairs:
+        lw, cg = e.get("left_w", 600), e.get("col_gap", 110)
+        ys = lambda i: 44 + i * (rh + gap) + rh / 2
+        paths = "".join(f'<path d="M4 {ys(a)} L{cg - 10} {ys(b)}" /><path d="M{cg - 22} {ys(b) - 8} L{cg - 8} {ys(b)} L{cg - 20} {ys(b) + 10}" />' for a, b in pairs)
+        lines = f'<svg class="vh-mlines" style="left:{lw}px" width="{cg}" height="{44 + len(L) * (rh + gap)}" fill="none" stroke="#1d1d1d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{paths}</svg>'
+    mt = f'<div class="vh-mticks">{"".join(_CHECK_SVG for _ in pairs)}</div>' if pairs else ""
+    note = e.get("note") or ("Answer: " + " · ".join(f"{a + 1} → {chr(65 + b)}" for a, b in pairs) if pairs else "Comment your answer")
+    return (f'<div class="el vh-match" style="{pos(e)};--rh:{rh}px;--gap:{gap}px;--lw:{e.get("left_w", 600)}px;--cg:{e.get("col_gap", 110)}px">'
+            f'<div class="vh-mcol"><div class="vh-mt">{md(e.get("left_title", "Situation"))}</div>{col(L, True, on_l)}</div>{lines}'
+            f'<div class="vh-mcol r"><div class="vh-mt">{md(e.get("right_title", "Answer"))}</div>{col(R, False, on_r)}</div>'
+            f'{mt}<div class="vh-foot">{_note(note)}{_timer(e)}</div></div>')
+
+def el_monthcards(e, fid):
+    """contract months: a card per month with a calendar, its pill under it (Near / Next / Far month). `state`: active (yellow pill),
+    expired (greyed + EXPIRED stamp), new (NEW badge)."""
+    cw, gap = e.get("cw", 230), e.get("gap", 36)
+    cards = []
+    for n, it in enumerate(e.get("items", [])):
+        st = it.get("state", "")
+        new = '<i class="vh-new">NEW</i>' if st == "new" else ""
+        stamp = '<i class="vh-stamp">EXPIRED</i>' if st == "expired" else ""
+        pill = f'<span class="vh-mpill" data-tx="items.{n}.tag">{md(it["tag"])}</span>' if it.get("tag") else ""
+        cards.append(f'<div class="vh-month {st}" style="width:{cw}px">{new}'
+                     f'<div class="vh-mcard"><img src="{asset(it.get("icon", "props/calendar"))}">{stamp}'
+                     f'<b class="vh-mn" data-tx="items.{n}.month">{md(it.get("month", ""))}</b></div>{pill}</div>')
+    return f'<div class="el vh-months" style="{pos(e)};gap:{gap}px">{"".join(cards)}</div>'
+
+def el_episodes(e, fid):
+    """series / next-episode page: tilted glass cards on a dashed arc under a hanging lamp; `current` is the lit card (`sub` under its title)."""
+    items, cur = e.get("items", []), e.get("current", 1)
+    cx, by = e.get("cx", 960), e.get("by", 1080)
+    cards = []
+    for i, t in enumerate(items):
+        d = i - cur; rot = d * 24; dx = d * 330; dy = abs(d) * 70
+        cards.append(f'<div class="vh-ep{" on" if i == cur else ""}" style="left:{cx + dx - 125}px;top:{by - 560 + dy}px;transform:rotate({rot}deg)"><b class="vh-en" data-tx="items.{i}">{md(t)}</b><i></i></div>')
+    lamp = f'<img class="vh-lamp" src="{asset("props/lamp_blue")}" style="left:{cx - 140}px;top:{by - 1090}px">' if e.get("lamp", True) else ""
+    arc = f'<svg class="vh-arc" style="left:{cx - 700}px;top:{by - 260}px" width="1400" height="300" viewBox="0 0 1400 300"><path d="M40 300 A660 300 0 0 1 1360 300" fill="none" stroke="#2F7CF6" stroke-width="40"/><path d="M40 300 A660 300 0 0 1 1360 300" fill="none" stroke="#fff" stroke-width="6" stroke-dasharray="34 26"/></svg>'
+    return f'<div class="el vh-eps" style="left:0;top:0;width:1920px;height:1080px">{lamp}{arc}{"".join(cards)}</div>'
+
+def el_magnify(e, fid):
+    """a big word with a magnifier over its first letters (`focus` = how many are blue), a `tag` chip above, a `caption` chip below
+    ("FUT = Futures contract"). `lens`: false hides the magnifier (the _b state)."""
+    w, f = str(e.get("word", "")), int(e.get("focus", 3))
+    word = f'<span class="b">{html.escape(w[:f])}</span>{html.escape(w[f:])}'
+    lens = f'<img class="vh-lens" src="{asset("props/magnifier")}" style="width:{e.get("lens_w", 700)}px;left:{e.get("lens_dx", -90)}px;top:{e.get("lens_dy", -150)}px">' if e.get("lens", True) else ""
+    tag = f'<div class="vh-chip" data-tx="tag">{md(e["tag"])}</div>' if e.get("tag") else ""
+    cap = f'<div class="vh-chip" data-tx="caption">{md(e["caption"])}</div>' if e.get("caption") else ""
+    return (f'<div class="el vh-mag" style="{pos({**e, "align": e.get("align", "center")})};font-size:{e.get("size", 260)}px">'
+            f'{tag}<div class="vh-wordw"><div class="vh-word">{word}</div>{lens}</div>{cap}</div>')
 def el_osa(e, fid):
     """the one layout for content beside the presenter: header + one block at fixed positions.
     kind: quote | list | tags | formula | calc | text. theme comes from spec "series" (futures = dark)."""
@@ -709,10 +790,15 @@ def el_osa(e, fid):
     out = []
     # positions can be moved in the studio: header -> hx/hy, block -> x/y/w (defaults are the house layout)
     hx, hy = e.get("hx", OSA_X), e.get("hy", OSA_HDR_Y)
-    bx, by, bw = e.get("x", OSA_X), e.get("y", OSA_Y), e.get("w", OSA_W)
+    bx, by, bw = e.get("x", OSA_X), e.get("y", OSA_Y + ((50 + (40 if len(str(e["header"])) > 28 or "\n" in str(e["header"]) else 0)) if e.get("header") and e.get("hstyle", "window") == "window" else 0)), e.get("w", OSA_W)   # the window heading is taller: the block sits 50 px lower
     if e.get("header"):
-        hcls = "osa-h dark" if theme == "dark" else "osa-h"
-        out.append(f'<div class="el {hcls}" style="left:{hx}px;top:{hy}px">{md(e["header"])}</div>')
+        hs = e.get("hstyle", "window")
+        if hs == "window":   # the house heading beside the presenter: white window card, blue band, − × tab; reads on any footage (light or dark)
+            out.append(f'<div class="el osa-h osa-win" style="left:{hx}px;top:{hy}px"><span class="vh-text" style="font-size:{_win_size(e["header"])}px">{md(e["header"])}</span>'
+                       f'<i class="vh-band"></i><i class="vh-tab">{_TAB_SVG}</i></div>')
+        else:
+            hcls = "osa-h dark" if theme == "dark" else "osa-h"
+            out.append(f'<div class="el {hcls}" style="left:{hx}px;top:{hy}px">{md(e["header"])}</div>')
     body = ""
     if k == "quote": body = f'<div class="quote">“{md(e["text"])}”</div>'
     elif k == "text": body = f'<div class="ctext">{md(e["text"])}</div>'
@@ -727,21 +813,23 @@ def el_osa(e, fid):
             else: ic = f'<span class="num">{i+1}</span>'
             act = e.get("active")
             cls = "orow" + (" dim" if act is not None and i != act and e.get("fade_rest", True) else "") + (" on" if act == i else "")
-            rows.append(f'<div class="{cls}"><span class="oic">{ic}</span><span>{md(it["text"])}</span></div>')
+            ck = _CHECK_SVG if e.get("checks") else ""   # a recap: a blue tick on every item
+            rows.append(f'<div class="{cls}"><span class="oic">{ic}</span><span class="otx" data-tx="items.{i}{".text" if isinstance(e["items"][i], dict) else ""}">{md(it["text"])}</span>{ck}</div>')
         body = "".join(rows)
     elif k == "tags":
-        body = "".join(f'<div class="otag"><span class="ol">{md(t.get("label",""))}</span><span class="ov">{md(t["value"])}</span></div>' for t in e["items"])
+        body = "".join(f'<div class="otag"><span class="ol" data-tx="items.{j}.label">{md(t.get("label",""))}</span><span class="ov" data-tx="items.{j}.value">{md(t["value"])}</span></div>' for j, t in enumerate(e["items"]))
     elif k in ("formula", "calc"):
         return "".join(out) + el_card({**e, "kind": k, "x": bx, "y": by, "w": bw, "glass": theme != "dark",
                                        **({"pad": None} if theme != "dark" else {})}, fid).replace('class="el card', f'class="el card {"darkcard" if theme=="dark" else ""}', 1)
-    ccls = "darkcard" if theme == "dark" else "glass"
+    ccls = "darkcard" if theme == "dark" else "glass"   # (darkcard is the frosted light card now: dark words on any footage)
     out.append(f'<div class="el card osa-b {ccls} osa-{k}" style="left:{bx}px;top:{by}px;width:{bw}px;font-size:{e.get("size", 34)}px">{body}</div>')
     return "".join(out)
 
 RENDER = {"text": el_text, "header": el_header, "img": el_img, "card": el_card, "bigword": el_bigword,
           "bar": el_chart, "line": el_chart, "window": el_window, "linecards": el_linecards, "pie": el_pie,
           "phone": el_phone, "cardset": el_cardset, "module": el_module, "takeaways": el_takeaways,
-          "shape": el_shape, "tri": el_tri, "scale": el_scale, "char": el_char, "prop": el_prop, "bubble": el_bubble, "logo": el_logo, "osa": el_osa, "html": el_html}
+          "shape": el_shape, "tri": el_tri, "scale": el_scale, "char": el_char, "prop": el_prop, "bubble": el_bubble, "logo": el_logo, "osa": el_osa, "html": el_html,
+          "quiz": el_quiz, "match": el_match, "monthcards": el_monthcards, "episodes": el_episodes, "magnify": el_magnify}
 NEEDS_SVG = {"pill": el_pill, "pills": el_pills, "split": el_split, "coinflow": el_coinflow,
              "branch": el_branch, "arrow": el_arrow}
 
@@ -803,7 +891,10 @@ def _fa_layer_label(e):
         return t, str(e.get("text") or e.get("lead") or "")[:32]
     if t == "card":
         return t, str(e.get("title") or e.get("text") or "")[:32]
-    for k in ("text", "title", "header", "who", "kind"):
+    if t == "match": return t, str(e.get("left_title") or "Match the following")[:32]
+    if t == "monthcards": return t, " · ".join(str(i.get("month", "")) for i in (e.get("items") or [])[:3])[:32]
+    if t == "episodes": return t, " · ".join(str(i).replace("\n", " ") for i in (e.get("items") or [])[:3])[:32]
+    for k in ("text", "title", "header", "question", "word", "who", "kind"):
         if e.get(k):
             return t, str(e[k])[:32]
     return t, ""
@@ -840,10 +931,27 @@ def _fa_wrap_edit(html, idx, e, edit):
         # two layers: the heading (moves into hx/hy, double-click edits it) and the block (els.N)
         cut = html.index("</div>") + 6
         head, rest = html[:cut], html[cut:]
+        win = 'class="vh-text"' in head   # the window heading: its words are edited, not its band and tab
         head = head.replace('class="el ', 'class="el studio-editable ', 1).replace(
-            ">", f' data-spec-idx="{500 + idx}" data-mf-path="els.{idx}.header" data-inline-path="els.{idx}.header"'
+            ">", f' data-spec-idx="{500 + idx}" data-mf-path="els.{idx}.header"' + ('' if win else f' data-inline-path="els.{idx}.header"') +
                  f' data-layer-type="header" data-layer-label="{html_mod.escape(str(e.get("header"))[:32])}">', 1)
+        if win: head = head.replace('<span class="vh-text">', f'<span class="vh-text" data-inline-path="els.{idx}.header">', 1)
         return head + _fa_wrap_edit(rest, idx, e, edit)
+    if 'data-tx="' in html and edit:
+        # every word an element shows (an OSA list item, a quiz option, a month, a chip) is its own text layer:
+        # picked, read and changed in the panel or by double-click; it stays in its row (not dragged out)
+        n = [0]
+        def _val(rel):
+            v = e
+            for k in rel.split("."):
+                v = (v[int(k)] if isinstance(v, list) and k.isdigit() and int(k) < len(v) else v.get(k, "") if isinstance(v, dict) else "")
+            return v if isinstance(v, str) else (v.get("text", "") if isinstance(v, dict) else str(v))
+        def _tx(m):
+            rel = m.group(3); path = f"els.{idx}.{rel}"; n[0] += 1
+            return (f'<{m.group(1)} class="{m.group(2)} studio-editable" data-spec-idx="{2000 + idx * 60 + n[0]}"'
+                    f' data-mf-path="{path}" data-inline-path="{path}" data-studio-locked="1" data-layer-type="text"'
+                    f' data-layer-label="{html_mod.escape(re.sub(r"[*=^_]", "", _val(rel)).replace(chr(10), " ")[:32])}">')
+        html = re.sub(r'<(span|div|b) class="([^"]*)" data-tx="([^"]+)">', _tx, html)
 
     def _add_cls(m):
         c = m.group(1)

@@ -2293,8 +2293,8 @@ function htmlChildPatch(fr,mfPath,outer){
 }
 function extraLayerRows(){   // html pieces, FA side-block headings and the PSD's other layers the iframe tagged
  const seen=new Set();
- return (lastCanvasLayers||[]).filter(L=>L.mfPath&&(L.mfPath.includes('>')||L.mfPath.startsWith('locked:')||/^els\.\d+\.header$/.test(L.mfPath))&&!seen.has(L.mfPath+'#'+L.idx)&&seen.add(L.mfPath+'#'+L.idx))
-  .sort((a,b)=>a.idx-b.idx).map(L=>({idx:L.idx,mfPath:L.mfPath,label:(L.mfPath.endsWith('.header')?'heading · ':(L.type?L.type+' · ':'· '))+(L.label||'piece')}));
+ return (lastCanvasLayers||[]).filter(L=>L.mfPath&&(L.mfPath.includes('>')||L.mfPath.startsWith('locked:')||/^els\.\d+\.(header|[a-z_]+\.\d+(\.[a-z_]+)?|question|tag|caption)$/.test(L.mfPath))&&!seen.has(L.mfPath+'#'+L.idx)&&seen.add(L.mfPath+'#'+L.idx))
+  .sort((a,b)=>a.idx-b.idx).map(L=>({idx:L.idx,mfPath:L.mfPath,label:(L.mfPath.endsWith('.header')?'heading · ':/^els\.\d+\.(?!header$)/.test(L.mfPath)?'text · ':(L.type?L.type+' · ':'· '))+(L.label||'piece')}));
 }
 function extraLayerRowsHtml(){
  return extraLayerRows().map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row sub${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join('');

@@ -5,7 +5,7 @@ Run:  copy .env.example to .env, set ANTHROPIC_API_KEY, then uvicorn app:app --h
 A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.md, templates/, assets/, scripts/build.py).
 Add a channel by dropping in another kit folder; nothing else changes.
 """
-import importlib.util, inspect, json, os, pathlib, re, tempfile, threading, time, uuid, asyncio
+import importlib.util, inspect, json, os, pathlib, re, sys, tempfile, threading, time, uuid, asyncio
 from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
@@ -419,8 +419,14 @@ _mods = {}
 def builder(theme):
     if theme not in _mods:
         p = THEMES / theme / "scripts" / "build.py"
+        # kits share helper names (scenes.py, charrig.py, render.py): each kit gets its own, not the first kit's that loaded
+        own = [x.stem for x in p.parent.glob("*.py") if x.stem != "build"]
+        for n in own:
+            sys.modules.pop(n, None)
         spec = importlib.util.spec_from_file_location(f"build_{theme}", p); m = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(m); _mods[theme] = m
+        for n in own:
+            sys.modules.pop(n, None)
     return _mods[theme]
 
 def _coerce_studio_item(it: dict, theme: str) -> dict:
