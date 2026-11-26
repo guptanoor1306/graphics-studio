@@ -530,12 +530,14 @@ function projectSteps(empty) {
   return `<div class="nx-steps">${st.map((k, i) => `<button class="nx-step${k === 'graphics' ? ' on' : ''}${done.has(k) ? ' done' : ''}" data-stage="${k}"><i>${done.has(k) ? '✓' : i + 1}</i>${STEP_NAMES[k]}</button>${i < st.length - 1 ? I('chev') : ''}`).join('')}</div>`;
 }
 /* Import graphics (a project inside LA Studio): pictures, a folder, HTML or a zip, picked in LA Studio; each becomes a PSD for Animate */
-const laImportBtn = () => gsSteps() && QS.get('steps') ? `<button class="nx-btn ghost" data-laimport data-tip="Graphics you already have: each becomes a layered PSD, ready in Animate" class="tip-l">${I('upload')}Import graphics</button>` : '';
+const laImported = () => Math.max(0, +(QS.get('imported') || 0));   // graphics imported in LA Studio (not made here): a way back to them
+const laImportBtn = () => (gsSteps() && QS.get('steps') && laImported() ? `<button class="nx-btn ghost" data-lapsd data-tip="The graphics imported in LA Studio, as layered PSDs" class="tip-l">${I('layers')}Imported graphics (${laImported()})</button>` : '') + (gsSteps() && QS.get('steps') ? `<button class="nx-btn ghost" data-laimport data-tip="Graphics you already have: each becomes a layered PSD, ready in Animate" class="tip-l">${I('upload')}Import graphics</button>` : '');
 const toAnimate = () => !!QS.get('steps') && !laSteps().includes('psd');   // LA Studio with three steps: frames go to Animate; an older one: Make Layers
 const SEND = () => toAnimate() ? 'Send to Animate' : 'Make Layers';
 function laImport() { laPost('import', {}).catch(() => laPost('skip', {}).catch(() => toast('Open this video inside LA Studio to import graphics.', { err: true }))); }
 function bindTop(m) {
   m.querySelector('[data-laimport]')?.addEventListener('click', laImport);
+  m.querySelectorAll('[data-lapsd]').forEach(b => b.addEventListener('click', () => laPost('stage', { stage: 'psd' }).catch(() => {})));
   m.querySelector('[data-home]')?.addEventListener('click', goHomeNx);
   m.querySelector('[data-chn]')?.addEventListener('click', () => openChannel(chOfP().id));
   m.querySelectorAll('[data-stage]').forEach(b => b.addEventListener('click', () => { if (b.dataset.stage !== 'graphics') laPost('stage', { stage: b.dataset.stage }).catch(() => laPost('skip', {}).catch(() => {})); }));
@@ -1156,6 +1158,7 @@ async function makeLayers(only, opt = {}) {
     };
     await Promise.all([one(), one(), one(), one()]);
     const files = got.filter(Boolean);
+    if (!files.length) throw new Error(ids.length === 1 ? 'This frame could not be prepared: it did not render. Reload and try again.' : 'None of these frames could be prepared: they did not render. Reload and try again.');
     let csv = null; try { csv = await storyboardCsvFile(stem); } catch (_) {}
     label('Finding the project…');
     const la = await laEnsureProject(P);
