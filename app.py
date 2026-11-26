@@ -772,6 +772,66 @@ def mark_sent_layers(pid: int):
 
 _THUMB_DIR = pathlib.Path(tempfile.gettempdir()) / "graphics_studio_thumbs"
 _THUMB_SEM = threading.Semaphore(2)
+_THUMB_ASEM = None
+_KIT_SIG: dict = {}
+
+
+def _kit_sig(theme: str) -> str:
+    """The kit's own code and styles, hashed once per process: a thumbnail made before a kit change is not shown after it."""
+    if theme not in _KIT_SIG:
+        import hashlib
+        h = hashlib.sha1()
+        d = THEMES / theme
+        for f in sorted([*d.glob("scripts/*.py"), *d.glob("templates/*.css"), *d.glob("templates/*.js")]):
+            try:
+                h.update(f.name.encode()); h.update(f.read_bytes())
+            except OSError:
+                pass
+        _KIT_SIG[theme] = h.hexdigest()[:10]
+    return _KIT_SIG[theme]
+
+
+def _plate_sig(theme: str, pid: int) -> str:
+    """the project's uploaded plate is always user_<pid>.png: its time goes in cache keys, so a new upload shows"""
+    try:
+        return str(int((THEMES / theme / "assets/plates" / f"user_{pid}.png").stat().st_mtime))
+    except OSError:
+        return ""
+
+
+def _thumb_db(c) -> None:
+    from db_store import once
+
+    def make(conn):
+        conn.execute("create table if not exists thumb_cache(k text primary key, data text, ts real)")
+        conn.commit()
+    once("thumb_cache", c, make)
+
+
+def _thumb_get(key: str) -> bytes | None:
+    """Thumbnails are kept in the database too: the server's temp folder is emptied on every deploy, and re-making every
+    card and filmstrip picture after a deploy kept the one browser busy (previews blank, Send to Animate waiting)."""
+    import base64
+    try:
+        with connect() as c:
+            _thumb_db(c)
+            r = c.execute("select data from thumb_cache where k=?", (key,)).fetchone()
+        return base64.b64decode(r["data"]) if r and r.get("data") else None
+    except Exception:
+        return None
+
+
+def _thumb_put(key: str, data: bytes) -> None:
+    import base64, random
+    try:
+        with connect() as c:
+            _thumb_db(c)
+            c.execute("insert into thumb_cache(k,data,ts) values(?,?,?) on conflict(k) do nothing", (key, base64.b64encode(data).decode(), time.time()))
+            if random.random() < 0.02:   # now and then: pictures nobody asked for in 60 days go
+                c.execute("delete from thumb_cache where ts < ?", (time.time() - 60 * 86400,))
+            c.commit()
+    except Exception:
+        pass
 
 
 @app.get("/api/projects/{pid}/frames/{fid}/thumb.png")
@@ -784,12 +844,17 @@ async def frame_thumb(pid: int, fid: str, w: int = 480):
     if fr is None:
         raise HTTPException(404, "frame not found")
     w = max(120, min(int(w or 480), 960))
-    key = hashlib.sha1(json.dumps([p["theme"], fr, effective_look(p), (p.get("spec") or {}).get("gen"), w],
+    key = hashlib.sha1(json.dumps([p["theme"], fr, effective_look(p), (p.get("spec") or {}).get("gen"), w, _kit_sig(p["theme"]), _plate_sig(p["theme"], pid)],
                                   sort_keys=True, default=str).encode()).hexdigest()[:20]
     path = _THUMB_DIR / f"{pid}_{key}.jpg"
     hdr = {"Cache-Control": "public, max-age=86400"}
     if path.exists():
         return Response(path.read_bytes(), media_type="image/jpeg", headers=hdr)
+    kept = await asyncio.to_thread(_thumb_get, f"{pid}_{key}")
+    if kept:
+        _THUMB_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(kept)
+        return Response(kept, media_type="image/jpeg", headers=hdr)
     pages = _export_pages(p, {fid})
     if not pages:
         raise HTTPException(404, "frame has nothing to draw yet")
@@ -812,12 +877,17 @@ async def frame_thumb(pid: int, fid: str, w: int = 480):
         im.save(buf, "JPEG", quality=82)
         return buf.getvalue()
 
+    global _THUMB_ASEM
+    if _THUMB_ASEM is None:
+        _THUMB_ASEM = asyncio.Semaphore(2)
     try:
-        data = await asyncio.to_thread(render)
+        async with _THUMB_ASEM:   # wait for a turn here, not inside a worker thread: a page of 40 thumbnails used to hold
+            data = await asyncio.to_thread(render)   # 40 of the server's threads, and previews / Send to Animate waited behind them
     except Exception as e:
         raise HTTPException(502, detail=f"thumbnail failed: {e}") from e
     _THUMB_DIR.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
+    await asyncio.to_thread(_thumb_put, f"{pid}_{key}", data)
     return Response(data, media_type="image/jpeg", headers=hdr)
 
 @app.post("/api/projects")
@@ -913,13 +983,22 @@ def export_frame_html(pid: int, fid: str):
     """One frame as a self-contained HTML (fonts and pictures inlined): what LA Studio's Import Graphics turns
     into an exact layered PSD. At most STUDIO_INLINE_MAX (2) are built at once: each inlines megabytes of
     pictures, and a burst of them used to starve every other request."""
+    import hashlib
     p = load(pid)
     pages = _export_pages(p, {fid}, layers=True)
     if not pages:
         raise HTTPException(404, "frame not found or not a graphic")
+    key = hashlib.sha1((p["theme"] + _kit_sig(p["theme"]) + _plate_sig(p["theme"], pid) + pages[0][1]).encode("utf-8", "replace")).hexdigest()[:24]
+    path = _THUMB_DIR / f"x_{pid}_{key}.html"   # the same frame sent again (Send to Animate, Open in Photoshop): not rendered twice
+    if path.exists():
+        return HTMLResponse(path.read_text("utf-8"))
     with _INLINE_SLOTS:
-        return HTMLResponse(exporter.frame_page_for_layers(pages[0][1], THEMES / p["theme"],
-                                                           theme_canvas.canvas_for_theme(p["theme"])))
+        out = exporter.frame_page_for_layers(pages[0][1], THEMES / p["theme"], theme_canvas.canvas_for_theme(p["theme"]))
+    try:
+        _THUMB_DIR.mkdir(parents=True, exist_ok=True); path.write_text(out, "utf-8")
+    except OSError:
+        pass
+    return HTMLResponse(out)
 
 
 # ---------------------------------------------------------------- toolkit (ZO Product): ready-made frames

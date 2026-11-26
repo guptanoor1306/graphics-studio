@@ -1017,7 +1017,7 @@ function fitBig() {
   const cap = q1('#nxCap'); if (cap) cap.style.width = Math.min(W, Math.round(w * s)) + 'px';
   wrap.style.overflow = S.zoom > 1 ? 'auto' : 'hidden';
 }
-addEventListener('resize', () => { if (P && !editModeOpen) fitBig(); });
+addEventListener('resize', () => { if (typeof P !== 'undefined' && P && !editModeOpen) fitBig(); });   // (a resize while the page is still loading: P is not there yet)
 function updateDock() {
   const d = q1('#nxDock'); if (!d || !P) return;
   const n = studioFrames().length, pdf = pdfOn(), z1 = isZ1Hindi(), todo = specTodoCount(), gens = specGenCount();
