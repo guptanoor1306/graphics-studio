@@ -721,7 +721,7 @@ USAGE_SINK = None   # app.py sets this: called with (label, model, usage dict) a
 SETTING = None      # app.py sets this: SETTING(key) -> str | None, settings changed in the page (Cost window)
 
 
-def _log_usage(label: str, model: str, r) -> None:
+def _log_usage(label: str, model: str, r, secs: float | None = None) -> None:
     """One line per Claude call in the server log (job, model, tokens incl. cache, $), and one row in the cost record."""
     u = getattr(r, "usage", None)
     if u is None:
@@ -732,7 +732,8 @@ def _log_usage(label: str, model: str, r) -> None:
     d = {"input": g("input_tokens"), "cache_read": g("cache_read_input_tokens"), "cache_write": g("cache_creation_input_tokens"),
          "cache_write_1h": w1, "output": g("output_tokens")}
     print(f"claude usage {label or '?'} {model}: in={d['input']} cache_read={d['cache_read']} "
-          f"cache_write={d['cache_write']} out={d['output']} ≈${cost_usd(model, d):.3f}", flush=True)
+          f"cache_write={d['cache_write']} out={d['output']} ≈${cost_usd(model, d):.3f}"
+          + (f" {secs:.1f}s" if secs is not None else ""), flush=True)   # how long the call took, to find what makes a job slow
     if USAGE_SINK:
         try:
             USAGE_SINK(label or "?", model, d)
@@ -746,6 +747,8 @@ def _messages_create(*, think: bool = False, on_partial=None, model: str | None 
     client = _client()
     use = model or MODEL
     extra = _thinking_kwargs() if think else {}
+
+    t0 = time.time()
 
     def _go(kw: dict):
         kw = {**kw, "max_tokens": int(kw.get("max_tokens") or _MAX_TOKENS_NONSTREAM)}
@@ -764,14 +767,14 @@ def _messages_create(*, think: bool = False, on_partial=None, model: str | None 
                                 except Exception as e:  # a preview problem never stops the storyboard
                                     print(f"partial preview skipped: {e}")
                 fm = s.get_final_message()
-                _log_usage(label, use, fm)
+                _log_usage(label, use, fm, time.time() - t0)
                 return fm
 
         if on_partial or kw["max_tokens"] > _MAX_TOKENS_NONSTREAM:
             return _via_stream()
         try:
             r = client.messages.create(model=use, **kw)
-            _log_usage(label, use, r)
+            _log_usage(label, use, r, time.time() - t0)
             return r
         except Exception as exc:
             err = str(exc).lower()

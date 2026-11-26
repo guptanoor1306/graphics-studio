@@ -177,6 +177,6 @@ def frames_csv_text(frames: list[dict], *, project_name: str = "") -> str:
         text = " ".join(str(f.get("text") or "").split())[:2000]
         beat = {"fss": "FSS", "osa": "OSA"}.get(mode.lower(), mode.upper() or "FRAME")
         fid = str(f["frame_id"])[:80]
-        w.writerow([project_name or "", n, ts, f"{t:.2f}" if t is not None else "", "", beat, text, fid, "yes", mode,
+        w.writerow([project_name or "", n, ts, f"{t:.2f}" if t is not None else "", "yes" if f.get("approx") and t is not None else "", beat, text, fid, "yes", mode,
                     f"{ts} – {beat} – {text} → {fid}".strip(" –")])
     return buf.getvalue()

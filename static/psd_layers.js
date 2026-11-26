@@ -83,6 +83,10 @@
         }
       } else {
         el.dataset.mfPath = 'locked:' + (it.kind === 'page' ? 'background' : lockedWhy(el));
+        if (it.kind !== 'page') {           // a part the kit draws: it can be clicked (selects its row); its first edit makes the frame editable
+          el.dataset.studioLocked = '1'; el.classList.add('studio-editable');
+          if (getComputedStyle(el).pointerEvents === 'none') el.style.pointerEvents = 'auto';
+        }
       }
       added++;
     }

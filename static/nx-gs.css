@@ -726,3 +726,20 @@ body.nx .nx-lg .gi svg.i{width:15px;height:15px}
 body.nx .nx-lg .nm{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 body.nx .nx-lg .nm small{color:var(--mute);font-size:11.5px;margin-left:4px}
 body.nx .nx-lgin{border-left:2px solid color-mix(in srgb,var(--accent) 25%,transparent);margin-left:22px}
+
+/* Edit layers: the frames screen's list on the left (frame headings open that frame; a line click copies it) */
+body.nx #editModeApp .nx-elines{padding:8px 10px 14px}
+body.nx #editModeApp .nx-elines .nx-gh{cursor:pointer}
+body.nx #editModeApp .nx-elines .nx-ln{cursor:copy}
+body.nx #editModeApp .nx-elines .nx-ln:hover{background:var(--hover);border-radius:6px}
+body.nx #editModeApp .nx-elines .nx-tbtn,body.nx #editModeApp .nx-elines [data-tkskip],body.nx #editModeApp .nx-elines [data-tkexp]{display:none}
+body.nx #editModeApp .nx-elines .nx-gt em{font-style:normal;color:var(--accent)}
+/* the selected layer's little toolbar shows while the pointer is on the canvas (or on the toolbar), and goes when it leaves */
+body.nx #canvasEditViewport .canvas-parent-chip-float{transition:opacity .15s}
+body.nx #canvasEditViewport:not(:hover) .canvas-parent-chip-float{opacity:0;pointer-events:none}
+body.nx.nx-dragging #canvasChipOverlay{opacity:0;transition:none}
+/* the Prompt box keeps its width with a picture attached: the text takes the whole first line, the picture and the buttons go under it */
+body.nx .fchat-box{flex-wrap:wrap!important}
+body.nx .fchat-box textarea{flex:1 1 100%!important;min-width:0}
+body.nx .fchat-box .fchat-row{flex:1 1 100%;justify-content:flex-end;flex-wrap:nowrap;min-width:0}
+body.nx .fchat-box .fchat-row #editRefLabel,body.nx .fchat-box .fchat-row .nx-refchip{min-width:0;max-width:calc(100% - 80px);margin-right:auto}

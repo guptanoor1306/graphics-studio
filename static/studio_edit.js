@@ -411,6 +411,7 @@
   function canDrag(el) {
     if (!el || !el.classList.contains("studio-editable")) return false;
     if (el.dataset.specIdx == null) return false;
+    if (el.dataset.studioLocked) return false;          // a kit's own part: selected on click, edited from the panel
     if (el.dataset.mfPath || el.dataset.mfDrag) return true;
     const t = el.dataset.layerType || "";
     const zoDrag = [
@@ -634,6 +635,7 @@
         drag.offX = e.clientX - origin.x - pos.x;
         drag.offY = e.clientY - origin.y - pos.y;
         drag.el.classList.add("studio-dragging");
+        try { window.parent.postMessage({ studio: "drag-state", on: true }, "*"); } catch (_) {}
         drag.x0 = pos.x; drag.y0 = pos.y;
         drag.mates = matesOf(drag.el).map((m) => { ensureAbsolute(m); const q = readPos(m); return { m, x: q.x, y: q.y }; });
         try {
@@ -690,6 +692,7 @@
       const idx = drag.idx;
       const mates = drag.mates || [];
       el.classList.remove("studio-dragging");
+      try { window.parent.postMessage({ studio: "drag-state", on: false }, "*"); } catch (_) {}
       try {
         el.releasePointerCapture(drag.pointerId);
       } catch (_) {}
@@ -937,8 +940,21 @@
     });
   }
 
+  /* the outlines follow a layer as it changes (text typed, size or font changed from the panel), not only after a move */
+  let followT = 0, followOn = false;
+  function followChanges() {
+    if (followOn || !window.MutationObserver) return;
+    followOn = true;
+    const again = () => { clearTimeout(followT); followT = setTimeout(() => { if (!document.querySelector(".studio-dragging, .studio-resizing")) placeChips(); }, 80); };
+    new MutationObserver((recs) => {
+      if (recs.some((r) => { const n = r.target.nodeType === 1 ? r.target : r.target.parentElement; return n && !n.closest("#studio-overlay, .studio-chip, .studio-resize-handle"); })) again();
+    }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["style"], characterData: true, childList: true });
+    document.addEventListener("input", again, true);
+  }
+
   function bootLayers() {
     lastBoundsSig = "";
+    followChanges();
     tagHtmlBlocks();
     initInlineTextOnce();
     initInteractDrag();

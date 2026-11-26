@@ -2378,7 +2378,7 @@ def _export_names(raw: str) -> dict[str, str] | None:
     return out or None
 
 
-def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None = None, names: str = "") -> tuple[bytes, str]:
+def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None = None, names: str = "", sb_frames: list | None = None) -> tuple[bytes, str]:
     ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
     rename = _export_names(names)
     pages = _export_pages(p, ids)
@@ -2386,6 +2386,8 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
     raw_sb = _storyboard_csv_bytes(p)
     if raw_sb is not None:
         sb_csv = raw_sb.decode("utf-8")
+    elif sb_frames:                                # no storyboard text: one row per frame from the page's times and lines
+        sb_csv = storyboard_csv.frames_csv_text(sb_frames[:2000], project_name=p.get("name") or "")
     cw, ch = theme_canvas.canvas_for_theme(p["theme"])
     fn = _export_zip_filename(p, ids)
     extra = z1_plates.export_files(p) if z1_plates.is_theme(p["theme"]) else None
@@ -2413,10 +2415,10 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
     return data, fn
 
 
-def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "", names: str = "") -> str:
+def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "", names: str = "", sb_frames: list | None = None) -> str:
     if fmt == "bulletin":
         return _export_bulletin(p, only, dest)
-    _, fn = _export_zip_payload(p, png, only, dest, names)
+    _, fn = _export_zip_payload(p, png, only, dest, names, sb_frames)
     return fn
 
 
@@ -2467,9 +2469,16 @@ def _export_job_prune() -> None:
 
 
 @app.post("/api/projects/{pid}/export/jobs")
-def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = "", names: str = ""):
-    """Start export in a background thread; poll status then download (avoids long HTTP/2 streams)."""
-    p = load(pid)
+async def export_start_job(request: Request, pid: int, png: int = 1, only: str = "", fmt: str = "", names: str = ""):
+    """Start export in a background thread; poll status then download (avoids long HTTP/2 streams).
+    Body (optional): {"frames": [{frame_id, t, mode, text}]} — each frame's time and lines, for the storyboard CSV in the zip
+    when the video has no storyboard text (toolkit frames, frames made from the script)."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    sb_frames = body.get("frames") if isinstance(body, dict) and isinstance(body.get("frames"), list) else None
+    p = await _db_call(load, pid)
     _export_job_prune()
     job_id = uuid.uuid4().hex[:16]
     dest = _EXPORT_JOB_DIR / f"{job_id}.zip"
@@ -2495,7 +2504,7 @@ def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = "", name
                 st = _EXPORT_JOBS.get(job_id)
                 if st:
                     st["status"] = "running"
-            outfile = _export_build_zip(p, png, only, dest, fmt, names)
+            outfile = _export_build_zip(p, png, only, dest, fmt, names, sb_frames)
             with _EXPORT_JOB_LOCK:
                 st = _EXPORT_JOBS.get(job_id)
                 if not st:

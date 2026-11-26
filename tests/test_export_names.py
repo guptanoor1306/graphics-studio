@@ -32,3 +32,12 @@ def test_storyboard_csv_from_frames_when_there_is_no_storyboard_text():
     assert rows[1].startswith("IPO,1,0.13,13.40,,FSS,So your IPO came through,tk1,yes,fss")
     assert rows[2].startswith("IPO,2,0.50,50.00,,OSA,When can I sell?,tk2")
     assert len(rows) == 3
+
+
+def test_storyboard_csv_marks_worked_out_times_approximate():
+    import storyboard_csv
+    t = storyboard_csv.frames_csv_text([{"frame_id": "tk1", "t": 12.4, "approx": True, "mode": "osa", "text": "Hi"},
+                                        {"frame_id": "tk2", "t": 30, "mode": "fss", "text": "Yo"}])
+    rows = t.strip().split("\n")
+    assert rows[1].split(",")[2:5] == ["0.12", "12.40", "yes"]
+    assert rows[2].split(",")[2:5] == ["0.30", "30.00", ""]
