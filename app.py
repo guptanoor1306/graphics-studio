@@ -1813,6 +1813,32 @@ def _save_frame_reference(theme: str, pid: int, fid: str, raw: bytes) -> tuple[s
     return f"uploads/ref_{pid}_{safe}.png", data
 
 
+@app.post("/api/projects/{pid}/frames/{fid}/picture")
+async def frame_picture(pid: int, fid: str, req: Request):
+    """Replace with an image, without AI: the picture is saved in the kit's uploads (its own file each time, so nothing old is
+    cached) and its path comes back for the page to put in the layer, where the layer keeps its size and place."""
+    p = await _db_call(load, pid)
+    form = await req.form()
+    up = form.get("file")
+    raw = await up.read() if up and getattr(up, "filename", None) else b""
+    if not raw:
+        raise HTTPException(400, "no picture")
+    from PIL import Image
+    import io
+    try:
+        img = Image.open(io.BytesIO(raw)); img.load()
+    except Exception:
+        raise HTTPException(400, "that file is not a picture")
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGBA")
+    img.thumbnail((2400, 2400), Image.LANCZOS)
+    dest = THEMES / p["theme"] / "assets" / "uploads"
+    dest.mkdir(parents=True, exist_ok=True)
+    name = f"rep_{pid}_{re.sub(r'[^a-zA-Z0-9._-]', '_', fid)}_{int(time.time() * 1000)}.png"
+    img.save(dest / name, "PNG", optimize=True)
+    return {"src": f"../assets/uploads/{name}", "url": f"/themes/{p['theme']}/assets/uploads/{name}", "w": img.width, "h": img.height}
+
+
 @app.post("/api/projects/{pid}/frames/{fid}/edit")
 async def edit(pid: int, fid: str, req: Request):
     p = (await _db_call(load, pid))
@@ -2337,6 +2363,8 @@ async def export_storyboard_csv_frames(pid: int, request: Request):
 
 def _storyboard_csv_response(p: dict, frames: list[dict] | None):
     raw = _storyboard_csv_bytes(p)
+    if raw is not None and frames and len(raw.decode("utf-8", "replace").strip().splitlines()) <= 1:
+        raw = None   # storyboard text in a form that gives no rows (Zero1 Hindi's): one row per frame instead of an empty sheet
     if raw is None and frames:
         raw = storyboard_csv.frames_csv_text(frames[:2000], project_name=p.get("name") or "").encode("utf-8")
     if raw is None:
@@ -2384,6 +2412,8 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
     pages = _export_pages(p, ids)
     sb_csv = None
     raw_sb = _storyboard_csv_bytes(p)
+    if raw_sb is not None and sb_frames and len(raw_sb.decode("utf-8", "replace").strip().splitlines()) <= 1:
+        raw_sb = None                              # storyboard text that gives no rows: one row per frame instead
     if raw_sb is not None:
         sb_csv = raw_sb.decode("utf-8")
     elif sb_frames:                                # no storyboard text: one row per frame from the page's times and lines

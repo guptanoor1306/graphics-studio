@@ -1318,6 +1318,17 @@ function layerSort(el) {
   if (el.matches('svg') || el.querySelector('svg')) return 'drawing';
   return 'box';
 }
+/* the element that holds all of a layer's words (kit text often sits in an inner span / div): text edits, font, size, alignment and
+   colour go there, so the layer reads and edits as text and not as a box */
+function textLeaf(el) {
+  if (!el || el.matches('svg,img') || el.querySelector('table,canvas,video')) return null;
+  const big = x => { const a = x.getBoundingClientRect(), b = el.getBoundingClientRect(); return a.width * a.height > 0.25 * b.width * b.height; };
+  if ([...el.querySelectorAll('img,svg')].some(big)) return null;   // a small icon beside the words (a pill's) is fine; a picture is not text
+  const w = el.ownerDocument.createTreeWalker(el, 4), nodes = []; let n; while ((n = w.nextNode())) if (n.textContent.trim()) nodes.push(n.parentElement);
+  if (!nodes.length) return null;
+  let a = nodes[0]; while (a && a !== el && !nodes.every(x => a.contains(x))) a = a.parentElement;
+  return a && el.contains(a) ? a : el;
+}
 /* a small picture of the layer for its row: the picture itself, the words in their font and colour, the shape's fill */
 /* a layer's preview: its own part of the rendered frame (as LA Studio's Layers shows each layer), cropped to its box and fitted in the
    tile; a hidden layer, or one the picture can't show, falls back to a drawing of what it is */
@@ -1363,15 +1374,17 @@ function inspectorHTML(r, el, f) {
     S.inspTry = (S.inspTry || 0) + 1; if (S.inspTry <= 8) { clearTimeout(S.inspT); S.inspT = setTimeout(() => { if (editModeOpen) renderCanvasLayerList(); }, 500); }
     return `<div class="nx-lsb"><p class="nx-lkn">${S.inspTry > 8 ? 'This layer could not be read. Click another layer, then this one again.' : 'Loading this layer…'}</p></div>`; }
   S.inspTry = 0;
-  const cs = el.ownerDocument.defaultView.getComputedStyle(el), rc = el.getBoundingClientRect(), sort = layerSort(el);
+  const rc = el.getBoundingClientRect(); let sort = layerSort(el), tel = el;
+  if (sort === 'box' || sort === 'block') { const lf = textLeaf(el); if (lf && el.querySelectorAll('*').length <= 8) { sort = 'text'; tel = lf; } }   // its words in an inner element: still a text layer
+  const cs = el.ownerDocument.defaultView.getComputedStyle(tel), bcs = el.ownerDocument.defaultView.getComputedStyle(el);
   const fam = (cs.fontFamily || '').split(',')[0].replace(/["']/g, '').trim();
   const fams = [...new Set([fam, ...(laFontList || []), ...FONT_BASE].filter(Boolean))];
   const W = [[300, 'Light'], [400, 'Regular'], [500, 'Medium'], [600, 'Semibold'], [700, 'Bold'], [800, 'Extra bold'], [900, 'Black']];
   const wt = parseInt(cs.fontWeight, 10) || 400, al = { start: 'left', end: 'right', justify: 'left' }[cs.textAlign] || cs.textAlign;
   const num = (k, lab, v, unit) => `<label class="nx-nf"><span>${lab}</span><input type="number" data-st="${k}" value="${Math.round(v)}" step="1">${unit ? `<i>${unit}</i>` : ''}</label>`;
   const col = (k, lab, v) => `<label class="nx-cf"><input type="color" data-st="${k}" value="${v || '#ffffff'}"><span>${lab}</span><b>${v ? v.toUpperCase() : 'None'}</b></label>`;
-  const tx = sort === 'text' ? el.innerText : null;
-  const bw = parseFloat(cs.borderTopWidth) || 0, bc = bw ? hex(cs.borderTopColor) : '';
+  const tx = sort === 'text' ? tel.innerText : null;
+  const bw = parseFloat(bcs.borderTopWidth) || 0, bc = bw ? hex(bcs.borderTopColor) : '';
   let h = `<div class="nx-lsb nx-insp">`;
   if (tx != null) h += `<span class="lab">Text</span><textarea data-ltext rows="${Math.min(4, tx.split('\n').length + 1)}" aria-label="Text">${E(tx)}</textarea>
     <span class="lab">Typography</span><div class="nx-irow"><select data-st="family" aria-label="Font">${fams.map(x => `<option${x === fam ? ' selected' : ''}>${E(x)}</option>`).join('')}</select><select data-st="weight" aria-label="Weight">${W.map(([v, n]) => `<option value="${v}"${v === wt ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -1379,7 +1392,7 @@ function inspectorHTML(r, el, f) {
     <div class="nx-irow">${col('color', 'Text colour', hex(cs.color))}</div>`;
   h += `<span class="lab">Position and size</span><div class="nx-irow">${num('x', 'X', rc.left)}${num('y', 'Y', rc.top)}${num('w', 'W', rc.width)}</div>`;
   h += `<span class="lab">Opacity and order</span><div class="nx-irow">${num('o', 'Opacity', Math.round((parseFloat(cs.opacity) || 0) * 100), '%')}<div class="nx-seg sm"><button type="button" data-lorder="-1" data-tip="Send backward" aria-label="Send backward">${I('sendback')}</button><button type="button" data-lorder="1" data-tip="Bring forward" aria-label="Bring forward">${I('fwd')}</button></div></div>`;
-  if (sort === 'box' || sort === 'text') h += `<span class="lab">Fill and stroke</span><div class="nx-irow">${col('fill', 'Fill', hex(cs.backgroundColor))}${col('stroke', 'Stroke', bc)}${num('strokeW', 'W', bw, 'px')}</div>`;
+  if (sort === 'box' || sort === 'text') h += `<span class="lab">Fill and stroke</span><div class="nx-irow">${col('fill', 'Fill', hex(bcs.backgroundColor))}${col('stroke', 'Stroke', bc)}${num('strokeW', 'W', bw, 'px')}</div>`;
   if (sort === 'picture' || sort === 'drawing') h += `<span class="lab">Replace with an image</span><div class="nx-rep sm"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Replace</button></div></div>`;
   h += `<span class="lab">Edit with AI</span><div class="nx-ai sm"><textarea data-ai rows="1" aria-label="Edit with AI" placeholder="Describe the change, then Enter"></textarea><button class="nx-tbtn off" data-aiapply>Apply</button></div>
     <div class="nx-lfoot"><button class="nx-tbtn" data-lreset data-tip="This layer as it was when you opened the frame">Reset layer</button></div></div>`;
@@ -1416,7 +1429,8 @@ function saveLayer(L, el, msg) {
 async function layerStyle(L, k, v, live) {
   let { L: L2, el } = await editableEl(L); if (!el) return;
   if (!layerOrig[L2.key]) layerOrig[L2.key] = el.outerHTML;
-  const cs = el.ownerDocument.defaultView.getComputedStyle(el), st = el.style;
+  const cs = el.ownerDocument.defaultView.getComputedStyle(el); let st = el.style;
+  if (['family', 'weight', 'size', 'align', 'color'].includes(k)) { const lf = layerSort(el) === 'text' ? null : textLeaf(el); if (lf && lf !== el) { if (k === 'align') el.style.textAlign = v; st = lf.style; } }   // words in an inner element: the change goes where they are
   if (k === 'family') st.fontFamily = `"${v}"` + (cs.fontFamily.includes('sans') ? ', sans-serif' : '');
   else if (k === 'weight') st.fontWeight = v;
   else if (k === 'size') st.fontSize = Math.max(4, +v || 0) + 'px';
@@ -1462,11 +1476,24 @@ async function layerText(L, val) {
   let el = q1('#canvasEditFrame')?.contentDocument?.querySelector(`[data-mf-path="${CSS.escape(L.mfPath || '')}"]`);
   if (L.s && !htmlPath(L.mfPath)) ({ L, el } = await editableEl(L));
   if (!el) return;
-  el.innerText = v;
+  (layerSort(el) === 'text' ? el : (textLeaf(el) || el)).innerText = v;   // an inner element holding the words keeps its own styling
   patchFrameInline({ studio: 'inline', mfPath: L.mfPath, outer: el.outerHTML });
   toast('Text changed', { undo: () => undoFrameEdit() });
 }
 function layerOf(el) { const s = el.closest('.nx-ls'); return s ? { s, idx: +s.dataset.idx, mfPath: s.dataset.mf || null, key: s.dataset.key, label: s.querySelector('.nm')?.textContent || 'layer' } : null; }
+/* Replace with an image, no AI: the new picture goes into the layer as it is (same box, same place); a frame the kit drew is made editable first */
+async function layerReplacePicture(L, file) {
+  const fd = new FormData(); fd.append('file', file);
+  let j; try { const r = await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(selectedFrameId)}/picture`, { method: 'POST', body: fd }); j = await r.json(); if (!r.ok) throw new Error(j.detail || 'That picture could not be used'); }
+  catch (e) { return toast(e.message || String(e), { err: true }); }
+  let { L: L2, el } = await editableEl(L); if (!el) return layerAsk(L, '', file);
+  const im = el.matches('img') ? el : el.querySelector('img');
+  if (im) { const r = im.getBoundingClientRect(); im.style.width = Math.round(r.width) + 'px'; im.style.height = Math.round(r.height) + 'px'; im.style.objectFit = 'contain'; im.removeAttribute('srcset'); im.setAttribute('src', j.src); }
+  else if ((el.ownerDocument.defaultView.getComputedStyle(el).backgroundImage || '').includes('url(')) { el.style.backgroundImage = `url("${j.src}")`; el.style.backgroundSize = 'contain'; el.style.backgroundRepeat = 'no-repeat'; el.style.backgroundPosition = 'center'; }
+  else return layerAsk(L, '', file);   // a drawing with no picture in it: AI redraws it from the image
+  saveLayer(L2, el, 'Picture replaced');
+  const f = repFiles[L.key]; if (f) URL.revokeObjectURL(f.url); delete repFiles[L.key]; setTimeout(renderCanvasLayerList, 300);
+}
 async function layerAsk(L, text, file) {
   const fid = selectedFrameId;
   const opts = L.mfPath ? { mfPath: L.mfPath } : { itemIndex: L.idx };
@@ -1532,20 +1559,20 @@ function bindLayerPanel() {
     if (t.closest('[data-upl]') && !t.closest('[data-repin]') && !t.closest('[data-repapply]')) return L.s.querySelector('[data-repin]').click();
     if (t.closest('[data-ltextapply]')) return layerText(L);
     if (t.closest('[data-aiapply]')) { const ta = L.s.querySelector('[data-ai]'); const v = ta.value.trim(); if (!v) return ta.focus(); ta.value = ''; return layerAsk(L, v); }
-    if (t.closest('[data-repapply]')) { const f = repFiles[L.key]; const note = (L.s.querySelector('[data-repnote]')?.value || '').trim(); if (!f) { toast('Pick an image to replace this layer with'); return L.s.querySelector('[data-repin]').click(); } return layerAsk(L, note, f.file); }
+    if (t.closest('[data-repapply]')) { const f = repFiles[L.key]; const note = (L.s.querySelector('[data-repnote]')?.value || '').trim(); if (!f) { toast('Pick an image to replace this layer with'); return L.s.querySelector('[data-repin]').click(); } if (!note) return layerReplacePicture(L, f.file); return layerAsk(L, note, f.file); }   // no note: swapped straight in (no AI)
   });
   list.addEventListener('dblclick', e => {
     const gr = e.target.closest('[data-gren]');
     if (gr) { e.preventDefault(); e.stopPropagation(); const g = gr.closest('.nx-lg').dataset.gname;
-      const inp = document.createElement('input'); inp.className = 'nx-rename'; inp.value = g; gr.replaceWith(inp); inp.focus(); inp.select();
-      let done = false; const end = ok => { if (done) return; done = true; const nv = inp.value.trim(); if (ok && nv && nv !== g) renameGroup(g, nv); else renderCanvasLayerList(); };
+      const inp = document.createElement('input'); inp.className = 'nx-rename'; inp.value = g.slice(2); gr.replaceWith(inp); inp.focus(); inp.select();   // (the name, without its g: / m: key)
+      let done = false; const end = ok => { if (done) return; done = true; const nv = inp.value.trim(); inp.blur();   /* focus leaves the box: the list redraws now, not on the next click */ if (ok && nv && nv !== g.slice(2)) renameGroup(g, nv); else renderCanvasLayerList(); };
       inp.addEventListener('keydown', k => { if (k.key === 'Enter') end(true); if (k.key === 'Escape') end(false); k.stopPropagation(); });
       inp.addEventListener('blur', () => end(true)); return; }
     const nm = e.target.closest('[data-lname]'); if (!nm) return;
     const L = layerOf(nm); if (!L) return; e.preventDefault(); e.stopPropagation();
     const v = nm.querySelector('.nmv'), cur = v ? v.textContent : '';
     const inp = document.createElement('input'); inp.className = 'nx-rename'; inp.value = cur; nm.replaceWith(inp); inp.focus(); inp.select();
-    let done = false; const end = ok => { if (done) return; done = true; const nv = inp.value.trim(); if (ok && nv !== cur) layerRename(L, nv); else renderCanvasLayerList(); };
+    let done = false; const end = ok => { if (done) return; done = true; const nv = inp.value.trim(); inp.blur(); if (ok && nv !== cur) layerRename(L, nv); else renderCanvasLayerList(); };
     inp.addEventListener('keydown', k => { if (k.key === 'Enter') end(true); if (k.key === 'Escape') end(false); k.stopPropagation(); });
     inp.addEventListener('blur', () => end(true));
   });
