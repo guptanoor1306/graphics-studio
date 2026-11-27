@@ -290,7 +290,7 @@
     const mp = el.dataset.mfPath || el.dataset.mfDrag;
     if (mp) payload.mfPath = mp;
     if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
-    if (el.dataset.layerType === "html") payload.outer = el.outerHTML;
+    if (el.dataset.layerType === "html" || (mp && mp.indexOf(">") > 0)) payload.outer = el.outerHTML;   // a layer of a hand-written frame saves as its markup
     window.parent.postMessage(payload, "*");
     schedulePlaceChips();
   }
@@ -411,6 +411,7 @@
   function canDrag(el) {
     if (!el || !el.classList.contains("studio-editable")) return false;
     if (el.dataset.specIdx == null) return false;
+    if (el.dataset.studioLocked) return false;          // a kit's own part: selected on click, edited from the panel
     if (el.dataset.mfPath || el.dataset.mfDrag) return true;
     const t = el.dataset.layerType || "";
     const zoDrag = [
@@ -465,7 +466,7 @@
     if (el.dataset.cardIdx != null) payload.cardIdx = parseInt(el.dataset.cardIdx, 10);
     const mp = el.dataset.mfPath || el.dataset.mfDrag;
     if (mp) payload.mfPath = mp;
-    if (el.dataset.layerType === "html") payload.outer = el.outerHTML;
+    if (el.dataset.layerType === "html" || (mp && mp.indexOf(">") > 0)) payload.outer = el.outerHTML;   // a layer of a hand-written frame saves as its markup
     window.parent.postMessage(payload, "*");
     schedulePlaceChips();
   }
@@ -477,6 +478,12 @@
     if (!op || op === document.body || op === document.documentElement) return stageOrigin();
     const r = op.getBoundingClientRect();
     return { x: r.left + op.clientLeft, y: r.top + op.clientTop };
+  }
+
+  let lastTap = null;   // where the last click picked a layer (clicking there again goes one layer down)
+
+  function svgPart(el) {   // an element drawn inside an <svg> (not the svg itself): CSS left / top do nothing there
+    return !!(el && el instanceof SVGElement && el.ownerSVGElement && el.tagName.toLowerCase() !== "svg");
   }
 
   function ensureAbsolute(el) {
@@ -561,6 +568,18 @@
     });
   }
 
+  /* layers that move together: the same group (data-psd-group), the same merged layer (data-psd-merge), or the layers picked
+     together in the panel (Studio sends their paths) */
+  let pickedPaths = new Set();
+  function matesOf(el) {
+    const g = el.dataset.psdGroup, m = el.dataset.psdMerge, p = el.dataset.mfPath;
+    const out = [];
+    document.querySelectorAll("[data-spec-idx].studio-editable").forEach((x) => {
+      if (x === el || el.contains(x) || x.contains(el)) return;
+      if ((g && x.dataset.psdGroup === g) || (m && x.dataset.psdMerge === m) || (p && pickedPaths.has(p) && pickedPaths.has(x.dataset.mfPath))) out.push(x);
+    });
+    return out;
+  }
   function initPointerDrag() {
     if (pointerDragBound) return;
     pointerDragBound = true;
@@ -614,6 +633,17 @@
         if (Math.hypot(dx, dy) < DRAG_PX) return;
         drag = pending;
         pending = null;
+        if (svgPart(drag.el)) {   // a shape inside a drawing (a chart line, a bar, an axis label): moved with an SVG translate
+          const m = /translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s*\)/.exec(drag.el.getAttribute("transform") || "");
+          const ctm = drag.el.ownerSVGElement.getScreenCTM();
+          drag.svg = { tx: m ? +m[1] : 0, ty: m ? +m[2] : 0, k: ctm && ctm.a ? ctm.a : 1, rest: (drag.el.getAttribute("transform") || "").replace(/translate\([^)]*\)\s*/, "") };
+          drag.el.classList.add("studio-dragging");
+          try { window.parent.postMessage({ studio: "drag-state", on: true }, "*"); } catch (_) {}
+          try { drag.el.setPointerCapture(e.pointerId); } catch (_) {}
+          drag.mates = [];
+          e.preventDefault();
+          return;
+        }
         ensureAbsolute(drag.el);
         const pos = readPos(drag.el);
         const origin = parentOrigin(drag.el);
@@ -622,6 +652,9 @@
         drag.offX = e.clientX - origin.x - pos.x;
         drag.offY = e.clientY - origin.y - pos.y;
         drag.el.classList.add("studio-dragging");
+        try { window.parent.postMessage({ studio: "drag-state", on: true }, "*"); } catch (_) {}
+        drag.x0 = pos.x; drag.y0 = pos.y;
+        drag.mates = matesOf(drag.el).map((m) => { ensureAbsolute(m); const q = readPos(m); return { m, x: q.x, y: q.y }; });
         try {
           drag.el.setPointerCapture(e.pointerId);
         } catch (_) {}
@@ -629,6 +662,12 @@
       }
       if (!drag || e.pointerId !== drag.pointerId) return;
       e.preventDefault();
+      if (drag.svg) {
+        const g = drag.svg, nx = +(g.tx + (e.clientX - drag.startX) / g.k).toFixed(1), ny = +(g.ty + (e.clientY - drag.startY) / g.k).toFixed(1);
+        drag.el.setAttribute("transform", (`translate(${nx} ${ny}) ` + g.rest).trim());
+        schedulePlaceChips();
+        return;
+      }
       const w = elDim().w;
       const h = elDim().h;
       const ew = drag.el.offsetWidth || 80;
@@ -645,6 +684,8 @@
       drag.el.style.top = y + "px";
       drag.el.setAttribute("data-x", String(x));
       drag.el.setAttribute("data-y", String(y));
+      (drag.mates || []).forEach((o) => { const nx = Math.round(o.x + x - drag.x0), ny = Math.round(o.y + y - drag.y0);
+        o.m.style.left = nx + "px"; o.m.style.top = ny + "px"; o.m.setAttribute("data-x", String(nx)); o.m.setAttribute("data-y", String(ny)); });
       schedulePlaceChips();
     });
 
@@ -654,14 +695,20 @@
         const dy = e.clientY - layerTap.startY;
         const tapped = !drag && Math.hypot(dx, dy) < DRAG_PX;
         if (tapped && window.parent && window.parent !== window) {
-          window.parent.postMessage(
-            {
-              studio: "select-layer",
-              idx: layerTap.idx,
-              mfPath: layerTap.mfPath,
-            },
-            "*"
-          );
+          // a second click on the same spot picks the next layer under it (a line under a label, a label on a card)
+          let pick = { idx: layerTap.idx, mfPath: layerTap.mfPath, el: layerTap.el };
+          const stack = [];
+          (document.elementsFromPoint(e.clientX, e.clientY) || []).forEach((n) => {
+            const c = n.closest && n.closest("[data-spec-idx].studio-editable");
+            if (c && canSelect(c) && !stack.includes(c)) stack.push(c);
+          });
+          if (lastTap && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 6 && stack.length > 1) {
+            const i = stack.indexOf(lastTap.el);
+            const next = stack[(i + 1) % stack.length];
+            if (i >= 0 && next) pick = { idx: parseInt(next.dataset.specIdx, 10), mfPath: next.dataset.mfPath || next.dataset.mfDrag || null, el: next };
+          }
+          lastTap = { x: e.clientX, y: e.clientY, el: pick.el };
+          window.parent.postMessage({ studio: "select-layer", idx: pick.idx, mfPath: pick.mfPath }, "*");
         }
         layerTap = null;
       }
@@ -672,12 +719,15 @@
       if (!drag || (e.pointerId != null && e.pointerId !== drag.pointerId)) return;
       const el = drag.el;
       const idx = drag.idx;
+      const mates = drag.mates || [];
       el.classList.remove("studio-dragging");
+      try { window.parent.postMessage({ studio: "drag-state", on: false }, "*"); } catch (_) {}
       try {
         el.releasePointerCapture(drag.pointerId);
       } catch (_) {}
       drag = null;
       postMove(el, idx);
+      mates.forEach((o) => postMove(o.m, parseInt(o.m.dataset.specIdx, 10)));
       lastBoundsSig = "";
       emitLayerBoundsToParent();
     }
@@ -919,8 +969,35 @@
     });
   }
 
+  /* the outlines follow a layer as it changes (text typed, size or font changed from the panel), not only after a move */
+  let followT = 0, followOn = false;
+  function followChanges() {
+    if (followOn || !window.MutationObserver) return;
+    followOn = true;
+    const again = () => { clearTimeout(followT); followT = setTimeout(() => { if (!document.querySelector(".studio-dragging, .studio-resizing")) placeChips(); }, 80); };
+    new MutationObserver((recs) => {
+      if (recs.some((r) => { const n = r.target.nodeType === 1 ? r.target : r.target.parentElement; return n && !n.closest("#studio-overlay, .studio-chip, .studio-resize-handle"); })) again();
+    }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["style"], characterData: true, childList: true });
+    document.addEventListener("input", again, true);
+  }
+
+  /* keys for the page around the frame (Delete, Esc, ⌘C / ⌘G / ⌘E / ⌘Z): after a click on a layer the focus is in here, and the page never heard them */
+  let keysOn = false;
+  function forwardKeys() {
+    if (keysOn) return; keysOn = true;
+    document.addEventListener("keydown", (e) => {
+      const t = e.target; if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const mod = e.metaKey || e.ctrlKey, k = (e.key || "").toLowerCase();
+      if (!(e.key === "Delete" || e.key === "Backspace" || e.key === "Escape" || (mod && ["c", "g", "e", "z", "d"].includes(k)))) return;
+      if (e.key === "Delete" || e.key === "Backspace" || (mod && ["g", "e", "z", "d"].includes(k))) e.preventDefault();
+      try { window.parent.postMessage({ studio: "key", key: e.key, meta: e.metaKey, ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey }, "*"); } catch (_) {}
+    }, true);
+  }
+
   function bootLayers() {
+    forwardKeys();
     lastBoundsSig = "";
+    followChanges();
     tagHtmlBlocks();
     initInlineTextOnce();
     initInteractDrag();
@@ -993,6 +1070,7 @@
   window.addEventListener("message", (e) => {
     const d = e.data;
     if (!d) return;
+    if (d.studio === "pick-many") { pickedPaths = new Set(d.paths || []); return; }
     if (d.studio === "select-layer") {
       applyStudioSelection(d);
       schedulePlaceChips();

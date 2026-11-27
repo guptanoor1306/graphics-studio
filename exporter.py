@@ -12,6 +12,8 @@ Optionally also PNGs. Everything is returned as a zip.
 import asyncio
 import threading, base64, io, mimetypes, os, pathlib, re, zipfile
 
+import item_ids
+
 FLATTEN_JS = r"""(overlay) => {
   const name = (e) => {
     const c = (e.className && e.className.baseVal === undefined ? e.className : '') || e.tagName.toLowerCase();
@@ -276,6 +278,10 @@ async def _capture_page(
             out[png_key] = await pg.screenshot(
                 omit_background=True if overlay_png else False
             )
+        try:     # a fixed id on each piece that can be animated on its own (point-3, card-2): LA Studio finds it by that id
+            await pg.evaluate(item_ids.ITEM_JS, item_ids.NOUN_RULES)
+        except Exception as e:
+            print("export: item ids not added:", e, flush=True)
         out[html_key] = await pg.evaluate(FLATTEN_JS, flatten_overlay)
     finally:
         await pg.close()
@@ -375,6 +381,22 @@ def export_png(pages, viewport=(1920, 1080)) -> bytes:
     return files[key]
 
 
+def renamed(key: str, names: dict[str, str] | None) -> str:
+    """png/<fid>.png, png/<fid>_overlay.png, html/<fid>.html … with <fid> swapped for its name from `names`."""
+    if not names or "/" not in key:
+        return key
+    folder, base = key.rsplit("/", 1)
+    stem, dot, ext = base.rpartition(".")
+    for suffix in ("_overlay", ""):
+        if suffix and not stem.endswith(suffix):
+            continue
+        fid = stem[: len(stem) - len(suffix)] if suffix else stem
+        new = names.get(fid)
+        if new:
+            return f"{folder}/{new}{suffix}{dot}{ext}"
+    return key
+
+
 def export_zip(
     pages,
     theme_dir: pathlib.Path,
@@ -384,8 +406,10 @@ def export_zip(
     storyboard_csv: str | None = None,
     zip_path: pathlib.Path | None = None,
     extra_files: dict[str, str] | None = None,
+    names: dict[str, str] | None = None,
 ) -> bytes:
-    """pages: list of (frame_id, full_html, skip_overlay, html_overlay|None). Base href in html must point at this server's /themes/."""
+    """pages: list of (frame_id, full_html, skip_overlay, html_overlay|None). Base href in html must point at this server's /themes/.
+    names: frame id -> file name to use in the zip (e.g. "1.53_my_video"), so files are named by the time they come in."""
     if not pages:
         raise ValueError("No frames to export")
     files = asyncio.run(_render(pages, want_png, viewport))
@@ -396,7 +420,7 @@ def export_zip(
         for name, data in files.items():
             if name.endswith('.html'):
                 data = inline_assets(data, theme_dir).encode()
-            z.writestr(name, data)
+            z.writestr(renamed(name, names), data)
         vw, vh = viewport
         readme = (
             'html/          one static self-contained page per frame (plate included)\n'

@@ -713,7 +713,7 @@ function setChannelKitFilter(theme){
 }
 const CHANNELS=[
  {id:'varsity',label:'Varsity',desc:'Varsity English, Varsity Hindi – Charts & Elements, and Varsity Mutual Fund.',themes:['varsity-mf-graphics','varsity-english','varsity-hindi-graphics','varsity-hindi-fa-graphics'],accent:'#5b55e6'},
- {id:'zo',label:'ZO',desc:'ZO Product: FSS, OSA, OST and TOS anchor frames.',themes:['zo-product-graphics'],accent:'#387ed1'},
+ {id:'zo',label:'ZO',desc:'ZO Product: FSS, OSA, OST and TOS anchor frames.',themes:['zo-product-graphics','zo-ipo-graphics'],accent:'#387ed1'},
  {id:'zero1',label:'Zero1',desc:'Zero1 Hindi long-form toy-world frames, and vertical 1080×1920 Reels.',themes:['zero1-hindi-graphics','zero1-reel-graphics'],accent:'#c96442'},
 ];
 function syncShellNav(){
@@ -903,7 +903,7 @@ function layoutReelPhoneChrome(container,ox,oy,dw,dh){
  return {ox,oy,dw,dh,...dev,deviceLeft,deviceTop};
 }
 function isKitTheme(t){return !!(themeMeta[t]?.kit);}
-function isZoProduct(t){return (t||(P&&P.theme))==='zo-product-graphics'}
+function isZoProduct(t){const x=t||(P&&P.theme);return x==='zo-product-graphics'||x==='zo-ipo-graphics'}
 function isHindiChartsTheme(t){return (t||(P&&P.theme))==='varsity-hindi-graphics'}
 function isHindiFaTheme(t){return (t||(P&&P.theme))==='varsity-hindi-fa-graphics'}
 function isHindiTheme(t){return isHindiChartsTheme(t)||isHindiFaTheme(t)}
@@ -1855,6 +1855,7 @@ function themeLabel(theme){
   if(theme==='varsity-hindi-graphics')return 'Varsity Hindi - Charts';
   if(theme==='varsity-hindi-fa-graphics')return 'Varsity Hindi - Elements';
   if(theme==='zo-product-graphics')return 'ZO Product';
+  if(theme==='zo-ipo-graphics')return 'ZO IPO';
   if(theme==='zero1-reel-graphics')return 'Reels';
   if(theme==='zero1-hindi-graphics')return 'Zero1 Hindi';
   return theme||'—';
@@ -2068,7 +2069,7 @@ function newProject(){
     onSubmit:async name=>{
     if(!name)throw new Error('Enter a name');
     const theme=$('#newProjectTheme')?.value||$('#newProjectThemeSingle')?.value||pick[0];
-    const look=(isKitTheme(theme)||theme==='zo-product-graphics'||theme==='zero1-hindi-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
+    const look=(isKitTheme(theme)||isZoProduct(theme)||theme==='zero1-hindi-graphics')?{look_line:''}:{props:[...DEFAULT_PROPS]};
     const p=await api('/api/projects',{method:'POST',body:JSON.stringify({name,theme,look})});
     navChannel=channelForTheme(theme);
     await open_(p.id);
@@ -2116,7 +2117,7 @@ function specTodoCount(){
 function specGenCount(){
  if(isZ1Hindi()){const g=P?.spec?.gen||{};return z1GenKeys().filter(k=>g[k]?.file).length}
  const seen=new Set();const walk=o=>{if(!o)return;if(typeof o==='string'){if(o.startsWith('gen/'))seen.add(o);}else if(Array.isArray(o))o.forEach(walk);else if(typeof o==='object')Object.values(o).forEach(walk);};
- walk(P?.spec?.frames);return seen.size;
+ walk((P?.spec?.frames||[]).filter(f=>!f?.tk_from));return seen.size;
 }
 function assetsNote(r){
  const a=r?.assets||{};const f=Object.entries(a.filled||{}).filter(([,v])=>v.source!=='library');const bad=Object.keys(a.failed||{});
@@ -2237,12 +2238,12 @@ function canvasEditUrl(){
 }
 /* ZO hand-written frames (frame.html): layers are the named blocks. The editor sends a changed block's markup
    (outer) with its path "html:<name>#<occurrence>"; decor moves land in frame.decor. */
-const STUDIO_ATTRS=['data-mf-tagged','data-spec-idx','data-layer-type','data-layer-label','data-mf-path','data-mf-drag','data-resize','data-x','data-y','data-studio-inline','data-inline-bound','contenteditable','spellcheck'];
+const STUDIO_ATTRS=['data-psd-box','data-studio-locked','data-mf-tagged','data-spec-idx','data-layer-type','data-layer-label','data-mf-path','data-mf-drag','data-resize','data-x','data-y','data-studio-inline','data-inline-bound','contenteditable','spellcheck'];
 function cleanStudioMarkup(node){
  [node,...node.querySelectorAll('*')].forEach(e=>{
   const own=e.getAttribute('data-mf-path');   // the reel kit names its blocks with data-mf-path: keep those
   STUDIO_ATTRS.forEach(a=>e.removeAttribute(a));
-  if(own&&!/^(html:|decor\.)/.test(own))e.setAttribute('data-mf-path',own);
+  if(own&&!/^(html:|decor\.|locked:|page>)/.test(own)&&!own.includes('>'))e.setAttribute('data-mf-path',own);
   if(e.classList){[...e.classList].filter(c=>c.startsWith('studio-')).forEach(c=>e.classList.remove(c));if(!e.classList.length)e.removeAttribute('class')}
  });
  return node;
@@ -2276,7 +2277,8 @@ function htmlChildPatch(fr,mfPath,outer){
  const field=mfPath.slice(0,cut),steps=mfPath.slice(cut+1).split('.').map(Number);
  const src=getSpecPathVal(fr,field);
  if(typeof src!=='string')return false;
- const doc=new DOMParser().parseFromString('<body>'+src+'</body>','text/html');
+ const whole=field==='page';   // a fixed-design frame: the whole page, its <head> kept
+ const doc=new DOMParser().parseFromString(whole?src:'<body>'+src+'</body>','text/html');
  let node=doc.body;
  for(const s of steps){node=node&&node.children[s];}
  if(!node||node===doc.body)return false;
@@ -2286,13 +2288,13 @@ function htmlChildPatch(fr,mfPath,outer){
   const nn=tpl.content.firstElementChild;if(!nn)return false;
   node.replaceWith(cleanStudioMarkup(nn));
  }
- setSpecPath(fr,field,doc.body.innerHTML);
+ setSpecPath(fr,field,whole?'<!doctype html>\n'+doc.documentElement.outerHTML:doc.body.innerHTML);
  return true;
 }
-function extraLayerRows(){   // html pieces and FA side-block headings the iframe tagged
+function extraLayerRows(){   // html pieces, FA side-block headings and the PSD's other layers the iframe tagged
  const seen=new Set();
- return (lastCanvasLayers||[]).filter(L=>L.mfPath&&(L.mfPath.includes('>')||/^els\.\d+\.header$/.test(L.mfPath))&&!seen.has(L.mfPath)&&seen.add(L.mfPath))
-  .sort((a,b)=>a.idx-b.idx).map(L=>({idx:L.idx,mfPath:L.mfPath,label:(L.mfPath.endsWith('.header')?'heading · ':'· ')+(L.label||'piece')}));
+ return (lastCanvasLayers||[]).filter(L=>L.mfPath&&(L.mfPath.includes('>')||L.mfPath.startsWith('locked:')||/^els\.\d+\.(header|[a-z_]+\.\d+(\.[a-z_]+)?|question|tag|caption)$/.test(L.mfPath))&&!seen.has(L.mfPath+'#'+L.idx)&&seen.add(L.mfPath+'#'+L.idx))
+  .sort((a,b)=>a.idx-b.idx).map(L=>({idx:L.idx,mfPath:L.mfPath,label:(L.mfPath.endsWith('.header')?'heading · ':/^els\.\d+\.(?!header$)/.test(L.mfPath)?'text · ':(L.type?L.type+' · ':'· '))+(L.label||'piece')}));
 }
 function extraLayerRowsHtml(){
  return extraLayerRows().map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row sub${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join('');
@@ -2313,7 +2315,7 @@ function applyDecorMove(fr,mfPath,x,y){
 function isHtmlLayerFrame(fr){return !!(fr&&fr.html&&(isZoProduct(P?.theme)||P?.theme==='zero1-reel-graphics'))}
 function htmlFrameLayerEntries(fr){
  const seen=new Set();
- return (lastCanvasLayers||[]).filter(L=>L.mfPath&&!seen.has(L.mfPath)&&seen.add(L.mfPath))
+ return (lastCanvasLayers||[]).filter(L=>L.mfPath&&!L.mfPath.includes('>')&&!L.mfPath.startsWith('locked:')&&!seen.has(L.mfPath)&&seen.add(L.mfPath))
   .sort((a,b)=>a.idx-b.idx)
   .map(L=>({idx:L.idx,label:(L.mfPath.startsWith('decor.')?'decor · ':'')+(L.label||L.mfPath.replace(/^html:/,'').replace(/#\d+$/,'')),mfPath:L.mfPath}));
 }
@@ -2414,13 +2416,17 @@ function renderCanvasLayerList(){
  if(!list||!selectedFrameId||!P?.spec){if(list)list.innerHTML='';return}
  const fr=P.spec.frames.find(f=>f.id===selectedFrameId);
  if(!fr){list.innerHTML='';return}
+ if(typeof fr.page==='string'&&fr.page.trim()){   // a fixed-design frame: every layer comes from the page itself
+  const extra=extraLayerRowsHtml();
+  list.innerHTML=extra||`<p style="margin:0;font-size:12px;color:var(--mute)">Loading layers…</p>`;
+  return}
  if(isZ1Hindi(P.theme)){
-  const rows=z1LayerEntries(fr);
-  list.innerHTML=rows.length?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">This ${esc(fr.type||'scene')} frame has no free layers. Ask for changes in the chat below.</p>`;
+  const rows=z1LayerEntries(fr),extra=extraLayerRowsHtml();
+  list.innerHTML=(rows.length||extra)?rows.map((r,i)=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(i,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(i,r.mfPath)}</div>`}).join('')+extra:`<p style="margin:0;font-size:12px;color:var(--mute)">This ${esc(fr.type||'scene')} frame has no free layers. Ask for changes in the chat below.</p>`;
   return}
  if(isHtmlLayerFrame(fr)){
-  const rows=htmlFrameLayerEntries(fr);
-  list.innerHTML=rows.length?rows.map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join(''):`<p style="margin:0;font-size:12px;color:var(--mute)">Loading layers…</p>`;
+  const rows=htmlFrameLayerEntries(fr),extra=extraLayerRowsHtml();
+  list.innerHTML=(rows.length||extra)?rows.map(r=>{const mp=mfPathAttr(r.mfPath);return `<div class="canvas-layer-row${layerRowSelected(r.idx,r.mfPath)?' on':''}" onclick="selectCanvasLayerFromRow(event,${r.idx}${mp})"><span class="cl-name" title="${esc(r.label)}">${esc(r.label)}</span>${layerRowActionButtons(r.idx,r.mfPath)}</div>`}).join('')+extra:`<p style="margin:0;font-size:12px;color:var(--mute)">Loading layers…</p>`;
   return}
  if(isKitTheme(P.theme)){
   const rows=mfLayerEntries(fr);
@@ -2430,7 +2436,7 @@ function renderCanvasLayerList(){
  const useEls=isHindiFaTheme(P.theme);
  const items=useEls?(fr?.els||[]):(fr?.items||[]);
  const lbl=useEls?layerRowLabelEl:layerRowLabel;
- list.innerHTML=items.length?items.map((it,i)=>{const mp=useEls?mfPathAttr('els.'+i):'';return `<div class="canvas-layer-row${layerRowSelected(i,useEls?'els.'+i:null)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(lbl(it,i))}">${esc(lbl(it,i))}</span>${layerRowActionButtons(i,useEls?'els.'+i:null)}</div>`}).join('')+(useEls?extraLayerRowsHtml():''):'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>';
+ list.innerHTML=items.length?items.map((it,i)=>{const mp=useEls?mfPathAttr('els.'+i):'';return `<div class="canvas-layer-row${layerRowSelected(i,useEls?'els.'+i:null)?' on':''}" onclick="selectCanvasLayerFromRow(event,${i}${mp})"><span class="cl-name" title="${esc(lbl(it,i))}">${esc(lbl(it,i))}</span>${layerRowActionButtons(i,useEls?'els.'+i:null)}</div>`}).join('')+extraLayerRowsHtml():(extraLayerRowsHtml()||'<p style="margin:0;font-size:12px;color:var(--mute)">No layers — Regenerate this frame.</p>');
 }
 function openLayerEditDialog(action,idx,mfPath=null){
  const dlg=document.getElementById('layerEditDlg');
@@ -2757,6 +2763,7 @@ function renderParentCanvasChips(layers){
 function clearParentOverlayDom(){lastCanvasChipSig='';const h=$('#canvasChipOverlay');if(h)h.innerHTML=''}
 function clearParentCanvasChips(){clearParentOverlayDom();selectedCanvasLayer=null}
 function selectEditFrame(fid){
+ if(fid!==selectedFrameId)window.clearToasts?.();
  selectedFrameId=fid;
  clearParentCanvasChips();
  document.querySelectorAll('.edit-frame-thumb').forEach(t=>t.classList.toggle('on',t.dataset.fid===fid));
@@ -2858,7 +2865,7 @@ function presenterRefreshAll(res){
 }
 async function uploadPresenter(slot,input){
  const file=input?.files?.[0];if(!file)return;
- const fd=new FormData();fd.append('slot',slot);fd.append('file',file);
+ const fd=new FormData();fd.append('slot',slot);fd.append('file',file);if(P?.look?.toolkit&&selectedFrameId)fd.append('fid',String(selectedFrameId));
  setEditLoading(true);
  try{
   const r=await fetch(`/api/projects/${P.id}/presenter`,{method:'POST',body:fd});
@@ -3338,21 +3345,22 @@ async function waitExportJob(pid,jobId,onTick){
  }
  throw new Error('Export timed out on the server (still running?). Try again in a minute.');
 }
-async function exp(){
+/* files in an export zip are named by the time each frame comes in ("1.53_<project>"), like the frames sent to LA Studio */
+function exportNamesQ(only){
+ try{const frameFileNames=window.frameFileNames;if(typeof frameFileNames!=='function'||!P?.spec)return '';
+  const all=(P.spec.frames||[]).map(f=>String(f.id)),stem=(typeof laSlug==='function'?laSlug(P.name):String(P.name||'video').replace(/\W+/g,'_')),nm=frameFileNames(all,stem),m={};
+  all.forEach((id,i)=>{if((!only||only.includes(id))&&/^(?:\d{1,2}[.:])?\d{1,2}[.:]\d{2}_/.test(nm[i]))m[id]=nm[i]});   // a frame with no time keeps its own name
+  return Object.keys(m).length?'&names='+encodeURIComponent(JSON.stringify(m)):''}catch(_){return ''}
+}
+async function exp(opts={}){
  if(!P?.spec)return;
- const n=(P.spec?.frames||[]).length;
- let bulletinFmt=false;
- if(isZoProduct()){const v=await uiAsk({title:`Export all ${n||''} frames`,message:'Bulletin is the team\'s layered format (HTML, PNG, layer data and spec). The usual export is HTML and PNG per frame.',
-   actions:[{label:'Cancel',value:null},{label:'Usual export',value:'usual'},{label:'Bulletin',value:'bulletin',primary:true}]});if(!v)return;bulletinFmt=v==='bulletin'}
- else if(!await uiConfirm('This takes about 1–3 minutes on the server.',{title:`Export all ${n||''} frames?`,ok:'Export'}))return;
- const wantPng=bulletinFmt?true:n>12
-  ?await uiAsk({title:'Include PNG pictures?',message:`With PNGs the zip is much larger and can fail on a slow connection. HTML only is recommended for ${n}+ frames.`,
-     actions:[{label:'HTML only',value:false},{label:'With PNGs',value:true,primary:true}]}).then(v=>v===true)
-  :true;
+ /* Export all: every frame (HTML + PNG) and the storyboard CSV in one zip, no questions; the layered Bulletin format is in the ▾ menu */
+ const bulletinFmt=!!opts.bulletin;
+ const wantPng=true;
  const png=wantPng?1:0;
  setWorkspaceLoading(true,'Starting export…');
  try{
-  const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=${png}${bulletinFmt?'&fmt=bulletin':''}`,{method:'POST',body:'{}'});
+  const {job_id:jobId}=await api(`/api/projects/${P.id}/export/jobs?png=${png}${bulletinFmt?'&fmt=bulletin':''}${exportNamesQ()}`,{method:'POST',body:JSON.stringify({frames:(()=>{try{return window.storyboardRows?window.storyboardRows():[]}catch(_){return []}})()})});
   let pollHost=null;
   await waitExportJob(P.id,jobId,(st,n)=>{
    if(pollHost&&st.host&&st.host!==pollHost)console.warn('[export] poll hit a different server host — job may 404; use one Railway replica or retry.');
@@ -3385,7 +3393,7 @@ async function expFrame(fid){
  const label=frameLabel(fid);
  setWorkspaceLoading(true,`Exporting ${label}…`);
  try{
-  const r=await fetch(`/api/projects/${P.id}/export?png=1&only=${encodeURIComponent(fid)}`,{cache:'no-store'});
+  const r=await fetch(`/api/projects/${P.id}/export?png=1&only=${encodeURIComponent(fid)}${exportNamesQ([String(fid)])}`,{cache:'no-store'});
   await downloadExportResponse(r,`${(P.name||'frame').replace(/\s+/g,'_')}_${fid}_export.zip`);
  }catch(e){alert(e.message||String(e))}finally{setWorkspaceLoading(false)}
 }
@@ -3517,7 +3525,7 @@ async function laSend(){
    const r=await fetch(`/api/projects/${P.id}/frames/${encodeURIComponent(ids[i])}/export.html`,{cache:'no-store'});
    if(r.status===404||r.status===400)continue;if(!r.ok)throw new Error(`Frame ${ids[i]}: ${await r.text()}`);
    files.push(new File([await r.text()],`${stem}_${ids[i].replace(/[^\w.-]+/g,'_')}.html`,{type:'text/html'}))}
-  let csv=null;try{const r=await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`);if(r.ok)csv=new File([await r.blob()],`${stem}_storyboard-instructions.csv`,{type:'text/csv'})}catch(_){}
+  let csv=null;try{if(window.storyboardCsvFile)csv=await window.storyboardCsvFile(stem);else{const r=await fetch(`/api/projects/${P.id}/storyboard-instructions.csv`);if(r.ok)csv=new File([await r.blob()],`${stem}_storyboard-instructions.csv`,{type:'text/csv'})}}catch(_){}
   label('Finding the LA Studio project…');
   const la=await laEnsureProject(P);   // the Graphics tab has no project of its own: LA Studio finds or makes it
   label('Sending to LA Studio…');

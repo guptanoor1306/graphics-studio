@@ -31,7 +31,13 @@ SLOTS: dict[str, dict[str, tuple[str, str]]] = {   # theme -> slot -> (label, st
 }
 
 
+def _base(theme):
+    import theme_alias
+    return theme_alias.base(theme)
+
+
 def has_slots(theme: str) -> bool:
+    theme = _base(theme)
     return theme in SLOTS
 
 
@@ -43,6 +49,7 @@ def side_of_plate_key(key: str) -> str:
 
 def slot_of(theme: str, f: dict, look: dict | None = None) -> str | None:
     """Which presenter slot this frame shows, or None (full screen, or a special plate such as a scene)."""
+    theme = _base(theme)
     look = look or {}
     mode = str(f.get("mode") or "")
     plate = str(f.get("plate") or "")
@@ -78,12 +85,14 @@ def slot_of(theme: str, f: dict, look: dict | None = None) -> str | None:
 
 
 def is_ost(theme: str, f: dict) -> bool:
+    theme = _base(theme)
     return str(f.get("mode") or "").lower() == "ost"
 
 
 def summary(theme: str, spec: dict | None, look: dict | None) -> list[dict]:
     """[{slot, label, count, ost, custom, src}] for the slots this project's frames use."""
-    if theme not in SLOTS:
+    kit = _base(theme)
+    if kit not in SLOTS:
         return []
     look = look or {}
     custom = look.get("presenter") if isinstance(look.get("presenter"), dict) else {}
@@ -97,8 +106,8 @@ def summary(theme: str, spec: dict | None, look: dict | None) -> list[dict]:
             c[0] += 1
             c[1] += 1 if is_ost(theme, f) else 0
     out = []
-    for slot, (label, stock) in SLOTS[theme].items():
-        if slot not in counts and slot not in custom and not (theme == "varsity-english" and counts):
+    for slot, (label, stock) in SLOTS[kit].items():
+        if slot not in counts and slot not in custom and not (kit == "varsity-english" and counts):
             continue   # Varsity English always shows both sides: the other side is the second camera
         rel = custom.get(slot) or stock
         out.append({"slot": slot, "label": label, "count": counts.get(slot, [0, 0])[0],
@@ -139,6 +148,7 @@ def _face_center(im):
 def fit_to_slot(im, theme: str, slot: str, cw: int, ch: int):
     """Crop (and zoom a little if needed) so the presenter sits on the slot's side, then size to the canvas.
     A centred front shot uploaded for "right" ends up with the presenter on the right half, clear of the content."""
+    theme = _base(theme)
     from PIL import Image
     W, H = im.size
     ar = cw / ch

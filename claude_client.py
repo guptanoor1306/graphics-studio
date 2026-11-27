@@ -62,7 +62,8 @@ def is_reel_theme(theme_dir: pathlib.Path) -> bool:
 
 
 def is_zo_product_theme(theme_dir: pathlib.Path) -> bool:
-    return theme_dir.name == "zo-product-graphics"
+    import theme_alias
+    return theme_alias.base(theme_dir.name) == "zo-product-graphics"
 
 
 def is_z1_hindi_theme(theme_dir: pathlib.Path) -> bool:
@@ -129,6 +130,7 @@ def theme_rules(theme_dir: pathlib.Path) -> str:
         rels = (
             "SKILL.md",
             "references/spec_format.md",
+            "references/m4_futures_patterns.md",
             "references/storyboard_rules.md",
             "references/assets.md",
             "examples/example_spec.json",
@@ -720,7 +722,7 @@ USAGE_SINK = None   # app.py sets this: called with (label, model, usage dict) a
 SETTING = None      # app.py sets this: SETTING(key) -> str | None, settings changed in the page (Cost window)
 
 
-def _log_usage(label: str, model: str, r) -> None:
+def _log_usage(label: str, model: str, r, secs: float | None = None) -> None:
     """One line per Claude call in the server log (job, model, tokens incl. cache, $), and one row in the cost record."""
     u = getattr(r, "usage", None)
     if u is None:
@@ -731,7 +733,8 @@ def _log_usage(label: str, model: str, r) -> None:
     d = {"input": g("input_tokens"), "cache_read": g("cache_read_input_tokens"), "cache_write": g("cache_creation_input_tokens"),
          "cache_write_1h": w1, "output": g("output_tokens")}
     print(f"claude usage {label or '?'} {model}: in={d['input']} cache_read={d['cache_read']} "
-          f"cache_write={d['cache_write']} out={d['output']} ≈${cost_usd(model, d):.3f}", flush=True)
+          f"cache_write={d['cache_write']} out={d['output']} ≈${cost_usd(model, d):.3f}"
+          + (f" {secs:.1f}s" if secs is not None else ""), flush=True)   # how long the call took, to find what makes a job slow
     if USAGE_SINK:
         try:
             USAGE_SINK(label or "?", model, d)
@@ -745,6 +748,8 @@ def _messages_create(*, think: bool = False, on_partial=None, model: str | None 
     client = _client()
     use = model or MODEL
     extra = _thinking_kwargs() if think else {}
+
+    t0 = time.time()
 
     def _go(kw: dict):
         kw = {**kw, "max_tokens": int(kw.get("max_tokens") or _MAX_TOKENS_NONSTREAM)}
@@ -763,14 +768,14 @@ def _messages_create(*, think: bool = False, on_partial=None, model: str | None 
                                 except Exception as e:  # a preview problem never stops the storyboard
                                     print(f"partial preview skipped: {e}")
                 fm = s.get_final_message()
-                _log_usage(label, use, fm)
+                _log_usage(label, use, fm, time.time() - t0)
                 return fm
 
         if on_partial or kw["max_tokens"] > _MAX_TOKENS_NONSTREAM:
             return _via_stream()
         try:
             r = client.messages.create(model=use, **kw)
-            _log_usage(label, use, r)
+            _log_usage(label, use, r, time.time() - t0)
             return r
         except Exception as exc:
             err = str(exc).lower()
@@ -952,6 +957,9 @@ def mf_picture_issues(spec: dict) -> list[str]:
 def spec_quality_issues(spec: dict, storyboard: str = "", *, theme: str = "", storyboard_led: bool = False) -> list[str]:
     """storyboard_led: frames come from the team's storyboard PDF, which already decides anchor vs full screen,
     so the mix checks (too many anchor frames, need more full-screen) don't apply."""
+    import theme_alias
+    theme = theme_alias.base(theme)
+
     if theme == "zero1-hindi-graphics":
         return _z1h_issues(spec)
     if theme == "varsity-mf-graphics":
@@ -2158,6 +2166,48 @@ def storyboard(
         theme_dir, out, "varsity-english", script,
         finalize=lambda sp: enrich_spec(_merge_user_look(sp, look), out.get("storyboard") or ""),
     )
+    return out
+
+
+PAGE_TOOL = {
+    "name": "submit_page",
+    "description": "The frame's full page HTML after the change.",
+    "input_schema": {"type": "object", "properties": {"page": {"type": "string", "description": "the whole page, from <!doctype html> to </html>"}},
+                     "required": ["page"]},
+}
+
+
+def edit_page(theme_dir: pathlib.Path, page: str, ask: str, *, focus: str | None = None, ref_src: str | None = None,
+              ref_image: tuple[str, bytes] | None = None) -> str:
+    """A frame kept as a fixed design (its own page HTML): one small edit, in the kit's house style."""
+    import base64
+    msg = ("This frame is a fixed 1920x1080 design kept as one HTML page (below). Make this change and return the "
+           "WHOLE page with submit_page.\n"
+           f"Change: {ask}\n")
+    if focus:
+        msg += f"Change only this element (leave every other element exactly as it is):\n{focus[:6000]}\n"
+    if ref_src:
+        msg += f"The attached picture is saved at {ref_src}: use that path for it (as an <img src> or url()).\n"
+    msg += ("Rules: keep every other element, its position, its words and its styles unchanged; keep all relative "
+            "links; no <script>; keep <body data-page=\"1\">; use the kit's fonts and colours (SKILL.md). New text "
+            "goes in its own element, absolutely positioned where it fits without covering other content.\n\n"
+            f"PAGE:\n{page}")
+    content: list = []
+    if ref_image:
+        content.append({"type": "image", "source": {"type": "base64", "media_type": ref_image[0],
+                                                     "data": base64.standard_b64encode(ref_image[1]).decode()}})
+    if _tool_choice("submit_page")["type"] == "auto":
+        msg += "\n\nRespond only by calling the submit_page tool."
+    content.append({"type": "text", "text": msg})
+    r = _messages_create(label="edit-page", model=LIGHT_MODEL, max_tokens=min(32000, 4000 + len(page) // 2),
+                         system=_system(theme_dir), tools=[PAGE_TOOL], tool_choice=_tool_choice("submit_page"),
+                         messages=[{"role": "user", "content": content}])
+    out = str(_tool_input(r, "submit_page").get("page") or "")
+    if "<body" not in out.lower():
+        raise ValueError("Claude sent back no page")
+    out = re.sub(r"<script\b[^>]*>.*?</script>", "", out, flags=re.S | re.I)
+    if 'data-page="1"' not in out:
+        out = re.sub(r"<body\b", '<body data-page="1"', out, count=1, flags=re.I)
     return out
 
 

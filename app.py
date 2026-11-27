@@ -5,7 +5,7 @@ Run:  copy .env.example to .env, set ANTHROPIC_API_KEY, then uvicorn app:app --h
 A theme = a folder in themes/ (the skill kit: SKILL.md, references/spec_format.md, templates/, assets/, scripts/build.py).
 Add a channel by dropping in another kit folder; nothing else changes.
 """
-import importlib.util, inspect, json, os, pathlib, re, tempfile, threading, time, uuid, asyncio
+import importlib.util, inspect, json, os, pathlib, re, sys, tempfile, threading, time, uuid, asyncio
 from urllib.parse import quote
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
@@ -16,7 +16,7 @@ ROOT = pathlib.Path(__file__).parent
 load_dotenv(ROOT / ".env")
 import copy
 
-import asset_gen, audio_transcribe, la_link, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
+import asset_gen, audio_transcribe, toolkit, la_link, z1_plates, bulletin, claude_client, critique, episode_audio, exporter, mf_studio, spec_enrich, storyboard_csv, storyboard_pdf, theme_canvas
 from frame_edit_util import (
     apply_flat_paste_replace,
     apply_layer_reference_replace,
@@ -339,7 +339,8 @@ def is_mf_theme_name(theme: str) -> bool:
 
 
 def is_zo_theme_name(theme: str) -> bool:
-    return theme == "zo-product-graphics"
+    import theme_alias
+    return theme_alias.base(theme) == "zo-product-graphics"
 
 
 HINDI_THEME_NAMES = frozenset({"varsity-hindi-graphics", "varsity-hindi-fa-graphics"})
@@ -418,8 +419,14 @@ _mods = {}
 def builder(theme):
     if theme not in _mods:
         p = THEMES / theme / "scripts" / "build.py"
+        # kits share helper names (scenes.py, charrig.py, render.py): each kit gets its own, not the first kit's that loaded
+        own = [x.stem for x in p.parent.glob("*.py") if x.stem != "build"]
+        for n in own:
+            sys.modules.pop(n, None)
         spec = importlib.util.spec_from_file_location(f"build_{theme}", p); m = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(m); _mods[theme] = m
+        for n in own:
+            sys.modules.pop(n, None)
     return _mods[theme]
 
 def _coerce_studio_item(it: dict, theme: str) -> dict:
@@ -556,6 +563,14 @@ def frame_page(
     spec: dict | None = None,
     overlay: bool = False,
 ):
+    if isinstance(frame, dict) and isinstance(frame.get("page"), str) and frame["page"].strip():
+        html = frame["page"]          # a frame made editable as a fixed design: its own page, no kit render
+    else:
+        html = _kit_frame_html(theme, frame, look, edit, all_frames, spec, overlay)
+    return _finish_frame_page(theme, html, base_href, edit)
+
+
+def _kit_frame_html(theme, frame, look, edit, all_frames, spec, overlay):
     mod = builder(theme)
     render = mod.frame_html
     prev_studio_web = os.environ.get("STUDIO_WEB")
@@ -583,6 +598,10 @@ def frame_page(
             os.environ.pop("STUDIO_WEB", None)
         else:
             os.environ["STUDIO_WEB"] = prev_studio_web
+    return html
+
+
+def _finish_frame_page(theme, html, base_href, edit):
     href = base_href if base_href is not None else f"/themes/{theme}/scenes/"
     cw, ch = theme_canvas.canvas_for_theme(theme)
     canvas_meta = f'<meta name="studio-canvas" content="{cw},{ch}">'
@@ -598,15 +617,20 @@ def frame_page(
             )
         elif "<body>" in html:
             html = html.replace("<body>", '<body class="in-studio-iframe">', 1)
+        else:      # a fixed-design page: <body data-page="1" ...>
+            html = re.sub(r"<body\b([^>]*)>", lambda m: (f'<body{m.group(1)}>' if "in-studio-iframe" in m.group(1) else
+                          (re.sub(r'class="', 'class="in-studio-iframe ', m.group(1), count=1) if 'class="' in m.group(1)
+                           else f'{m.group(1)} class="in-studio-iframe"').join(("<body", ">"))), html, count=1)
         edit_css = (ROOT / "static" / "studio_edit.css").read_text()
         registry_js = (ROOT / "static" / "layer_registry.js").read_text()
         interact_js = (ROOT / "static" / "interact.min.js").read_text()
         edit_js = (ROOT / "static" / "studio_edit.js").read_text()
+        psd_js = (ROOT / "static" / "psd_collect.js").read_text() + "\n" + (ROOT / "static" / "psd_layers.js").read_text()
         html = html.replace("</head>", f"<style>{edit_css}</style></head>", 1)
         html = html.replace(
             "</body>",
             f"<script>{registry_js}</script><script>{interact_js}</script>"
-            f"<script>{edit_js}</script></body>",
+            f"<script>{edit_js}</script><script>{psd_js}</script></body>",
             1,
         )
     return html
@@ -714,6 +738,8 @@ def projects_summary():
             look = json.loads(r.pop("look") or "{}") or {}
         except ValueError:
             look = {}
+        if look.get("toolkit"):   # a kit's toolkit (templates), opened from its own button, not a video
+            continue
         frames = [f for f in (spec.get("frames") or []) if isinstance(f, dict)]
         pr = PROGRESS.get(r["id"]) or {}
         running = pr.get("state") == "running" and now - (pr.get("ts") or pr.get("started") or 0) < 900
@@ -746,6 +772,66 @@ def mark_sent_layers(pid: int):
 
 _THUMB_DIR = pathlib.Path(tempfile.gettempdir()) / "graphics_studio_thumbs"
 _THUMB_SEM = threading.Semaphore(2)
+_THUMB_ASEM = None
+_KIT_SIG: dict = {}
+
+
+def _kit_sig(theme: str) -> str:
+    """The kit's own code and styles, hashed once per process: a thumbnail made before a kit change is not shown after it."""
+    if theme not in _KIT_SIG:
+        import hashlib
+        h = hashlib.sha1()
+        d = THEMES / theme
+        for f in sorted([*d.glob("scripts/*.py"), *d.glob("templates/*.css"), *d.glob("templates/*.js")]):
+            try:
+                h.update(f.name.encode()); h.update(f.read_bytes())
+            except OSError:
+                pass
+        _KIT_SIG[theme] = h.hexdigest()[:10]
+    return _KIT_SIG[theme]
+
+
+def _plate_sig(theme: str, pid: int) -> str:
+    """the project's uploaded plate is always user_<pid>.png: its time goes in cache keys, so a new upload shows"""
+    try:
+        return str(int((THEMES / theme / "assets/plates" / f"user_{pid}.png").stat().st_mtime))
+    except OSError:
+        return ""
+
+
+def _thumb_db(c) -> None:
+    from db_store import once
+
+    def make(conn):
+        conn.execute("create table if not exists thumb_cache(k text primary key, data text, ts real)")
+        conn.commit()
+    once("thumb_cache", c, make)
+
+
+def _thumb_get(key: str) -> bytes | None:
+    """Thumbnails are kept in the database too: the server's temp folder is emptied on every deploy, and re-making every
+    card and filmstrip picture after a deploy kept the one browser busy (previews blank, Send to Animate waiting)."""
+    import base64
+    try:
+        with connect() as c:
+            _thumb_db(c)
+            r = c.execute("select data from thumb_cache where k=?", (key,)).fetchone()
+        return base64.b64decode(r["data"]) if r and r.get("data") else None
+    except Exception:
+        return None
+
+
+def _thumb_put(key: str, data: bytes) -> None:
+    import base64, random
+    try:
+        with connect() as c:
+            _thumb_db(c)
+            c.execute("insert into thumb_cache(k,data,ts) values(?,?,?) on conflict(k) do nothing", (key, base64.b64encode(data).decode(), time.time()))
+            if random.random() < 0.02:   # now and then: pictures nobody asked for in 60 days go
+                c.execute("delete from thumb_cache where ts < ?", (time.time() - 60 * 86400,))
+            c.commit()
+    except Exception:
+        pass
 
 
 @app.get("/api/projects/{pid}/frames/{fid}/thumb.png")
@@ -758,12 +844,17 @@ async def frame_thumb(pid: int, fid: str, w: int = 480):
     if fr is None:
         raise HTTPException(404, "frame not found")
     w = max(120, min(int(w or 480), 960))
-    key = hashlib.sha1(json.dumps([p["theme"], fr, effective_look(p), (p.get("spec") or {}).get("gen"), w],
+    key = hashlib.sha1(json.dumps([p["theme"], fr, effective_look(p), (p.get("spec") or {}).get("gen"), w, _kit_sig(p["theme"]), _plate_sig(p["theme"], pid)],
                                   sort_keys=True, default=str).encode()).hexdigest()[:20]
     path = _THUMB_DIR / f"{pid}_{key}.jpg"
     hdr = {"Cache-Control": "public, max-age=86400"}
     if path.exists():
         return Response(path.read_bytes(), media_type="image/jpeg", headers=hdr)
+    kept = await asyncio.to_thread(_thumb_get, f"{pid}_{key}")
+    if kept:
+        _THUMB_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(kept)
+        return Response(kept, media_type="image/jpeg", headers=hdr)
     pages = _export_pages(p, {fid})
     if not pages:
         raise HTTPException(404, "frame has nothing to draw yet")
@@ -786,12 +877,17 @@ async def frame_thumb(pid: int, fid: str, w: int = 480):
         im.save(buf, "JPEG", quality=82)
         return buf.getvalue()
 
+    global _THUMB_ASEM
+    if _THUMB_ASEM is None:
+        _THUMB_ASEM = asyncio.Semaphore(2)
     try:
-        data = await asyncio.to_thread(render)
+        async with _THUMB_ASEM:   # wait for a turn here, not inside a worker thread: a page of 40 thumbnails used to hold
+            data = await asyncio.to_thread(render)   # 40 of the server's threads, and previews / Send to Animate waited behind them
     except Exception as e:
         raise HTTPException(502, detail=f"thumbnail failed: {e}") from e
     _THUMB_DIR.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
+    await asyncio.to_thread(_thumb_put, f"{pid}_{key}", data)
     return Response(data, media_type="image/jpeg", headers=hdr)
 
 @app.post("/api/projects")
@@ -887,13 +983,132 @@ def export_frame_html(pid: int, fid: str):
     """One frame as a self-contained HTML (fonts and pictures inlined): what LA Studio's Import Graphics turns
     into an exact layered PSD. At most STUDIO_INLINE_MAX (2) are built at once: each inlines megabytes of
     pictures, and a burst of them used to starve every other request."""
+    import hashlib
     p = load(pid)
     pages = _export_pages(p, {fid}, layers=True)
     if not pages:
         raise HTTPException(404, "frame not found or not a graphic")
+    key = hashlib.sha1((p["theme"] + _kit_sig(p["theme"]) + _plate_sig(p["theme"], pid) + pages[0][1]).encode("utf-8", "replace")).hexdigest()[:24]
+    path = _THUMB_DIR / f"x_{pid}_{key}.html"   # the same frame sent again (Send to Animate, Open in Photoshop): not rendered twice
+    if path.exists():
+        return HTMLResponse(path.read_text("utf-8"))
     with _INLINE_SLOTS:
-        return HTMLResponse(exporter.frame_page_for_layers(pages[0][1], THEMES / p["theme"],
-                                                           theme_canvas.canvas_for_theme(p["theme"])))
+        out = exporter.frame_page_for_layers(pages[0][1], THEMES / p["theme"], theme_canvas.canvas_for_theme(p["theme"]))
+    try:
+        _THUMB_DIR.mkdir(parents=True, exist_ok=True); path.write_text(out, "utf-8")
+    except OSError:
+        pass
+    return HTMLResponse(out)
+
+
+# ---------------------------------------------------------------- toolkit (ZO Product): ready-made frames
+def _toolkit_project(theme: str) -> dict:
+    """The kit's toolkit project (created the first time)."""
+    with connect() as c:
+        rows = c.execute("select id, look from projects where theme=? order by id", (theme,)).fetchall()
+    for r in rows:
+        try:
+            if (json.loads(r["look"] or "{}") or {}).get("toolkit"):
+                return load(r["id"])
+        except ValueError:
+            pass
+    pid = insert_project(toolkit.NAME.get(theme, "Toolkit"), theme, "", json.dumps({**_DEFAULT_LOOK, "toolkit": True}),
+                         "toolkit", time.time())
+    save(pid, "toolkit", "toolkit created", spec={"frames": []})
+    return load(pid)
+
+
+def _need_toolkit(theme: str):
+    if not toolkit.enabled(theme):
+        raise HTTPException(400, "this kit has no toolkit yet")
+
+
+@app.get("/api/toolkit")
+async def toolkit_get(theme: str):
+    _need_toolkit(theme)
+    tk = await _db_call(_toolkit_project, theme)
+    frames = [f for f in (tk.get("spec") or {}).get("frames") or [] if isinstance(f, dict)]
+    return {"pid": tk["id"], "updated_at": tk.get("updated_at"), "templates": [toolkit.template_view(f) for f in frames]}
+
+
+@app.post("/api/toolkit/save")
+async def toolkit_save(req: Request):
+    """Save a video's frame as a template."""
+    b = await req.json()
+    src = await _db_call(load, int(b["pid"]))
+    _need_toolkit(src["theme"])
+    fr = next((f for f in (src.get("spec") or {}).get("frames") or [] if str(f.get("id")) == str(b["fid"])), None)
+    if not fr:
+        raise HTTPException(404, "frame not found")
+    tk = await _db_call(_toolkit_project, src["theme"])
+    spec = dict(tk.get("spec") or {"frames": []})
+    frames = list(spec.get("frames") or [])
+    t = toolkit.from_frame(src, fr, b.get("name") or "", frames)
+    spec["frames"] = frames + [t]
+    await _db_call(save, tk["id"], who(req), f"template saved: {t['name']}", spec=spec)
+    return {"pid": tk["id"], "template": toolkit.template_view(t)}
+
+
+@app.post("/api/toolkit/blank")
+async def toolkit_blank(req: Request):
+    """A new template on one of the kit's presenter photos."""
+    b = await req.json()
+    theme = b.get("theme") or "zo-product-graphics"
+    _need_toolkit(theme)
+    tk = await _db_call(_toolkit_project, theme)
+    spec = dict(tk.get("spec") or {"frames": []})
+    frames = list(spec.get("frames") or [])
+    t = toolkit.blank(b.get("plate") or "m2_right", frames)
+    spec["frames"] = frames + [t]
+    await _db_call(save, tk["id"], who(req), "new template", spec=spec)
+    return {"pid": tk["id"], "template": toolkit.template_view(t)}
+
+
+@app.post("/api/toolkit/psd")
+async def toolkit_psd(req: Request, theme: str = Form(...), file: UploadFile = File(...)):
+    """A template from a layered PSD (photo layer + live text + shapes + pictures)."""
+    _need_toolkit(theme)
+    raw = await file.read()
+    tk = await _db_call(_toolkit_project, theme)
+    spec = dict(tk.get("spec") or {"frames": []})
+    frames = list(spec.get("frames") or [])
+    try:
+        t = await asyncio.to_thread(toolkit.psd_to_template, raw, theme, frames,
+                                    lambda desc, data, ext: asset_gen.store(theme, desc, data, ext, "toolkit"))
+    except Exception as e:
+        raise HTTPException(400, f"That PSD could not be read ({type(e).__name__}: {str(e)[:160]})")
+    t["name"] = re.sub(r"\.psd$", "", file.filename or "", flags=re.I)[:80] or f"Template {len(frames) + 1}"
+    spec["frames"] = frames + [t]
+    await _db_call(save, tk["id"], who(req), f"template from PSD: {t['name']}", spec=spec)
+    return {"pid": tk["id"], "template": toolkit.template_view(t)}
+
+
+@app.get("/api/projects/{pid}/pdf-lines")
+async def pdf_lines(pid: int):
+    """The storyboard PDF's text, line by line: what a toolkit frame can be picked for when there is no script."""
+    try:
+        raw = storyboard_pdf.read_pdf(pid)
+    except (FileNotFoundError, ValueError):
+        return {"lines": []}
+    return {"lines": await asyncio.to_thread(toolkit.pdf_lines, raw)}
+
+
+@app.post("/api/projects/{pid}/toolkit-frame")
+async def toolkit_frame(pid: int, req: Request):
+    """Put a copy of a template into this video for the chosen script lines."""
+    b = await req.json()
+    p = await _db_call(load, pid)
+    _need_toolkit(p["theme"])
+    tk = await _db_call(_toolkit_project, p["theme"])
+    tpl = next((f for f in (tk.get("spec") or {}).get("frames") or [] if str(f.get("id")) == str(b.get("tk_fid"))), None)
+    if not tpl:
+        raise HTTPException(404, "template not found")
+    lines = b.get("lines") or []
+    if not (isinstance(lines, list) and len(lines) == 2):
+        raise HTTPException(400, "choose the script lines first")
+    spec, fid = toolkit.place(p, tpl, tk.get("look") or {}, lines, b.get("text") or "", b.get("src") or "script")
+    await _db_call(save, pid, who(req), f"toolkit frame: {tpl.get('name') or tpl.get('id')}", spec=spec)
+    return {**(await _db_call(load, pid)), "new_fid": fid}
 
 
 @app.post("/api/projects/{pid}/z1-split")
@@ -1016,6 +1231,23 @@ def _bump(pid: int, run: str):
         PROGRESS[pid]["rev"] = int(PROGRESS[pid].get("rev") or 0) + 1
 
 
+STOP: dict[int, float] = {}   # pid -> when someone pressed Stop: a run that started before is not saved
+
+
+def _stopped(pid: int, since: float) -> bool:
+    return STOP.get(pid, 0) > since
+
+
+@app.post("/api/projects/{pid}/stop")
+def stop_generating(pid: int):
+    """Stop: whatever is being written for this video is thrown away when it comes back (the call already running
+    with Claude finishes, but nothing more is spent on it: no pictures, no layout check, nothing saved)."""
+    STOP[pid] = time.time()
+    if (PROGRESS.get(pid) or {}).get("state") == "running":
+        PROGRESS[pid] = {**PROGRESS[pid], "run": "stopped", "state": "error", "msg": "Stopped", "ts": time.time()}
+    return {"stopped": True}
+
+
 @app.get("/api/projects/{pid}/progress")
 def project_progress(pid: int):
     cur = dict(PROGRESS.get(pid) or {"state": "idle", "rev": 0})
@@ -1132,8 +1364,23 @@ async def _z1_job(pid: int, user: str, run: str, b: dict, look: dict, script: st
 
 
 async def _make_storyboard(pid: int, b: dict, user: str):
+    t_start = time.time()
     p = (await _db_call(load, pid))
     look = b.get("look", p["look"]); script = b.get("script", p["script"])
+    rest = b.get("rest") if isinstance(b.get("rest"), dict) and toolkit.enabled(p["theme"]) else None
+    kept: list = []
+    if rest:   # keep the toolkit frames; Claude sees their lines marked and writes frames only for the others
+        lines = [str(x) for x in rest.get("lines") or []]
+        kept = [f for f in (p.get("spec") or {}).get("frames") or []
+                if isinstance(f, dict) and f.get("tk_from") and isinstance(f.get("lines"), list) and len(f["lines"]) == 2]
+        covered = {i for f in kept for i in range(int(f["lines"][0]), int(f["lines"][1]) + 1)}
+        skip = {int(i) for i in rest.get("skip") or [] if str(i).lstrip("-").isdigit()} - covered
+        if not [i for i, ln in enumerate(lines) if ln.strip() and i not in covered and i not in skip]:
+            raise HTTPException(400, "every line already has a toolkit frame")
+        b = {**b, "notes": ((b.get("notes") or "") + "\n" + toolkit.REST_NOTE).strip()}
+        claude_script = toolkit.marked_script(lines, covered, skip)
+    else:
+        claude_script = script
     if z1_plates.is_theme(p["theme"]) and os.environ.get("STUDIO_LIVE_PREVIEW", "1") != "0":
         before = {"spec": p.get("spec"), "storyboard": p.get("storyboard") or ""}
         (await _db_call(save, pid, user, "storyboard started", script=script, look=look,
@@ -1148,13 +1395,15 @@ async def _make_storyboard(pid: int, b: dict, user: str):
         out = await asyncio.to_thread(
             claude_client.storyboard,
             THEMES / p["theme"],
-            script,
+            claude_script,
             look,
             b.get("notes", ""),
             episode_transcript=transcript,
         )
     except Exception as e:
         _raise_claude_gateway(e)
+    if _stopped(pid, t_start):
+        return {**(await _db_call(load, pid)), "stopped": True}
     theme = p["theme"]
     sb = out.get("storyboard") or ""
     plook = look
@@ -1171,6 +1420,11 @@ async def _make_storyboard(pid: int, b: dict, user: str):
                 sp["look"].setdefault("plate", look["plate"])
             return sp
         spec = finalize(out["spec"])
+        if rest:
+            new = [f for f in spec.get("frames") or [] if isinstance(f, dict) and not str(f.get("id", "")).startswith("tk")]
+            spec["frames"] = toolkit.merge_rest(kept, new, [str(x) for x in rest.get("lines") or []], rest.get("src") or "script", skip)
+            only_new = {str(f.get("id")) for f in new}
+        toolkit.carry(p.get("spec"), spec)
     elif is_hindi_theme_name(theme) or z1_plates.is_theme(theme):
         finalize = None
         spec = out.get("spec") or {}
@@ -1185,11 +1439,14 @@ async def _make_storyboard(pid: int, b: dict, user: str):
     asset_report: dict = {}
     finalize = _with_assets(theme, finalize, asset_report)
     spec = await asyncio.to_thread(finalize, spec)
+    if _stopped(pid, t_start):
+        return {**(await _db_call(load, pid)), "stopped": True}
     # Render → look → fix (the skill's build/WARN/contact-sheet step) before anyone sees the frames.
     critique_report: dict = {}
     try:
         spec, critique_report = await asyncio.to_thread(
-            _critique_spec, {**p, "look": plook}, spec, sb, script, finalize
+            _critique_spec, {**p, "look": plook}, spec, sb, script, finalize,
+            (only_new if rest else None)
         )
     except Exception as e:  # never lose a generated spec to a critique failure
         critique_report = {"error": str(e)}
@@ -1461,6 +1718,8 @@ async def _storyboard_pdf_batch(pid: int, b: dict, user: str):
             _progress(pid, run, state="error", msg=f"Stopped: {e}")
             _raise_claude_gateway(e)
         print(f"pdf batch {pid}: Claude {time.time() - t0:.0f}s, +{out.get('frames_added')} frames", flush=True)
+        if _stopped(pid, t0):
+            return {**(await _db_call(load, pid)), "stopped": True, "frames_added": 0}
         return await _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0)
     finally:
         if _live(pid, run) and (PROGRESS.get(pid) or {}).get("state") == "running":
@@ -1507,6 +1766,15 @@ async def _storyboard_pdf_batch_rest(pid, p, b, user, out, look, script, run, t0
             )
         raise HTTPException(422, detail)
     spec, storyboard = _merge_pdf_batch_spec(p, out, look if isinstance(look, dict) else {})
+    toolkit.carry(p.get("spec"), spec)
+    tkf = [f for f in spec.get("frames") or [] if isinstance(f, dict) and f.get("tk_from") and f.get("lines_src") == "pdf"
+           and isinstance(f.get("lines"), list) and len(f["lines"]) == 2]
+    if tkf and toolkit.enabled(p["theme"]):
+        try:
+            others = [f for f in spec["frames"] if isinstance(f, dict) and f not in tkf]
+            spec["frames"] = toolkit.merge_rest(tkf, others, toolkit.pdf_lines(storyboard_pdf.read_pdf(pid)), "pdf")
+        except Exception as e:
+            print(f"toolkit order after pdf batch skipped: {e}")
     if is_mf_theme_name(p["theme"]) and claude_client.mf_picture_issues(spec):
         _progress(pid, run, stage="checking", msg="Redrawing charts as kit graphics…")
         spec = (await asyncio.to_thread(
@@ -1630,6 +1898,32 @@ def _save_frame_reference(theme: str, pid: int, fid: str, raw: bytes) -> tuple[s
     return f"uploads/ref_{pid}_{safe}.png", data
 
 
+@app.post("/api/projects/{pid}/frames/{fid}/picture")
+async def frame_picture(pid: int, fid: str, req: Request):
+    """Replace with an image, without AI: the picture is saved in the kit's uploads (its own file each time, so nothing old is
+    cached) and its path comes back for the page to put in the layer, where the layer keeps its size and place."""
+    p = await _db_call(load, pid)
+    form = await req.form()
+    up = form.get("file")
+    raw = await up.read() if up and getattr(up, "filename", None) else b""
+    if not raw:
+        raise HTTPException(400, "no picture")
+    from PIL import Image
+    import io
+    try:
+        img = Image.open(io.BytesIO(raw)); img.load()
+    except Exception:
+        raise HTTPException(400, "that file is not a picture")
+    if img.mode not in ("RGB", "RGBA"):
+        img = img.convert("RGBA")
+    img.thumbnail((2400, 2400), Image.LANCZOS)
+    dest = THEMES / p["theme"] / "assets" / "uploads"
+    dest.mkdir(parents=True, exist_ok=True)
+    name = f"rep_{pid}_{re.sub(r'[^a-zA-Z0-9._-]', '_', fid)}_{int(time.time() * 1000)}.png"
+    img.save(dest / name, "PNG", optimize=True)
+    return {"src": f"../assets/uploads/{name}", "url": f"/themes/{p['theme']}/assets/uploads/{name}", "w": img.width, "h": img.height}
+
+
 @app.post("/api/projects/{pid}/frames/{fid}/edit")
 async def edit(pid: int, fid: str, req: Request):
     p = (await _db_call(load, pid))
@@ -1677,6 +1971,12 @@ async def edit(pid: int, fid: str, req: Request):
                 item_index = None
         mf_path = (b.get("mf_path") or "").strip() or None
 
+    page_frame = isinstance(spec["frames"][i].get("page"), str) and spec["frames"][i]["page"].strip()
+    if page_frame and not regenerate:
+        return await _edit_page_frame(p, pid, fid, i, ask, mf_path, ref_src, ref_image, req)
+    if page_frame and regenerate:      # regenerate = a fresh kit frame (the fixed design is dropped)
+        spec["frames"][i] = {**copy.deepcopy(spec["frames"][i].get("kit_frame") or {}), "id": fid} if isinstance(spec["frames"][i].get("kit_frame"), dict) \
+            else {k: v for k, v in spec["frames"][i].items() if k not in ("page", "kit_frame")}
     if mf_path and ask:
         ask = (
             f"Edit ONLY the field `{mf_path}` on this frame JSON. "
@@ -1783,6 +2083,38 @@ async def edit(pid: int, fid: str, req: Request):
     (await _db_call(save, pid, who(req), note, spec=spec))
     return new
 
+async def _edit_page_frame(p, pid, fid, i, ask, mf_path, ref_src, ref_image, req):
+    """A fixed-design frame: a picture swap is done here (no AI); anything else is one small Claude edit of its page."""
+    import page_html
+    spec = p["spec"]
+    before = spec["frames"][i]
+    path = mf_path.split(">", 1)[1] if mf_path and mf_path.startswith("page>") else None
+    page = None
+    if ref_src and path and (not ask or ask.strip().lower().startswith("replace with")):
+        page = page_html.set_picture(before["page"], path, f"../assets/{ref_src}")
+    if page is None:
+        if not ask and not ref_src:
+            raise HTTPException(400, "describe the change")
+        try:
+            page = await asyncio.to_thread(
+                claude_client.edit_page, THEMES / p["theme"], before["page"], ask or "Use the attached picture here.",
+                focus=page_html.outer(before["page"], path) if path else None,
+                ref_src=f"../assets/{ref_src}" if ref_src else None, ref_image=ref_image)
+        except HTTPException:
+            raise
+        except Exception as e:
+            try:
+                _raise_claude_gateway(e)
+            except HTTPException:
+                raise
+            except Exception:
+                raise HTTPException(500, detail=f"The edit failed ({type(e).__name__}: {str(e)[:200]}). Try again.") from e
+    new = {**before, "page": page}
+    spec["frames"][i] = new
+    await _db_call(save, pid, who(req), f"{fid}: {(ask or 'picture')[:80]}", spec=spec)
+    return new
+
+
 @app.post("/api/projects/{pid}/undo")
 def undo(pid: int, req: Request):
     with connect() as c:
@@ -1821,12 +2153,13 @@ async def presenter_get(pid: int):
 
 
 @app.post("/api/projects/{pid}/presenter")
-async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: UploadFile = File(...)):
+async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: UploadFile = File(...), fid: str = Form(""),
+                        scope: str = Form("")):
     """A still from this video's presenter replaces the stock photo in every frame that uses this slot."""
     import io, presenter
     from PIL import Image, ImageOps
     p = await _db_call(load, pid)
-    if slot not in presenter.SLOTS.get(p["theme"], {}):
+    if slot not in presenter.SLOTS.get(presenter._base(p["theme"]), {}):
         raise HTTPException(400, "this kit has no presenter shot called " + slot)
     raw = await file.read()
     try:
@@ -1839,8 +2172,27 @@ async def presenter_set(pid: int, req: Request, slot: str = Form(...), file: Upl
     rel = await asyncio.to_thread(asset_gen.store, p["theme"], f"presenter {pid} {slot} {time.time()}",
                                   buf.getvalue(), "jpg", "presenter")
     look = dict(p.get("look") or {})
+    if fid and (look.get("toolkit") or scope == "frame"):   # a toolkit template, or one frame's own anchor photo
+        key = "plate_img" if look.get("toolkit") else "plate_own"
+        spec = dict(p.get("spec") or {})
+        spec["frames"] = [{**f, key: rel} if str(f.get("id")) == fid else f for f in spec.get("frames") or []]
+        await _db_call(save, pid, who(req), f"{'template' if key == 'plate_img' else fid + ': anchor'} photo ({slot})", spec=spec)
+        p = await _db_call(load, pid)
+        return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
     look["presenter"] = {**(look.get("presenter") if isinstance(look.get("presenter"), dict) else {}), slot: rel}
     await _db_call(save, pid, who(req), f"presenter shot ({slot})", look=look)
+    p = await _db_call(load, pid)
+    return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
+
+
+@app.delete("/api/projects/{pid}/frames/{fid}/anchor")
+async def frame_anchor_reset(pid: int, fid: str, req: Request):
+    """This frame goes back to the video's presenter photo."""
+    import presenter
+    p = await _db_call(load, pid)
+    spec = dict(p.get("spec") or {})
+    spec["frames"] = [{k: v for k, v in f.items() if k != "plate_own"} if str(f.get("id")) == fid else f for f in spec.get("frames") or []]
+    await _db_call(save, pid, who(req), f"{fid}: anchor photo back to the video's", spec=spec)
     p = await _db_call(load, pid)
     return {"slots": presenter.summary(p["theme"], p.get("spec"), effective_look(p)), "project": p}
 
@@ -1933,6 +2285,64 @@ async def delete_storyboard_ref(pid: int, req: Request):
         fp.unlink()
     return (await _db_call(load, pid))
 
+# ---- Edit layers on the PSD's layers: a kit-drawn frame becomes a fixed design (its own page) so every layer can
+# be edited; "Back to kit version" brings the kit's frame back (page_html.py, static/psd_layers.js). ----
+async def _static_page(pid: int, fid: str, theme: str) -> str:
+    from playwright.async_api import async_playwright
+    import page_html
+    cw, ch = theme_canvas.canvas_for_theme(theme)
+    async with async_playwright() as pw:
+        b = await exporter.launch_chromium(pw)
+        try:
+            pg = await b.new_page(viewport={"width": cw, "height": ch})
+            await pg.goto(preview_url(pid, fid), wait_until="load", timeout=120_000)
+            try:
+                await pg.wait_for_function("window.RENDERED === undefined || window.RENDERED === true", timeout=20_000)
+            except Exception:
+                pass
+            await pg.wait_for_timeout(300)
+            html = await pg.evaluate(page_html.DETACH_JS)
+        finally:
+            await b.close()
+    return page_html.clean_detached(html, preview_base(), theme)
+
+
+@app.post("/api/projects/{pid}/frames/{fid}/detach")
+async def frame_detach(pid: int, fid: str, req: Request):
+    p = await _db_call(load, pid)
+    spec = p.get("spec") or {}
+    i = next((k for k, f in enumerate(spec.get("frames") or []) if str(f.get("id")) == fid), None)
+    if i is None:
+        raise HTTPException(404, "frame not found")
+    f = spec["frames"][i]
+    if isinstance(f.get("page"), str) and f["page"].strip():
+        return f
+    try:
+        page = await _static_page(pid, fid, p["theme"])
+    except Exception as e:
+        raise HTTPException(502, detail=f"Could not make this frame editable: {e}") from e
+    new = {**copy.deepcopy(f), "page": page, "kit_frame": copy.deepcopy(f)}
+    spec["frames"][i] = new
+    await _db_call(save, pid, who(req), f"{fid}: layers made editable", spec=spec)
+    return new
+
+
+@app.post("/api/projects/{pid}/frames/{fid}/undetach")
+async def frame_undetach(pid: int, fid: str, req: Request):
+    p = await _db_call(load, pid)
+    spec = p.get("spec") or {}
+    i = next((k for k, f in enumerate(spec.get("frames") or []) if str(f.get("id")) == fid), None)
+    if i is None:
+        raise HTTPException(404, "frame not found")
+    f = spec["frames"][i]
+    kit = f.get("kit_frame")
+    if not isinstance(kit, dict):
+        raise HTTPException(400, "this frame has no kit version to go back to")
+    spec["frames"][i] = {**copy.deepcopy(kit), "id": f.get("id")}
+    await _db_call(save, pid, who(req), f"{fid}: back to the kit version", spec=spec)
+    return spec["frames"][i]
+
+
 @app.get("/api/projects/{pid}/check")
 async def check(pid: int):
     from playwright.async_api import async_playwright
@@ -2010,19 +2420,39 @@ def _dl_name(base: str, suffix: str) -> str:
     return f"{safe}{suffix}"
 
 
-def _storyboard_csv_bytes(p: dict) -> bytes | None:
+def _storyboard_csv_bytes(p: dict, frames: list | None = None) -> bytes | None:
     sb = (p.get("storyboard") or "").strip()
     if not sb:
         return None
     spec = p.get("spec") if isinstance(p.get("spec"), dict) else None
-    text = storyboard_csv.storyboard_csv_text(sb, spec, project_name=p.get("name") or "")
+    vo = {str(f.get("frame_id")): str(f.get("text") or "") for f in (frames or []) if isinstance(f, dict) and f.get("frame_id")}   # each frame's script lines (the words an action is said on)
+    text = storyboard_csv.storyboard_csv_text(sb, spec, project_name=p.get("name") or "", vo_by_frame=vo)
     return text.encode("utf-8")
 
 
 @app.get("/api/projects/{pid}/storyboard-instructions.csv")
 def export_storyboard_csv(pid: int):
-    p = load(pid)
-    raw = _storyboard_csv_bytes(p)
+    return _storyboard_csv_response(load(pid), None)
+
+
+@app.post("/api/projects/{pid}/storyboard-instructions.csv")
+async def export_storyboard_csv_frames(pid: int, request: Request):
+    """With no storyboard text (toolkit frames, frames from the script) the page sends each frame's time and lines."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    frames = body.get("frames") if isinstance(body, dict) else None
+    p = await _db_call(load, pid)
+    return _storyboard_csv_response(p, frames if isinstance(frames, list) else None)
+
+
+def _storyboard_csv_response(p: dict, frames: list[dict] | None):
+    raw = _storyboard_csv_bytes(p, frames)
+    if raw is not None and frames and len(raw.decode("utf-8", "replace").strip().splitlines()) <= 1:
+        raw = None   # storyboard text in a form that gives no rows (Zero1 Hindi's): one row per frame instead of an empty sheet
+    if raw is None and frames:
+        raw = storyboard_csv.frames_csv_text(frames[:2000], project_name=p.get("name") or "", spec=p.get("spec") if isinstance(p.get("spec"), dict) else None).encode("utf-8")
     if raw is None:
         raise HTTPException(400, "No storyboard text on this project yet.")
     text = raw.decode("utf-8")
@@ -2041,13 +2471,39 @@ def _export_zip_filename(p: dict, ids: set[str] | None) -> str:
     return _dl_name(p["name"], "_frames.zip")
 
 
-def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None = None) -> tuple[bytes, str]:
+_SAFE_NAME = re.compile(r"[^\w.-]+")
+
+
+def _export_names(raw: str) -> dict[str, str] | None:
+    """names=<json {frame id: file name}> from the page: each frame's file named by the time it comes in."""
+    if not raw:
+        return None
+    try:
+        d = json.loads(raw)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(d, dict):
+        return None
+    out = {}
+    for k, v in list(d.items())[:2000]:
+        name = _SAFE_NAME.sub("_", str(v or "")).strip("._")[:120]
+        if name:
+            out[str(k)] = name
+    return out or None
+
+
+def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None = None, names: str = "", sb_frames: list | None = None) -> tuple[bytes, str]:
     ids = {x.strip() for x in only.split(",") if x.strip()} if only else None
+    rename = _export_names(names)
     pages = _export_pages(p, ids)
     sb_csv = None
-    raw_sb = _storyboard_csv_bytes(p)
+    raw_sb = _storyboard_csv_bytes(p, sb_frames)
+    if raw_sb is not None and sb_frames and len(raw_sb.decode("utf-8", "replace").strip().splitlines()) <= 1:
+        raw_sb = None                              # storyboard text that gives no rows: one row per frame instead
     if raw_sb is not None:
         sb_csv = raw_sb.decode("utf-8")
+    elif sb_frames:                                # no storyboard text: one row per frame from the page's times and lines
+        sb_csv = storyboard_csv.frames_csv_text(sb_frames[:2000], project_name=p.get("name") or "", spec=p.get("spec") if isinstance(p.get("spec"), dict) else None)
     cw, ch = theme_canvas.canvas_for_theme(p["theme"])
     fn = _export_zip_filename(p, ids)
     extra = z1_plates.export_files(p) if z1_plates.is_theme(p["theme"]) else None
@@ -2060,6 +2516,7 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
             storyboard_csv=sb_csv,
             zip_path=dest,
             extra_files=extra,
+            names=rename,
         )
         return b"", fn
     data = exporter.export_zip(
@@ -2069,14 +2526,15 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
         (cw, ch),
         storyboard_csv=sb_csv,
         extra_files=extra,
+        names=rename,
     )
     return data, fn
 
 
-def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "") -> str:
+def _export_build_zip(p: dict, png: int, only: str, dest: pathlib.Path, fmt: str = "", names: str = "", sb_frames: list | None = None) -> str:
     if fmt == "bulletin":
         return _export_bulletin(p, only, dest)
-    _, fn = _export_zip_payload(p, png, only, dest)
+    _, fn = _export_zip_payload(p, png, only, dest, names, sb_frames)
     return fn
 
 
@@ -2127,9 +2585,16 @@ def _export_job_prune() -> None:
 
 
 @app.post("/api/projects/{pid}/export/jobs")
-def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = ""):
-    """Start export in a background thread; poll status then download (avoids long HTTP/2 streams)."""
-    p = load(pid)
+async def export_start_job(request: Request, pid: int, png: int = 1, only: str = "", fmt: str = "", names: str = ""):
+    """Start export in a background thread; poll status then download (avoids long HTTP/2 streams).
+    Body (optional): {"frames": [{frame_id, t, mode, text}]} — each frame's time and lines, for the storyboard CSV in the zip
+    when the video has no storyboard text (toolkit frames, frames made from the script)."""
+    try:
+        body = await request.json()
+    except ValueError:
+        body = {}
+    sb_frames = body.get("frames") if isinstance(body, dict) and isinstance(body.get("frames"), list) else None
+    p = await _db_call(load, pid)
     _export_job_prune()
     job_id = uuid.uuid4().hex[:16]
     dest = _EXPORT_JOB_DIR / f"{job_id}.zip"
@@ -2155,7 +2620,7 @@ def export_start_job(pid: int, png: int = 1, only: str = "", fmt: str = ""):
                 st = _EXPORT_JOBS.get(job_id)
                 if st:
                     st["status"] = "running"
-            outfile = _export_build_zip(p, png, only, dest, fmt)
+            outfile = _export_build_zip(p, png, only, dest, fmt, names, sb_frames)
             with _EXPORT_JOB_LOCK:
                 st = _EXPORT_JOBS.get(job_id)
                 if not st:
@@ -2237,10 +2702,10 @@ def export_job_file(pid: int, job_id: str):
 
 
 @app.get("/api/projects/{pid}/export")
-async def export(pid: int, png: int = 1, only: str = ""):
+async def export(pid: int, png: int = 1, only: str = "", names: str = ""):
     p = (await _db_call(load, pid))
     try:
-        data, fn = await asyncio.to_thread(_export_zip_payload, p, png, only, None)
+        data, fn = await asyncio.to_thread(_export_zip_payload, p, png, only, None, names)
     except HTTPException:
         raise
     except ValueError as e:

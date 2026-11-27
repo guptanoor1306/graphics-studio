@@ -73,9 +73,9 @@ body.nx-embed #nxSide{display:none}
 
 /* tooltips: data-tip on anything */
 [data-tip]{position:relative}
-[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);background:#1D1D1F;color:#fff;font:500 12px/1.4 var(--font);padding:5px 9px;border-radius:7px;white-space:nowrap;z-index:200;pointer-events:none;max-width:320px;white-space:normal;width:max-content}
-[data-tip].tip-l:hover::after{left:auto;right:0;transform:none}
-[data-tip].tip-up:hover::after{top:auto;bottom:calc(100% + 6px)}
+body:not(.nx-tipjs) [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);background:#1D1D1F;color:#fff;font:500 12px/1.4 var(--font);padding:5px 9px;border-radius:7px;white-space:nowrap;z-index:200;pointer-events:none;max-width:320px;white-space:normal;width:max-content}
+body:not(.nx-tipjs) [data-tip].tip-l:hover::after{left:auto;right:0;transform:none}
+body:not(.nx-tipjs) [data-tip].tip-up:hover::after{top:auto;bottom:calc(100% + 6px)}
 
 /* menus */
 .nx-menu{position:absolute;z-index:120;background:#fff;border-radius:12px;box-shadow:var(--shadow-2);padding:6px;min-width:200px}
@@ -568,3 +568,221 @@ body.nx .nx-refx:hover{color:var(--bad)!important;background:var(--bad-soft)!imp
 body.nx .nx-refx svg.i{width:11px;height:11px}
 body.nx #editModeApp .edit-canvas-viewport{position:relative;z-index:1}
 body.nx .nx-etools{z-index:30!important}
+
+/* ---- Toolkit (ZO Product) ---- */
+body.nx .nx-tkh{display:flex;flex-direction:column;gap:4px;margin:0 0 18px}
+body.nx .nx-tkh b{font-size:15px}
+body.nx .nx-tkh span{color:var(--mute);font-size:13px}
+body.nx .nx-tkc{padding:10px;gap:10px}
+body.nx .nx-tkim{display:block;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:#F2F2F5}
+body.nx .nx-tkim img{width:100%;height:100%;object-fit:cover;display:block}
+body.nx .nx-tkn{display:flex;align-items:center;gap:8px}
+body.nx .nx-tkn b{flex:1;min-width:0;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.nx .nx-win.nx-tkwin{width:min(1080px,calc(100vw - 32px))}
+body.nx .nx-tkp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:18px;min-height:420px}
+body.nx .nx-tkp small{display:block;font-size:12px;font-weight:600;color:var(--mute);margin:0 0 8px}
+body.nx .nx-tkp small i{font-style:normal;font-weight:400}
+body.nx .nx-tkls{max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:6px}
+body.nx .nx-tkl{display:flex;gap:10px;width:100%;text-align:left;padding:7px 8px;border-radius:8px;font-size:13px;line-height:1.4}
+body.nx .nx-tkl time{flex:none;width:36px;color:var(--mute);font-size:11.5px;padding-top:1px}
+body.nx .nx-tkl:hover{background:#F5F5F7}
+body.nx .nx-tkl.on{background:#EDEBFC;color:#2B2A6B}
+body.nx .nx-tkl.used{color:#A0A0A8}
+body.nx .nx-tkts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-height:52vh;overflow:auto;padding:2px}
+body.nx .nx-tkt{display:flex;flex-direction:column;gap:6px;text-align:left;padding:6px;border:1.5px solid var(--line);border-radius:10px}
+body.nx .nx-tkt img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:#F2F2F5}
+body.nx .nx-tkt span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.nx .nx-tkt.on{border-color:#5B5BD6;box-shadow:0 0 0 3px rgba(91,91,214,.15)}
+body.nx .nx-tkfree{cursor:default;padding:8px 12px 6px}
+body.nx .nx-tkfree:hover{background:transparent}
+body.nx .nx-tkfree .nx-gh{gap:8px;margin-bottom:4px}
+body.nx .nx-tkfree .nx-gh b{font-weight:500;color:var(--mute)}
+body.nx .nx-tkfree .nx-tbtn{opacity:.85}
+body.nx .nx-tkfree:hover .nx-tbtn{opacity:1}
+body.nx .nx-tkfree .nx-ib.sm{width:26px;height:26px;color:var(--faint)}
+body.nx .nx-tkfree .nx-ib.sm:hover{color:var(--ink)}
+body.nx .nx-tkfree .nx-ib.sm .i{width:14px;height:14px}
+body.nx .nx-tkplus{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;color:var(--faint);box-shadow:inset 0 0 0 1px var(--line-strong)}
+body.nx .nx-tkplus .i{width:11px;height:11px}
+body.nx .nx-tkn2{font-size:12px;color:var(--faint)}
+body.nx .nx-tkmore{display:block;margin:2px 0 4px 46px;padding:0;font-size:12.5px;color:var(--accent);background:none;border:0;cursor:pointer}
+body.nx .nx-tkskip{display:flex;align-items:center;gap:8px;margin:2px 0;padding:6px 12px;border-radius:10px;font-size:12.5px;color:var(--faint);cursor:pointer}
+body.nx .nx-tkskip:hover{background:var(--sunken)}
+body.nx .nx-tkskip .ic{flex:none;display:grid;place-items:center;width:20px;height:20px}
+body.nx .nx-tkskip .ic .i{width:14px;height:14px}
+body.nx .nx-tkskip .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.nx .nx-tkskip .tx b{font-weight:500;color:var(--mute)}
+body.nx .nx-tkskip .tx i{font-style:normal;color:var(--faint)}
+body.nx .nx-tkskip .un{flex:none;color:var(--accent);opacity:0}
+body.nx .nx-tkskip:hover .un{opacity:1}
+body.nx .nx-words{display:flex;flex-direction:column;gap:8px;padding:4px 18px 14px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+body.nx .nx-words .lab{font-size:13px;font-weight:600;color:var(--ink);margin:4px 0 2px}
+body.nx .nx-words textarea{width:100%;resize:none;font:inherit;font-size:13.5px;line-height:1.45;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+body.nx .nx-words textarea:focus{outline:0;border-color:#5B5BD6;box-shadow:0 0 0 3px rgba(91,91,214,.15)}
+body.nx .nx-words small{font-size:11.5px;color:var(--faint)}
+body.nx .nx-grp.nx-tkf .nx-gt::after{content:" · Toolkit";color:#5B5BD6}
+body.nx .nx-fl{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:500}
+body.nx .nx-fl input{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px}
+body.nx .nx-escr{padding:10px 14px 20px}
+body.nx .nx-escr[hidden]{display:none!important}
+body.nx .nx-escr-h{display:block;font-size:12px;color:var(--faint);margin:2px 8px 8px}
+body.nx .nx-escr-e{padding:20px 8px;font-size:13px;color:var(--mute)}
+body.nx .nx-escr .nx-tkl{cursor:copy}
+body.nx .nx-escr .nx-tkl:hover{background:var(--hover)}
+
+/* ---- Edit layers = the PSD's layers ---- */
+body.nx .nx-fixed{display:flex;align-items:center;gap:8px;margin:0;padding:9px 20px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--mute)}
+body.nx .nx-fixed>svg.i{width:14px;height:14px;flex:none;color:var(--good,#34C759)}
+body.nx .nx-fixed.lock>svg.i{color:var(--faint)}
+body.nx .nx-fixed span{flex:1;min-width:0}
+body.nx .nx-ls.locked .nm{color:var(--mute)}
+body.nx .nx-ls.locked .nx-lk{display:grid;place-items:center;width:26px;height:26px;color:var(--faint);flex:none}
+body.nx .nx-ls.locked .nx-lk svg.i{width:13px;height:13px}
+body.nx .nx-lkn{margin:0 0 10px;font-size:12.5px;line-height:1.5;color:var(--mute)}
+
+/* ---- Edit layers: canvas with the frames as a strip under it (like LA Studio's Layers), the layer panel on the right ---- */
+body.nx #editModeApp .edit-mode-grid{grid-template-columns:300px minmax(0,1fr) 360px!important;grid-template-rows:minmax(0,1fr) auto;column-gap:6px;row-gap:0}
+body.nx #editModeApp .nx-ecol{grid-column:1;grid-row:1/3;background:#fff;border-radius:14px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+body.nx #editModeApp .nx-ecol-h{flex:none;display:flex;align-items:baseline;gap:8px;padding:18px 22px 12px;border-bottom:1px solid var(--line)}
+body.nx #editModeApp .nx-ecol-h b{font-size:15px;font-weight:600}
+body.nx #editModeApp .nx-ecol-h small{font-size:12.5px;color:var(--mute)}
+body.nx #editModeApp .nx-ecol .nx-escr{flex:1;min-height:0;overflow:auto}
+body.nx #editModeApp .edit-mode-side{grid-column:3;grid-row:1/3}
+body.nx #editModeApp .edit-mode-center{grid-column:2;grid-row:1;border-radius:14px 14px 0 0}
+body.nx #editModeApp .edit-frame-strip{grid-column:2;grid-row:2;display:flex!important;justify-content:safe center;align-items:center;gap:12px;overflow-x:auto;overflow-y:hidden;padding:12px 18px 14px;background:#FAFAFB;border-radius:0 0 14px 14px;scrollbar-width:thin}
+@media (max-width:1280px){body.nx #editModeApp .edit-mode-grid{grid-template-columns:280px minmax(0,1fr) 330px!important}}
+body.nx #editModeApp .edit-frame-strip .nx-elh{display:none}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb{position:relative;flex:none;width:96px;margin:0;padding:0;border-radius:10px;background:none!important;box-shadow:none!important;transition:transform .18s ease}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb .mini-thumb{border-radius:10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06),0 0 0 1px var(--line)}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb:hover{transform:translateY(-1px)}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb.on{transform:scale(1.22);margin:0 10px;z-index:1}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb.on .mini-thumb{box-shadow:0 0 0 2px #FAFAFB,0 0 0 4px var(--accent)}
+body.nx #editModeApp .edit-frame-strip .edit-frame-thumb .mini-label{position:absolute;left:4px;top:4px;margin:0;padding:0 5px;height:16px;line-height:16px;border-radius:5px;background:rgba(255,255,255,.92);font-size:10px;font-weight:600;color:var(--ink);box-shadow:0 0 0 .5px var(--line)}
+body.nx #editModeApp .edit-frame-strip.reel-strip .edit-frame-thumb{width:auto}
+body.nx #editModeApp .edit-frame-strip.reel-strip .mini-thumb{height:96px;aspect-ratio:9/16}
+/* layer rows: compact, with show/hide */
+body.nx .nx-lsh{min-height:48px;padding:6px 10px 6px 16px;gap:8px}
+body.nx .nx-lsh .ty{width:26px;height:26px;border-radius:7px}
+body.nx .nx-lsh .nm{-webkit-line-clamp:1;font-size:13px}
+body.nx .nx-lsh .nx-ib{width:26px;height:26px;opacity:0;color:var(--mute)}
+body.nx .nx-lsh:hover .nx-ib,body.nx .nx-ls.open .nx-lsh .nx-ib,body.nx .nx-ls.hid .nx-lsh [data-leye]{opacity:1}
+body.nx .nx-lsh .nx-ib svg.i{width:14px;height:14px}
+body.nx .nx-ls.hid .nx-lsh .nm,body.nx .nx-ls.hid .nx-lsh .ty{opacity:.45}
+body.nx .nx-rename{flex:1;min-width:0;height:28px;padding:0 8px;border:0;border-radius:7px;font:inherit;font-size:13px;box-shadow:0 0 0 1.5px var(--accent);outline:0}
+/* settings inside the open row (LA Studio's Layer settings) */
+body.nx .nx-insp{padding:0 16px 18px}
+body.nx .nx-insp .lab{font-size:12px;font-weight:600;color:var(--mute);margin:14px 0 7px}
+body.nx .nx-insp textarea[data-ltext]{width:100%;resize:vertical;min-height:44px;padding:8px 10px;border:0;border-radius:9px;background:#F5F5F7;font:inherit;font-size:13.5px;line-height:1.45;outline:0}
+body.nx .nx-insp textarea[data-ltext]:focus{background:#fff;box-shadow:0 0 0 1.5px var(--accent)}
+body.nx .nx-irow{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+body.nx .nx-irow select{flex:1;min-width:0;height:32px;padding:0 8px;border:0;border-radius:8px;background:#F5F5F7;font:inherit;font-size:13px;color:var(--ink)}
+body.nx .nx-nf{flex:1;min-width:64px;display:flex;align-items:center;gap:5px;height:32px;padding:0 9px;border-radius:8px;background:#F5F5F7}
+body.nx .nx-nf span{font-size:11.5px;color:var(--faint);flex:none}
+body.nx .nx-nf input{flex:1;min-width:0;width:100%;border:0;background:none;outline:0;font:inherit;font-size:13px;color:var(--ink);padding:0;-moz-appearance:textfield}
+body.nx .nx-nf input::-webkit-inner-spin-button{opacity:.4}
+body.nx .nx-nf i{font-style:normal;font-size:11.5px;color:var(--faint)}
+body.nx .nx-nf:focus-within{background:#fff;box-shadow:0 0 0 1.5px var(--accent)}
+body.nx .nx-cf{flex:1;min-width:110px;display:flex;align-items:center;gap:7px;height:32px;padding:0 9px 0 5px;border-radius:8px;background:#F5F5F7;cursor:pointer}
+body.nx .nx-cf input[type=color]{width:22px;height:22px;padding:0;border:0;border-radius:6px;background:none;cursor:pointer;flex:none}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch{border:0;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+body.nx .nx-cf span{font-size:11.5px;color:var(--faint)}
+body.nx .nx-cf b{font-size:12px;font-weight:500;color:var(--ink-2);margin-left:auto}
+body.nx .nx-seg.sm button{height:28px;width:30px;padding:0!important;display:grid;place-items:center}
+body.nx .nx-seg.sm svg.i{width:14px;height:14px}
+body.nx .nx-insp .nx-rep .row{display:flex;justify-content:flex-end;padding:8px 12px}
+body.nx .nx-lfoot{display:flex;justify-content:flex-start;margin-top:12px}
+/* layer previews in the rows */
+body.nx .nx-lsh .ty.pv{width:34px;height:34px;border-radius:8px;background:#F2F2F5 repeating-conic-gradient(#ECECF0 0 25%,#F7F7F9 0 50%) 0 0/8px 8px;overflow:hidden;position:relative;box-shadow:inset 0 0 0 .5px var(--line)}
+body.nx .pv .pvi{position:absolute;inset:3px;background:center/contain no-repeat}
+body.nx .pv .pvt{font-size:15px;line-height:1;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;max-width:30px}
+body.nx .pv .pvt.dk{background:#3A3A3C;position:absolute;inset:0;display:grid;place-items:center}
+body.nx .pv .pvb{position:absolute;inset:8px 6px;border:1.5px solid transparent}
+body.nx .pv .pvs{position:absolute;inset:5px;display:block}
+body.nx .pv .pvs svg{display:block;width:100%;height:100%}
+body.nx .pv .pvc{position:absolute;left:2px;top:2px;width:30px;height:30px;background-repeat:no-repeat;border-radius:3px}
+/* smaller Replace and Edit with AI */
+body.nx .nx-rep.sm{border-radius:10px}
+body.nx .nx-rep.sm .nx-upl{padding:8px 8px 8px 8px;gap:10px;border-bottom:0}
+body.nx .nx-rep.sm .nx-upl .tile{width:30px;height:30px;border-radius:8px}
+body.nx .nx-rep.sm .nx-upl .tile svg.i{width:14px;height:14px}
+body.nx .nx-rep.sm .nx-upl .tx{flex:1}
+body.nx .nx-rep.sm .nx-upl .tx b{font-size:12.5px;font-weight:500;color:var(--ink-2)}
+body.nx .nx-ai.sm{flex-direction:row;align-items:center;gap:8px;padding:5px 6px 5px 12px;border-radius:10px}
+body.nx .nx-ai.sm textarea{min-height:0;height:24px;line-height:24px;font-size:13px;flex:1}
+
+/* groups in Edit layers (one group in the PSD) and picking several layers */
+body.nx .nx-lhint{margin:2px 16px 6px;font-size:11.5px;color:var(--faint)}
+body.nx .nx-lselbar{display:flex;align-items:center;gap:8px;margin:4px 12px 8px;padding:8px 8px 8px 14px;border-radius:10px;background:color-mix(in srgb,var(--accent) 7%,#fff);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 18%,transparent);font-size:13px}
+body.nx .nx-lselbar .nx-tbtn{display:inline-flex;align-items:center;gap:6px}
+body.nx .nx-lselbar .nx-tbtn svg.i{width:14px;height:14px}
+body.nx .nx-ls.sel>.nx-lsh{background:color-mix(in srgb,var(--accent) 8%,#fff);box-shadow:inset 3px 0 0 var(--accent)}
+body.nx .nx-lg{display:flex;align-items:center;gap:6px;min-height:46px;padding:6px 10px 6px 8px;border-bottom:1px solid var(--line);cursor:pointer}
+body.nx .nx-lg:hover{background:var(--hover)}
+body.nx .nx-lg [data-gchev] svg{transition:transform .15s;transform:rotate(-90deg)}
+body.nx .nx-lg.open [data-gchev] svg{transform:none}
+body.nx .nx-lg .gi{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:#F2F2F5;color:var(--ink2)}
+body.nx .nx-lg .gi svg.i{width:15px;height:15px}
+body.nx .nx-lg .nm{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.nx .nx-lg .nm small{color:var(--mute);font-size:11.5px;margin-left:4px}
+body.nx .nx-lgin{border-left:2px solid color-mix(in srgb,var(--accent) 25%,transparent);margin-left:22px}
+
+/* Edit layers: the frames screen's list on the left (frame headings open that frame; a line click copies it) */
+body.nx #editModeApp .nx-elines{padding:8px 10px 14px}
+body.nx #editModeApp .nx-elines .nx-gh{cursor:pointer}
+body.nx #editModeApp .nx-elines .nx-ln{cursor:copy}
+body.nx #editModeApp .nx-elines .nx-ln:hover{background:var(--hover);border-radius:6px}
+body.nx #editModeApp .nx-elines .nx-tbtn,body.nx #editModeApp .nx-elines [data-tkskip],body.nx #editModeApp .nx-elines [data-tkexp]{display:none}
+body.nx #editModeApp .nx-elines .nx-gt em{font-style:normal;color:var(--accent)}
+/* the selected layer's little toolbar shows while the pointer is on the canvas (or on the toolbar), and goes when it leaves */
+body.nx #canvasEditViewport .canvas-parent-chip-float{transition:opacity .15s}
+body.nx #canvasEditViewport:not(:hover) .canvas-parent-chip-float{opacity:0;pointer-events:none}
+body.nx.nx-dragging #canvasChipOverlay{opacity:0;transition:none}
+/* the Prompt box keeps its width with a picture attached: the text takes the whole first line, the picture and the buttons go under it */
+body.nx .fchat-box{flex-wrap:wrap!important}
+body.nx .fchat-box textarea{flex:1 1 100%!important;min-width:0}
+body.nx .fchat-box .fchat-row{flex:1 1 100%;justify-content:flex-end;flex-wrap:nowrap;min-width:0}
+body.nx .fchat-box .fchat-row #editRefLabel,body.nx .fchat-box .fchat-row .nx-refchip{min-width:0;max-width:calc(100% - 80px);margin-right:auto}
+
+/* export / download in progress: one full-screen veil saying what is happening */
+#nxBusy{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(245,245,247,.8);backdrop-filter:blur(2px);font:500 14px/1.4 var(--font);color:#1D1D1F}
+#nxBusy[hidden]{display:none}
+#nxBusy .nx-spin{width:28px;height:28px;border-radius:50%;border:3px solid #E5E5EA;border-top-color:#0071E3;animation:nxspin .8s linear infinite}
+@keyframes nxspin{to{transform:rotate(360deg)}}
+/* the one floating tooltip (nx-gs.js): above every panel, never cut off, kept inside the window */
+#nxTip{position:fixed;z-index:10000;max-width:300px;width:max-content;padding:5px 9px;border-radius:7px;background:#1D1D1F;color:#fff;font:500 12px/1.4 var(--font);pointer-events:none;opacity:0;transition:opacity .12s}
+#nxTip.on{opacity:1}
+/* Fill and stroke row: fill · stroke · width always fit the panel (the swatches stay small, a long colour code is cut with …) */
+body.nx .nx-irow:has(> .nx-cf + .nx-cf){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 76px;flex-wrap:nowrap}
+body.nx .nx-irow > .nx-cf{min-width:0}
+body.nx .nx-irow > .nx-nf{min-width:0}
+body.nx .nx-cf span{font-size:11.5px;color:var(--faint);flex:none}
+body.nx .nx-cf b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;font-size:12.5px}
+body.nx .nx-cf input[type=color]{width:22px!important;height:22px!important;min-width:22px;min-height:0!important;max-height:22px;-webkit-appearance:none;appearance:none}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+body.nx .nx-cf input[type=color]::-webkit-color-swatch{border:1px solid #E5E5EA;border-radius:6px}
+body.nx .nx-cf input[type=color]::-moz-color-swatch{border:1px solid #E5E5EA;border-radius:6px}
+
+/* the layer bar on the canvas can be moved by its grip */
+.canvas-parent-chip.nx-lbar .cgrip{display:grid;grid-template-columns:repeat(2,3px);gap:3px;padding:2px 8px 2px 2px;cursor:grab;align-self:stretch;align-content:center}
+.canvas-parent-chip.nx-lbar .cgrip i{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.55)}
+.canvas-parent-chip.nx-lbar.moving{cursor:grabbing;opacity:.92}
+.canvas-parent-chip.nx-lbar.moving .cgrip{cursor:grabbing}
+/* the kit's decorations: one closed group */
+.nx-lg.deco .gi{color:#FF9500}
+.nx-lg.deco small{margin-left:6px;color:var(--faint);font-weight:500}
+
+/* layer settings: sections that fold */
+.nx-insp details.nx-fold{border-top:1px solid var(--line,#E5E5EA);padding:2px 0}
+.nx-insp details.nx-fold:first-of-type{border-top:0}
+.nx-insp details.nx-fold>summary.lab{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 0;user-select:none}
+.nx-insp details.nx-fold>summary.lab::-webkit-details-marker{display:none}
+.nx-insp details.nx-fold>summary.lab::after{content:"";width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(-45deg);opacity:.5;margin-right:4px;transition:transform .15s}
+.nx-insp details.nx-fold[open]>summary.lab::after{transform:rotate(45deg)}
+.nx-insp details.nx-fold>:not(summary){margin-bottom:8px}
+
+/* drag a layer into / out of a group */
+.nx-ls.dragging{opacity:.45}
+.nx-lg.drop-in,.nx-ls.drop-in{box-shadow:inset 0 0 0 2px var(--accent,#0071E3);border-radius:10px;background:rgba(0,113,227,.06)}
+.nx-ls.drop-out{box-shadow:inset 0 -2px 0 #FF9500}
+.nx-lsh[draggable]{cursor:grab}
