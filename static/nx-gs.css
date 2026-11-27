@@ -782,7 +782,21 @@ body.nx .nx-cf input[type=color]::-moz-color-swatch{border:1px solid #E5E5EA;bor
 .nx-insp details.nx-fold>:not(summary){margin-bottom:8px}
 
 /* drag a layer into / out of a group */
-.nx-ls.dragging{opacity:.45}
-.nx-lg.drop-in,.nx-ls.drop-in{box-shadow:inset 0 0 0 2px var(--accent,#0071E3);border-radius:10px;background:rgba(0,113,227,.06)}
-.nx-ls.drop-out{box-shadow:inset 0 -2px 0 #FF9500}
+/* drag in the layer list (as in LA Studio's Layers): the dragged rows dim, the group it lands in lights up whole, a label follows the pointer */
+.nx-ls.dragging,.nx-lg.dragging,.nx-lgin.dragging{opacity:.38;transition:opacity .12s}
+.nx-dragmode .nx-ls:hover,.nx-dragmode .nx-lg:hover{background:none}
+.nx-dragmode .nx-lsh,.nx-dragmode .nx-lg{cursor:grabbing}
+.nx-lg[draggable],.nx-lsh[draggable]{cursor:grab}
+.nx-lg.drop-into{background:rgba(0,113,227,.08);box-shadow:inset 0 0 0 2px var(--accent,#0071E3);border-radius:10px 10px 0 0}
+.nx-lg.drop-into:not(.open){border-radius:10px}
+.nx-lgin.drop-into{background:rgba(0,113,227,.05);box-shadow:inset 2px 0 0 var(--accent,#0071E3),inset -2px 0 0 var(--accent,#0071E3),inset 0 -2px 0 var(--accent,#0071E3);border-radius:0 0 10px 10px}
+.nx-lg,.nx-lgin,.nx-ls{transition:background .12s,box-shadow .12s}
+.nx-ls.drop-out{box-shadow:inset 0 0 0 2px #FF9500;border-radius:10px;background:rgba(255,149,0,.06)}
+.nx-dghost{position:fixed;top:-200px;left:0;display:flex;align-items:center;gap:8px;max-width:260px;height:36px;padding:0 12px 0 10px;background:#fff;border:1px solid #E5E5EA;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.16);font:500 13px/1 Inter,-apple-system,sans-serif;color:#1D1D1F;pointer-events:none}
+.nx-dghost .gi{display:flex;color:#6E6E73}.nx-dghost .gi svg{width:15px;height:15px}
+.nx-dghost .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nx-dghost .c{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent,#0071E3);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center}
+.nx-dtip{position:fixed;z-index:99999;padding:5px 9px;border-radius:7px;background:#1D1D1F;color:#fff;font:500 12px/1.2 Inter,-apple-system,sans-serif;pointer-events:none;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.nx-ls.landed{animation:nxland .5s ease}
+@keyframes nxland{0%{background:rgba(0,113,227,.16)}100%{background:transparent}}
 .nx-lsh[draggable]{cursor:grab}

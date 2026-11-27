@@ -1220,15 +1220,18 @@ let _setEditLoading = null;
 const repFiles = {};
 let _renderCanvasLayerList = null;
 let rendering = false;
+function layerScroller(list) { let n = list; while (n && n !== document.body) { const o = getComputedStyle(n).overflowY; if ((o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight) return n; n = n.parentElement; } return null; }
 const nxRCL = function () {
   const lst = q1('#canvasLayerList'), ae = document.activeElement;
   if (lst && ae && lst.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && !rendering) {   // typing in a layer's settings: redraw when done
     if (!lst._nxPend) { lst._nxPend = true; ae.addEventListener('blur', () => setTimeout(() => { lst._nxPend = false; renderCanvasLayerList(); }, 0), { once: true }); }
     return;
   }
+  const sc0 = lst && layerScroller(lst), top0 = sc0 ? sc0.scrollTop : 0;
   _renderCanvasLayerList();
   if (rendering) return;
   const list = q1('#canvasLayerList'); if (!list) return;
+  if (sc0) requestAnimationFrame(() => { if (Math.abs(sc0.scrollTop - top0) > 1 && !S.scrollPending) sc0.scrollTop = top0; });   // a change (group, drop, hide) keeps the list where it was
   const rows = $$('.canvas-layer-row', list).map(r => {
     const b = r.querySelector('.cl-actions button'); const a = b?.getAttribute('onclick') || '';
     const mm = a.match(/canvasLayerAction\((\d+),'edit'(?:,'((?:[^'\\]|\\.)*)')?\)/);
@@ -1288,7 +1291,7 @@ const nxRCL = function () {
     }
     if (seen.has(g)) return ''; seen.add(g);
     const mem = rows.filter(x => gOf(x) === g), open = (S.gopen || (S.gopen = new Set())).has(g), allHid = mem.every(x => inspEl(x)?.dataset.psdHidden), mg = g.startsWith('m:');
-    return `<div class="nx-lg${open ? ' open' : ''}${mg ? ' merged' : ''}" data-gname="${E(g)}"><button class="nx-ib sm" data-gchev aria-label="${open ? 'Close' : 'Open'}">${I('down')}</button><span class="gi">${I(mg ? 'merge' : 'folder')}</span><span class="nm" data-gren data-tip="Double-click to rename"><b>${E(g.slice(2))}</b> <small>${mg ? 'merged · ' : ''}${mem.length} layers</small></span>
+    return `<div class="nx-lg${open ? ' open' : ''}${mg ? ' merged' : ''}" data-gname="${E(g)}" draggable="true"><button class="nx-ib sm" data-gchev aria-label="${open ? 'Close' : 'Open'}">${I('down')}</button><span class="gi">${I(mg ? 'merge' : 'folder')}</span><span class="nm" data-gren data-tip="Double-click to rename"><b>${E(g.slice(2))}</b> <small>${mg ? 'merged · ' : ''}${mem.length} layers</small></span>
       <button class="nx-ib" data-geye data-tip="${allHid ? 'Show' : 'Hide'} ${mg ? 'it' : 'the group'}" class="tip-l">${I(allHid ? 'eyeoff' : 'eye')}</button><button class="nx-tbtn grey" data-gun data-tip="${mg ? 'Unmerge: separate layers again' : 'Ungroup: the layers stay, the group goes'}">${mg ? 'Unmerge' : 'Ungroup'}</button></div>`
       + (open ? `<div class="nx-lgin">${mem.map(rowHTML).join('')}</div>` : '');
   }).join('');
@@ -1545,41 +1548,94 @@ const nxCLA = function (idx, action, mfPath = null) {
   setTab('layers');
   setTimeout(() => { const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); if (!s) return; s.scrollIntoView({ block: 'nearest' }); if (action === 'replace') s.querySelector('[data-repin]')?.click(); else { const ta = s.querySelector('[data-ai]'); if (ta) { const d = ta.closest('details'); if (d) d.open = true; ta.focus(); } } }, 30);   // (the pencil on the canvas bar opens Edit with AI)
 };
-/* drag a layer onto a group (its row or one of its layers) to put it in that group; onto a layer outside groups to take it out */
-function dropTarget(t) {
-  const g = t.closest('.nx-lg:not(.deco)'); if (g) return { el: g, group: g.dataset.gname };
-  const r = t.closest('.nx-ls'); if (!r) return null;
+/* ---------------- drag in the layer list (LA Studio's Layers list is the model): a card follows the pointer, the group it
+   will land in lights up as a whole (its row and its layers) with a label saying what happens, the list scrolls near its edges,
+   the row lands at once and the PSD change follows. A layer (or the picked ones) dropped on a group or among its layers joins
+   it; dropped among layers outside groups, it leaves its group. A whole group dragged by its row onto another group merges into it. */
+function dropTarget(t, drag) {
+  const g = t.closest('.nx-lg:not(.deco)');
+  if (g) return g.dataset.gname === drag.from && !drag.group ? { head: g, group: g.dataset.gname, same: true } : { head: g, group: g.dataset.gname };
+  const r = t.closest('.nx-ls'); if (!r || r.closest('.nx-lgin')?.previousElementSibling?.matches('.nx-lg.deco')) return null;
   const inn = r.closest('.nx-lgin'), head = inn && inn.previousElementSibling;
-  if (head && head.matches('.nx-lg:not(.deco)')) return { el: r, group: head.dataset.gname };
-  return { el: r, group: '' };
+  if (head && head.matches('.nx-lg:not(.deco)')) return { head, group: head.dataset.gname, same: head.dataset.gname === drag.from && !drag.group };
+  return drag.group ? null : { row: r, group: '' };
 }
-async function moveToGroup(key, group) {
-  const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); const L = s ? layerOf(s) : null; if (!L) return;
-  const got = await editableEl(L); const el = got && got.el; if (!el) return;
-  const was = el.dataset.psdMerge ? 'm:' + el.dataset.psdMerge : el.dataset.psdGroup ? 'g:' + el.dataset.psdGroup : '';
-  if (was === group) return;
-  delete el.dataset.psdGroup; delete el.dataset.psdMerge;
-  if (group) { el.dataset[GATTR[group[0]]] = group.slice(2); (S.gopen = S.gopen || new Set()).add(group); }
-  await saveEls([el], group ? `Added to “${group.slice(2)}”` : `Taken out of “${was.slice(2)}”`);
+async function moveToGroup(keys, group, opts = {}) {
+  keys = [].concat(keys); const Ls = rowsByKey(keys).filter(L => !/^locked:/.test(L.mfPath || '') || L.mfPath === 'locked:kit');
+  const got = Ls.length === 1 ? [await editableEl(Ls[0])].filter(x => x.el) : await editableMany(Ls); if (!got.length) return;
+  const els = got.map(x => x.el).filter(el => (el.dataset.psdMerge ? 'm:' + el.dataset.psdMerge : el.dataset.psdGroup ? 'g:' + el.dataset.psdGroup : '') !== group);
+  if (!els.length) return;
+  const was = new Set(els.map(el => el.dataset.psdMerge ? 'm:' + el.dataset.psdMerge : el.dataset.psdGroup ? 'g:' + el.dataset.psdGroup : '').filter(Boolean));
+  els.forEach(el => { delete el.dataset.psdGroup; delete el.dataset.psdMerge; if (group) el.dataset[GATTR[group[0]]] = group.slice(2); });
+  if (group) (S.gopen = S.gopen || new Set()).add(group);
+  S.lsel = new Set();
+  const n = els.length, what = n === 1 ? 'layer' : n + ' layers';
+  await saveEls(els, opts.msg || (group ? `Added ${n === 1 ? '' : n + ' layers '}to “${group.slice(2)}”` : `Took ${what} out of ${was.size === 1 ? '“' + [...was][0].slice(2) + '”' : 'their groups'}`));
+}
+async function mergeGroupInto(from, to) {        // a whole group dropped on another: its layers join that group
+  const els = groupMembers(from); if (!els.length || from === to) return;
+  els.forEach(el => { delete el.dataset.psdGroup; delete el.dataset.psdMerge; el.dataset[GATTR[to[0]]] = to.slice(2); });
+  (S.gopen = S.gopen || new Set()).add(to); S.gopen.delete(from);
+  await saveEls(els, `Merged “${from.slice(2)}” into “${to.slice(2)}”`);
+}
+function dragLabel(t, drag) {
+  if (!t || t.same) return '';
+  if (drag.group) return `Merge into “${t.group.slice(2)}”`;
+  const n = drag.keys.length, what = n === 1 ? '' : n + ' layers ';
+  return t.group ? `Add ${what}to “${t.group.slice(2)}”` : drag.from || drag.keys.length > 1 ? `Take ${what || 'it '}out of the group` : '';
+}
+function bindLayerDrag(list) {
+  const host = () => { let n = list; while (n && n !== document.body) { const o = getComputedStyle(n).overflowY; if ((o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight) return n; n = n.parentElement; } return list; };
+  let drag = null, lit = [], tip = null, autoT = null, lastSig = '';
+  const unlight = () => { lit.forEach(n => n.classList.remove('drop-in', 'drop-out', 'drop-into')); lit = []; };
+  const light = t => {
+    const sig = t ? (t.head ? 'g' + t.group : 'r' + t.row.dataset.key) + (t.same ? '=' : '') : ''; if (sig === lastSig) return; lastSig = sig; unlight(); if (!t || t.same) return;
+    if (t.head) { lit = [t.head]; const inn = t.head.nextElementSibling; if (inn && inn.matches('.nx-lgin')) lit.push(inn); lit.forEach(n => n.classList.add('drop-into')); }
+    else if (drag.from || drag.keys.length > 1) { lit = [t.row]; t.row.classList.add('drop-out'); }
+  };
+  const stop = () => { clearInterval(autoT); autoT = null; unlight(); lastSig = ''; tip?.remove(); tip = null; list.classList.remove('nx-dragmode'); $$('.dragging', list).forEach(n => n.classList.remove('dragging')); drag = null; };
+  list.addEventListener('dragstart', e => {
+    if (e.target.closest && e.target.closest('input,textarea,[contenteditable="true"]')) return;
+    const gh = e.target.closest && e.target.closest('.nx-lg[draggable]'), h = !gh && e.target.closest && e.target.closest('.nx-lsh[draggable]'), r = h && h.closest('.nx-ls');
+    if (!gh && !r) return;
+    let keys, from = '', label;
+    if (gh) { from = gh.dataset.gname; keys = []; label = gh.querySelector('.nm b')?.textContent || 'Group'; }
+    else { keys = (S.lsel && S.lsel.has(r.dataset.key) && S.lsel.size > 1) ? [...S.lsel] : [r.dataset.key];
+      const inn = r.closest('.nx-lgin'), head = inn && inn.previousElementSibling; from = head && head.matches('.nx-lg:not(.deco)') ? head.dataset.gname : '';
+      label = r.querySelector('.nm')?.textContent.trim() || 'Layer'; }
+    drag = { keys, from, group: !!gh };
+    e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/x-gs-layer', keys.join('\n')); } catch (_) {}
+    const ghost = document.createElement('div'); ghost.className = 'nx-dghost';
+    ghost.innerHTML = `<span class="gi">${I(gh ? 'folder' : 'layers')}</span><span class="t"></span>${keys.length > 1 && !gh ? `<span class="c">${keys.length}</span>` : ''}`; ghost.querySelector('.t').textContent = label;
+    document.body.appendChild(ghost); e.dataTransfer.setDragImage(ghost, 18, 18); setTimeout(() => ghost.remove(), 0);
+    requestAnimationFrame(() => { if (!drag) return; list.classList.add('nx-dragmode');
+      (gh ? [gh, gh.nextElementSibling].filter(n => n && (n === gh || n.matches('.nx-lgin'))) : $$('.nx-ls', list).filter(x => keys.includes(x.dataset.key))).forEach(n => n.classList.add('dragging')); });
+  });
+  list.addEventListener('dragend', stop);
+  list.addEventListener('dragover', e => {
+    if (!drag) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    const sc = host(), b = sc.getBoundingClientRect(), edge = 48;
+    clearInterval(autoT); autoT = null;
+    if (e.clientY < b.top + edge || e.clientY > b.bottom - edge) { const v = e.clientY < b.top + edge ? -1 : 1, sp = Math.max(4, Math.round(14 * (edge - Math.min(Math.abs(e.clientY - b.top), Math.abs(b.bottom - e.clientY))) / edge)); autoT = setInterval(() => { sc.scrollTop += v * sp; }, 16); }
+    const t = dropTarget(e.target, drag); light(t);
+    const txt = dragLabel(t, drag);
+    if (txt) { if (!tip) { tip = document.createElement('div'); tip.className = 'nx-dtip'; document.body.appendChild(tip); } tip.textContent = txt; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 16) + 'px'; }
+    else if (tip) { tip.remove(); tip = null; }
+  });
+  list.addEventListener('dragleave', e => { if (drag && !list.contains(e.relatedTarget)) { unlight(); lastSig = ''; tip?.remove(); tip = null; clearInterval(autoT); autoT = null; } });
+  list.addEventListener('drop', e => {
+    if (!drag) return; e.preventDefault(); const d = drag, t = dropTarget(e.target, d); stop();
+    if (!t || t.same) return;
+    if (!t.group && !d.from && d.keys.length === 1) return;     // a loose layer dropped among loose layers: nothing changes
+    if (t.head && !d.group) { const inn = t.head.nextElementSibling;        // the rows land in their group straight away; the frame follows
+      if (inn && inn.matches('.nx-lgin')) d.keys.forEach(k => { const row = list.querySelector(`.nx-ls[data-key="${CSS.escape(k)}"]`); if (row && row.parentElement !== inn) { inn.appendChild(row); row.classList.add('landed'); } }); }
+    if (d.group) mergeGroupInto(d.from, t.group);
+    else moveToGroup(d.keys, t.group);
+  });
 }
 function bindLayerPanel() {
   const list = q1('#canvasLayerList'); if (!list || list._nx) return; list._nx = true;
-  let dragKey = null;
-  list.addEventListener('dragstart', e => {
-    const h = e.target.closest && e.target.closest('.nx-lsh[draggable]'); const r = h && h.closest('.nx-ls'); if (!r) return;
-    dragKey = r.dataset.key; r.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragKey); } catch (_) {}
-  });
-  list.addEventListener('dragend', () => { dragKey = null; $$('.dragging,.drop-in,.drop-out', list).forEach(n => n.classList.remove('dragging', 'drop-in', 'drop-out')); });
-  list.addEventListener('dragover', e => {
-    if (!dragKey) return; const t = dropTarget(e.target); $$('.drop-in,.drop-out', list).forEach(n => n.classList.remove('drop-in', 'drop-out'));
-    if (!t || t.el.dataset.key === dragKey) return;
-    e.preventDefault(); e.dataTransfer.dropEffect = 'move'; t.el.classList.add(t.group ? 'drop-in' : 'drop-out');
-  });
-  list.addEventListener('drop', e => {
-    if (!dragKey) return; const t = dropTarget(e.target), k = dragKey; dragKey = null; e.preventDefault();
-    $$('.dragging,.drop-in,.drop-out', list).forEach(n => n.classList.remove('dragging', 'drop-in', 'drop-out'));
-    if (t && t.el.dataset.key !== k) moveToGroup(k, t.group);
-  });
+  bindLayerDrag(list);
   list.addEventListener('click', e => {
     if (e.target.closest('[data-mkedit]')) { e.stopPropagation(); return makeLayersEditable(); }
     if (e.target.closest('[data-unfix]')) { e.stopPropagation(); return backToKitVersion(); }
