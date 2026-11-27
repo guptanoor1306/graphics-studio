@@ -1264,7 +1264,7 @@ const nxRCL = function () {
     const generic = !k.name || k.name === k.type || /^(shape|decoration|drawing|polyline|polygon|path|rect|line|circle|ellipse|g|div|span|block|layer|html)$/i.test(k.name);
     const nm = (el && el.getAttribute('aria-label')) || (generic && el && !/^(Text|Picture|Image)$/i.test(k.type) ? shapeName(el) || k.name : k.name);   // "Blue bar", "Orange line" instead of "Shape · Shape"
     return `<div class="nx-ls${r.on ? ' open' : ''}${hid ? ' hid' : ''}${lk ? ' kit' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
-      <div class="nx-lsh" data-open><span class="ty pv">${layerPreview(el, k)}</span><span class="nm" data-lname data-tip="Double-click to rename"><b>${E(k.type)}</b> · <span class="nmv">${E(nm)}</span></span><button class="nx-ib" data-leye data-tip="${hid ? 'Show' : 'Hide'} this layer" class="tip-l" aria-label="${hid ? 'Show' : 'Hide'} layer">${I(hid ? 'eyeoff' : 'eye')}</button><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
+      <div class="nx-lsh" data-open draggable="true"><span class="ty pv">${layerPreview(el, k)}</span><span class="nm" data-lname data-tip="Double-click to rename"><b>${E(k.type)}</b> · <span class="nmv">${E(nm)}</span></span><button class="nx-ib" data-leye data-tip="${hid ? 'Show' : 'Hide'} this layer" class="tip-l" aria-label="${hid ? 'Show' : 'Hide'} layer">${I(hid ? 'eyeoff' : 'eye')}</button><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
       ${r.on ? inspectorHTML(r, el, f) : ''}</div>`;
   };
   /* groups (data-psd-group on the layers): one row each, its layers under it when open; they become one group in the PSD
@@ -1545,8 +1545,41 @@ const nxCLA = function (idx, action, mfPath = null) {
   setTab('layers');
   setTimeout(() => { const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); if (!s) return; s.scrollIntoView({ block: 'nearest' }); if (action === 'replace') s.querySelector('[data-repin]')?.click(); else { const ta = s.querySelector('[data-ai]'); if (ta) { const d = ta.closest('details'); if (d) d.open = true; ta.focus(); } } }, 30);   // (the pencil on the canvas bar opens Edit with AI)
 };
+/* drag a layer onto a group (its row or one of its layers) to put it in that group; onto a layer outside groups to take it out */
+function dropTarget(t) {
+  const g = t.closest('.nx-lg:not(.deco)'); if (g) return { el: g, group: g.dataset.gname };
+  const r = t.closest('.nx-ls'); if (!r) return null;
+  const inn = r.closest('.nx-lgin'), head = inn && inn.previousElementSibling;
+  if (head && head.matches('.nx-lg:not(.deco)')) return { el: r, group: head.dataset.gname };
+  return { el: r, group: '' };
+}
+async function moveToGroup(key, group) {
+  const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); const L = s ? layerOf(s) : null; if (!L) return;
+  const got = await editableEl(L); const el = got && got.el; if (!el) return;
+  const was = el.dataset.psdMerge ? 'm:' + el.dataset.psdMerge : el.dataset.psdGroup ? 'g:' + el.dataset.psdGroup : '';
+  if (was === group) return;
+  delete el.dataset.psdGroup; delete el.dataset.psdMerge;
+  if (group) { el.dataset[GATTR[group[0]]] = group.slice(2); (S.gopen = S.gopen || new Set()).add(group); }
+  await saveEls([el], group ? `Added to “${group.slice(2)}”` : `Taken out of “${was.slice(2)}”`);
+}
 function bindLayerPanel() {
   const list = q1('#canvasLayerList'); if (!list || list._nx) return; list._nx = true;
+  let dragKey = null;
+  list.addEventListener('dragstart', e => {
+    const h = e.target.closest && e.target.closest('.nx-lsh[draggable]'); const r = h && h.closest('.nx-ls'); if (!r) return;
+    dragKey = r.dataset.key; r.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragKey); } catch (_) {}
+  });
+  list.addEventListener('dragend', () => { dragKey = null; $$('.dragging,.drop-in,.drop-out', list).forEach(n => n.classList.remove('dragging', 'drop-in', 'drop-out')); });
+  list.addEventListener('dragover', e => {
+    if (!dragKey) return; const t = dropTarget(e.target); $$('.drop-in,.drop-out', list).forEach(n => n.classList.remove('drop-in', 'drop-out'));
+    if (!t || t.el.dataset.key === dragKey) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move'; t.el.classList.add(t.group ? 'drop-in' : 'drop-out');
+  });
+  list.addEventListener('drop', e => {
+    if (!dragKey) return; const t = dropTarget(e.target), k = dragKey; dragKey = null; e.preventDefault();
+    $$('.dragging,.drop-in,.drop-out', list).forEach(n => n.classList.remove('dragging', 'drop-in', 'drop-out'));
+    if (t && t.el.dataset.key !== k) moveToGroup(k, t.group);
+  });
   list.addEventListener('click', e => {
     if (e.target.closest('[data-mkedit]')) { e.stopPropagation(); return makeLayersEditable(); }
     if (e.target.closest('[data-unfix]')) { e.stopPropagation(); return backToKitVersion(); }
