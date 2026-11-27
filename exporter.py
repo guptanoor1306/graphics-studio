@@ -12,6 +12,8 @@ Optionally also PNGs. Everything is returned as a zip.
 import asyncio
 import threading, base64, io, mimetypes, os, pathlib, re, zipfile
 
+import item_ids
+
 FLATTEN_JS = r"""(overlay) => {
   const name = (e) => {
     const c = (e.className && e.className.baseVal === undefined ? e.className : '') || e.tagName.toLowerCase();
@@ -276,6 +278,10 @@ async def _capture_page(
             out[png_key] = await pg.screenshot(
                 omit_background=True if overlay_png else False
             )
+        try:     # a fixed id on each piece that can be animated on its own (point-3, card-2): LA Studio finds it by that id
+            await pg.evaluate(item_ids.ITEM_JS, item_ids.NOUN_RULES)
+        except Exception as e:
+            print("export: item ids not added:", e, flush=True)
         out[html_key] = await pg.evaluate(FLATTEN_JS, flatten_overlay)
     finally:
         await pg.close()

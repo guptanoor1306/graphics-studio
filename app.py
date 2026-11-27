@@ -2420,12 +2420,13 @@ def _dl_name(base: str, suffix: str) -> str:
     return f"{safe}{suffix}"
 
 
-def _storyboard_csv_bytes(p: dict) -> bytes | None:
+def _storyboard_csv_bytes(p: dict, frames: list | None = None) -> bytes | None:
     sb = (p.get("storyboard") or "").strip()
     if not sb:
         return None
     spec = p.get("spec") if isinstance(p.get("spec"), dict) else None
-    text = storyboard_csv.storyboard_csv_text(sb, spec, project_name=p.get("name") or "")
+    vo = {str(f.get("frame_id")): str(f.get("text") or "") for f in (frames or []) if isinstance(f, dict) and f.get("frame_id")}   # each frame's script lines (the words an action is said on)
+    text = storyboard_csv.storyboard_csv_text(sb, spec, project_name=p.get("name") or "", vo_by_frame=vo)
     return text.encode("utf-8")
 
 
@@ -2447,11 +2448,11 @@ async def export_storyboard_csv_frames(pid: int, request: Request):
 
 
 def _storyboard_csv_response(p: dict, frames: list[dict] | None):
-    raw = _storyboard_csv_bytes(p)
+    raw = _storyboard_csv_bytes(p, frames)
     if raw is not None and frames and len(raw.decode("utf-8", "replace").strip().splitlines()) <= 1:
         raw = None   # storyboard text in a form that gives no rows (Zero1 Hindi's): one row per frame instead of an empty sheet
     if raw is None and frames:
-        raw = storyboard_csv.frames_csv_text(frames[:2000], project_name=p.get("name") or "").encode("utf-8")
+        raw = storyboard_csv.frames_csv_text(frames[:2000], project_name=p.get("name") or "", spec=p.get("spec") if isinstance(p.get("spec"), dict) else None).encode("utf-8")
     if raw is None:
         raise HTTPException(400, "No storyboard text on this project yet.")
     text = raw.decode("utf-8")
@@ -2496,13 +2497,13 @@ def _export_zip_payload(p: dict, png: int, only: str, dest: pathlib.Path | None 
     rename = _export_names(names)
     pages = _export_pages(p, ids)
     sb_csv = None
-    raw_sb = _storyboard_csv_bytes(p)
+    raw_sb = _storyboard_csv_bytes(p, sb_frames)
     if raw_sb is not None and sb_frames and len(raw_sb.decode("utf-8", "replace").strip().splitlines()) <= 1:
         raw_sb = None                              # storyboard text that gives no rows: one row per frame instead
     if raw_sb is not None:
         sb_csv = raw_sb.decode("utf-8")
     elif sb_frames:                                # no storyboard text: one row per frame from the page's times and lines
-        sb_csv = storyboard_csv.frames_csv_text(sb_frames[:2000], project_name=p.get("name") or "")
+        sb_csv = storyboard_csv.frames_csv_text(sb_frames[:2000], project_name=p.get("name") or "", spec=p.get("spec") if isinstance(p.get("spec"), dict) else None)
     cw, ch = theme_canvas.canvas_for_theme(p["theme"])
     fn = _export_zip_filename(p, ids)
     extra = z1_plates.export_files(p) if z1_plates.is_theme(p["theme"]) else None
