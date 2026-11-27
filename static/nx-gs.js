@@ -25,7 +25,7 @@ const IC = {
   doc: '<path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3M6 8.5h4M6 11h4"/>', wave: '<path d="M2.5 8h1M5 5.5v5M7.5 3v10M10 5.5v5M12.5 7.5v1"/>',
   upload: '<path d="M8 10.5v-8M4.5 6L8 2.5 11.5 6M3 13.5h10"/>', play: '<path d="M5.5 3.8l6.5 4.2-6.5 4.2z" fill="currentColor" stroke="none"/>', pause: '<path d="M5.5 4v8M10.5 4v8"/>',
   clock: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/>', hash: '<path d="M6 2.5L5 13.5M11 2.5l-1 11M2.5 6h11M2 10h11"/>', video: '<rect x="2" y="3.5" width="9" height="9" rx="1.5"/><path d="M11 7l3-2v6l-3-2"/>',
-  status: '<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/>', folder: '<path d="M2.5 4.5h4l1.5 1.5h5.5v6.5h-11z"/>', merge: '<rect x="2.5" y="2.5" width="7" height="7" rx="1.2"/><rect x="6.5" y="6.5" width="7" height="7" rx="1.2"/>', fwd: '<rect x="5.5" y="2.5" width="8" height="8" rx="1.2"/><path d="M2.5 6v7.5H10"/>', sendback: '<rect x="2.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M6 2.5h7.5V10"/>', find: '<rect x="2" y="2" width="12" height="12" rx="2" stroke-dasharray="2 2"/><rect x="5" y="5" width="6" height="6" rx="1"/>', tag: '<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.5" cy="5.5" r=".8"/>',
+  status: '<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.5" fill="currentColor"/>', folder: '<path d="M2.5 4.5h4l1.5 1.5h5.5v6.5h-11z"/>', sparkle: '<path d="M8 2.5v3M8 10.5v3M2.5 8h3M10.5 8h3M4.2 4.2l1.8 1.8M10 10l1.8 1.8M11.8 4.2L10 6M6 10l-1.8 1.8"/>', merge: '<rect x="2.5" y="2.5" width="7" height="7" rx="1.2"/><rect x="6.5" y="6.5" width="7" height="7" rx="1.2"/>', fwd: '<rect x="5.5" y="2.5" width="8" height="8" rx="1.2"/><path d="M2.5 6v7.5H10"/>', sendback: '<rect x="2.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M6 2.5h7.5V10"/>', find: '<rect x="2" y="2" width="12" height="12" rx="2" stroke-dasharray="2 2"/><rect x="5" y="5" width="6" height="6" rx="1"/>', tag: '<path d="M2.5 2.5h5l6 6-5 5-6-6z"/><circle cx="5.5" cy="5.5" r=".8"/>',
   layers: '<path d="M8 2.5l5.5 3L8 8.5l-5.5-3z"/><path d="M2.5 8.5L8 11.5l5.5-3"/>', file: '<path d="M4 2.5h5l3 3v8H4z"/><path d="M9 2.5v3h3"/>',
   text: '<path d="M3.5 4h9M8 4v8.5"/>', picture: '<rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M2.8 11l3.2-3 2.5 2.3 1.8-1.6 3 2.6"/><circle cx="10.5" cy="6" r="1"/>',
   table: '<rect x="2.5" y="3" width="11" height="10" rx="1.2"/><path d="M2.5 6.3h11M2.5 9.6h11M6.5 3v10"/>', chart: '<path d="M3 13V3M3 13h10"/><path d="M5 10.5l2.5-3 2 1.5L13 5"/>',
@@ -1260,20 +1260,32 @@ const nxRCL = function () {
     if (lk && lk[1] !== 'kit') return `<div class="nx-ls locked${r.on ? ' open' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath)}">
       <div class="nx-lsh" data-open><span class="ty pv">${layerPreview(inspEl(r), k)}</span><span class="nm"><b>${E(k.type)}</b> · ${E(k.name)}</span><span class="nx-lk" aria-label="Locked">${I('lock')}</span></div>
       ${r.on ? `<div class="nx-lsb"><p class="nx-lkn">${E(LOCKED[lk[1]] || LOCKED.kit)}</p></div>` : ''}</div>`;
-    const el = inspEl(r), hid = !!(el && el.dataset.psdHidden), nm = (el && el.getAttribute('aria-label')) || k.name;
+    const el = inspEl(r), hid = !!(el && el.dataset.psdHidden);
+    const generic = !k.name || k.name === k.type || /^(shape|decoration|drawing|polyline|polygon|path|rect|line|circle|ellipse|g|div|span|block|layer|html)$/i.test(k.name);
+    const nm = (el && el.getAttribute('aria-label')) || (generic && el && !/^(Text|Picture|Image)$/i.test(k.type) ? shapeName(el) || k.name : k.name);   // "Blue bar", "Orange line" instead of "Shape · Shape"
     return `<div class="nx-ls${r.on ? ' open' : ''}${hid ? ' hid' : ''}${lk ? ' kit' : ''}${layerQueue.busy.has(key) ? ' busy' : ''}" data-key="${E(key)}" data-idx="${r.idx}" data-mf="${E(r.mfPath || '')}">
       <div class="nx-lsh" data-open><span class="ty pv">${layerPreview(el, k)}</span><span class="nm" data-lname data-tip="Double-click to rename"><b>${E(k.type)}</b> · <span class="nmv">${E(nm)}</span></span><button class="nx-ib" data-leye data-tip="${hid ? 'Show' : 'Hide'} this layer" class="tip-l" aria-label="${hid ? 'Show' : 'Hide'} layer">${I(hid ? 'eyeoff' : 'eye')}</button><button class="nx-ib" data-lcopy data-tip="Copy this layer (⌘C), then paste it into any frame (⌘V)" class="tip-l">${I('copy')}</button><button class="nx-ib nx-trash" data-ldel data-tip="Delete this layer" class="tip-l">${I('trash')}</button><svg class="i chev" viewBox="0 0 16 16">${IC.chev}</svg></div>
       ${r.on ? inspectorHTML(r, el, f) : ''}</div>`;
   };
   /* groups (data-psd-group on the layers): one row each, its layers under it when open; they become one group in the PSD
      (Animate moves a group as one). ⌘ / ⇧ click picks several layers, then Group. */
-  const gOf = r => { if (/^locked:/.test(r.mfPath || '')) return ''; const el = inspEl(r); return !el ? '' : el.dataset.psdMerge ? 'm:' + el.dataset.psdMerge : el.dataset.psdGroup ? 'g:' + el.dataset.psdGroup : ''; };
+  const gOf = r => { const el = inspEl(r); if (el && isDecor(el)) return 'd:Decorations'; if (/^locked:/.test(r.mfPath || '')) return ''; return !el ? '' : el.dataset.psdMerge ? 'm:' + el.dataset.psdMerge : el.dataset.psdGroup ? 'g:' + el.dataset.psdGroup : ''; };
   const seen = new Set(), keys = new Set(rows.map(r => r.idx + '|' + (r.mfPath || '')));
   S.lsel = new Set([...(S.lsel || [])].filter(k => keys.has(k)));
   const sel = S.lsel, selBar = sel.size >= 2 ? `<div class="nx-lselbar"><b>${sel.size} picked</b><span class="nx-sp"></span><button class="nx-tbtn" data-lgroup data-tip="Group them (⌘G): one group in the PSD, animated as one">${I('folder')}Group</button><button class="nx-tbtn" data-lmerge data-tip="Merge them (⌘E): one layer in the PSD">${I('merge')}Merge</button><button class="nx-ib" data-lselhide aria-label="Hide or show them" data-tip="Hide / show them">${I('eye')}</button><button class="nx-ib nx-trash" data-lseldel aria-label="Delete them" data-tip="Delete them">${I('trash')}</button><button class="nx-ib" data-lselx aria-label="Clear" data-tip="Clear the picked layers">${I('x')}</button></div>`
     : `<div class="nx-lhint">⌘-click or ⇧-click layers to pick several: drag them together, group or merge them</div>`;
-  list.innerHTML = tools + wordsHTML + selBar + rows.map(r => {
+  const deco = rows.filter(r => gOf(r) === 'd:Decorations'), main = rows.filter(r => gOf(r) !== 'd:Decorations');
+  const bgAt = main.findIndex(r => /^locked:background$|Background/.test(r.mfPath || '') || /^background/i.test(r.label || ''));
+  const ordered = deco.length ? (bgAt >= 0 ? [...main.slice(0, bgAt), ...deco, ...main.slice(bgAt)] : [...main, ...deco]) : rows;   // the kit's decorations: one closed group near the end
+  list.innerHTML = tools + wordsHTML + selBar + ordered.map(r => {
     const g = gOf(r); if (!g) return rowHTML(r);
+    if (g === 'd:Decorations') {
+      if (seen.has(g)) return ''; seen.add(g);
+      const open = (S.gopen || (S.gopen = new Set())).has(g), allHid = deco.every(x => inspEl(x)?.dataset.psdHidden);
+      return `<div class="nx-lg deco${open ? ' open' : ''}" data-gname="${E(g)}"><button class="nx-ib sm" data-gchev aria-label="${open ? 'Close' : 'Open'}">${I('down')}</button><span class="gi">${I('sparkle')}</span><span class="nm"><b>Decorations</b><small>${deco.length} kit ${deco.length === 1 ? 'shape' : 'shapes'}</small></span>`
+        + `<button class="nx-ib" data-geye data-tip="${allHid ? 'Show' : 'Hide'} the decorations">${I(allHid ? 'eyeoff' : 'eye')}</button></div>`
+        + (open ? `<div class="nx-lgin">${deco.map(rowHTML).join('')}</div>` : '');
+    }
     if (seen.has(g)) return ''; seen.add(g);
     const mem = rows.filter(x => gOf(x) === g), open = (S.gopen || (S.gopen = new Set())).has(g), allHid = mem.every(x => inspEl(x)?.dataset.psdHidden), mg = g.startsWith('m:');
     return `<div class="nx-lg${open ? ' open' : ''}${mg ? ' merged' : ''}" data-gname="${E(g)}"><button class="nx-ib sm" data-gchev aria-label="${open ? 'Close' : 'Open'}">${I('down')}</button><span class="gi">${I(mg ? 'merge' : 'folder')}</span><span class="nm" data-gren data-tip="Double-click to rename"><b>${E(g.slice(2))}</b> <small>${mg ? 'merged · ' : ''}${mem.length} layers</small></span>
@@ -1383,21 +1395,32 @@ function inspectorHTML(r, el, f) {
   const wt = parseInt(cs.fontWeight, 10) || 400, al = { start: 'left', end: 'right', justify: 'left' }[cs.textAlign] || cs.textAlign;
   const num = (k, lab, v, unit) => `<label class="nx-nf"><span>${lab}</span><input type="number" data-st="${k}" value="${Math.round(v)}" step="1">${unit ? `<i>${unit}</i>` : ''}</label>`;
   const col = (k, lab, v) => `<label class="nx-cf"><input type="color" data-st="${k}" value="${v || '#ffffff'}"><span>${lab}</span><b>${v ? v.toUpperCase() : 'None'}</b></label>`;
-  const tx = sort === 'text' ? tel.innerText : null;
+  const tx = sort === 'text' ? (tel.innerText ?? tel.textContent) : null;   // (an svg <text> has no innerText)
   const bw = parseFloat(bcs.borderTopWidth) || 0, bc = bw ? hex(bcs.borderTopColor) : '';
   let h = `<div class="nx-lsb nx-insp">`;
   if (tx != null) h += `<span class="lab">Text</span><textarea data-ltext rows="${Math.min(4, tx.split('\n').length + 1)}" aria-label="Text">${E(tx)}</textarea>
     <span class="lab">Typography</span><div class="nx-irow"><select data-st="family" aria-label="Font">${fams.map(x => `<option${x === fam ? ' selected' : ''}>${E(x)}</option>`).join('')}</select><select data-st="weight" aria-label="Weight">${W.map(([v, n]) => `<option value="${v}"${v === wt ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
     <div class="nx-irow">${num('size', 'Size', parseFloat(cs.fontSize), 'px')}<div class="nx-seg sm" data-al>${['left', 'center', 'right'].map(a => `<button type="button" data-align="${a}" class="${al === a ? 'on' : ''}" aria-label="Align ${a}">${I('al' + a)}</button>`).join('')}</div></div>
-    <div class="nx-irow">${col('color', 'Text colour', hex(cs.color))}</div>`;
+    <div class="nx-irow">${col('color', 'Text colour', hex(tel instanceof SVGElement ? cs.fill : cs.color))}</div>`;
   h += `<span class="lab">Position and size</span><div class="nx-irow">${num('x', 'X', rc.left)}${num('y', 'Y', rc.top)}${num('w', 'W', rc.width)}</div>`;
   h += `<span class="lab">Opacity and order</span><div class="nx-irow">${num('o', 'Opacity', Math.round((parseFloat(cs.opacity) || 0) * 100), '%')}<div class="nx-seg sm"><button type="button" data-lorder="-1" data-tip="Send backward" aria-label="Send backward">${I('sendback')}</button><button type="button" data-lorder="1" data-tip="Bring forward" aria-label="Bring forward">${I('fwd')}</button></div></div>`;
   if (sort === 'box' || sort === 'text') h += `<span class="lab">Fill and stroke</span><div class="nx-irow">${col('fill', 'Fill', hex(bcs.backgroundColor))}${col('stroke', 'Stroke', bc)}${num('strokeW', 'W', bw, 'px')}</div>`;
   if (sort === 'picture' || sort === 'drawing') h += `<span class="lab">Replace with an image</span><div class="nx-rep sm"><div class="nx-upl${f ? ' has' : ''}" data-upl><span class="tile">${f ? `<img src="${f.url}" alt=""><span class="rm" data-rmimg data-tip="Remove this image">${I('trash')}</span>` : I('upload')}</span><span class="tx"><b>${f ? E(f.file.name) : 'Upload or drop an image'}</b></span><input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden data-repin><button class="nx-tbtn${f ? '' : ' off'}" data-repapply>Replace</button></div></div>`;
   h += `<span class="lab">Edit with AI</span><div class="nx-ai sm"><textarea data-ai rows="1" aria-label="Edit with AI" placeholder="Describe the change, then Enter"></textarea><button class="nx-tbtn off" data-aiapply>Apply</button></div>
     <div class="nx-lfoot"><button class="nx-tbtn" data-lreset data-tip="This layer as it was when you opened the frame">Reset layer</button></div></div>`;
-  return h;
+  return foldSections(h);
 }
+/* the layer's settings in sections that open and close (the common ones open): not every setting at once */
+const SEC_OPEN = { 'Text': 1, 'Typography': 1, 'Position and size': 1, 'Replace with an image': 1 };
+function secState() { try { return JSON.parse(localStorage.getItem('nx.secs') || '{}'); } catch (_) { return {}; } }
+function foldSections(h) {
+  const foot = h.indexOf('<div class="nx-lfoot">'), head = h.indexOf('<span class="lab">'); if (head < 0 || foot < 0) return h;
+  const st = secState(), parts = h.slice(head, foot).split('<span class="lab">').slice(1);
+  const body = parts.map(p => { const i = p.indexOf('</span>'), lab = p.slice(0, i), rest = p.slice(i + 7), open = lab in st ? st[lab] : !!SEC_OPEN[lab];
+    return `<details class="nx-fold"${open ? ' open' : ''} data-sec="${E(lab)}"><summary class="lab">${lab}</summary>${rest}</details>`; }).join('');
+  return h.slice(0, head) + body + h.slice(foot);
+}
+document.addEventListener('toggle', e => { const d = e.target; if (!d.matches || !d.matches('details.nx-fold')) return; const st = secState(); st[d.dataset.sec] = d.open; try { localStorage.setItem('nx.secs', JSON.stringify(st)); } catch (_) {} }, true);
 const layerOrig = {};
 const saveT = {};
 /* the layer's element, editable as markup: a kit-drawn layer turns the frame into a fixed design first */
@@ -1435,7 +1458,7 @@ async function layerStyle(L, k, v, live) {
   else if (k === 'weight') st.fontWeight = v;
   else if (k === 'size') st.fontSize = Math.max(4, +v || 0) + 'px';
   else if (k === 'align') st.textAlign = v;
-  else if (k === 'color') st.color = v;
+  else if (k === 'color') { if (el instanceof SVGElement) st.fill = v; else st.color = v; }   // svg text is coloured by fill
   else if (k === 'fill') st.backgroundColor = v;
   else if (k === 'stroke' || k === 'strokeW') { const w = k === 'strokeW' ? Math.max(0, +v || 0) : (parseFloat(cs.borderTopWidth) || 3); const c = k === 'stroke' ? v : (cs.borderTopColor || '#222'); st.border = w ? `${w}px solid ${c}` : 'none'; }
   else if (k === 'w') { st.width = Math.max(4, +v || 0) + 'px'; if (el.matches('img')) st.height = 'auto'; }
@@ -1476,7 +1499,7 @@ async function layerText(L, val) {
   let el = q1('#canvasEditFrame')?.contentDocument?.querySelector(`[data-mf-path="${CSS.escape(L.mfPath || '')}"]`);
   if (L.s && !htmlPath(L.mfPath)) ({ L, el } = await editableEl(L));
   if (!el) return;
-  (layerSort(el) === 'text' ? el : (textLeaf(el) || el)).innerText = v;   // an inner element holding the words keeps its own styling
+  { const t = layerSort(el) === 'text' ? el : (textLeaf(el) || el); if (t instanceof SVGElement) t.textContent = v; else t.innerText = v; }   // svg text takes textContent   // an inner element holding the words keeps its own styling
   patchFrameInline({ studio: 'inline', mfPath: L.mfPath, outer: el.outerHTML });
   toast('Text changed', { undo: () => undoFrameEdit() });
 }
@@ -1520,7 +1543,7 @@ const nxCLA = function (idx, action, mfPath = null) {
   if (action === 'delete') { const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); return layerDelete(s ? layerOf(s) : { idx, mfPath, key, label: 'layer' }); }
   selectCanvasLayer(idx, mfPath);
   setTab('layers');
-  setTimeout(() => { const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); if (!s) return; s.scrollIntoView({ block: 'nearest' }); if (action === 'replace') s.querySelector('[data-repin]')?.click(); else s.querySelector('[data-ai]')?.focus(); }, 30);
+  setTimeout(() => { const s = q1(`.nx-ls[data-key="${CSS.escape(key)}"]`); if (!s) return; s.scrollIntoView({ block: 'nearest' }); if (action === 'replace') s.querySelector('[data-repin]')?.click(); else { const ta = s.querySelector('[data-ai]'); if (ta) { const d = ta.closest('details'); if (d) d.open = true; ta.focus(); } } }, 30);   // (the pencil on the canvas bar opens Edit with AI)
 };
 function bindLayerPanel() {
   const list = q1('#canvasLayerList'); if (!list || list._nx) return; list._nx = true;
@@ -1678,6 +1701,31 @@ async function editableMany(Ls) {             // every picked layer as an elemen
   return out;
 }
 const GATTR = { g: 'psdGroup', m: 'psdMerge' };
+/* the kit's decorations (lightning bolts, accent bars, sparkles): parts of a drawing that covers the whole frame at the top level of
+   the page, or of a kit part marked decor. Listed together in one closed group, so the frame's own layers are easy to find. */
+function isDecor(el) {
+  if (!el || !el.ownerDocument) return false;
+  if (/^locked:decor/.test(el.dataset.mfPath || '') || /(^|\s)(deco|decor|decoration)(\s|$|-)/.test(el.getAttribute('class') || '')) return true;
+  const svg = el.closest('svg'); if (!svg) return false;
+  const top = svg.parentElement, d = el.ownerDocument, W = d.documentElement.clientWidth || 1920, H = d.documentElement.clientHeight || 1080, r = svg.getBoundingClientRect();
+  return (top === d.body || top?.id === 'stage' || top?.parentElement === d.body && /stage|frame/.test(top.className || '')) && r.width >= 0.8 * W && r.height >= 0.8 * H && !svg.querySelector('text');
+}
+/* a name for a shape that has no words: its colour and form ("Blue bar", "Orange line", "Grey dot") instead of "Shape · Shape" */
+const COLOURS = [['Black', 20, 20, 20], ['Grey', 140, 140, 140], ['White', 245, 245, 245], ['Red', 220, 50, 40], ['Orange', 240, 120, 40], ['Yellow', 245, 200, 60], ['Green', 60, 170, 70], ['Teal', 30, 160, 160], ['Blue', 47, 124, 246], ['Navy', 30, 50, 120], ['Purple', 120, 70, 200], ['Pink', 230, 90, 160], ['Brown', 130, 80, 50]];
+function colourName(c) {
+  const m = String(c || '').match(/rgba?\(([^)]+)\)/); let v;
+  if (m) { v = m[1].split(',').map(x => parseFloat(x)); if (v[3] === 0) return ''; } else if (/^#[0-9a-f]{6}$/i.test(c)) v = [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16)); else return '';
+  let best = '', bd = 1e9; COLOURS.forEach(([n, r, g, b]) => { const d = (v[0] - r) ** 2 + (v[1] - g) ** 2 + (v[2] - b) ** 2; if (d < bd) { bd = d; best = n; } }); return best;
+}
+function shapeName(el) {
+  if (!el) return '';
+  const cs = el.ownerDocument.defaultView.getComputedStyle(el), r = el.getBoundingClientRect(), t = el.tagName.toLowerCase();
+  if (t === 'g' && el.children.length > 1 && [...el.children].every(c => /^(line|path|polyline)$/i.test(c.tagName))) return 'Grid lines';
+  const col = colourName(t === 'polyline' || t === 'line' || (t === 'path' && cs.fill === 'none') ? cs.stroke : el instanceof SVGElement ? (cs.fill !== 'none' ? cs.fill : cs.stroke) : (cs.backgroundColor !== 'rgba(0, 0, 0, 0)' ? cs.backgroundColor : cs.borderTopColor));
+  const form = /^(polyline|line)$/.test(t) || (t === 'path' && cs.fill === 'none') ? 'line' : t === 'circle' || t === 'ellipse' || parseFloat(cs.borderTopLeftRadius) >= Math.min(r.width, r.height) / 2 - 1 ? (r.width < 40 ? 'dot' : 'circle')
+    : r.width > 4 * r.height ? (r.height <= 6 ? 'line' : 'bar') : r.height > 4 * r.width ? (r.width <= 6 ? 'line' : 'bar') : t === 'g' ? 'drawing' : 'box';
+  return ((col ? col + ' ' : '') + form).replace(/^./, x => x.toUpperCase());
+}
 const groupMembers = key => { const a = GATTR[key[0]], n = key.slice(2); return [...(frameDoc()?.querySelectorAll('[data-mf-path]') || [])].filter(e => e.dataset[a] === n); };
 async function saveEls(els, msg) {
   for (const el of els) await patchFrameInline({ studio: 'inline', mfPath: el.getAttribute('data-mf-path'), outer: el.outerHTML });
@@ -1699,7 +1747,7 @@ async function groupPicked(kind = 'group') {
 async function ungroup(key) { const a = GATTR[key[0]], els = groupMembers(key); els.forEach(e => { delete e.dataset[a]; }); await saveEls(els, key[0] === 'm' ? 'Unmerged' : `“${key.slice(2)}” ungrouped`); }
 async function renameGroup(key, nv) { const a = GATTR[key[0]], els = groupMembers(key); els.forEach(e => { e.dataset[a] = nv; }); if (S.gopen?.delete(key)) S.gopen.add(key[0] + ':' + nv); await saveEls(els, 'Renamed'); }
 function setHidden(els, hide) { els.forEach(e => { if (hide) { e.dataset.psdHidden = '1'; e.style.visibility = 'hidden'; } else { delete e.dataset.psdHidden; e.style.visibility = ''; } }); }
-async function groupHide(key) { const els = groupMembers(key), hide = !els.every(e => e.dataset.psdHidden); setHidden(els, hide); await saveEls(els, hide ? 'Hidden' : 'Shown'); }
+async function groupHide(key) { const els = key[0] === 'd' ? [...(frameDoc()?.querySelectorAll('[data-mf-path]') || [])].filter(isDecor) : groupMembers(key), hide = !els.every(e => e.dataset.psdHidden); setHidden(els, hide); await saveEls(els, hide ? 'Hidden' : 'Shown'); }
 async function hidePicked() { const got = await pickedEls(1); if (!got) return; const els = got.map(x => x.el), hide = !els.every(e => e.dataset.psdHidden); setHidden(els, hide); await saveEls(els, `${els.length} layers ${hide ? 'hidden' : 'shown'}`); }
 async function deletePicked() {
   const got = await pickedEls(1); if (!got) return;
@@ -2065,7 +2113,7 @@ addEventListener('keydown', e => {
   if (e.key === 'Escape') { selectedCanvasLayer = null; S.noAutoPick = true; lastCanvasChipSig = ''; renderParentCanvasChips(lastCanvasLayers); syncIframeLayerSelect(); renderCanvasLayerList(); S.noAutoPick = false; return; }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') { const s = q1('.nx-ls.open'); if (s) { e.preventDefault(); copyLayer(layerOf(s)); } return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); const s = q1('.nx-ls.open'); if (s) layerDelete(layerOf(s)); return; }
-  if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) { setTab('layers'); const ta = q1('.nx-ls.open [data-ai]'); if (ta) { ta.focus(); } }
+  if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) { setTab('layers'); const ta = q1('.nx-ls.open [data-ai]'); if (ta) { const d = ta.closest('details'); if (d) d.open = true; ta.focus(); } }
 });
 
 document.addEventListener('paste', async e => {
@@ -2322,14 +2370,24 @@ window.nxBoot = async function () {
     chip.className = 'canvas-parent-chip nx-lbar';
     const mf = L.mfPath ? ` data-mf-path="${E(L.mfPath)}"` : '';
     const B = (act, tip, icon) => `<button type="button" data-act="${act}" data-idx="${L.idx}"${mf} title="${tip}"><svg viewBox="0 0 16 16">${IC[icon]}</svg></button>`;
-    chip.innerHTML = `<span class="cl">${E(layerKind(L.label).name || 'Layer')}</span><span class="ca">${B('edit', 'Edit this layer with AI', 'pencil')}${B('replace', 'Replace with an image', 'regen')}${B('copy', 'Copy this layer (⌘C)', 'copy')}${B('delete', 'Delete this layer', 'trash')}</span>`;
+    chip.innerHTML = `<span class="cgrip" data-tip="Drag to move this bar out of the way · double-click to put it back">${'<i></i>'.repeat(6)}</span><span class="cl">${E(layerKind(L.label).name || 'Layer')}</span><span class="ca">${B('edit', 'Edit this layer with AI', 'pencil')}${B('replace', 'Replace with an image', 'regen')}${B('copy', 'Copy this layer (⌘C)', 'copy')}${B('delete', 'Delete this layer', 'trash')}</span>`;
     host.appendChild(chip);
     /* above the layer, unless that is under the canvas toolbar (undo · Regenerate · zoom) or off the top: then under it; never past the right edge */
     const vp = q1('#canvasEditViewport'), tb = q1('.nx-etools .nx-tools'), hr = host.getBoundingClientRect();
     const barBottom = tb ? tb.getBoundingClientRect().bottom - hr.top + 6 : 4, cw = chip.offsetWidth || 180, W = (vp ? vp.clientWidth : host.clientWidth) || 1200;
     let y = top - 40; const x = Math.max(4, Math.min(left, W - cw - 8));
     if (y < 4 || (y < barBottom && x < (tb ? tb.getBoundingClientRect().right - hr.left : 0) && x + cw > (tb ? tb.getBoundingClientRect().left - hr.left : 0))) y = top + Math.max(20, h) + 8;
-    chip.style.top = y + 'px'; chip.style.left = x + 'px';
+    const off = S.chipOff || { x: 0, y: 0 };   // moved by its grip: it stays where it was put, for every layer, until double-clicked
+    chip.style.top = (y + off.y) + 'px'; chip.style.left = (x + off.x) + 'px';
+    const grip = chip.querySelector('.cgrip');
+    grip.addEventListener('dblclick', e => { e.stopPropagation(); S.chipOff = null; chip.style.top = y + 'px'; chip.style.left = x + 'px'; });
+    grip.addEventListener('pointerdown', e => {
+      e.preventDefault(); e.stopPropagation(); const sx = e.clientX, sy = e.clientY, o0 = { ...(S.chipOff || { x: 0, y: 0 }) };
+      grip.setPointerCapture(e.pointerId); chip.classList.add('moving');
+      const mv = ev => { S.chipOff = { x: o0.x + ev.clientX - sx, y: o0.y + ev.clientY - sy }; chip.style.top = (y + S.chipOff.y) + 'px'; chip.style.left = (x + S.chipOff.x) + 'px'; };
+      const up = () => { grip.removeEventListener('pointermove', mv); grip.removeEventListener('pointerup', up); chip.classList.remove('moving'); };
+      grip.addEventListener('pointermove', mv); grip.addEventListener('pointerup', up);
+    });
   };
   renderHomeMain = () => { if (!P) renderList(); };
   renderSidebar = () => {};

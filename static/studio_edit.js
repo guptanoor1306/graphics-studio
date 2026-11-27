@@ -480,6 +480,12 @@
     return { x: r.left + op.clientLeft, y: r.top + op.clientTop };
   }
 
+  let lastTap = null;   // where the last click picked a layer (clicking there again goes one layer down)
+
+  function svgPart(el) {   // an element drawn inside an <svg> (not the svg itself): CSS left / top do nothing there
+    return !!(el && el instanceof SVGElement && el.ownerSVGElement && el.tagName.toLowerCase() !== "svg");
+  }
+
   function ensureAbsolute(el) {
     const pos = getComputedStyle(el).position;
     const r = el.getBoundingClientRect();
@@ -627,6 +633,17 @@
         if (Math.hypot(dx, dy) < DRAG_PX) return;
         drag = pending;
         pending = null;
+        if (svgPart(drag.el)) {   // a shape inside a drawing (a chart line, a bar, an axis label): moved with an SVG translate
+          const m = /translate\(\s*(-?[\d.]+)[ ,]+(-?[\d.]+)\s*\)/.exec(drag.el.getAttribute("transform") || "");
+          const ctm = drag.el.ownerSVGElement.getScreenCTM();
+          drag.svg = { tx: m ? +m[1] : 0, ty: m ? +m[2] : 0, k: ctm && ctm.a ? ctm.a : 1, rest: (drag.el.getAttribute("transform") || "").replace(/translate\([^)]*\)\s*/, "") };
+          drag.el.classList.add("studio-dragging");
+          try { window.parent.postMessage({ studio: "drag-state", on: true }, "*"); } catch (_) {}
+          try { drag.el.setPointerCapture(e.pointerId); } catch (_) {}
+          drag.mates = [];
+          e.preventDefault();
+          return;
+        }
         ensureAbsolute(drag.el);
         const pos = readPos(drag.el);
         const origin = parentOrigin(drag.el);
@@ -645,6 +662,12 @@
       }
       if (!drag || e.pointerId !== drag.pointerId) return;
       e.preventDefault();
+      if (drag.svg) {
+        const g = drag.svg, nx = +(g.tx + (e.clientX - drag.startX) / g.k).toFixed(1), ny = +(g.ty + (e.clientY - drag.startY) / g.k).toFixed(1);
+        drag.el.setAttribute("transform", (`translate(${nx} ${ny}) ` + g.rest).trim());
+        schedulePlaceChips();
+        return;
+      }
       const w = elDim().w;
       const h = elDim().h;
       const ew = drag.el.offsetWidth || 80;
@@ -672,14 +695,20 @@
         const dy = e.clientY - layerTap.startY;
         const tapped = !drag && Math.hypot(dx, dy) < DRAG_PX;
         if (tapped && window.parent && window.parent !== window) {
-          window.parent.postMessage(
-            {
-              studio: "select-layer",
-              idx: layerTap.idx,
-              mfPath: layerTap.mfPath,
-            },
-            "*"
-          );
+          // a second click on the same spot picks the next layer under it (a line under a label, a label on a card)
+          let pick = { idx: layerTap.idx, mfPath: layerTap.mfPath, el: layerTap.el };
+          const stack = [];
+          (document.elementsFromPoint(e.clientX, e.clientY) || []).forEach((n) => {
+            const c = n.closest && n.closest("[data-spec-idx].studio-editable");
+            if (c && canSelect(c) && !stack.includes(c)) stack.push(c);
+          });
+          if (lastTap && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 6 && stack.length > 1) {
+            const i = stack.indexOf(lastTap.el);
+            const next = stack[(i + 1) % stack.length];
+            if (i >= 0 && next) pick = { idx: parseInt(next.dataset.specIdx, 10), mfPath: next.dataset.mfPath || next.dataset.mfDrag || null, el: next };
+          }
+          lastTap = { x: e.clientX, y: e.clientY, el: pick.el };
+          window.parent.postMessage({ studio: "select-layer", idx: pick.idx, mfPath: pick.mfPath }, "*");
         }
         layerTap = null;
       }

@@ -762,3 +762,21 @@ body.nx .nx-cf input[type=color]{width:22px!important;height:22px!important;min-
 body.nx .nx-cf input[type=color]::-webkit-color-swatch-wrapper{padding:0}
 body.nx .nx-cf input[type=color]::-webkit-color-swatch{border:1px solid #E5E5EA;border-radius:6px}
 body.nx .nx-cf input[type=color]::-moz-color-swatch{border:1px solid #E5E5EA;border-radius:6px}
+
+/* the layer bar on the canvas can be moved by its grip */
+.canvas-parent-chip.nx-lbar .cgrip{display:grid;grid-template-columns:repeat(2,3px);gap:3px;padding:2px 8px 2px 2px;cursor:grab;align-self:stretch;align-content:center}
+.canvas-parent-chip.nx-lbar .cgrip i{width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.55)}
+.canvas-parent-chip.nx-lbar.moving{cursor:grabbing;opacity:.92}
+.canvas-parent-chip.nx-lbar.moving .cgrip{cursor:grabbing}
+/* the kit's decorations: one closed group */
+.nx-lg.deco .gi{color:#FF9500}
+.nx-lg.deco small{margin-left:6px;color:var(--faint);font-weight:500}
+
+/* layer settings: sections that fold */
+.nx-insp details.nx-fold{border-top:1px solid var(--line,#E5E5EA);padding:2px 0}
+.nx-insp details.nx-fold:first-of-type{border-top:0}
+.nx-insp details.nx-fold>summary.lab{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:8px 0;user-select:none}
+.nx-insp details.nx-fold>summary.lab::-webkit-details-marker{display:none}
+.nx-insp details.nx-fold>summary.lab::after{content:"";width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(-45deg);opacity:.5;margin-right:4px;transition:transform .15s}
+.nx-insp details.nx-fold[open]>summary.lab::after{transform:rotate(45deg)}
+.nx-insp details.nx-fold>:not(summary){margin-bottom:8px}
