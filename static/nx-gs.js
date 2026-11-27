@@ -1186,7 +1186,7 @@ addEventListener('keydown', e => {
 addEventListener('message', e => {           // a key pressed while the frame has the focus (a layer was just clicked): Delete, Esc, ⌘C, ⌘G, ⌘E, ⌘Z act as if pressed here
   const d = e.data; let own = false; try { own = !!(e.source && e.source.frameElement && document.contains(e.source.frameElement)); } catch (_) {}
   if (!d || d.studio !== 'key' || !editModeOpen || !own) return;
-  const ev = new KeyboardEvent('keydown', { key: String(d.key || ''), metaKey: !!d.meta, ctrlKey: !!d.ctrl, shiftKey: !!d.shift, altKey: !!d.alt, bubbles: true, cancelable: true }); ev.fromFrame = true; dispatchEvent(ev);
+  const ev = new KeyboardEvent('keydown', { key: String(d.key || ''), metaKey: !!d.meta, ctrlKey: !!d.ctrl, shiftKey: !!d.shift, altKey: !!d.alt, bubbles: true, cancelable: true }); ev.fromFrame = true; document.dispatchEvent(ev);   // (on document: the ⌘Z undo listens there, and it bubbles on to window)
 });
 addEventListener('message', e => { if (e.data && e.data.studio === 'drag-state') document.body.classList.toggle('nx-dragging', !!e.data.on); });   // the outlines hide while a layer is dragged, and come back where it lands
 addEventListener('keydown', e => {            // edit mode: ⌘G groups the picked layers
@@ -1761,7 +1761,9 @@ function shapeName(el) {
 }
 const groupMembers = key => { const a = GATTR[key[0]], n = key.slice(2); return [...(frameDoc()?.querySelectorAll('[data-mf-path]') || [])].filter(e => e.dataset[a] === n); };
 async function saveEls(els, msg) {
+  const fid = selectedFrameId, n0 = (frameHist[fid] || []).length;
   for (const el of els) await patchFrameInline({ studio: 'inline', mfPath: el.getAttribute('data-mf-path'), outer: el.outerHTML });
+  const h = frameHist[fid]; if (h && h.length > n0 + 1) { h.splice(n0 + 1); renderUndoBar(); }   // one change (Group, Hide, a move into a group…) = one ⌘Z, however many layers it touched
   if (msg) toast(msg, { undo: () => undoFrameEdit() });
   renderCanvasLayerList();
 }
